@@ -8,7 +8,7 @@ import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { useT } from '@/hooks/useT.ts'
 import { TitlebarDragRegion } from '@/components/app-shell/TitlebarDragRegion.tsx'
-import { AsciIcon } from './AsciIcon.tsx'
+import { TinkerLogo } from './TinkerLogo.tsx'
 
 export function AuthSplash(): React.ReactElement {
   const { t } = useT('auth')
@@ -17,7 +17,7 @@ export function AuthSplash(): React.ReactElement {
       <TitlebarDragRegion />
       <div className="flex flex-col items-center gap-3">
         <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-          <AsciIcon className="w-7 h-7 text-primary-foreground" />
+          <TinkerLogo appearance="inverse" className="w-7 h-7" />
         </div>
         <Loader2 className="w-5 h-5 animate-spin text-foreground/50" />
         <p className="text-sm text-foreground/60">{t('splash.checking')}</p>

@@ -14,7 +14,7 @@ import { oauthPendingIdAtom } from '@/atoms/auth-atoms.ts'
 import { parseAuthError } from '@/lib/auth/auth-form-helpers.ts'
 import { TitlebarDragRegion } from '@/components/app-shell/TitlebarDragRegion.tsx'
 import { GoogleIcon } from './GoogleIcon.tsx'
-import { AsciIcon } from './AsciIcon.tsx'
+import { TinkerLogo } from './TinkerLogo.tsx'
 import './LoginPage.css'
 
 export interface LoginPageProps {
@@ -60,8 +60,7 @@ export function LoginPage(props: LoginPageProps): React.ReactElement {
         <section className="login-page__story rounded-[20px] bg-muted" aria-labelledby="login-story-title">
           <header className="login-page__brand-row">
             <div className="flex items-center gap-3 text-foreground">
-              <AsciIcon className="size-[30px] shrink-0" />
-              <span className="text-[22px] font-semibold leading-[1.45]">Tinker</span>
+              <TinkerLogo kind="horizontal" className="w-[152px] h-auto shrink-0" />
             </div>
             <p className="text-[12px] leading-[1.45] text-foreground/60">{t('login.workspaceTagline')}</p>
           </header>

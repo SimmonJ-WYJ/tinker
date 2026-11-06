@@ -57,7 +57,7 @@ import type { AgentSessionMeta } from '@asci/shared'
 import { useCleanupSessionState } from '@/hooks/useCleanupSessionState'
 import { useSyncActiveTabSideEffects } from '@/hooks/useSyncActiveTabSideEffects'
 import { useT } from '@/hooks/useT'
-import { AsciIcon } from '@/components/auth/AsciIcon'
+import { TinkerLogo } from '@/components/auth/TinkerLogo'
 import { ProjectSwitcher } from '@/components/agent/ProjectSwitcher'
 import { AgentSessionItem } from '@/components/agent/AgentSessionItem'
 import { AccountMenu } from '@/components/auth/AccountMenu'
@@ -471,7 +471,7 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
     <div className="home-sidebar relative h-full flex flex-col transition-[width] duration-300"
       style={{ width: width ?? 248, flexShrink: 0 }}>
       <div className="home-sidebar__brand titlebar-drag-region">
-        <AsciIcon className="home-sidebar__logo" /><span>Tinker</span>
+        <TinkerLogo kind="horizontal" className="home-sidebar__wordmark" />
 
       </div>
       <div className="home-sidebar__menu">
