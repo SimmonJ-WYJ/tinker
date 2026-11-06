@@ -274,3 +274,7 @@
 .home-sidebar__account .sidebar-account-trigger { height: 44px; min-height: 44px; gap: 10px; font-size: 14px; }
 .home-sidebar__account .sidebar-account-trigger .rounded-full { width: 32px !important; height: 32px !important; }
 .home-sidebar__account .sidebar-account-trigger > span { font-size: 14px; }
+
+/* Tinker 横标按确认稿原始比例显示，最小宽度 140px。 */
+.home-sidebar__brand { min-height: 37px; }
+.home-sidebar__wordmark { width: 140px; height: auto; }

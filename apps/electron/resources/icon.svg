@@ -1,14 +1,1 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g transform="translate(96 96) scale(0.8125)">
-<rect width="1024" height="1024" rx="224" ry="224" fill="black"/>
-<path d="M528.871 639.262L519.928 599.66H504.101L495.158 639.262C491.565 655.184 479.124 667.609 463.217 671.202L423.6 680.161V695.989L463.201 704.931C479.124 708.524 491.549 720.965 495.142 736.872L504.085 776.473H519.913L528.855 736.872C532.448 720.949 544.889 708.524 560.796 704.931L600.397 695.989V680.161L560.796 671.218C544.905 667.609 532.48 655.184 528.871 639.262Z" fill="white"/>
-<path d="M480.433 213.983C508.607 196.551 545.577 205.26 563.009 233.433L891.842 764.905C894.965 769.953 891.334 776.469 885.398 776.469H800.137C773.889 776.469 749.51 762.885 735.7 740.564L460.983 296.558C443.552 268.385 452.26 231.414 480.433 213.983Z" fill="url(#paint0_linear_819_294)"/>
-<path d="M460.987 233.432C478.419 205.259 515.389 196.552 543.563 213.983C571.736 231.415 580.444 268.385 563.013 296.558L288.297 740.563C274.487 762.884 250.108 776.468 223.86 776.468H138.599C132.663 776.468 129.032 769.952 132.155 764.904L460.987 233.432Z" fill="white"/>
-</g>
-<defs>
-<linearGradient id="paint0_linear_819_294" x1="854.778" y1="817.813" x2="512.533" y2="264.665" gradientUnits="userSpaceOnUse">
-<stop stop-color="white"/>
-<stop offset="1" stop-color="#999999"/>
-</linearGradient>
-</defs>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><title>Tinker app icon</title><rect x="16" y="16" width="992" height="992" rx="220" fill="#F8F6F1"/><g transform="translate(155.75 153.25) scale(2.5)"><path xmlns="http://www.w3.org/2000/svg" id="symbol-upper" fill="#111111" fill-rule="evenodd" d="M119 10 Q113 9 109 15 Q107 18 107 24 V86 Q107 94 114 99 L221 156 Q236 163 236 149 V86 Q236 72 224 65 L126 13 Q122 10 119 10 Z" /><path xmlns="http://www.w3.org/2000/svg" id="symbol-lower" fill="#111111" fill-rule="evenodd" d="M262 151 Q272 146 276 156 V219 Q276 230 267 235 L202 274 Q192 280 181 274 L121 240 Q109 233 119 223 Z" transform="translate(3.9 2.26) scale(0.98)" /><path xmlns="http://www.w3.org/2000/svg" id="symbol-accent" fill="#163BFF" fill-rule="evenodd" d="M95 123 Q105 118 105 131 V215 Q105 225 96 230 L25 265 Q9 273 9 256 V178 Q9 170 18 165 Z" /></g></svg>

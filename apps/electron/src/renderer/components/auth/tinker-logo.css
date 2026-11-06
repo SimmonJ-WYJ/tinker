@@ -1,0 +1,12 @@
+/* 已确认的品牌颜色；不影响应用的通用语义色。 */
+.tinker-logo {
+  --tinker-logo-ink: #111111;
+  --tinker-logo-accent: #163BFF;
+  display: block;
+  flex-shrink: 0;
+}
+.dark .tinker-logo,
+.tinker-logo[data-appearance="inverse"] {
+  --tinker-logo-ink: #ffffff;
+  --tinker-logo-accent: #ffffff;
+}
