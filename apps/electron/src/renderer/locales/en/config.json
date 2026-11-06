@@ -1,0 +1,33 @@
+{
+  "title": "Configuration",
+  "subtitle": "Manage Skills and capability packs available to Agents",
+  "tabs": {
+    "skills": "Skills",
+    "capabilityPacks": "Capability Packs"
+  },
+  "capabilityPacks": {
+    "heading": "Built-in Capability Packs",
+    "description": "Ready to use, no setup needed.",
+    "empty": "No capability packs available.",
+    "emptyHint": "Built-in packs ship with the app. If this list is empty, try restarting to re-sync the built-in packs.",
+    "search": "Search capability packs...",
+    "loading": "Loading capability packs…",
+    "manifestErrorLabel": "manifest invalid",
+    "manifestErrorHint": "This pack's manifest failed validation, so its scenario capability is unavailable.",
+    "metaScenarioAgent": "Scenario Agent",
+    "metaVersion": "Version",
+    "metaSkills": "Skills",
+    "metaMcps": "MCP servers",
+    "noRefs": "(none)",
+    "defaultEnabledAria": "{{packId}} is enabled by default",
+    "noSummary": "No summary provided.",
+    "expandHint": "Expand details",
+    "collapseHint": "Collapse details",
+    "back": "Back",
+    "backToList": "Back to Capability Packs",
+    "includes": "Includes",
+    "skillLockedHint": "Provided by a capability pack — always on, cannot be disabled individually",
+    "openMcpSettings": "Open MCP settings",
+    "loadError": "Failed to load capability packs"
+  }
+}

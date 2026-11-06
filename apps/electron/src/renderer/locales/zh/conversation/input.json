@@ -1,0 +1,90 @@
+{
+  "pastedBlock": {
+    "label": "已粘贴",
+    "chars": "{{count}} 字",
+    "expandTitle": "粘贴的文本",
+    "remove": "移除"
+  },
+  "empty": {
+    "title": "暂无消息",
+    "description": "在下方输入框开始对话"
+  },
+  "session": {
+    "defaultTitle": "新 Agent 会话"
+  },
+  "input": {
+    "placeholder": "有什么可以帮助到你的呢？",
+    "messagePlaceholder": "输入消息…",
+    "inputPrefix": "输入",
+    "phraseMention": "@ 引用文件",
+    "phraseSkill": "/ 运行技能",
+    "phraseMcp": "# 调用 MCP",
+    "expand": "展开输入框",
+    "collapse": "折叠输入框",
+    "removeMention": "移除",
+    "attachTooltip": "添加附件",
+    "mentionTooltip": "@ 引用文件/Skill/MCP",
+    "queuedBarTitle": "{{count}} 条排队中",
+    "streamingPlaceholder": "Enter 排队，⌥+Enter 打断，Shift+Enter 换行",
+    "streamingPlaceholderCmd": "⌘/Ctrl+Enter 排队，⌘/Ctrl+⌥+Enter 打断，Enter 换行"
+  },
+  "message": {
+    "collapse": "收起",
+    "expandAll": "展开全部",
+    "thinking": "正在思考...",
+    "stopped": "已停止生成",
+    "saveImage": "保存图片"
+  },
+  "banner": {
+    "closeAndAbort": "关闭并终止 Agent",
+    "title": {
+      "dangerous": "危险操作需要确认",
+      "normal": "需要确认",
+      "safe": "确认操作"
+    },
+    "action": {
+      "allow": "允许",
+      "alwaysAllowSession": "本会话总是允许",
+      "deny": "拒绝",
+      "terminate": "终止会话"
+    },
+    "confirmButton": "确定",
+    "shortcut": {
+      "enterAllowEscDeny": "Enter 允许 · Esc 拒绝",
+      "escDenyOnly": "点选确认 · Esc 拒绝"
+    },
+    "reason": {
+      "hardRule": "命中规则：{{rule}}",
+      "decision": "原因：{{reason}}",
+      "tooltipLabel": "判定原因"
+    },
+    "toolLabel": "工具",
+    "alwaysAllowTooltip": "在当前对话中跳过同名工具的后续确认。退出会话后失效。",
+    "terminateConfirm": {
+      "title": "终止会话？",
+      "cancel": "取消",
+      "confirm": "终止"
+    },
+    "description": {
+      "bash": "执行命令：{{command}}",
+      "bashGeneric": "执行 Bash 命令",
+      "write": "写入文件：{{path}}",
+      "writeGeneric": "写入文件",
+      "edit": "编辑文件：{{path}}",
+      "editGeneric": "编辑文件",
+      "notebookEdit": "编辑 Notebook: {{path}}",
+      "notebookEditGeneric": "编辑 Notebook",
+      "task": "启动子任务：{{description}}",
+      "taskGeneric": "启动子任务",
+      "generic": "使用工具：{{tool}}"
+    }
+  },
+  "projectSwitcher": {
+    "defaultName": "默认科研项目"
+  },
+  "scrollLatest": {
+    "generating": "正在生成 · 跳到最新内容",
+    "ready": "跳到最新内容",
+    "return": "回到刚才的阅读位置"
+  }
+}

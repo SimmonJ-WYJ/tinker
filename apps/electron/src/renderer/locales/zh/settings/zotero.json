@@ -1,0 +1,224 @@
+{
+  "zotero": {
+    "section": {
+      "title": "Zotero 文献库",
+      "description": "让 Agent 通过本机 Zotero 桌面版搜索文献、读取 PDF。仅本机通信，无需上传云端"
+    },
+    "status": {
+      "notInstalled": "未检测到 Zotero",
+      "notRunning": "Zotero 未启动",
+      "noApi": "未启用本地 API",
+      "ready": "已连接",
+      "paused": "已连接 · Agent 未启用"
+    },
+    "master": {
+      "title": "Agent 访问",
+      "description": "允许 Agent 调用 Zotero"
+    },
+    "actions": {
+      "downloadZotero": "下载 Zotero",
+      "launchZotero": "启动 Zotero",
+      "launching": "启动中...",
+      "viewDocs": "查看说明"
+    },
+    "ocr": {
+      "label": "图片识别（OCR）",
+      "description": "附件含图自动提取文字",
+      "pill": "内置"
+    },
+    "asr": {
+      "label": "语音识别（ASR）",
+      "description": "附件含音频自动转写",
+      "pill": "1GB"
+    },
+    "asrToast": {
+      "downloading": "正在下载语音识别模型",
+      "downloadingDesc": "约 1GB，下载完成后将自动启用",
+      "ready": "语音识别模型下载完成"
+    },
+    "asrProgress": {
+      "phase": {
+        "download": "下载中",
+        "extract": "解压中"
+      },
+      "etaSeconds": "{{count}}秒",
+      "etaCompound": "{{minutes}}分{{seconds}}秒",
+      "remaining": "剩余 {{eta}}",
+      "cancel": "取消下载",
+      "downloadFailed": "下载失败：{{error}}"
+    },
+    "installPath": {
+      "title": "安装位置",
+      "descriptionAuto": "已自动探测，仅在非默认目录时需手动指定",
+      "descriptionCustom": "当前为手动指定，清除后回退自动探测",
+      "descriptionNotFound": "未找到 Zotero，请手动选择应用 / 可执行文件",
+      "pill": "可选",
+      "placeholder": "/Applications/Zotero.app  或  C:\\Tools\\Zotero\\zotero.exe",
+      "browse": "浏览",
+      "save": "保存",
+      "clear": "清除自定义路径",
+      "savedToast": "Zotero 安装位置已保存",
+      "clearedToast": "已清除自定义 Zotero 路径",
+      "invalidTitle": "无效的 Zotero 路径",
+      "invalidReason": {
+        "not-exists": "路径不存在。",
+        "not-a-zotero-binary": "所选不是 Zotero 应用或可执行文件。",
+        "platform-mismatch": "所选文件与当前操作系统不匹配。"
+      },
+      "currentDetected": "当前识别：{{path}}",
+      "source": {
+        "default": "默认安装位置",
+        "path": "来自 PATH",
+        "custom": "手动指定"
+      }
+    },
+    "dataDir": {
+      "title": "数据目录",
+      "description": "留空走默认路径；外置磁盘等填绝对路径",
+      "pill": "可选",
+      "save": "保存"
+    },
+    "advanced": {
+      "label": "高级 · 路径 / 同步 / 实验工具",
+      "labelWarning": "⚠ 自动展开 — 请检查安装位置",
+      "expand": "展开",
+      "collapse": "收起"
+    },
+    "pdfSync": {
+      "title": "PDF 同步",
+      "description": "自动检测 Zotero 库的 PDF 变动",
+      "syncing": "同步中...",
+      "syncNow": "立即同步"
+    },
+    "structuredTxt": {
+      "title": "生成结构化 TXT（实验）",
+      "description": "对所有 PDF 跑 layout-aware 抽取 + 启发式分章节，输出富格式 `.txt`（YAML 头 + OUTLINE + 段落锚点）。与 .md / article 链路完全独立，不影响现有同步",
+      "generating": "生成中...",
+      "generateAll": "生成全部",
+      "toastSuccess": "已生成 {{generated}} 篇 .txt（跳过 {{skipped}} 篇本地缺失 PDF）",
+      "toastPartial": "已生成 {{generated}} 篇，{{failed}} 篇失败",
+      "toastEmpty": "Zotero 库为空，无可生成的 PDF",
+      "toastFailed": "结构化 TXT 生成失败"
+    },
+    "syncToast": {
+      "baseline": "已建立 PDF 基线（{{count}} 个）",
+      "diff": "已同步：新增 {{added}}，修改 {{modified}}，删除 {{deleted}}",
+      "noChanges": "Zotero PDF 无变化",
+      "offline": "Zotero 未运行，无法同步",
+      "disabled": "Zotero 集成已关闭",
+      "syncFailed": "同步失败",
+      "launchFailed": "启动 Zotero 失败",
+      "launchFailedDesc": "请检查 Zotero 是否已安装",
+      "enabled": "Zotero Agent 访问已启用",
+      "disabledNotice": "Zotero Agent 访问已禁用"
+    },
+    "media": {
+      "section": {
+        "title": "附件解析缓存",
+        "description": "附件解析结果缓存，可安全清除"
+      },
+      "card": {
+        "title": "清理解析缓存",
+        "metric": "{{count}} 条记录 · {{size}}",
+        "description": "下次使用时重新识别，不删除原始文件"
+      },
+      "advanced": {
+        "title": "高级维护",
+        "summary": "附件解析缓存：{{count}} 条 · {{size}}",
+        "expand": "展开",
+        "collapse": "收起",
+        "hint": "清除后会重新识别附件，不删除 Zotero 文件。"
+      },
+      "buttons": {
+        "refresh": "刷新状态",
+        "clear": "清除缓存",
+        "clearLong": "清除已识别结果"
+      },
+      "clearConfirm": "确定清除 {{count}} 条 Zotero 附件解析缓存吗？不会删除 Zotero 原始文件；相关附件会在下次使用时重新解析。"
+    },
+    "article": {
+      "section": {
+        "title": "段落总结增强（实验）",
+        "description": "为 PDF 段落生成 LLM 总结"
+      },
+      "enable": {
+        "label": "启用段落总结增强",
+        "description": "为每篇 PDF 生成段落级 LLM 总结，按 token 计费"
+      },
+      "channel": {
+        "label": "渠道",
+        "placeholder": "默认",
+        "defaultOption": "默认（第一个已启用渠道）"
+      },
+      "model": {
+        "label": "模型",
+        "placeholder": "默认",
+        "defaultOption": "默认（第一个已启用模型）",
+        "hint": "建议用快速、便宜的模型（Haiku / DeepSeek / GPT-4o-mini）。任务推理深度低、调用频次高，长上下文模型会显著增加成本与等待时间。"
+      },
+      "status": {
+        "title": "生成状态",
+        "summary": "共 {{total}} 篇，已生成 {{completed}}，进行中 {{inflight}}，失败 {{failed}}",
+        "recentFailed": "最近失败",
+        "retryCount": "（已重试 {{count}} 次）"
+      },
+      "actions": {
+        "retryFailed": "重试失败",
+        "regenerateAll": "全部重新生成",
+        "regenerateTooltip": "把所有 .article.md 全部重新生成（含已完成的）"
+      },
+      "toast": {
+        "enabled": "段落总结增强已启用",
+        "disabled": "段落总结增强已停用",
+        "updateFailed": "更新配置失败",
+        "retryEnqueued": "已重新入队 {{count}} 个失败任务",
+        "retryNone": "当前没有需要重试的失败任务",
+        "retryFailed": "重试失败",
+        "regenerateEmpty": "当前没有可重新生成的论文",
+        "regenerateConfirm": "将重新生成全部 {{count}} 篇 .article.md，会消耗一定的 LLM 调用 token。是否继续？",
+        "regenerateEnqueued": "已重置并入队 {{count}} 个任务",
+        "regenerateFailed": "重新生成失败"
+      }
+    },
+    "embedding": {
+      "section": {
+        "title": "语义检索（实验）",
+        "description": "为文献库建立本地向量索引：自然语言即可召回相关段落，加速多文献问答与综述，并让证据精确到段落。嵌入在本机完成（首次需下载 ~135MB 模型），全文不出本机、零 token 成本。"
+      },
+      "mode": {
+        "label": "检索模式",
+        "description": "选择 Agent 新会话使用哪种检索工具（便于 A/B 评估）。仅向量：语义检索；仅关键词：ripgrep 关键词检索，向量索引停止构建；向量 + 关键词：两者都给。三档都保留深读工具。新会话生效，已建索引保留。",
+        "vector": "仅向量",
+        "papersRg": "仅关键词",
+        "both": "向量 + 关键词"
+      },
+      "model": {
+        "title": "嵌入模型",
+        "missing": "本地嵌入模型未下载（约 {{size}}）。下载完成前检索仅按关键词匹配",
+        "downloading": "下载中 {{pct}}%（{{done}} / {{total}}）",
+        "verifying": "校验中…",
+        "error": "下载失败：{{error}}",
+        "download": "下载模型",
+        "retry": "重试下载"
+      },
+      "status": {
+        "title": "索引状态",
+        "summary": "共 {{total}} 篇，已索引 {{completed}}，进行中 {{inflight}}，失败 {{failed}}",
+        "chunks": "{{count}} 个片段",
+        "recentFailed": "最近失败"
+      },
+      "actions": {
+        "rebuild": "重建索引",
+        "rebuildTooltip": "清空索引库并对全部文献重新嵌入（模型升级或索引异常时使用）"
+      },
+      "toast": {
+        "modeChanged": "检索模式已切换为 {{mode}}，新会话生效",
+        "updateFailed": "更新语义检索设置失败",
+        "downloadFailed": "模型下载启动失败",
+        "rebuildConfirm": "将清空向量索引并对全部文献重新嵌入，确认继续？",
+        "rebuildEnqueued": "已开始重建，共入队 {{count}} 篇",
+        "rebuildFailed": "重建索引失败"
+      }
+    }
+  }
+}

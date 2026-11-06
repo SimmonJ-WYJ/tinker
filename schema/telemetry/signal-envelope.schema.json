@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "ts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kind": {
+                "type": "string",
+                "const": "task_structure"
+              },
+              "promptChars": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "attachmentCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "mentionedSkillCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "numTurns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "durationMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "success": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ts",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kind": {
+                "type": "string",
+                "const": "tool_usage"
+              },
+              "toolName": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "success": {
+                "type": "boolean"
+              },
+              "durationMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "ts",
+              "kind",
+              "toolName"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kind": {
+                "type": "string",
+                "const": "model_choice"
+              },
+              "modelId": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "channelType": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "ts",
+              "kind",
+              "modelId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kind": {
+                "type": "string",
+                "const": "error_event"
+              },
+              "stage": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ts",
+              "kind",
+              "stage"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kind": {
+                "type": "string",
+                "const": "workspace_structure"
+              },
+              "workspaceHash": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "sessionCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "paperCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "noteCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "ts",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kind": {
+                "type": "string",
+                "const": "implicit_feedback"
+              },
+              "action": {
+                "type": "string",
+                "enum": [
+                  "copy",
+                  "save",
+                  "cite",
+                  "discard",
+                  "thumbs_up",
+                  "thumbs_down",
+                  "retry"
+                ]
+              },
+              "target": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "ts",
+              "kind",
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "deviceId",
+    "signals"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,6 @@
+[project]
+name = "with-pyproject"
+dependencies = [
+    "scipy>=1.13",
+    "matplotlib",
+]

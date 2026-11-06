@@ -1,0 +1,174 @@
+# GitHub Actions: Lark 群发版通知
+#
+# 触发：GitHub Release 由 draft 转为 published 时（手动点 Publish release）
+#   - draft 状态不触发，给开发者保留 build 后的人工质检卡口
+#   - prerelease 标志体现在卡片样式上（橙色 vs 绿色），不做过滤
+#
+# 流程对接：
+#   release.yml 推 tag 触发 → 自动 build → 上传到 draft release
+#   开发者验证产物 → GitHub UI 点 "Publish release"（按需勾 pre-release）
+#   ↓ 此 workflow 触发
+#   群里收到带 3 个平台下载按钮的卡片(macOS Apple/Intel + Windows)
+#
+# Secrets:
+#   LARK_WEBHOOK_URL     - Lark 群机器人 webhook 完整 URL
+#   LARK_WEBHOOK_SECRET  - Lark 签名校验密钥（启用签名校验时必填）
+#
+# 安全说明（所有外部输入均经 env: 中转，run: 中只引用 shell 变量）:
+#   https://github.blog/security/vulnerability-research/how-to-catch-github-actions-workflow-injections-before-attackers-do/
+
+name: Notify Lark on Release Published
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Lark card
+        env:
+          LARK_WEBHOOK_URL: ${{ secrets.LARK_WEBHOOK_URL }}
+          LARK_WEBHOOK_SECRET: ${{ secrets.LARK_WEBHOOK_SECRET }}
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+          TAG: ${{ github.event.release.tag_name }}
+          NAME: ${{ github.event.release.name }}
+          AUTHOR: ${{ github.event.release.author.login }}
+          URL: ${{ github.event.release.html_url }}
+          BRANCH: ${{ github.event.release.target_commitish }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          if [ -z "${LARK_WEBHOOK_URL}" ]; then
+            echo "::warning::LARK_WEBHOOK_URL not set; skipping Lark notification"
+            exit 0
+          fi
+
+          if [ "${IS_PRERELEASE}" = "true" ]; then
+            EMOJI="🧪"; LABEL="内测版"; COLOR="orange"
+          else
+            EMOJI="🚀"; LABEL="正式版"; COLOR="green"
+          fi
+
+          TITLE="${EMOJI} ${REPO} ${TAG} ${LABEL}已发布"
+          CONTENT=$(printf "**版本**: %s (\`%s\`)\n**来源分支**: \`%s\`\n**发布人**: %s\n\n请按你的设备选择对应安装包" \
+            "$NAME" "$TAG" "$BRANCH" "$AUTHOR")
+
+          # 提取 3 平台 .pkg / .exe 直链与文件大小
+          ASSETS_JSON=$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq '.assets')
+
+          URL_MAC_ARM64=$(echo "$ASSETS_JSON" | jq -r '[.[] | select(.name | endswith("-arm64.pkg"))][0].browser_download_url // empty')
+          URL_MAC_X64=$(echo "$ASSETS_JSON"   | jq -r '[.[] | select((.name | endswith(".pkg")) and (.name | contains("arm64") | not))][0].browser_download_url // empty')
+          URL_WIN=$(echo "$ASSETS_JSON"       | jq -r '[.[] | select(.name | endswith(".exe"))][0].browser_download_url // empty')
+
+          SIZE_MAC_ARM64=$(echo "$ASSETS_JSON" | jq -r '[.[] | select(.name | endswith("-arm64.pkg"))][0].size // 0' | awk '{printf "%.0f", $1/1024/1024}')
+          SIZE_MAC_X64=$(echo "$ASSETS_JSON"   | jq -r '[.[] | select((.name | endswith(".pkg")) and (.name | contains("arm64") | not))][0].size // 0' | awk '{printf "%.0f", $1/1024/1024}')
+          SIZE_WIN=$(echo "$ASSETS_JSON"       | jq -r '[.[] | select(.name | endswith(".exe"))][0].size // 0' | awk '{printf "%.0f", $1/1024/1024}')
+
+          # Lark 签名: base64(HmacSHA256(key=ts+"\n"+secret, msg=""))
+          TIMESTAMP=$(date +%s)
+          SIGN=""
+          if [ -n "${LARK_WEBHOOK_SECRET}" ]; then
+            SIGN=$(python3 -c '
+          import hmac, hashlib, base64, sys
+          ts, secret = sys.argv[1], sys.argv[2]
+          key = f"{ts}\n{secret}".encode()
+          digest = hmac.new(key, digestmod=hashlib.sha256).digest()
+          print(base64.b64encode(digest).decode())
+          ' "$TIMESTAMP" "$LARK_WEBHOOK_SECRET")
+          fi
+
+          # 逐平台构建按钮:有产物就加,没有就跳过。全部缺失才降级到 Release 页面单按钮。
+          ACTIONS='[]'
+          append_button() {
+            local url="$1" size="$2" label="$3"
+            if [ -n "$url" ]; then
+              ACTIONS=$(echo "$ACTIONS" | jq \
+                --arg url "$url" --arg size "$size" --arg label "$label" \
+                '. += [{tag:"button", text:{tag:"plain_text", content:($label + "  " + $size + "MB")}, url:$url, type:"default"}]')
+            fi
+          }
+          append_button "$URL_MAC_ARM64" "$SIZE_MAC_ARM64" "🍎 macOS (Apple 芯片)"
+          append_button "$URL_MAC_X64"   "$SIZE_MAC_X64"   "🍎 macOS (Intel)"
+          append_button "$URL_WIN"       "$SIZE_WIN"       "🪟 Windows"
+
+          BTN_COUNT=$(echo "$ACTIONS" | jq 'length')
+          if [ "$BTN_COUNT" -eq 0 ]; then
+            echo "::warning::所有平台 asset 缺失,降级到 Release 页面单按钮"
+            ACTIONS=$(jq -n --arg url "$URL" '[
+              { tag: "button", text: { tag: "plain_text", content: "⬇️ 查看 Release 页面" }, url: $url, type: "primary" }
+            ]')
+          else
+            # 第一个按钮升级为 primary 主操作
+            ACTIONS=$(echo "$ACTIONS" | jq '(.[0].type) = "primary"')
+            echo "::notice::Lark 卡片包含 ${BTN_COUNT} 个平台下载按钮"
+          fi
+
+          FOOTER_NOTE="或访问 [Release 页面](${URL}) 查看 .zip / blockmap / latest.yml 等完整产物"
+
+          # release notes 内容来源(优先级):
+          #   1. release.body (手动在 GitHub UI 填的)
+          #   2. annotated tag message (git tag -m 写的, GitHub UI 也会用这个当 fallback 显示)
+          # 都没有则跳过折叠面板。
+          # 注:Lark 客户端 ≥ v7.9 才渲染 collapsible_panel,老客户端会忽略此元素
+          NOTES_BODY="$RELEASE_BODY"
+          if [ -z "${NOTES_BODY// }" ]; then
+            TAG_OBJ_TYPE=$(gh api "repos/${REPO}/git/refs/tags/${TAG}" --jq '.object.type' 2>/dev/null || echo "")
+            if [ "$TAG_OBJ_TYPE" = "tag" ]; then
+              TAG_SHA=$(gh api "repos/${REPO}/git/refs/tags/${TAG}" --jq '.object.sha')
+              # 剥离 PGP signature 块,保留正文
+              NOTES_BODY=$(gh api "repos/${REPO}/git/tags/${TAG_SHA}" --jq '.message' \
+                | sed '/-----BEGIN PGP SIGNATURE-----/,/-----END PGP SIGNATURE-----/d' \
+                | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+              echo "::notice::release.body 为空,回落到 annotated tag message"
+            fi
+          fi
+
+          NOTES_PANEL='null'
+          if [ -n "${NOTES_BODY// }" ]; then
+            NOTES_PANEL=$(jq -n --arg body "$NOTES_BODY" '{
+              tag: "collapsible_panel",
+              expanded: false,
+              header: {
+                title: { tag: "plain_text", content: "📋 本次更新内容(点击展开)" },
+                icon: { tag: "standard_icon", token: "down-bold_outlined" },
+                icon_position: "right",
+                icon_expanded_angle: -180
+              },
+              elements: [
+                { tag: "markdown", content: $body }
+              ]
+            }')
+          fi
+
+          BASE_CARD=$(jq -n \
+            --arg title "$TITLE" \
+            --arg color "$COLOR" \
+            --arg content "$CONTENT" \
+            --arg footer "$FOOTER_NOTE" \
+            --argjson actions "$ACTIONS" \
+            --argjson notes "$NOTES_PANEL" \
+            '{
+              msg_type: "interactive",
+              card: {
+                header: { title: { tag: "plain_text", content: $title }, template: $color },
+                elements: ([
+                  { tag: "markdown", content: $content },
+                  { tag: "action", actions: $actions }
+                ] + (if $notes == null then [] else [$notes] end) + [
+                  { tag: "markdown", content: $footer }
+                ])
+              }
+            }')
+
+          if [ -n "$SIGN" ]; then
+            PAYLOAD=$(echo "$BASE_CARD" | jq --arg ts "$TIMESTAMP" --arg sign "$SIGN" '. + {timestamp: $ts, sign: $sign}')
+          else
+            PAYLOAD="$BASE_CARD"
+          fi
+
+          curl -sS --fail-with-body -X POST "${LARK_WEBHOOK_URL}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"

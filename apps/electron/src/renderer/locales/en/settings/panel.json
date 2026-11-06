@@ -1,0 +1,20 @@
+{
+  "panel": {
+    "tabs": {
+      "profile": "Profile",
+      "general": "General",
+      "channels": "Models & Channels",
+      "zotero": "Zotero",
+      "proxy": "Proxy",
+      "mcp": "MCP Servers",
+      "dataCollection": "Data Collection",
+      "shortcuts": "Shortcuts",
+      "archived": "Archived",
+      "about": "About"
+    },
+    "title": "Settings"
+  },
+  "dialog": {
+    "title": "Settings"
+  }
+}

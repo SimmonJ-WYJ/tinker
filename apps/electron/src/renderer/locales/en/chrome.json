@@ -1,0 +1,88 @@
+{
+  "menu": {
+    "app": {
+      "about": "About Tinker",
+      "services": "Services",
+      "hide": "Hide Tinker",
+      "hideOthers": "Hide Others",
+      "unhide": "Show All",
+      "quit": "Quit Tinker"
+    },
+    "file": {
+      "title": "File",
+      "closeTab": "Close tab",
+      "quit": "Quit"
+    },
+    "edit": {
+      "title": "Edit",
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "pasteAndMatch": "Paste and Match Style",
+      "delete": "Delete",
+      "selectAll": "Select All"
+    },
+    "view": {
+      "title": "View",
+      "reload": "Reload",
+      "forceReload": "Force Reload",
+      "toggleDevTools": "Toggle Developer Tools",
+      "resetZoom": "Reset Zoom",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "fullscreen": "Toggle Full Screen"
+    },
+    "window": {
+      "title": "Window",
+      "minimize": "Minimize",
+      "zoom": "Zoom",
+      "front": "Bring All to Front",
+      "window": "Window",
+      "close": "Close"
+    },
+    "help": {
+      "title": "Help",
+      "learnMore": "Learn More"
+    }
+  },
+  "tray": {
+    "show": "Show Tinker",
+    "quit": "Quit Tinker"
+  },
+  "dialog": {
+    "selectFolder": "Select folder",
+    "imageFilter": "{{format}} image",
+    "allFiles": "All files",
+    "zipFilter": "Zip archive"
+  },
+  "quickTask": {
+    "escClose": "Esc to close",
+    "placeholder": "Describe your task to Tinker, press Enter to send…",
+    "pasteHint": "Paste or drag-and-drop files supported",
+    "send": "Send"
+  },
+  "envCheck": {
+    "checking": "Checking…",
+    "installedWithVersion": "v{{version}} (installed)",
+    "installed": "installed",
+    "warnWithVersion": "v{{version}} (upgrade recommended)",
+    "warn": "version too old",
+    "error": "not installed",
+    "download": "Download {{name}}"
+  },
+  "fileBrowser": {
+    "emptyFolder": "Empty folder"
+  },
+  "sidePanel": {
+    "tabs": {
+      "preview": "Preview",
+      "artifact": "Artifact"
+    },
+    "artifact": {
+      "emptyTitle": "No artifacts yet",
+      "emptyHint": "Capability packs will deliver their outputs (figures, tables, reports) here."
+    }
+  }
+}

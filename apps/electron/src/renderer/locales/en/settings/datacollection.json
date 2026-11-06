@@ -1,0 +1,29 @@
+{
+  "dataCollection": {
+    "title": "Data Collection",
+    "intro": "Two independent consent switches. We never collect research content: no paper full texts, no PDFs, no note or conversation text, no credentials, no usernames or user paths. You can change these at any time.",
+    "export": {
+      "title": "My data",
+      "description": "Your research data is stored locally and belongs to you",
+      "label": "Export my data",
+      "rowDescription": "Export all papers, notes, evidence sets, evidence and reviews as a zip in the open object standard format",
+      "button": "Export",
+      "exporting": "Exporting…",
+      "success": "Exported {{count}} objects",
+      "error": "Export failed"
+    },
+    "posthog": {
+      "label": "Product analytics (PostHog)",
+      "description": "Feature usage events such as search, review generation and login — counts and durations only, never query text or document content. EU data residency."
+    },
+    "agentEvolution": {
+      "label": "Agent self-evolution signals",
+      "description": "Five categories of structured signals (task structure, tool use, model choice, errors, workspace structure) plus implicit feedback (copy / save / cite / discard / retry). Independent channel, physically isolated from PostHog. Schemas are auditable in the repository."
+    },
+    "regionDefault": {
+      "gdpr": "Your system region appears to be in the EU/EEA (or could not be determined): both switches default to off and require explicit opt-in (GDPR).",
+      "nonGdpr": "Your system region appears to be outside the EU/EEA: both switches default to on and can be turned off at any time (opt-out)."
+    },
+    "sentryNote": "Crash reporting (Sentry) is always on to keep the app stable. Reports are strictly redacted: no email, no IP, and local path usernames are replaced with placeholders."
+  }
+}

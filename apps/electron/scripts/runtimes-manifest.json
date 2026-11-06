@@ -1,0 +1,74 @@
+{
+  "node": {
+    "darwin-arm64": {
+      "url": "https://nodejs.org/dist/v22.13.1/node-v22.13.1-darwin-arm64.tar.gz",
+      "sha256": "97483ff4361d239a56d038c6335767a56a291e78c10f07446f463f05d9d19b89",
+      "extract": "tar.gz",
+      "binSubpath": "node-v22.13.1-darwin-arm64/bin/node"
+    },
+    "darwin-x64": null,
+    "win32-x64": {
+      "url": "https://nodejs.org/dist/v22.13.1/node-v22.13.1-win-x64.zip",
+      "sha256": "398a61e250a5584a62a5959e2f69f5d597fc83f1a5ebe3ed8fff29ba39d55f14",
+      "extract": "zip",
+      "binSubpath": "node-v22.13.1-win-x64/node.exe"
+    }
+  },
+  "git": {
+    "darwin-arm64": null,
+    "darwin-x64": null,
+    "win32-x64": {
+      "url": "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/PortableGit-2.54.0-64-bit.7z.exe",
+      "sha256": "bea006a6cc69673f27b1647e84ab3a68e912fbc175ab6320c5987e012897f311",
+      "extract": "exe-7z",
+      "runtimeSubpath": "",
+      "prunePaths": [
+        "usr/share/vim",
+        "usr/share/man",
+        "usr/share/info",
+        "usr/share/locale",
+        "usr/share/applications",
+        "usr/share/icons",
+        "mingw64/share/doc",
+        "mingw64/share/man",
+        "mingw64/share/info",
+        "mingw64/share/locale",
+        "mingw64/share/zoneinfo",
+        "mingw64/share/git-gui",
+        "mingw64/share/gitk",
+        "mingw64/share/applications",
+        "mingw64/share/icons"
+      ]
+    }
+  },
+  "uv": {
+    "darwin-arm64": {
+      "url": "https://github.com/astral-sh/uv/releases/download/0.5.14/uv-aarch64-apple-darwin.tar.gz",
+      "sha256": "d548dffc256014c4c8c693e148140a3a21bcc2bf066a35e1d5f0d24c91d32112",
+      "extract": "tar.gz",
+      "binSubpath": "uv-aarch64-apple-darwin/uv"
+    },
+    "darwin-x64": null,
+    "win32-x64": {
+      "url": "https://github.com/astral-sh/uv/releases/download/0.5.14/uv-x86_64-pc-windows-msvc.zip",
+      "sha256": "ee2468e40320a0a2a36435e66bbd0d861228c4c06767f22d97876528138f4ba0",
+      "extract": "zip",
+      "binSubpath": "uv.exe"
+    }
+  },
+  "python": {
+    "darwin-arm64": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250115/cpython-3.12.8+20250115-aarch64-apple-darwin-install_only.tar.gz",
+      "sha256": "e29003b69465c33692830032d9d237d84ea43a2e8461db9134641640fb49f040",
+      "extract": "tar.gz",
+      "runtimeSubpath": "python"
+    },
+    "darwin-x64": null,
+    "win32-x64": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250115/cpython-3.12.8+20250115-x86_64-pc-windows-msvc-install_only.tar.gz",
+      "sha256": "86ee8267900240c96369adb2cbc1af8f543f860d2e22be5adb7362f3cbe61059",
+      "extract": "tar.gz",
+      "runtimeSubpath": "python"
+    }
+  }
+}

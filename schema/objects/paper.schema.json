@@ -1,0 +1,74 @@
+{
+  "$id": "https://opensci.io/asci/schema/objects/paper.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Paper",
+  "definitions": {
+    "Paper": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "visibility": {
+          "$ref": "#/definitions/ObjectVisibility"
+        },
+        "title": {
+          "type": "string"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "abstract": {
+          "type": "string"
+        },
+        "year": {
+          "type": "number"
+        },
+        "venue": {
+          "type": "string"
+        },
+        "doi": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "zoteroKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "authors",
+        "createdAt",
+        "id",
+        "title",
+        "updatedAt",
+        "visibility"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectId": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "type": "string",
+      "enum": [
+        "visible",
+        "archived",
+        "deleted"
+      ]
+    }
+  }
+}

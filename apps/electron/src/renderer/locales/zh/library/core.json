@@ -1,0 +1,288 @@
+{
+  "title": "文献库",
+  "tree": {
+    "allItems": "所有条目"
+  },
+  "search": {
+    "placeholder": "搜索 Zotero 库..."
+  },
+  "list": {
+    "searchResults": "搜索结果",
+    "currentCollection": "当前合集",
+    "countSuffix": " · {{count}}{{plus}} 条",
+    "loadMore": "加载更多",
+    "emptySearch": "未找到匹配条目，换个关键词试试",
+    "emptyCollection": "此合集下暂无条目",
+    "creatorsExtra": "等 {{count}} 人"
+  },
+  "detail": {
+    "emptySelect": "从列表中选择一个条目查看详情",
+    "loadFailed": "加载详情失败，请重试",
+    "deletedSource": {
+      "title": "该来源已从 Zotero 删除",
+      "description": "这篇论文的 Zotero 条目已被删除，无法跳转打开。下方为本地缓存的信息，仅供参考。",
+      "noMetadata": "本地没有该来源的缓存信息。",
+      "copiedToast": "已复制 DOI",
+      "action": {
+        "openDoi": "打开 DOI",
+        "copyDoi": "复制 DOI",
+        "searchWeb": "在线搜索"
+      }
+    },
+    "creatorsBrief": "{{first}} 等 {{count}} 人",
+    "openGraph": "引用图谱",
+    "openGraphTooltip": "打开两层引用图谱",
+    "openGraphDisabledTooltip": "缺少 DOI / 标题，无法定位",
+    "section": {
+      "abstract": "摘要",
+      "abstractUnavailable": "摘要不可获取",
+      "metadata": "元数据"
+    },
+    "meta": {
+      "creators": "作者",
+      "year": "年份",
+      "type": "类型"
+    },
+    "pdf": {
+      "open": "打开 PDF",
+      "openFullscreenTooltip": "在更大的阅读视图中打开",
+      "closeFullscreenTooltip": "关闭阅读视图",
+      "back": "返回详情",
+      "loading": "加载 PDF…",
+      "noteHint": "提示：在 PDF 中划词可弹出添加笔记的浮窗"
+    },
+    "header": {
+      "arxivBadgeTooltip": "在 arXiv 打开",
+      "doiBadgeTooltip": "通过 DOI 打开",
+      "urlBadgeTooltip": "打开外部链接",
+      "doiBadgeLabel": "DOI:{{doi}}",
+      "urlBadgeLabel": "链接"
+    },
+    "evidence": {
+      "actions": {
+        "addNote": "添加笔记",
+        "addNoteHint": "新建空白笔记；也可在上方摘要中划词为选区附原文",
+        "addEvidenceSet": "添加证据集",
+        "addToEvidenceSet": "加入证据集",
+        "comingSoon": "敬请期待（0.2 对象模型上线后启用）"
+      },
+      "card": {
+        "in": "在",
+        "sourceTypeReview": "综述 · {{title}}",
+        "paragraphSentence": "第 {{paragraph}} 段第 {{sentence}} 句被引用",
+        "paragraph": "第 {{paragraph}} 段被引用",
+        "moreCount": "+ 还有 {{count}} 条引用",
+        "openInReview": "在综述中查看上下文"
+      },
+      "empty": {
+        "notes": "暂无笔记"
+      },
+      "dialog": {
+        "sessionNotice": "Session 演示，刷新后丢失",
+        "cancel": "取消",
+        "addToEvidenceSet": {
+          "title": "添加证据集",
+          "modeExisting": "加入已有证据集",
+          "modeNew": "新建命名集合",
+          "morePapers": "+ 还有 {{count}} 篇",
+          "noteLabel": "说明（可选）",
+          "notePlaceholderExisting": "为什么这篇文献也属于这个集合？写下你的想法...",
+          "notePlaceholderNew": "写下这个证据集的动机或要点...",
+          "selectPlaceholder": "选择证据集...",
+          "namePlaceholder": "证据集名称",
+          "descriptionPlaceholder": "描述（可选）",
+          "alreadyMember": "此论文已在该证据集中",
+          "loading": "加载证据集中...",
+          "noExisting": "暂无证据集 —— 切到「新建」标签创建",
+          "persistedNotice": "保存到本地数据库；可在「证据集」视图查看",
+          "submit": "确认加入",
+          "toast": "已加入「{{name}}」",
+          "alreadyAdded": "此论文已在「{{name}}」中",
+          "error": "加入失败，请稍后重试"
+        }
+      },
+      "referencedIn": {
+        "title": "被以下证据集引用",
+        "empty": "尚未加入证据集",
+        "emptyHint": "使用上方「{{action}}」添加",
+        "errored": "无法加载证据集",
+        "errorHint": "网络或数据库异常",
+        "retry": "重试",
+        "paperCount": "{{count}} 篇论文",
+        "unnamed": "（未命名集合）"
+      }
+    }
+  },
+  "guard": {
+    "needLaunch": {
+      "title": "请启动 Zotero 桌面版",
+      "description": "文献库需要 Zotero 桌面版在本机运行。",
+      "launching": "启动中...",
+      "launch": "启动 Zotero"
+    },
+    "needRemote": {
+      "title": "请启用 Zotero 的远程连接",
+      "description": "在 Zotero 设置 → 高级 → 勾选 \"Allow other applications on this computer to communicate with Zotero\"",
+      "viewDocs": "查看说明"
+    },
+    "needInstall": {
+      "title": "未检测到已安装的 Zotero",
+      "description": "「加入 Zotero」需要本机安装 Zotero 桌面版。",
+      "download": "前往官网下载"
+    },
+    "loadFailed": "加载文献库失败"
+  },
+  "toast": {
+    "launchFailed": "启动 Zotero 失败",
+    "launchFailedDesc": "请检查 Zotero 是否已安装"
+  },
+  "sendToAgent": {
+    "label": "发送到 Agent",
+    "tooltip": "插入引用到当前 Agent 对话",
+    "tooltipDisabled": "请先打开或切到一个 Agent 会话",
+    "unknownAuthor": "未知作者"
+  },
+  "paperDetail": {
+    "field": {
+      "authors": "作者",
+      "year": "年份",
+      "citedByCount": "引用次数",
+      "venue": "来源",
+      "doi": "DOI",
+      "url": "URL",
+      "abstract": "摘要",
+      "abstractHeading": "ABSTRACT",
+      "abstractUnavailable": "摘要不可获取",
+      "abstractFetchFailed": "摘要获取失败（来源超时或限流），重新点击 DOI 可重试"
+    },
+    "actions": {
+      "openGraph": "引用图谱",
+      "openGraphTitle": "打开两层引用图谱",
+      "openGraphDisabledEntryTitle": "缺少 DOI / 标题",
+      "openGraphDisabledRecordTitle": "缺少 DOI / arXiv / 标题",
+      "addToZotero": "加入 Zotero",
+      "addedToZotero": "已加入 Zotero",
+      "addedToZoteroTitle": "已加入 Zotero",
+      "missingTitleTitle": "缺少标题",
+      "addToZoteroTitle": "将此论文加入 Zotero（需 Zotero 已打开）",
+      "addingToZotero": "加入中…",
+      "download": "下载",
+      "downloadTitle": "下载 PDF 到系统下载文件夹",
+      "preview": "预览",
+      "previewTitle": "在右栏预览 PDF",
+      "downloading": "下载中…",
+      "openSource": "原文链接",
+      "ingestFailed": "回流 workspace-papers 失败"
+    },
+    "meta": {
+      "source": "来源",
+      "query": "检索词",
+      "captured": "抓取时间",
+      "capturedTooltip": "Agent 首次发现此论文的时间",
+      "lastSeen": "最近出现",
+      "lastSeenTooltip": "此论文最近一次出现在检索结果中的时间",
+      "citations": "引用次数",
+      "published": "发表年份",
+      "publishedTooltip": "此论文的发表年份",
+      "impactFactor": "IF {{value}}"
+    },
+    "toast": {
+      "addSuccess": "已加入 Zotero",
+      "addSuccessWithPdf": "已加入 Zotero，已自动下载 PDF",
+      "addFailed": "加入 Zotero 失败：{{message}}",
+      "downloadedLocal": "已下载到下载文件夹：{{filename}}",
+      "downloadLocalFailed": "下载失败：{{message}}"
+    }
+  },
+  "linkDialog": {
+    "title": "加入 Zotero 文献库",
+    "targetLabel": "写入位置",
+    "targetDetecting": "加载合集中…",
+    "targetSelected": "目标：{{name}}",
+    "targetMissing": "未选择目标位置",
+    "tagsLabel": "标签（可选）",
+    "tagsPlaceholder": "例如：methods, GPT, Tinker",
+    "cancel": "取消",
+    "submit": "确认加入",
+    "submitting": "提交中…",
+    "successWithTarget": "已加入 Zotero（{{name}}）",
+    "successWithTargetAndPdf": "已加入 Zotero（{{name}}），已自动下载 PDF",
+    "successPlain": "已加入 Zotero",
+    "successPlainWithPdf": "已加入 Zotero，已自动下载 PDF",
+    "movedFailed": "已加入 Zotero，但未能移动到「{{name}}」—— 条目仍在 Zotero 当前选中的合集",
+    "fail": "加入 Zotero 失败"
+  },
+  "collectionPicker": {
+    "label": "写入位置",
+    "placeholder": "选择写入位置…",
+    "searchPlaceholder": "搜索合集…",
+    "useZoteroCurrent": "使用 Zotero 当前选中的合集",
+    "useZoteroCurrentHint": "跟随 Zotero 实时选中，非固定位置",
+    "myLibrary": "我的文献库（不归类到任何合集）",
+    "loading": "加载合集中…",
+    "loadFailed": "加载合集失败",
+    "emptyTitle": "Zotero 无可写入目标",
+    "emptyHint": "请确认 Zotero 正在运行且已开启本地 API",
+    "noMatch": "没有匹配的合集",
+    "retry": "重试"
+  },
+  "batchLinkDialog": {
+    "title": "批量加入 Zotero",
+    "summary": "将加入 {{count}} 篇论文到 Zotero",
+    "summaryPreviewMore": "另有 {{count}} 篇",
+    "submit": "加入 {{count}} 篇",
+    "submitting": "加入中 {{done}} / {{total}}…",
+    "close": "关闭",
+    "cancel": "取消",
+    "successAll": "{{count}} 篇全部已加入 Zotero",
+    "successAllWithTarget": "{{count}} 篇全部已加入 Zotero（{{name}}）",
+    "successAllButMoveFailed": "{{count}} 篇全部已加入，但其中 {{moveFailed}} 篇未能移动到「{{name}}」—— 仍在 Zotero 当前选中的合集",
+    "partial": "{{success}} 篇成功，{{failed}} 篇失败 —— 失败论文已保留选中以便重试",
+    "allFailed": "{{count}} 篇全部加入失败",
+    "ingestFailed": "准备论文以加入 Zotero 失败"
+  },
+  "reviewDemo": {
+    "demoBadge": "演示",
+    "sessionTitle": "检索增强生成（RAG）技术综述",
+    "subtitle": "由 Agent 生成 · {{paperCount}} 篇论文 · {{wordCount}} 字",
+    "legend": "indigo = 支持型引用 · amber = 反驳型引用",
+    "evidence": {
+      "header": "证据溯源",
+      "refLabel": "EvidenceRef",
+      "closeTrace": "关闭证据溯源",
+      "sourcePrefix": "来源",
+      "openContext": "在 Paper 中查看完整上下文",
+      "sourceRemoved": "源已移除",
+      "sourceRemovedHint": "该文献在 Zotero 中没有可打开的 PDF（条目已删除或无 PDF 附件），无法跳转到原文。",
+      "addNote": "在此段加笔记",
+      "openContextToast": "已切到文献库；正式版本将自动锚定到 {{paper}}",
+      "addNoteToast": "笔记已保存",
+      "addNoteError": "保存失败，请稍后重试",
+      "addNoteDialog": {
+        "title": "加笔记",
+        "fromQuote": "源引用",
+        "kindLabel": "类型",
+        "kindNote": "笔记",
+        "kindHypothesis": "假设",
+        "contentPlaceholder": "写下你的想法...",
+        "submit": "添加",
+        "persistedNotice": "笔记会持久化到本地数据库，自动关联到当前综述位置"
+      }
+    },
+    "toast": {
+      "demoOnly": "演示模式，正式版本上线后启用"
+    },
+    "openInLibrary": {
+      "noIdentifierTitle": "引用缺元数据",
+      "noIdentifierDescription": "该 cite 没有 DOI / Zotero key / paper id",
+      "notFoundTitle": "未找到论文记录",
+      "notFoundDescription": "{{headline}} —— Library / 工作区 papers.jsonl 都查不到此 DOI",
+      "notLinkedTitle": "论文未关联 Zotero",
+      "notLinkedDescription": "{{headline}} —— 先在工作区论文面板对它执行 \"Add to Zotero\"，再点本按钮即可跳到 Library 高亮"
+    },
+    "decisions": {
+      "expand": "展开 Per-Paper Decisions",
+      "collapse": "收起 Per-Paper Decisions"
+    }
+  }
+}

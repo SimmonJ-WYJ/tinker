@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Onboarding 流程演示（重设版 · 按账号）</title>
+<style>
+  :root{
+    --text:#1f1f1d; --soft:#6f6f69; --faint:#9a9a93;
+    --hair:#ececea; --panel:#fff; --side:#fafafa;
+    --btn-bg:#f1f0ee; --btn-hover:#e7e6e2; --radius:9px;
+    --primary:#232321; --primary-hover:#36352f;
+    --accent:#3f6fb5; --accent-soft:#e8eef7; --zotero:#cc2936;
+    --ring:#378ADD;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:#e9e9e7;color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  svg{display:block;}
+  .ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* ===== 顶部演示控制条 ===== */
+  .demobar{
+    position:fixed;top:0;left:0;right:0;height:52px;z-index:200;
+    background:#fff;border-bottom:1px solid var(--hair);
+    display:flex;align-items:center;gap:14px;padding:0 18px;
+  }
+  .demobar b{font-size:14px;}
+  .demobar .steps{display:flex;align-items:center;gap:6px;margin-left:6px;}
+  .demobar .dot{width:8px;height:8px;border-radius:50%;background:#d8d7d3;}
+  .demobar .dot.on{background:var(--primary);}
+  .demobar .stagename{color:var(--soft);font-size:13px;}
+  .demobar .sp{flex:1;}
+  .demobar button{font:inherit;font-size:13px;border:1px solid var(--hair);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;}
+  .demobar button:hover{background:#f5f5f3;}
+  .demobar button.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .demobar button.primary:hover{background:var(--primary-hover);}
+
+  /* ===== 应用外壳（演示背景） ===== */
+  .stage{position:fixed;top:52px;left:0;right:0;bottom:0;display:flex;background:var(--panel);overflow:hidden;}
+  .left{width:240px;flex:none;background:var(--side);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:14px 12px;}
+  .proj{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;font-weight:600;}
+  .nav{margin-top:12px;display:flex;flex-direction:column;gap:3px;}
+  .nav .item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:#3a3a37;font-size:13.5px;cursor:default;position:relative;}
+  .nav .item:hover{background:#efefec;}
+  .ws-label{margin:18px 6px 6px;font-size:11px;color:var(--faint);}
+  .ws-item{padding:8px 10px;border-radius:8px;font-size:13px;color:#3a3a37;}
+  .ws-item.active{background:#eceae6;font-weight:550;}
+  .left-sp{flex:1;}
+  .user{display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:13.5px;}
+  .user .ava{width:24px;height:24px;border-radius:50%;background:#cdd6e6;color:#3a527e;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+
+  .center{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .ctitle{padding:16px 22px 0;font-size:15px;font-weight:600;color:var(--soft);}
+  .canvas{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .empty{max-width:520px;text-align:center;color:var(--faint);}
+  .empty h2{color:var(--text);font-size:18px;margin:0 0 6px;}
+  /* starter chips（第 3 步用） */
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px;}
+  .chip{border:1px solid var(--hair);background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;color:#333;display:flex;gap:8px;align-items:center;max-width:230px;text-align:left;}
+
+  /* ===== 高亮（spotlight）：被高亮元素抬到遮罩之上 ===== */
+  .dim{position:fixed;inset:52px 0 0 0;background:rgba(20,20,18,0.5);z-index:100;opacity:0;pointer-events:none;transition:opacity .18s;}
+  .dim.show{opacity:1;pointer-events:auto;}
+  .spot{position:relative;z-index:120;background:#fff !important;box-shadow:0 0 0 3px var(--ring),0 8px 24px rgba(0,0,0,.18);border-radius:10px;}
+  .chips.spot{padding:14px;}
+
+  /* tooltip 卡片 */
+  .tip{position:fixed;z-index:130;width:280px;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.22);padding:16px;display:none;}
+  .tip.show{display:block;}
+  .tip .k{font-size:11px;color:var(--accent);font-weight:600;letter-spacing:.04em;}
+  .tip h3{margin:4px 0 6px;font-size:15px;}
+  .tip p{margin:0 0 14px;color:var(--soft);font-size:13px;line-height:1.5;}
+  .tip .row{display:flex;align-items:center;gap:8px;}
+  .tip .row .sp{flex:1;}
+  .tip button{font:inherit;font-size:13px;border-radius:8px;padding:7px 13px;cursor:pointer;border:1px solid var(--hair);background:#fff;}
+  .tip button.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .tip .skip{border:none;background:none;color:var(--faint);padding:7px 4px;}
+
+  /* ===== 全屏模态（登录 / 欢迎 / 完成） ===== */
+  .modal{position:fixed;inset:52px 0 0 0;z-index:150;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.92);}
+  .modal.show{display:flex;}
+  .card{width:380px;background:#fff;border:1px solid var(--hair);border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.12);padding:30px 28px;text-align:center;}
+  .logo{width:52px;height:52px;border-radius:14px;background:#232321;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .card h2{margin:0 0 6px;font-size:20px;}
+  .card p{margin:0 0 20px;color:var(--soft);font-size:13.5px;line-height:1.55;}
+  .card .full{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:10px;border:0;background:var(--primary);color:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+  .card .full.zot{background:var(--zotero);}
+  .card .ghost{display:block;width:100%;margin-top:10px;background:none;border:none;color:var(--faint);font:inherit;font-size:13px;cursor:pointer;}
+  .zbadge{width:18px;height:18px;border-radius:4px;background:#fff;color:var(--zotero);font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center;}
+
+  /* 完成态 checklist */
+  .check{text-align:left;margin:4px 0 18px;}
+  .check li{list-style:none;display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13.5px;color:#333;}
+  .check .tick{width:20px;height:20px;border-radius:50%;background:#e3f0e3;color:#2f7d32;display:flex;align-items:center;justify-content:center;flex:none;}
+
+  /* 账号作用域说明浮条 */
+  .note{position:fixed;right:18px;bottom:18px;z-index:210;max-width:300px;background:#fff;border:1px solid var(--hair);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.12);padding:12px 14px;font-size:12px;color:var(--soft);line-height:1.55;}
+  .note b{color:var(--text);}
+</style>
+</head>
+<body>
+
+  <!-- 顶部演示控制条 -->
+  <div class="demobar">
+    <b>Onboarding 演示</b>
+    <span class="stagename" id="stageName">登录门</span>
+    <div class="steps" id="dots"></div>
+    <span class="sp"></span>
+    <button id="backBtn">← 上一步</button>
+    <button class="primary" id="restartBtn">↺ 重新跑一遍</button>
+  </div>
+
+  <!-- 应用外壳背景 -->
+  <div class="stage">
+    <aside class="left">
+      <div class="proj">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+        生物学
+      </div>
+      <div class="nav">
+        <div class="item">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search
+        </div>
+        <div class="item" id="nav-configure">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>Configure
+        </div>
+        <div class="item" id="nav-library">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M4 5h12a2 2 0 0 1 2 2v12M4 5v14a2 2 0 0 0 2 2h12M4 5a2 2 0 0 1 2-2h8"/></svg>Library
+        </div>
+        <div class="item" id="nav-newtask">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New task
+        </div>
+      </div>
+      <div class="ws-label">Workspace</div>
+      <div class="ws-item active">检索 大模型 + 蛋白结构…</div>
+      <div class="ws-item">New Agent session</div>
+      <div class="left-sp"></div>
+      <div class="user"><span class="ava">张</span>张三 · OPENSCI</div>
+    </aside>
+
+    <main class="center">
+      <div class="ctitle">工作区</div>
+      <div class="canvas">
+        <div class="empty" id="canvasEmpty">
+          <h2>开始你的科研任务</h2>
+          <div>从左侧「New task」新建，或选择一个起步卡片。</div>
+          <div class="chips" id="starterChips">
+            <div class="chip">🔬 检索蛋白结构预测相关论文</div>
+            <div class="chip">📄 解析一篇 PDF 并提炼要点</div>
+            <div class="chip">📚 从 Zotero 导入文献综述</div>
+            <div class="chip">📝 生成一篇文献综述</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 遮罩 + spotlight tooltip -->
+  <div class="dim" id="dim"></div>
+  <div class="tip" id="tip">
+    <div class="k" id="tipK">1 / 3</div>
+    <h3 id="tipH">标题</h3>
+    <p id="tipP">说明</p>
+    <div class="row">
+      <button class="skip" id="tipSkip">跳过引导</button>
+      <span class="sp"></span>
+      <button class="primary" id="tipNext">下一步</button>
+    </div>
+  </div>
+
+  <!-- 登录模态 -->
+  <div class="modal" id="m-login">
+    <div class="card">
+      <div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div>
+      <h2>欢迎使用 ASCI</h2>
+      <p>登录以同步你的项目与文献库。数据默认存于本地。</p>
+      <button class="full" id="loginBtn">使用 OPENSCI 登录</button>
+      <button class="ghost">取消</button>
+    </div>
+  </div>
+
+  <!-- 欢迎模态（按账号） -->
+  <div class="modal" id="m-welcome">
+    <div class="card">
+      <div class="logo">👋</div>
+      <h2>欢迎，张三</h2>
+      <p>看起来是你第一次使用 ASCI。用大约 1 分钟完成 3 步上手，<br/>之后随时可在设置里重看。</p>
+      <button class="full" id="welcomeStart">开始上手（3 步）</button>
+      <button class="ghost" id="welcomeSkip">跳过，直接开始用</button>
+    </div>
+  </div>
+
+  <!-- 完成模态 -->
+  <div class="modal" id="m-done">
+    <div class="card">
+      <div class="logo" style="background:#e3f0e3;color:#2f7d32">✓</div>
+      <h2>上手完成 🎉</h2>
+      <ul class="check">
+        <li><span class="tick">✓</span> 配置了模型渠道</li>
+        <li><span class="tick">✓</span> 连接了 Zotero 文献库</li>
+        <li><span class="tick">✓</span> 了解了如何开始任务</li>
+      </ul>
+      <p style="margin-bottom:14px">完成状态已按你的账号记忆：换设备不会重复引导。</p>
+      <button class="full" id="doneBtn">开始使用 ASCI</button>
+    </div>
+  </div>
+
+  <!-- 账号作用域说明 -->
+  <div class="note">
+    <b>重设要点 · 按账号记忆</b><br/>
+    上手完成度跟随登录账号（uid），而非这台设备：<br/>
+    · 同账号换设备 → 不再重复引导<br/>
+    · 同设备换新账号 → 为新人重新引导<br/>
+    · 登出再登录 → 按账号判定，不误重放
+  </div>
+
+<script>
+  // 流程状态机：登录 → 欢迎 → 3 步 spotlight → 完成
+  const STAGES = [
+    { id:'login',   name:'登录门（强制）' },
+    { id:'welcome', name:'欢迎（按账号判定首次）' },
+    { id:'s1',      name:'第 1 步 · 配置模型', tip:{ target:'nav-configure', k:'1 / 3', h:'配置模型渠道', p:'连接你的 LLM（如 Claude / Kimi）。这是开始任务的前提。' } },
+    { id:'s2',      name:'第 2 步 · 连接 Zotero', tip:{ target:'nav-library', k:'2 / 3', h:'连接 Zotero 文献库', p:'在 Library 里启动 Zotero，检索到的论文可一键入库。' } },
+    { id:'s3',      name:'第 3 步 · 开始任务', tip:{ target:'starterChips', k:'3 / 3', h:'开始第一个任务', p:'点「New task」新建，或直接选一个起步卡片试试。', placeBelow:true } },
+    { id:'done',    name:'完成（按账号记忆）' },
+  ];
+  let i = 0;
+
+  const $ = (s)=>document.querySelector(s);
+  const dim = $('#dim'), tip = $('#tip');
+  const dots = $('#dots');
+  STAGES.forEach((_,n)=>{ const d=document.createElement('span'); d.className='dot'; dots.appendChild(d); });
+
+  function clearAll(){
+    dim.classList.remove('show');
+    tip.classList.remove('show');
+    document.querySelectorAll('.modal').forEach(m=>m.classList.remove('show'));
+    document.querySelectorAll('.spot').forEach(e=>e.classList.remove('spot'));
+  }
+
+  function placeTip(targetId, below){
+    const el = document.getElementById(targetId);
+    el.classList.add('spot');
+    const r = el.getBoundingClientRect();
+    tip.classList.add('show');
+    if(below){
+      // 放在目标下方居中
+      let left = r.left + r.width/2 - 140;
+      left = Math.max(16, Math.min(left, window.innerWidth-296));
+      tip.style.left = left+'px';
+      tip.style.top = (r.bottom + 14)+'px';
+    } else {
+      // 放在目标右侧
+      tip.style.left = (r.right + 14)+'px';
+      tip.style.top = r.top+'px';
+    }
+  }
+
+  function render(){
+    clearAll();
+    const s = STAGES[i];
+    $('#stageName').textContent = s.name;
+    dots.querySelectorAll('.dot').forEach((d,n)=>d.classList.toggle('on', n===i));
+    $('#backBtn').disabled = (i===0);
+
+    if(s.id==='login'){ $('#m-login').classList.add('show'); }
+    else if(s.id==='welcome'){ $('#m-welcome').classList.add('show'); }
+    else if(s.id==='done'){ $('#m-done').classList.add('show'); }
+    else if(s.tip){
+      dim.classList.add('show');
+      $('#tipK').textContent = s.tip.k;
+      $('#tipH').textContent = s.tip.h;
+      $('#tipP').textContent = s.tip.p;
+      $('#tipNext').textContent = (s.id==='s3') ? '完成 ✓' : '下一步';
+      placeTip(s.tip.target, s.tip.placeBelow);
+    }
+  }
+
+  function go(n){ i = Math.max(0, Math.min(STAGES.length-1, n)); render(); }
+  const next = ()=>go(i+1);
+
+  // 控件
+  $('#loginBtn').onclick = next;            // 登录 → 欢迎
+  $('#welcomeStart').onclick = next;        // 欢迎 → 第1步
+  $('#welcomeSkip').onclick = ()=>go(STAGES.length-1); // 跳过 → 完成（演示用）
+  $('#tipNext').onclick = next;             // 步进
+  $('#tipSkip').onclick = ()=>go(STAGES.length-1);
+  $('#doneBtn').onclick = ()=>go(0);        // 重新跑
+  $('#backBtn').onclick = ()=>go(i-1);
+  $('#restartBtn').onclick = ()=>go(0);
+  window.addEventListener('resize', ()=>{ const s=STAGES[i]; if(s.tip) placeTip(s.tip.target, s.tip.placeBelow); });
+
+  render();
+</script>
+</body>
+</html>

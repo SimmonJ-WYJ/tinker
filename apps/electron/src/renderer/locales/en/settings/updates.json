@@ -1,0 +1,8 @@
+{
+  "updateDialog": {
+    "title": "New version available",
+    "description": "v{{version}} has been released. Visit the download page to get the latest installer.",
+    "later": "Later",
+    "goDownload": "Go to download"
+  }
+}

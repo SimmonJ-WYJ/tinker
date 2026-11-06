@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>整体概览 + 更多筛选 合并为一个面板（演示）</title>
+<style>
+  :root{
+    --text:#1f1f1d; --soft:#6f6f69; --faint:#9a9a93;
+    --hair:#ececea; --hair2:#f3f2f0; --panel:#fff;
+    --btn-bg:#f1f0ee; --btn-hover:#e7e6e2; --radius:8px;
+    --primary:#378ADD; --primary-soft:#eaf2fb;
+    --muted:#888780;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#eceae7;color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:32px 20px 60px;}
+  svg{display:block;}
+  .ic{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+  .head{max-width:1000px;margin:0 auto 22px;}
+  .head h1{font-size:18px;margin:0 0 4px;}
+  .head p{margin:0;color:var(--soft);font-size:13px;}
+
+  .wrap{max-width:1000px;margin:0 auto;display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap;}
+  .col{flex:1;min-width:320px;}
+  .col h3{font-size:13px;color:var(--soft);margin:0 0 10px;font-weight:600;}
+
+  /* 工具栏：单一入口 */
+  .toolbar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--hair);border-radius:12px;padding:8px 10px;margin-bottom:10px;}
+  .toolbar .tt{font-size:12px;color:var(--soft);display:flex;align-items:center;gap:6px;}
+  .toolbar .sp{flex:1;}
+  .entry{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 10px;border-radius:8px;color:#33332f;background:var(--btn-bg);}
+  .entry.active{background:var(--primary-soft);color:#1f5fa6;}
+  .entry .dotmark{width:6px;height:6px;border-radius:50%;background:var(--primary);}
+
+  /* 合并面板 */
+  .pop{width:330px;background:#fff;border:1px solid var(--hair);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.14);overflow:hidden;}
+  .pop .ph{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--hair2);}
+  .pop .ph b{font-size:13px;}
+  .pop .ph .reset{font-size:11.5px;color:var(--soft);display:flex;align-items:center;gap:4px;cursor:pointer;}
+  .pop .body{max-height:560px;overflow:auto;padding:14px;}
+  .seg-label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:0 0 10px;font-weight:600;}
+  .group{margin-bottom:16px;}
+  .group:last-child{margin-bottom:0;}
+  .glabel{font-size:10.5px;color:var(--muted);font-weight:600;margin:0 0 7px;}
+
+  /* 年份刷选条 */
+  .hist{display:flex;align-items:flex-end;gap:2px;height:54px;}
+  .hist .bar{flex:1;background:var(--muted);border-radius:2px 2px 0 0;}
+  .hist .bar.sel{background:var(--primary);}
+  .ticks{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px;}
+  .ysum{font-size:11.5px;color:var(--soft);margin-bottom:6px;}
+
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{font-size:12px;padding:5px 10px;border-radius:7px;background:var(--btn-bg);border:1px solid transparent;cursor:pointer;color:#3a3a37;}
+  .chip.on{background:var(--primary-soft);color:#1f5fa6;border-color:#bcd6f3;}
+  .chip .n{color:var(--faint);}
+
+  /* 相关度渐变条 */
+  .relbar{height:10px;border-radius:6px;background:linear-gradient(90deg,#f6c9c0,#f3e3a8,#bfe3c4);position:relative;}
+  .relbar .knob{position:absolute;left:14%;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:#fff;border:1px solid #cfcfca;box-shadow:0 1px 3px rgba(0,0,0,.18);}
+  .rel-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:5px;}
+
+  /* tier 档位 */
+  .tiers{display:flex;flex-wrap:wrap;gap:6px;}
+  .tier{font-size:11.5px;padding:5px 9px;border-radius:7px;background:var(--btn-bg);color:#555;cursor:pointer;border:1px solid transparent;}
+  .tier.on{background:var(--primary-soft);color:#1f5fa6;border-color:#bcd6f3;}
+
+  .check{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#333;margin-top:2px;}
+  .divider{height:1px;background:var(--hair2);margin:14px 0;}
+
+  .note{margin-top:14px;color:var(--soft);font-size:12.5px;line-height:1.6;}
+  .note b{color:var(--text);}
+  .before{color:var(--faint);font-size:12px;}
+  .before .e{display:inline-flex;align-items:center;gap:5px;background:var(--btn-bg);border-radius:7px;padding:5px 9px;margin-right:6px;color:#5a5a55;}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>合并方案：整体概览 + 更多筛选 → 一个「筛选」面板</h1>
+    <p>两者都是「收窄检索结果」的同一件事。合并成单一入口、单一面板，分「分布概览（点选筛选）」与「更多条件」两段。新用户只需理解一个地方。</p>
+  </div>
+
+  <div class="wrap">
+    <!-- 左：合并后 -->
+    <div class="col">
+      <h3>合并后（建议）</h3>
+      <div class="toolbar">
+        <span class="tt"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>本次检索 · 747</span>
+        <span class="sp"></span>
+        <span class="entry active"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>筛选<span class="dotmark"></span></span>
+        <span class="entry"><svg class="ic" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>排序</span>
+      </div>
+
+      <div class="pop">
+        <div class="ph">
+          <b>筛选检索结果 · 747 篇</b>
+          <span class="reset"><svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M18 6 6 18M6 6l12 12"/></svg>重置</span>
+        </div>
+        <div class="body">
+          <!-- 段 1：分布概览（点选即筛选） -->
+          <p class="seg-label">分布概览 · 点选即筛选</p>
+
+          <div class="group">
+            <p class="glabel">年份</p>
+            <div class="ysum">1990 – 2005 · 共 312 条 · 16 年</div>
+            <div class="hist" id="hist"></div>
+            <div class="ticks"><span>1945</span><span>2026</span></div>
+          </div>
+
+          <div class="group">
+            <p class="glabel">来源</p>
+            <div class="chips">
+              <span class="chip on">crossref <span class="n">238</span></span>
+              <span class="chip">openalex <span class="n">207</span></span>
+              <span class="chip">europepmc <span class="n">204</span></span>
+              <span class="chip">pubmed <span class="n">78</span></span>
+              <span class="chip">biorxiv <span class="n">20</span></span>
+            </div>
+          </div>
+
+          <div class="group">
+            <p class="glabel">相关度（≥ 阈值）</p>
+            <div class="relbar"><span class="knob"></span></div>
+            <div class="rel-ends"><span>低</span><span>高</span></div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- 段 2：更多条件 -->
+          <p class="seg-label">更多条件</p>
+
+          <div class="group">
+            <p class="glabel">引用量</p>
+            <div class="tiers"><span class="tier on">不限</span><span class="tier">≥10</span><span class="tier">≥50</span><span class="tier">≥100</span><span class="tier">≥500</span></div>
+          </div>
+          <div class="group">
+            <p class="glabel">综合评分</p>
+            <div class="tiers"><span class="tier on">不限</span><span class="tier">≥50</span><span class="tier">≥65</span><span class="tier">≥80</span></div>
+          </div>
+          <div class="group">
+            <p class="glabel">JCR 分区</p>
+            <div class="tiers"><span class="tier">Q1</span><span class="tier">Q2</span><span class="tier">Q3</span><span class="tier">Q4</span></div>
+          </div>
+          <div class="group">
+            <p class="glabel">影响因子</p>
+            <div class="tiers"><span class="tier on">不限</span><span class="tier">≥2</span><span class="tier">≥5</span><span class="tier">≥10</span></div>
+          </div>
+          <div class="group">
+            <p class="glabel">期刊 / 会议等级</p>
+            <div class="tiers"><span class="tier">顶级</span><span class="tier">优秀</span><span class="tier">普通</span><span class="tier">较弱</span></div>
+          </div>
+          <label class="check"><input type="checkbox" /> 仅显示有摘要</label>
+        </div>
+      </div>
+
+      <p class="note"><b>新用户视角：</b>只有「筛选」一个入口；进去后「概览分布」与「更多条件」是同一面板的上下两段，分布图既是可视化、也是点选筛选器。不再需要分清「概览」和「筛选」是两个不同的东西。</p>
+    </div>
+
+    <!-- 右：现状对照 -->
+    <div class="col">
+      <h3>现状（两个入口、两套交互）</h3>
+      <div class="toolbar">
+        <span class="before"><span class="e"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg>整体概览</span><span class="e"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>更多筛选</span></span>
+      </div>
+      <p class="note">
+        · <b>整体概览</b>：年份/来源/相关度，点柱状条或 chip 来筛选；<br/>
+        · <b>更多筛选</b>：引用量/评分/JCR/影响因子/等级/摘要，选 chip 来筛选。<br/><br/>
+        两个 popover、两种心智，且年份/来源只能在「概览」里点、其它只能在「筛选」里选——同是筛选却分家。对新用户尤其难建立模型（呼应 UX 走查 #6）。
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // 画一个示意年份直方图，高亮一段表示刷选区间
+    const hist = document.getElementById('hist');
+    let seed = 0x51f3;
+    const rnd = ()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+    const N = 60;
+    for(let k=0;k<N;k++){
+      const t=k/(N-1);
+      const h = Math.max(6, Math.pow(t,2.4)*100 + rnd()*14);
+      const bar=document.createElement('div');
+      bar.className='bar'+((k>=26 && k<=42)?' sel':'');  // 选中一段示意
+      bar.style.height=h+'%';
+      hist.appendChild(bar);
+    }
+  </script>
+</body>
+</html>

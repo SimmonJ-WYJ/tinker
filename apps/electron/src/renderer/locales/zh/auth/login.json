@@ -1,0 +1,35 @@
+{
+  "title": "欢迎使用 Tinker",
+  "cancel": "取消",
+  "oauthPending": "正在等待 Google 浏览器授权…",
+  "oauthCancel": "取消",
+  "oauthTimeout": "已超时，请重试",
+  "localDataNotice": "论文和笔记保存在本地，\n切换设备后不会自动同步显示。",
+  "legalConsent": "继续即表示你同意我们的\n<terms>服务条款</terms>与<privacy>隐私政策</privacy>。",
+  "withGoogle": "使用 Google 登录",
+  "workspaceTagline": "你的 AI 编程工作台",
+  "eyebrow": "从第一句提示，到可运行的代码",
+  "headlineFirst": "你的下一个想法。",
+  "headlineSecond": "与 AI 一起实现。",
+  "description": "把脑海中的想法，变成可运行的代码。\n与 AI 一起构建、调试，不断改进。",
+  "steps": {
+    "describe": {
+      "label": "01  /  描述需求",
+      "title": "从你想构建的东西开始。",
+      "description": "用语言描述目标，为你的想法找到起点。"
+    },
+    "build": {
+      "label": "02  /  协同编码",
+      "title": "与 AI 一起推进代码。",
+      "description": "编写新功能、理解报错，探索解决方案。"
+    },
+    "refine": {
+      "label": "03  /  审查改进",
+      "title": "审查、测试，打磨成你的作品。",
+      "description": "检查改动、测试代码，让结果更进一步。"
+    }
+  },
+  "footer": "让想法与可运行的代码之间，少一些阻力。",
+  "subtitle": "带着想法，开启对话。\n一起构建真正可用的作品。",
+  "localDataTitle": "你的项目保留在这台设备上"
+}

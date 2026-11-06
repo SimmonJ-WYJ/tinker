@@ -1,0 +1,15 @@
+{
+  "lastLogin": "Last sign in: {{time}}",
+  "emailVerified": "Verified",
+  "emailNotVerified": "Not verified",
+  "devBypass": "ASCI_DEV auto-login active — use bun run dev for the real login flow",
+  "devChip": "DEV",
+  "accountSettings": "Account settings",
+  "logout": "Sign out",
+  "logoutConfirm": {
+    "title": "Sign out?",
+    "description": "You will need to sign in again to use Tinker. Your local data remains in ~/.asci/ and will be accessible next time you sign in.",
+    "cancel": "Cancel",
+    "confirm": "Sign out"
+  }
+}

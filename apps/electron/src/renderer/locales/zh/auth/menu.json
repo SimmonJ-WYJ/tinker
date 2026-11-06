@@ -1,0 +1,15 @@
+{
+  "lastLogin": "上次登录：{{time}}",
+  "emailVerified": "已验证",
+  "emailNotVerified": "未验证",
+  "devBypass": "ASCI_DEV 模式自动登录 · 真实登录流程请用 bun run dev",
+  "devChip": "DEV",
+  "accountSettings": "账户设置",
+  "logout": "退出登录",
+  "logoutConfirm": {
+    "title": "退出登录？",
+    "description": "退出后需要重新登录才能使用 Tinker。你的本地数据保留在 ~/.asci/，下次登录仍可访问。",
+    "cancel": "取消",
+    "confirm": "退出登录"
+  }
+}

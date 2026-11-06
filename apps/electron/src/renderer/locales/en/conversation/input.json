@@ -1,0 +1,90 @@
+{
+  "pastedBlock": {
+    "label": "PASTED",
+    "chars": "{{count}} chars",
+    "expandTitle": "Pasted text",
+    "remove": "Remove"
+  },
+  "empty": {
+    "title": "No messages yet",
+    "description": "Start a conversation in the input below"
+  },
+  "session": {
+    "defaultTitle": "New Agent session"
+  },
+  "input": {
+    "placeholder": "How can I help you?",
+    "messagePlaceholder": "Message…",
+    "inputPrefix": "Type",
+    "phraseMention": "@ to reference a file",
+    "phraseSkill": "/ to run a skill",
+    "phraseMcp": "# to call MCP",
+    "expand": "Expand input",
+    "collapse": "Collapse input",
+    "removeMention": "Remove",
+    "attachTooltip": "Attach file",
+    "mentionTooltip": "@ to reference files / Skill / MCP",
+    "queuedBarTitle": "{{count}} queued",
+    "streamingPlaceholder": "Enter to queue · ⌥+Enter to interrupt · Shift+Enter for newline",
+    "streamingPlaceholderCmd": "⌘/Ctrl+Enter to queue · ⌘/Ctrl+⌥+Enter to interrupt · Enter for newline"
+  },
+  "message": {
+    "collapse": "Collapse",
+    "expandAll": "Show all",
+    "thinking": "Thinking...",
+    "stopped": "Generation stopped",
+    "saveImage": "Save image"
+  },
+  "banner": {
+    "closeAndAbort": "Close and abort Agent",
+    "title": {
+      "dangerous": "Dangerous operation needs approval",
+      "normal": "Approval required",
+      "safe": "Confirm action"
+    },
+    "action": {
+      "allow": "Allow",
+      "alwaysAllowSession": "Always allow this session",
+      "deny": "Deny",
+      "terminate": "Terminate session"
+    },
+    "confirmButton": "Confirm",
+    "shortcut": {
+      "enterAllowEscDeny": "Enter to allow · Esc to deny",
+      "escDenyOnly": "Click to confirm · Esc to deny"
+    },
+    "reason": {
+      "hardRule": "Matched rule: {{rule}}",
+      "decision": "Reason: {{reason}}",
+      "tooltipLabel": "Reason"
+    },
+    "toolLabel": "Tool",
+    "alwaysAllowTooltip": "Skip future confirmations for this tool in the current session. Resets when the session ends.",
+    "terminateConfirm": {
+      "title": "Terminate session?",
+      "cancel": "Cancel",
+      "confirm": "Terminate"
+    },
+    "description": {
+      "bash": "Run command: {{command}}",
+      "bashGeneric": "Run Bash command",
+      "write": "Write file: {{path}}",
+      "writeGeneric": "Write file",
+      "edit": "Edit file: {{path}}",
+      "editGeneric": "Edit file",
+      "notebookEdit": "Edit Notebook: {{path}}",
+      "notebookEditGeneric": "Edit Notebook",
+      "task": "Launch subtask: {{description}}",
+      "taskGeneric": "Launch subtask",
+      "generic": "Use tool: {{tool}}"
+    }
+  },
+  "projectSwitcher": {
+    "defaultName": "Default research project"
+  },
+  "scrollLatest": {
+    "generating": "Response in progress · Jump to latest",
+    "ready": "Jump to latest",
+    "return": "Return to reading position"
+  }
+}

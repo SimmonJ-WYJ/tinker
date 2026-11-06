@@ -1,0 +1,89 @@
+{
+  "empty": {
+    "unsupported": {
+      "title": "暂不支持预览此类型",
+      "hint": "可通过“另开窗口”用系统默认应用打开"
+    },
+    "tooLarge": {
+      "title": "文件过大，不支持内嵌预览"
+    },
+    "unreadable": {
+      "title": "文件无法访问"
+    },
+    "notFound": {
+      "title": "文件已不存在",
+      "hint": "可能是任务完成后被清理的临时文件"
+    },
+    "empty": {
+      "title": "点击左侧文件或论文预览原文",
+      "hint": "支持 PDF · Markdown · CSV · 代码 · 图片 · Office · Notebook · HTML"
+    },
+    "openExternal": "另开窗口",
+    "revealInFinder": "在 Finder 中显示"
+  },
+  "actions": {
+    "openWithDefaultApp": "用默认应用打开",
+    "revealInFinder": "在 Finder 中显示"
+  },
+  "tab": {
+    "emptyMessage": "(空消息)",
+    "noMessages": "暂无消息",
+    "notFound": "标签页不存在"
+  },
+  "nav": {
+    "prevPaper": "上一篇论文 (↑)",
+    "nextPaper": "下一篇论文 (↓)",
+    "switchedPaper": "已切换论文",
+    "noMorePapers": "无更多论文"
+  },
+  "pdf": {
+    "loading": "加载 PDF…",
+    "quoteNotFound": "PDF 中未找到引用原文",
+    "locateFailed": "未能定位到原句，可手动搜索：「{{snippet}}…」",
+    "pageAriaLabel": "页码",
+    "outline": {
+      "heading": "大纲",
+      "empty": "本 PDF 无大纲"
+    },
+    "search": {
+      "placeholder": "在 PDF 中搜索",
+      "clearAriaLabel": "清空搜索"
+    },
+    "scroll": {
+      "toTop": "回到顶部",
+      "toBottom": "跳到底部"
+    }
+  },
+  "markdown": {
+    "loading": "读取中…",
+    "truncated": "⚠ 文件较大，已截断前 2MB"
+  },
+  "code": {
+    "loading": "读取中…",
+    "truncated": "⚠ 文件较大，已截断前 500KB"
+  },
+  "csv": {
+    "size": "{{cols}} 列 × {{rows}} 行",
+    "truncated": "⚠ 超过 {{max}} 行，仅显示前 {{shown}}（共 {{total}}）"
+  },
+  "html": {
+    "loadFailed": "HTML 加载失败"
+  },
+  "office": {
+    "extracting": "提取文本…",
+    "empty": "文档无可提取文本",
+    "emptyHint": "可能是纯图片 / 扫描件，请用“另开窗口”用系统默认应用查看",
+    "plaintextNotice": "纯文本预览 · 排版和图片已省略"
+  },
+  "notebook": {
+    "loading": "解析 Notebook…"
+  },
+  "image": {
+    "loadFailed": "图片加载失败",
+    "lightboxAlt": "图片预览",
+    "lightboxAria": "预览图片：{{alt}}"
+  },
+  "fileBrowser": {
+    "emptyFolder": "空文件夹"
+  }
+}

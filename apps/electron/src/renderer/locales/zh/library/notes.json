@@ -1,0 +1,91 @@
+{
+  "notes": {
+    "heading": "笔记",
+    "prototypeBadge": "原型",
+    "prototypeHint": "数据为 mock，刷新后丢失",
+    "hint": "在上方论文内容中选中任意文字 → 浮出「记笔记」按钮",
+    "selection": {
+      "button": "存为证据集",
+      "placeholder": "对这段证据写点什么…",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "list": {
+      "empty": "暂无笔记 — 在论文内容中选中文字开始记录",
+      "clickHint": "点击展开详情"
+    },
+    "detail": {
+      "titleNote": "证据详情",
+      "edit": "编辑",
+      "delete": "删除",
+      "save": "保存",
+      "cancel": "取消",
+      "contentPlaceholder": "改写证据内容…",
+      "deleteConfirm": {
+        "title": "确认删除这条证据?",
+        "description": "删除后无法恢复。如果该证据被引用，引用处会标记为「源已移除」。",
+        "confirm": "删除",
+        "cancel": "取消"
+      }
+    },
+    "view": {
+      "title": "全部证据集",
+      "subtitle": "跨论文聚合，按时间倒序",
+      "searchPlaceholder": "搜索证据集内容、原文、论文标题…",
+      "emptySelect": "选中左侧一条证据集查看详情",
+      "emptyAll": "工作区暂无证据集",
+      "emptyFiltered": "无符合条件的证据集",
+      "unlinkedNote": "（游离笔记）",
+      "conversationSource": "{{session}} · {{question}}",
+      "list": {
+        "countLabel": "共 {{count}} 条",
+        "meta": "{{notes}} 笔记 · {{papers}} 篇"
+      },
+      "filter": {
+        "label": "按标签筛选",
+        "all": "全部"
+      },
+      "detail": {
+        "title": "证据集详情",
+        "fromPaper": "来自 {{title}}",
+        "openReview": "打开综述",
+        "openConversation": "跳到会话",
+        "conversationDeletedSession": "（会话已删除）",
+        "noteSection": "笔记",
+        "sourceReviewSection": "综述原文",
+        "evidenceItemsSection": "证据条目",
+        "noEvidenceItems": "尚未关联任何证据条目",
+        "sourceRemoved": "（源已移除）",
+        "sourceRemovedOriginalId": "原 ID {{id}}",
+        "sourceRemovedAt": "移除于 {{time}}",
+        "citeCount": "{{count}} 处引用",
+        "expandGroup": "展开",
+        "collapseGroup": "收起"
+      },
+      "preview": {
+        "back": "返回",
+        "collapse": "收起预览",
+        "expand": "展开预览",
+        "empty": "在左侧点击一条证据条目以预览其来源",
+        "noPdf": "未关联 PDF",
+        "noReviewBody": "未找到综述正文",
+        "conversationDeletedSession": "（会话已删除）",
+        "conversationSubtitle": "保存于 {{time}}",
+        "conversationSubtitleNoTime": "会话快照",
+        "conversationSessionMissing": "来源会话已删除——仅显示快照",
+        "conversationQuestion": "提问",
+        "conversationAnswer": "回答"
+      }
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
+    },
+    "toast": {
+      "created": "证据集已创建",
+      "noWorkspace": "请先选择或打开一个工作区 —— 证据归属于工作区"
+    }
+  }
+}

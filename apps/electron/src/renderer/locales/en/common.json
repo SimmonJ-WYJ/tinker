@@ -1,0 +1,91 @@
+{
+  "settings": "Settings",
+  "language": "Language",
+  "general": "General",
+  "save": "Save",
+  "cancel": "Cancel",
+  "close": "Close",
+  "confirm": "Confirm",
+  "send": "Send",
+  "collapse": "Collapse",
+  "expand": "Expand",
+  "copy": "Copy",
+  "copied": "Copied",
+  "debugCopy": "Copy turn summary (redacted)",
+  "debugCopied": "Turn summary copied",
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out",
+  "resetZoom": "Reset zoom",
+  "untitled": "(untitled)",
+  "userAvatar": "User avatar",
+  "loading": "Loading…",
+  "relativeTime": {
+    "now": "just now",
+    "minute": "{{count}} min",
+    "hour": "{{count}} hr",
+    "day": "{{count}} d",
+    "week": "{{count}} w",
+    "month": "{{count}} mo",
+    "year": "{{count}} y"
+  },
+  "user": "User",
+  "spinner": {
+    "loading": "Loading"
+  },
+  "actions": {
+    "attach": "Attach file",
+    "attachLabel": "Attach"
+  },
+  "image": {
+    "save": "Save image"
+  },
+  "modelSelector": {
+    "noModelsCta": "No models available, open settings",
+    "selectModel": "Select model",
+    "searchPlaceholder": "Search model, ID or channel…",
+    "noResults": "No models found",
+    "manageChannels": "Manage channels & models",
+    "menuLabel": "Select model",
+    "hint": "Applies to this session",
+    "tooltipDescription": "Choose the model for the current session",
+    "tooltipHint": "Click to choose · this session only",
+    "navigate": "navigate",
+    "confirm": "confirm",
+    "searchLabel": "Search models or channels",
+    "chatChannel": "Chat channel",
+    "unverified": "Channel type comes from configuration. Other capabilities and prices are unverified.",
+    "imageChannels": "Image tool channels: {{channels}}. Manage these in settings."
+  },
+  "modelFallback": {
+    "aliasInactive": "Sub-agent \"{{agentName}}\" needs a {{family}} model, which isn't enabled. Using {{model}} instead.",
+    "noClaudeActivated": "No Claude model is enabled on the current channel. Enable one under Model providers, then try again.",
+    "summary": "{{count}} supporting tasks will use {{model}} because the requested {{family}} models are not enabled."
+  },
+  "imageReferenceCount": "{{count}} reference images",
+  "imageActualDimensions": "Actual dimensions: {{width}} × {{height}} px",
+  "imageEditDimensionsNotice": "Original dimensions and unchanged pixels are not guaranteed by text instructions alone.",
+  "imageBillingNotice": "Image generation and edits may incur charges, including failed requests. Check your relay bill for actual costs; Tinker has no verified quote for this channel.",
+  "imageVersion": {
+    "label": "Version {{id}}",
+    "from": "from {{id}}",
+    "edit": "Edit from this image",
+    "compare": "Compare versions",
+    "source": "Source version",
+    "current": "This version",
+    "compareNote": "Images keep their own aspect ratios. This view does not claim pixel-perfect alignment.",
+    "missing": "This image file is unavailable. Check local files or choose another version before editing.",
+    "unavailableId": "A stable image version in this session is required.",
+    "parentMissing": "The source version record is unavailable.",
+    "selected": "Editing version {{id}}",
+    "selectedNote": "Describe the changes, then send. No image is generated until you send.",
+    "remove": "Remove image reference"
+  },
+  "sendRecovery": {
+    "title": "Request did not complete",
+    "notice": "This request may already have incurred charges. Check your provider bill before sending again. Restoring a draft does not resend it.",
+    "view": "View the unsent draft",
+    "restore": "Restore draft",
+    "occupied": "The editor already has a draft or reference. You can keep editing; restoring will not replace it.",
+    "attachmentFailed": "Attachments could not be prepared. Your draft is kept; no model request was sent."
+  }
+}

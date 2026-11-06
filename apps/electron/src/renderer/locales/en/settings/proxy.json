@@ -1,0 +1,25 @@
+{
+  "proxy": {
+    "loading": "Loading...",
+    "section": {
+      "title": "Proxy configuration",
+      "description": "When configured, all AI API requests (Agent) will be sent through the proxy"
+    },
+    "enableLabel": "Enable proxy",
+    "enableDescription": "When enabled, choose a system proxy or configure manually",
+    "modeSection": "Proxy mode",
+    "system": {
+      "title": "System proxy (recommended)",
+      "description": "Auto-detects the OS proxy settings (macOS Network preferences, Windows Internet options, etc.)",
+      "detect": "Detect system proxy",
+      "detected": "Detected system proxy: {{url}}",
+      "detectFailed": "Detection failed"
+    },
+    "manual": {
+      "title": "Manual configuration",
+      "description": "Manually enter the proxy address and port",
+      "placeholder": "http://127.0.0.1:7890",
+      "format": "Format: http://host:port or https://host:port"
+    }
+  }
+}

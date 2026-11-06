@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "title": "Profile",
+    "description": "Avatar and display name are used in conversations and notifications",
+    "avatar": {
+      "label": "Avatar",
+      "description": "Shown in conversations and notifications. Click the avatar to change."
+    },
+    "name": {
+      "label": "Display name",
+      "description": "Name shown in conversations and notifications",
+      "placeholder": "Your name"
+    },
+    "changeAvatar": "Change avatar",
+    "uploadCustom": "Upload custom image",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit"
+  }
+}

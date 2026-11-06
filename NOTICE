@@ -1,0 +1,26 @@
+ASCI (Agent-based Scientific Collaboration Interface)
+Copyright 2025-2026 OPENSCI Labs
+
+This product includes software developed by OPENSCI Labs.
+https://github.com/OPENSCI-Labs/ASCI-Alpha
+
+================================================================================
+This product is derived from Craft Agents OSS, which contains the following
+attribution notice (preserved per Apache License 2.0, Section 4(d)):
+================================================================================
+
+Craft Agents
+Copyright 2026 Craft Docs Ltd.
+
+This product includes software developed by Craft Docs Ltd.
+https://craft.do
+
+---
+
+This project uses the Claude Agent SDK, which is subject to Anthropic's
+Commercial Terms of Service: https://www.anthropic.com/legal/commercial-terms
+
+---
+
+Third-party dependencies are listed in package.json files and are subject
+to their respective licenses.

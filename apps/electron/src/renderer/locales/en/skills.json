@@ -1,0 +1,80 @@
+{
+  "categories": {
+    "all": "All",
+    "allLabel": "All Skills",
+    "default": "Default",
+    "custom": "Custom",
+    "general": "General",
+    "biology": "Biology",
+    "chemistry": "Chemistry",
+    "medicine": "Medicine",
+    "machineLearning": "Machine Learning",
+    "dataScience": "Data Science",
+    "physics": "Physics",
+    "mathematics": "Mathematics",
+    "geospatial": "Geospatial",
+    "labPlatform": "Lab Platform"
+  },
+  "view": {
+    "more": "More",
+    "skillCount": "{{count}} items",
+    "totalEnabled": "{{enabled}}/{{total}} enabled",
+    "searchAll": "Search all skills...",
+    "searchInScope": "Search in \"{{scope}}\"...",
+    "clearSearch": "Clear search",
+    "heading": "Skills",
+    "description": "Manage the capability fragments available to the Agent. Toggle individually; see source and which capability packs reference each one.",
+    "loadError": "Failed to load skills",
+    "noWorkspace": "No active workspace; skills cannot be loaded.",
+    "toggleError": "Toggle failed; reverted to previous state",
+    "usedBy": "Used by:",
+    "lockedByPack": "Provided by a capability pack; enabled by default and cannot be disabled individually",
+    "expand": "Show all",
+    "collapse": "Collapse",
+    "statusLabel": "Status",
+    "sourceLabel": "Source",
+    "resultUnit": "skills",
+    "resultStateAll": "no filters",
+    "resultStateFiltered": "filtered",
+    "sourceFilter": {
+      "all": "All sources",
+      "builtin": "Built-in",
+      "fromPack": "From capability pack"
+    },
+    "sourceBadge": {
+      "builtin": "Built-in",
+      "fromPack": "From pack"
+    },
+    "filter": {
+      "all": "All statuses",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "results": {
+      "showing": "Showing {{count}} items",
+      "inScope": "in \"{{scope}}\"",
+      "searchInAll": "Search in all categories",
+      "clearFilters": "Clear filters"
+    },
+    "empty": {
+      "filtered": "No matching skills. Adjust the search or filter.",
+      "category": "No skills in this category"
+    },
+    "row": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "updateAvailable": "Update available",
+      "source": "Source: {{name}}",
+      "syncFromSource": "Sync update from source project",
+      "openFolder": "Open folder",
+      "delete": "Delete"
+    }
+  },
+  "header": {
+    "batch": "Batch:",
+    "enableN": "Enable {{count}}",
+    "disableN": "Disable {{count}}",
+    "enableTooltip": "Enable {{count}} skills",
+    "disableTooltip": "Disable {{count}} skills"
+  }
+}

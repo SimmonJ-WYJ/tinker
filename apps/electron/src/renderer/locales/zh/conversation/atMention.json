@@ -1,0 +1,85 @@
+{
+  "atMention": {
+    "header": "选择来源",
+    "category": {
+      "projectFiles": "项目文件",
+      "library": "文献库",
+      "evidenceSet": "证据集"
+    },
+    "breadcrumb": {
+      "back": "返回上一级",
+      "projectFiles": "项目文件",
+      "library": "文献库",
+      "evidenceSet": "证据集",
+      "allItems": "全部条目",
+      "collectionFallback": "类目"
+    },
+    "allItems": "全部条目",
+    "evidenceSet": {
+      "untitled": "未命名证据集",
+      "paperCount_one": "{{count}} 篇论文",
+      "paperCount_other": "{{count}} 篇论文"
+    },
+    "rootHints": {
+      "workspaceFallbackName": "工作区",
+      "workspaceWithDirs_one": "工作区：{{name}} · 已选 {{count}} 个目录",
+      "workspaceWithDirs_other": "工作区：{{name}} · 已选 {{count}} 个目录",
+      "workspaceOnly": "工作区：{{name}}",
+      "noWorkspace": "未设置工作区",
+      "evidenceSet": "本工作区已保存的证据集",
+      "evidenceSetNoWorkspace": "未设置工作区",
+      "zotero": {
+        "disabled": "Zotero 未启用",
+        "notRunning": "Zotero 未运行",
+        "loadFailed": "加载失败",
+        "loading": "加载中…",
+        "connected": "Zotero 已连接",
+        "papersCount_one": "{{count}} 条文献",
+        "papersCount_other": "{{count}} 条文献",
+        "papersCountOver": "{{limit}}+ 条文献",
+        "collectionsCount_one": "{{count}} 个 collection",
+        "collectionsCount_other": "{{count}} 个 collection"
+      }
+    },
+    "zotero": {
+      "disabled": {
+        "title": "Zotero 未启用",
+        "description": "请到“设置 → Zotero”开启后再使用"
+      },
+      "notRunning": {
+        "title": "Zotero 未运行",
+        "description": "启动 Zotero 后即可引用文献库条目",
+        "action": "启动 Zotero"
+      },
+      "error": {
+        "title": "加载 Zotero 失败",
+        "loadFailedPrefix": "加载失败：{{message}}"
+      }
+    },
+    "search": {
+      "libraryRootCollections": "搜索 collection",
+      "libraryRootInline": "搜索文献库条目",
+      "libraryAllItems": "搜索全部 Zotero 条目",
+      "libraryCollection": "搜索当前 collection 条目",
+      "evidenceSets": "搜索证据集"
+    },
+    "empty": {
+      "files": "无匹配文件",
+      "entries": "无匹配条目",
+      "categories": "无匹配类目",
+      "evidenceSets": "本工作区暂无证据集",
+      "generic": "无条目"
+    },
+    "hintEnterFolder": "进入",
+    "hintBack": "返回",
+    "creators": {
+      "andOthers": "{{first}} 等 {{count}} 人"
+    },
+    "keyboardHint": {
+      "select": "↑↓ 选择",
+      "drillCollection": "→ 进入 collection",
+      "insert": "插入",
+      "back": "← 返回"
+    }
+  }
+}

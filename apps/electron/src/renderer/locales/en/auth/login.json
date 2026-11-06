@@ -1,0 +1,35 @@
+{
+  "title": "Welcome to Tinker",
+  "cancel": "Cancel",
+  "oauthPending": "Waiting for Google authorization in your browser…",
+  "oauthCancel": "Cancel",
+  "oauthTimeout": "Timed out. Please try again.",
+  "localDataNotice": "Papers and notes are stored locally. They won’t\nappear automatically when you switch devices.",
+  "legalConsent": "By continuing, you agree to our\n<terms>Terms of Use</terms> and <privacy>Privacy Policy</privacy>.",
+  "withGoogle": "Sign in with Google",
+  "workspaceTagline": "Your AI coding workspace",
+  "eyebrow": "FROM FIRST PROMPT TO WORKING CODE",
+  "headlineFirst": "Your next idea.",
+  "headlineSecond": "Built with AI.",
+  "description": "Turn what you have in mind into code you can run.\nBuild, debug, and iterate alongside AI.",
+  "steps": {
+    "describe": {
+      "label": "01  /  DESCRIBE",
+      "title": "Start with what you want to build.",
+      "description": "Put your goal into words. Give your idea a starting point."
+    },
+    "build": {
+      "label": "02  /  BUILD",
+      "title": "Work through the code with AI.",
+      "description": "Write new features, understand errors, and explore solutions."
+    },
+    "refine": {
+      "label": "03  /  REFINE",
+      "title": "Review. Test. Make it yours.",
+      "description": "Check the changes, test your code, and refine the result."
+    }
+  },
+  "footer": "Less friction between an idea and working code.",
+  "subtitle": "Bring an idea. Start a conversation.\nLet’s build something that works.",
+  "localDataTitle": "Your project stays on this device"
+}

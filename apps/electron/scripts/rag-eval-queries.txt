@@ -1,0 +1,55 @@
+# RAG 五路检索对比 —— 测试 query 集（committed 测试夹具）
+#
+# 格式：每行 `查询文本 | 分类`（`# ` 开头为注释，空行忽略）。
+# 这批 query 都基于 ~/.asci(-dev) 实际语料里确有答案的论文设计，覆盖 7 类。
+# 其中「跨语言中文」与「对比综述」各配一份**同义英文平行版**（跨语言英文 / 对比综述英文），
+# 同一意图中↔英两跑，用来把「跨语言」这刀与「综述/对比意图」本身的难度拆开归因。跑法：
+#   bun run eval:rag -- --file scripts/rag-eval-queries.txt --out <输出目录>
+#
+# 语料锚定（部分）：FlashAttention / GQA / MoH / LoRA / CoT / GPT-3 few-shot /
+#   InstructGPT(RLHF) / FineWeb / RefinedWeb / Data Pruning / 知识图谱综述 /
+#   自主智能体综述 / Scaling Laws / ViT / ResNet / Attention Is All You Need
+
+# ── 精确术语（英文；ripgrep/FTS5 应强，字面命中）──
+FlashAttention | 精确术语
+LoRA low-rank adaptation | 精确术语
+chain-of-thought prompting | 精确术语
+grouped-query attention | 精确术语
+mixture-of-head attention | 精确术语
+
+# ── 自然语言英文意图（ripgrep 应弱，向量应强）──
+how to reduce attention memory cost at long context length | 自然语言英文
+adapting large language models with few trainable parameters | 自然语言英文
+improving factual accuracy of long-form generation | 自然语言英文
+aligning language models with human feedback | 自然语言英文
+cleaning and deduplicating web data for pretraining | 自然语言英文
+
+# ── 跨语言中文（ripgrep/FTS5 应全挂，向量唯一支柱）──
+如何降低长上下文注意力的显存开销 | 跨语言中文
+大语言模型的少样本学习能力 | 跨语言中文
+用人类反馈对齐大模型 | 跨语言中文
+思维链推理提升大模型表现 | 跨语言中文
+参数高效微调 低秩适配 | 跨语言中文
+自主智能体的记忆与规划 | 跨语言中文
+
+# ── 跨语言英文（上面 6 条「跨语言中文」的同义英文平行版，逐条对照看跨语言损失）──
+reducing the memory footprint of attention at long context | 跨语言英文
+few-shot learning capability of large language models | 跨语言英文
+aligning large models with human feedback | 跨语言英文
+chain-of-thought reasoning improves large model performance | 跨语言英文
+parameter-efficient fine-tuning with low-rank adaptation | 跨语言英文
+memory and planning in autonomous agents | 跨语言英文
+
+# ── 对比/综述合成意图（中文）──
+对比多头、多查询与分组查询注意力的取舍 | 对比综述
+预训练数据清洗与去重方法 | 对比综述
+知识图谱的表示与补全方法 | 对比综述
+
+# ── 对比综述英文（上面 3 条「对比综述」的同义英文平行版，隔离"综述意图"本身的难度）──
+compare the tradeoffs of multi-head, multi-query and grouped-query attention | 对比综述英文
+methods for cleaning and deduplicating pretraining data | 对比综述英文
+methods for knowledge graph representation and completion | 对比综述英文
+
+# ── 跨域精确度（测误召回：库里有但主题分散）──
+scaling laws for neural language models | 跨域精确度
+vision transformer for image classification | 跨域精确度

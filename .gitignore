@@ -1,0 +1,85 @@
+# dependencies (bun install)
+node_modules
+
+# git worktrees (本地开发隔离目录)
+.worktrees
+
+.gates
+.playwright-mcp
+tasks
+
+# output
+out
+dist
+*.tgz
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# 本地 npm/registry 偏好（镜像源等），不强加给团队和 CI
+.npmrc
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+
+# ignore craft-agents-oss folder
+craft-agents-oss
+
+# vendor binaries
+vendor
+
+# MCP 子进程 esbuild 产物（zotero / ocr / asr / workspace-papers / pdf-parser）
+apps/electron/resources/*/server.cjs
+
+# 内置 Python 运行时与 uv 二进制（构建期由 scripts/download-python-runtime.ts 下载）
+apps/electron/resources/python/
+
+# Superpowers brainstorming session data
+.superpowers/
+docs/superpowers/
+
+# ya-ai local config
+ya-docs/
+.claude/CLAUDE.md
+.claude/
+
+# Tinker local credentials and installers
+.env.*
+!.env.example
+*.dmg
+*.pkg
+*.exe
+*.zip
+*.p12
+*.pfx
+*.key
+channels.json
+auth-tokens.json
+auth-google.json
+agent-sessions.json
+.asci/
+.asci-dev/
+
+# Generated local image QA bundle
+apps/electron/image-qa.mjs

@@ -1,0 +1,89 @@
+{
+  "empty": {
+    "unsupported": {
+      "title": "Preview not supported for this type",
+      "hint": "Use \"Open in new window\" to view with the system default app"
+    },
+    "tooLarge": {
+      "title": "File too large for inline preview"
+    },
+    "unreadable": {
+      "title": "Unable to access the file"
+    },
+    "notFound": {
+      "title": "File no longer exists",
+      "hint": "It may have been a temporary file removed after the task finished"
+    },
+    "empty": {
+      "title": "Pick a file or paper on the left to preview",
+      "hint": "Supports PDF · Markdown · CSV · Code · Image · Office · Notebook · HTML"
+    },
+    "openExternal": "Open in new window",
+    "revealInFinder": "Show in Finder"
+  },
+  "actions": {
+    "openWithDefaultApp": "Open with default app",
+    "revealInFinder": "Show in Finder"
+  },
+  "tab": {
+    "emptyMessage": "(empty message)",
+    "noMessages": "No messages",
+    "notFound": "Tab not found"
+  },
+  "nav": {
+    "prevPaper": "Previous paper (↑)",
+    "nextPaper": "Next paper (↓)",
+    "switchedPaper": "Switched paper",
+    "noMorePapers": "No more papers"
+  },
+  "pdf": {
+    "loading": "Loading PDF…",
+    "quoteNotFound": "Cited text not found in this PDF",
+    "locateFailed": "Couldn't locate the quote in the PDF. Search manually: “{{snippet}}…”",
+    "pageAriaLabel": "Page",
+    "outline": {
+      "heading": "Outline",
+      "empty": "No outline in this PDF"
+    },
+    "search": {
+      "placeholder": "Search in PDF",
+      "clearAriaLabel": "Clear search"
+    },
+    "scroll": {
+      "toTop": "Scroll to top",
+      "toBottom": "Scroll to bottom"
+    }
+  },
+  "markdown": {
+    "loading": "Reading…",
+    "truncated": "⚠ Large file — first 2 MB shown"
+  },
+  "code": {
+    "loading": "Reading…",
+    "truncated": "⚠ Large file — first 500 KB shown"
+  },
+  "csv": {
+    "size": "{{cols}} cols × {{rows}} rows",
+    "truncated": "⚠ Exceeded {{max}} rows — showing first {{shown}} (total {{total}})"
+  },
+  "html": {
+    "loadFailed": "Failed to load HTML"
+  },
+  "office": {
+    "extracting": "Extracting text…",
+    "empty": "No extractable text in document",
+    "emptyHint": "Likely an image / scanned file — use \"Open in new window\" to view with the system default app",
+    "plaintextNotice": "Plain-text preview · layout and images omitted"
+  },
+  "notebook": {
+    "loading": "Parsing notebook…"
+  },
+  "image": {
+    "loadFailed": "Failed to load image",
+    "lightboxAlt": "Image preview",
+    "lightboxAria": "Preview image: {{alt}}"
+  },
+  "fileBrowser": {
+    "emptyFolder": "Empty folder"
+  }
+}

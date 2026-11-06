@@ -1,0 +1,20 @@
+# 扩展 gitleaks 内置规则，并登记已知误报到 allowlist
+# gitleaks detect --source . 会自动从 repo 根加载此文件
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-specific false positives"
+paths = [
+  # protocolsio-integration skill 的 API 文档包含 `Authorization: Bearer YOUR_TOKEN`
+  # 之类的模板示例，被 curl-auth-header 规则误判为密钥泄漏；实际是文档占位符。
+  '''apps/electron/default-skills/protocolsio-integration/references/''',
+  # database-lookup skill 同上：noaa.md 等含 `curl -H "Token: YOUR_TOKEN"` 占位示例。
+  '''apps/electron/default-skills/database-lookup/references/''',
+  # 遥测构建期注入配置（ADR-011）：仅含 PostHog/Sentry publishable key
+  # （只能写事件、读不了数据，官方认可提交进仓库；详见文件内 _comment）。
+  # generic-api-key 规则按熵值把 phc_ key 误判为密钥泄漏，此处整文件豁免。
+  '''apps/electron/telemetry.config.json''',
+]
+regexes = []

@@ -1,0 +1,7 @@
+[test]
+preload = ["./apps/electron/test-setup.ts"]
+
+# `.sql` 文件作为 text 导入（migrations 用，详见 apps/electron/src/main/lib/objects/）
+# 生产 main 进程靠 esbuild `--loader:.sql=text` 实现同样行为
+[loader]
+".sql" = "text"

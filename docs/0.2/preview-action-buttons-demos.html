@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Preview 侧边栏操作按钮 — 4 个方案对比</title>
+<style>
+  :root {
+    --page-bg: #f4f4f3;
+    --card-bg: #ffffff;
+    --text: #1f1f1d;
+    --text-soft: #6f6f69;
+    --text-faint: #9a9a93;
+    --hair: #ececea;
+
+    /* 按钮：浅灰填充，与当前页面一致 */
+    --btn-bg: #f1f0ee;
+    --btn-bg-hover: #e7e6e2;
+    --btn-text: #2a2a27;
+    --btn-radius: 9px;
+
+    /* 主按钮：深色实底（无渐变），用于轻微强调 Preview */
+    --btn-primary-bg: #232321;
+    --btn-primary-bg-hover: #36352f;
+    --btn-primary-text: #ffffff;
+
+    --zotero-red: #cc2936;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--text);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 32px 20px 64px;
+  }
+  .page-head {
+    max-width: 1120px;
+    margin: 0 auto 24px;
+  }
+  .page-head h1 { font-size: 18px; font-weight: 650; margin: 0 0 4px; }
+  .page-head p { margin: 0; color: var(--text-soft); font-size: 13px; }
+
+  /* 2×2 网格陈列 4 个 Demo；窄屏单列 */
+  .grid {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+  .demo {
+    background: var(--card-bg);
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    display: flex;
+    flex-direction: column;
+  }
+  .demo__label {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hair);
+    background: #fafafa;
+  }
+  .demo__label b { font-size: 13px; font-weight: 650; }
+  .demo__label span { font-size: 12px; color: var(--text-soft); }
+
+  /* 模拟侧边栏宽度（受限），便于看换行/响应式 */
+  .sidebar {
+    width: 380px;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 18px 18px 16px;
+  }
+
+  /* —— 论文内容结构（与当前页面一致，仅截断展示）—— */
+  .src { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .src .doi {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--btn-bg); color: #44443f;
+    font-size: 12px; padding: 4px 9px; border-radius: 7px;
+  }
+  .src .year { color: var(--text-soft); font-size: 12px; }
+  .title { font-size: 17px; font-weight: 650; line-height: 1.3; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .authors { color: var(--text-soft); font-size: 13px; margin: 12px 0 10px; }
+  .abstract { color: #3a3a37; font-size: 13px; margin: 0; }
+  .abstract .more { color: var(--text-faint); }
+  .meta { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 11.5px; }
+  .meta dt { color: var(--text-faint); }
+  .meta dd { margin: 0; color: #4a4a45; }
+
+  /* —— 按钮 —— */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    font-size: 13px; font-weight: 500; line-height: 1;
+    padding: 8px 13px;
+    color: var(--btn-text);
+    background: var(--btn-bg);
+    border: 1px solid transparent;
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s ease;
+  }
+  .btn:hover { background: var(--btn-bg-hover); }
+  .btn svg { width: 15px; height: 15px; flex: none; }
+  .btn--primary { background: var(--btn-primary-bg); color: var(--btn-primary-text); }
+  .btn--primary:hover { background: var(--btn-primary-bg-hover); }
+  .btn--full { width: 100%; }
+  .btn .zlogo {
+    width: 16px; height: 16px; border-radius: 4px; background: var(--zotero-red);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 10px; flex: none;
+  }
+
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .rows { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .rows .row { width: 100%; }
+
+  /* Demo 2：组间更大间距 */
+  .row--grouped { gap: 8px; }
+  .row--grouped .group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .row--grouped .group + .group { margin-left: 20px; }
+
+  /* Demo 4：分组标题 */
+  .seg + .seg { margin-top: 12px; }
+  .seg__title {
+    font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-faint); margin: 0 0 6px;
+  }
+
+  .note {
+    padding: 11px 16px 14px;
+    border-top: 1px dashed var(--hair);
+    color: var(--text-soft);
+    font-size: 12.5px;
+    background: #fcfcfb;
+  }
+  .actions { margin: 0 0 2px; } /* 操作区容器：标题下、作者上 */
+</style>
+</head>
+<body>
+  <div class="page-head">
+    <h1>Preview 侧边栏 · 操作按钮区 4 方案对比</h1>
+    <p>操作区位于「标题下方、作者与摘要上方」。Preview / Download = 阅读获取，Add to Zotero = 文献管理，Citation graph = 研究探索。浅灰按钮 · 圆角 · 无渐变。</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- ===== Demo 1：两行分组（推荐） ===== -->
+    <section class="demo">
+      <div class="demo__label"><b>Demo 1</b><span>两行分组（推荐）</span></div>
+      <div class="sidebar">
+        <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
+        <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
+
+        <div class="actions rows">
+          <div class="row">
+            <button class="btn btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>Download</button>
+          </div>
+          <div class="row">
+            <button class="btn"><span class="zlogo">Z</span>Add to Zotero</button>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8 15.7 6.2"/><path d="m8.3 13.2 7.4 4.6"/></svg>Citation graph</button>
+          </div>
+        </div>
+
+        <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <dl class="meta">
+          <dt>Source</dt><dd>OpenAlex</dd>
+          <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
+          <dt>Citations</dt><dd>1,423</dd>
+        </dl>
+      </div>
+      <p class="note">适合：默认场景。阅读类（Preview/Download）与管理类（Zotero/图谱）天然分行，主次清晰、窄栏不挤；Preview 深色实底引导“先预览”。</p>
+    </section>
+
+    <!-- ===== Demo 2：一行分组 ===== -->
+    <section class="demo">
+      <div class="demo__label"><b>Demo 2</b><span>一行分组（组间留白）</span></div>
+      <div class="sidebar">
+        <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
+        <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
+
+        <div class="actions row row--grouped">
+          <div class="group">
+            <button class="btn btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>Download</button>
+          </div>
+          <div class="group">
+            <button class="btn"><span class="zlogo">Z</span>Add to Zotero</button>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8 15.7 6.2"/><path d="m8.3 13.2 7.4 4.6"/></svg>Citation graph</button>
+          </div>
+        </div>
+
+        <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <dl class="meta">
+          <dt>Source</dt><dd>OpenAlex</dd>
+          <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
+          <dt>Citations</dt><dd>1,423</dd>
+        </dl>
+      </div>
+      <p class="note">适合：栏稍宽、想省垂直空间。一行内用更大间距把两组分开；窄栏时整组自动换行，分组关系仍可读。</p>
+    </section>
+
+    <!-- ===== Demo 3：主按钮 + 次级 ===== -->
+    <section class="demo">
+      <div class="demo__label"><b>Demo 3</b><span>主按钮 + 次级操作</span></div>
+      <div class="sidebar">
+        <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
+        <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
+
+        <div class="actions rows">
+          <button class="btn btn--primary btn--full"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+          <div class="row">
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>Download</button>
+            <button class="btn"><span class="zlogo">Z</span>Add to Zotero</button>
+            <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8 15.7 6.2"/><path d="m8.3 13.2 7.4 4.6"/></svg>Citation graph</button>
+          </div>
+        </div>
+
+        <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <dl class="meta">
+          <dt>Source</dt><dd>OpenAlex</dd>
+          <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
+          <dt>Citations</dt><dd>1,423</dd>
+        </dl>
+      </div>
+      <p class="note">适合：强引导“先读论文”。Preview 满宽主按钮最显眼，其余三个并列为次级；动作主次最分明，但占两行且 Preview 略重。</p>
+    </section>
+
+    <!-- ===== Demo 4：语义分区 ===== -->
+    <section class="demo">
+      <div class="demo__label"><b>Demo 4</b><span>语义分区（Read / Manage）</span></div>
+      <div class="sidebar">
+        <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
+        <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
+
+        <div class="actions">
+          <div class="seg">
+            <p class="seg__title">Read</p>
+            <div class="row">
+              <button class="btn btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>Download</button>
+            </div>
+          </div>
+          <div class="seg">
+            <p class="seg__title">Manage</p>
+            <div class="row">
+              <button class="btn"><span class="zlogo">Z</span>Add to Zotero</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8 15.7 6.2"/><path d="m8.3 13.2 7.4 4.6"/></svg>Citation graph</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <dl class="meta">
+          <dt>Source</dt><dd>OpenAlex</dd>
+          <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
+          <dt>Citations</dt><dd>1,423</dd>
+        </dl>
+      </div>
+      <p class="note">适合：功能多、想最清晰地表达分类。淡灰分组标题点明语义；最直白但多占两行高度、标题略增视觉噪音。</p>
+    </section>
+
+  </div>
+</body>
+</html>

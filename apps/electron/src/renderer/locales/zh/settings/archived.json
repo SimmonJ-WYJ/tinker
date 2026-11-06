@@ -1,0 +1,17 @@
+{
+  "archived": {
+    "deleteDialog": {
+      "title": "确认删除对话",
+      "description": "删除后将无法恢复，确定要删除这个对话吗？"
+    },
+    "common": {
+      "cancel": "取消",
+      "delete": "删除"
+    },
+    "toast": {
+      "archived": "已归档",
+      "unarchived": "已取消归档"
+    },
+    "empty": "当前项目下没有已归档的会话"
+  }
+}

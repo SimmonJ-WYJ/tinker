@@ -1,0 +1,31 @@
+/* ===== base 层：全局 element 重置 + 编辑器基础样式 ===== */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* ===== 输入框段落紧凑行距（仅作用于输入框内的 tiptap 编辑器） ===== */
+  .rich-text-input .tiptap p {
+    margin: 0;
+  }
+
+  /* ===== 输入框内代码块：浅色主题使用深色 code-bg + 浅色文字，与 AI 代码块一致 ===== */
+  /* 深色主题在 theme-overrides.css 覆盖 */
+  .tiptap pre {
+    background-color: hsl(var(--code-bg));
+    color: hsl(0 0% 90%);
+  }
+  .tiptap pre code {
+    color: inherit;
+  }
+
+  /* ===== prose inline code：移除 Tailwind Typography 默认的前后反引号伪元素 ===== */
+  .prose code::before,
+  .prose code::after {
+    content: none;
+  }
+}

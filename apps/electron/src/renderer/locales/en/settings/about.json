@@ -1,0 +1,73 @@
+{
+  "about": {
+    "title": "About Tinker",
+    "description": "The next-generation AI software with built-in general AI Agents",
+    "version": "Version",
+    "softwareUpdate": "Software update",
+    "checkUpdate": "Check for updates",
+    "goDownload": "Go to download",
+    "checking": "Checking...",
+    "available": "Update v{{version}} available",
+    "upToDate": "You are up to date",
+    "checkFailed": "Check failed",
+    "releaseNotes": "Release notes",
+    "debug": {
+      "title": "Debug mode",
+      "description": "Enable developer diagnostics and debug-only UI. Takes effect immediately; some startup-only diagnostics (error reporting) apply after restart."
+    },
+    "spotlight": {
+      "title": "Onboarding tour",
+      "description": "Replay the spotlight onboarding to revisit core features",
+      "replay": "Replay",
+      "failed": "Failed to start tour"
+    },
+    "legal": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Use"
+    },
+    "shell": {
+      "title": "Shell environment (Windows)",
+      "subtitle": "Agent mode requires Git Bash or WSL support",
+      "summaryOk": "Environment OK",
+      "summaryIssues": "{{count}} issue(s)",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "checking": "Checking...",
+      "recheck": "Recheck",
+      "gitBash": "Git Bash",
+      "wsl": "WSL",
+      "gitBashRequirement": "Bundled with Git for Windows",
+      "wslRequirement": "WSL 1 or WSL 2",
+      "notInstalled": "Not installed",
+      "wslDefault": "Default distro: {{name}} ({{distros}})",
+      "wslDefaultUnset": "(not set)",
+      "currentlyUsing": "Currently using:",
+      "gitBashRecommended": "Git Bash (recommended)",
+      "noShellWarning": "No usable Shell environment detected!",
+      "noShellHelp": "Agent mode requires Git Bash or WSL. Install one and restart the app."
+    }
+  },
+  "versionHistory": {
+    "title": "Version history",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load",
+    "summary": {
+      "empty": "No version history",
+      "withCount": "Latest {{count}} stable versions",
+      "default": "View recent GitHub Releases"
+    },
+    "refresh": "Refresh",
+    "expand": "Expand version history",
+    "collapse": "Collapse version history",
+    "latest": "Latest"
+  },
+  "releaseNotes": {
+    "preRelease": "Pre-release",
+    "github": "View on GitHub",
+    "today": "Released today",
+    "yesterday": "Released yesterday",
+    "daysAgo": "Released {{count}} days ago",
+    "weeksAgo": "Released {{count}} weeks ago",
+    "empty": "No release notes"
+  }
+}

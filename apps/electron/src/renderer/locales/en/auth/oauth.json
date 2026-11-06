@@ -1,0 +1,7 @@
+{
+  "connecting": "Connecting to provider...",
+  "waitingBrowser": "Complete sign-in in your browser",
+  "success": "Sign-in successful",
+  "cancelled": "Sign-in cancelled",
+  "error": "Sign-in failed"
+}

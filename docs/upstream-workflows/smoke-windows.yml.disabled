@@ -1,0 +1,84 @@
+name: Windows Packaging Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  win-dir:
+    name: Build win-unpacked
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Cache Python runtime download per version/platform
+      - name: Cache Python runtime
+        uses: actions/cache@v5
+        with:
+          path: apps/electron/resources/python/win32-x64
+          key: pyrt-win32-x64-pbs20241016-py3.12.7-uv0.4.30  # gitleaks:allow（cache key，不是 secret）
+
+      - name: Download Python runtime
+        run: bun run scripts/download-python-runtime.ts --target=win32-x64
+
+      - name: Build Electron app
+        run: bun run electron:build
+
+      - name: Package Windows directory
+        env:
+          ASCI_PY_TARGET: win32-x64
+        run: npx electron-builder --win --dir
+        working-directory: apps/electron
+
+      - name: Verify Claude Agent SDK native binary
+        shell: pwsh
+        run: |
+          $binaryCandidates = @(
+            "apps/electron/out/win-unpacked/resources/app/node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe",
+            "apps/electron/out/win-unpacked/resources/app/node_modules/@anthropic-ai/claude-agent-sdk/node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe"
+          )
+
+          $binary = $binaryCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (!$binary) {
+            throw "Missing Claude Code native binary. Checked: $($binaryCandidates -join ', ')"
+          }
+
+          Write-Host "Found Claude Code native binary: $binary"
+
+      - name: Verify Python runtime is bundled
+        shell: pwsh
+        run: |
+          $exe = "apps/electron/out/win-unpacked/resources/python/runtime/python.exe"
+          if (!(Test-Path $exe)) { throw "Missing Python runtime: $exe" }
+          $version = & $exe --version
+          Write-Host "Python: $version"
+          if ($version -notmatch "3\.12\.7") { throw "Unexpected Python version: $version" }
+
+          $uv = "apps/electron/out/win-unpacked/resources/python/uv.exe"
+          if (!(Test-Path $uv)) { throw "Missing uv binary: $uv" }
+          $uvVersion = & $uv --version
+          Write-Host "uv: $uvVersion"
+          if ($uvVersion -notmatch "0\.4\.30") { throw "Unexpected uv version: $uvVersion" }
+
+      - name: Upload win-unpacked artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-win-unpacked
+          path: apps/electron/out/win-unpacked/**

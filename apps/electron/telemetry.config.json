@@ -1,0 +1,5 @@
+{
+  "_comment": "Tinker candidate: telemetry endpoints are not configured.",
+  "posthogKey": "",
+  "sentryDsn": ""
+}

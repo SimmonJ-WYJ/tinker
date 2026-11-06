@@ -1,0 +1,288 @@
+{
+  "title": "Library",
+  "tree": {
+    "allItems": "All items"
+  },
+  "search": {
+    "placeholder": "Search Zotero library..."
+  },
+  "list": {
+    "searchResults": "Search results",
+    "currentCollection": "Current collection",
+    "countSuffix": " · {{count}}{{plus}} items",
+    "loadMore": "Load more",
+    "emptySearch": "No matching items. Try a different keyword.",
+    "emptyCollection": "No items in this collection",
+    "creatorsExtra": "and {{count}} others"
+  },
+  "detail": {
+    "emptySelect": "Select an item from the list to view details",
+    "loadFailed": "Failed to load details. Please retry.",
+    "deletedSource": {
+      "title": "Source removed from Zotero",
+      "description": "This paper's Zotero entry has been deleted, so it can't be opened. The cached details below are kept for reference.",
+      "noMetadata": "No cached details available for this source.",
+      "copiedToast": "DOI copied",
+      "action": {
+        "openDoi": "Open DOI",
+        "copyDoi": "Copy DOI",
+        "searchWeb": "Search online"
+      }
+    },
+    "creatorsBrief": "{{first}} and {{count}} others",
+    "openGraph": "Citation graph",
+    "openGraphTooltip": "Open two-hop citation graph",
+    "openGraphDisabledTooltip": "Missing DOI / title — cannot locate",
+    "section": {
+      "abstract": "Abstract",
+      "abstractUnavailable": "Abstract not available",
+      "metadata": "Metadata"
+    },
+    "meta": {
+      "creators": "Authors",
+      "year": "Year",
+      "type": "Type"
+    },
+    "pdf": {
+      "open": "Open PDF",
+      "openFullscreenTooltip": "Open in a larger reading view",
+      "closeFullscreenTooltip": "Close reading view",
+      "back": "Back to details",
+      "loading": "Loading PDF…",
+      "noteHint": "Tip: select text in the PDF to add a note"
+    },
+    "header": {
+      "arxivBadgeTooltip": "Open on arXiv",
+      "doiBadgeTooltip": "Open via DOI",
+      "urlBadgeTooltip": "Open external link",
+      "doiBadgeLabel": "DOI:{{doi}}",
+      "urlBadgeLabel": "Link"
+    },
+    "evidence": {
+      "actions": {
+        "addNote": "Add note",
+        "addNoteHint": "Create a blank note; or pick text in the abstract above to attach the selection as a quote",
+        "addEvidenceSet": "Add evidence set",
+        "addToEvidenceSet": "Add to evidence set",
+        "comingSoon": "Coming soon (enabled after 0.2 object model lands)"
+      },
+      "card": {
+        "in": "in",
+        "sourceTypeReview": "Review · {{title}}",
+        "paragraphSentence": "cited at paragraph {{paragraph}}, sentence {{sentence}}",
+        "paragraph": "cited at paragraph {{paragraph}}",
+        "moreCount": "+ {{count}} more citations",
+        "openInReview": "Open in source review"
+      },
+      "empty": {
+        "notes": "No notes yet"
+      },
+      "dialog": {
+        "sessionNotice": "Session demo — data lost on refresh",
+        "cancel": "Cancel",
+        "addToEvidenceSet": {
+          "title": "Add evidence set",
+          "modeExisting": "Join existing set",
+          "modeNew": "Create named set",
+          "morePapers": "+ {{count}} more",
+          "noteLabel": "Description (optional)",
+          "notePlaceholderExisting": "Why does this paper also belong in this set? Share your thoughts...",
+          "notePlaceholderNew": "Motivation or key idea of this evidence set...",
+          "selectPlaceholder": "Choose a set...",
+          "namePlaceholder": "Set name",
+          "descriptionPlaceholder": "Description (optional)",
+          "alreadyMember": "Already in this set",
+          "loading": "Loading sets...",
+          "noExisting": "No evidence sets yet — switch to \"Create new\" tab",
+          "persistedNotice": "Saved to local database; appears in the Evidence Sets view",
+          "submit": "Add",
+          "toast": "Added to \"{{name}}\"",
+          "alreadyAdded": "Already in \"{{name}}\"",
+          "error": "Failed to add, please retry"
+        }
+      },
+      "referencedIn": {
+        "title": "Referenced In",
+        "empty": "Not in any evidence set yet",
+        "emptyHint": "Use the \"{{action}}\" button above",
+        "errored": "Failed to load evidence sets",
+        "errorHint": "Network or database error",
+        "retry": "Retry",
+        "paperCount": "{{count}} papers",
+        "unnamed": "(untitled set)"
+      }
+    }
+  },
+  "guard": {
+    "needLaunch": {
+      "title": "Please launch Zotero desktop",
+      "description": "The library requires Zotero desktop to be running on this machine.",
+      "launching": "Launching...",
+      "launch": "Launch Zotero"
+    },
+    "needRemote": {
+      "title": "Please enable Zotero remote access",
+      "description": "In Zotero Settings → Advanced → check \"Allow other applications on this computer to communicate with Zotero\"",
+      "viewDocs": "View instructions"
+    },
+    "needInstall": {
+      "title": "Zotero not detected",
+      "description": "Adding to Zotero requires the Zotero desktop app installed on this machine.",
+      "download": "Download Zotero"
+    },
+    "loadFailed": "Failed to load library"
+  },
+  "toast": {
+    "launchFailed": "Failed to launch Zotero",
+    "launchFailedDesc": "Please check whether Zotero is installed"
+  },
+  "sendToAgent": {
+    "label": "Send to Agent",
+    "tooltip": "Insert citation into the active Agent conversation",
+    "tooltipDisabled": "Open or switch to an Agent conversation first",
+    "unknownAuthor": "Unknown author"
+  },
+  "paperDetail": {
+    "field": {
+      "authors": "Authors",
+      "year": "Year",
+      "citedByCount": "Citations",
+      "venue": "Venue",
+      "doi": "DOI",
+      "url": "URL",
+      "abstract": "Abstract",
+      "abstractHeading": "ABSTRACT",
+      "abstractUnavailable": "Abstract not available",
+      "abstractFetchFailed": "Abstract fetch failed (source timed out or rate-limited) — click the DOI again to retry"
+    },
+    "actions": {
+      "openGraph": "Citation graph",
+      "openGraphTitle": "Open 2-hop citation graph",
+      "openGraphDisabledEntryTitle": "Missing DOI / title",
+      "openGraphDisabledRecordTitle": "Missing DOI / arXiv / title",
+      "addToZotero": "Add to Zotero",
+      "addedToZotero": "Added to Zotero",
+      "addedToZoteroTitle": "Added to Zotero",
+      "missingTitleTitle": "Missing title",
+      "addToZoteroTitle": "Add this paper to Zotero (Zotero must be running)",
+      "addingToZotero": "Adding…",
+      "download": "Download",
+      "downloadTitle": "Download the PDF to your Downloads folder",
+      "preview": "Preview",
+      "previewTitle": "Preview the PDF in the side panel",
+      "downloading": "Downloading…",
+      "openSource": "Source link",
+      "ingestFailed": "Failed to write back workspace-papers"
+    },
+    "meta": {
+      "source": "Source",
+      "query": "Query",
+      "captured": "Captured",
+      "capturedTooltip": "The time this paper was first discovered by the Agent",
+      "lastSeen": "Last seen",
+      "lastSeenTooltip": "The most recent time this paper appeared in a search",
+      "citations": "Citations",
+      "published": "Published",
+      "publishedTooltip": "The year this paper was published",
+      "impactFactor": "IF {{value}}"
+    },
+    "toast": {
+      "addSuccess": "Added to Zotero",
+      "addSuccessWithPdf": "Added to Zotero, PDF downloaded automatically",
+      "addFailed": "Failed to add to Zotero: {{message}}",
+      "downloadedLocal": "Saved to Downloads: {{filename}}",
+      "downloadLocalFailed": "Download failed: {{message}}"
+    }
+  },
+  "linkDialog": {
+    "title": "Add to Zotero library",
+    "targetLabel": "Destination",
+    "targetDetecting": "Loading collections…",
+    "targetSelected": "Destination: {{name}}",
+    "targetMissing": "No destination selected",
+    "tagsLabel": "Tags (optional)",
+    "tagsPlaceholder": "e.g. methods, GPT, Tinker",
+    "cancel": "Cancel",
+    "submit": "Confirm",
+    "submitting": "Submitting…",
+    "successWithTarget": "Added to Zotero ({{name}})",
+    "successWithTargetAndPdf": "Added to Zotero ({{name}}), PDF downloaded automatically",
+    "successPlain": "Added to Zotero",
+    "successPlainWithPdf": "Added to Zotero, PDF downloaded automatically",
+    "movedFailed": "Added to Zotero, but couldn't move it to {{name}} — it stayed in Zotero's current collection",
+    "fail": "Failed to add to Zotero"
+  },
+  "collectionPicker": {
+    "label": "Destination",
+    "placeholder": "Select a destination…",
+    "searchPlaceholder": "Search collections…",
+    "useZoteroCurrent": "Use Zotero's currently selected collection",
+    "useZoteroCurrentHint": "Follows Zotero's live selection, not a fixed spot",
+    "myLibrary": "My Library (no collection)",
+    "loading": "Loading collections…",
+    "loadFailed": "Failed to load collections",
+    "emptyTitle": "No writable targets from Zotero",
+    "emptyHint": "Make sure Zotero is running with the local API enabled",
+    "noMatch": "No collections match your search",
+    "retry": "Retry"
+  },
+  "batchLinkDialog": {
+    "title": "Batch add to Zotero",
+    "summary": "{{count}} papers will be added to Zotero",
+    "summaryPreviewMore": "and {{count}} more",
+    "submit": "Add {{count}} papers",
+    "submitting": "Adding {{done}} / {{total}}…",
+    "close": "Close",
+    "cancel": "Cancel",
+    "successAll": "All {{count}} papers added to Zotero",
+    "successAllWithTarget": "All {{count}} papers added to Zotero ({{name}})",
+    "successAllButMoveFailed": "All {{count}} papers added, but {{moveFailed}} couldn't be moved to {{name}} — they stayed in Zotero's current collection",
+    "partial": "{{success}} succeeded, {{failed}} failed — failed papers kept selected for retry",
+    "allFailed": "Failed to add {{count}} papers",
+    "ingestFailed": "Failed to prepare papers for Zotero"
+  },
+  "reviewDemo": {
+    "demoBadge": "Demo",
+    "sessionTitle": "Retrieval-Augmented Generation (RAG) Survey",
+    "subtitle": "Generated by Agent · {{paperCount}} papers · {{wordCount}} words",
+    "legend": "indigo = supports · amber = contradicts",
+    "evidence": {
+      "header": "Evidence trace",
+      "refLabel": "EvidenceRef",
+      "closeTrace": "Close evidence trace",
+      "sourcePrefix": "Source",
+      "openContext": "Open full context in Paper",
+      "sourceRemoved": "Source removed",
+      "sourceRemovedHint": "This paper has no openable PDF in Zotero (entry deleted or no PDF attachment), so it can't be opened.",
+      "addNote": "Add note here",
+      "openContextToast": "Switched to library; production will anchor to {{paper}}",
+      "addNoteToast": "Note saved",
+      "addNoteError": "Failed to save, please retry",
+      "addNoteDialog": {
+        "title": "Add note",
+        "fromQuote": "From quote",
+        "kindLabel": "Kind",
+        "kindNote": "Note",
+        "kindHypothesis": "Hypothesis",
+        "contentPlaceholder": "Write your thought...",
+        "submit": "Add",
+        "persistedNotice": "Notes are persisted to local DB and linked to this position in the review"
+      }
+    },
+    "toast": {
+      "demoOnly": "Demo mode — enabled after the real version ships"
+    },
+    "openInLibrary": {
+      "noIdentifierTitle": "Citation missing metadata",
+      "noIdentifierDescription": "This cite has no DOI / Zotero key / paper id",
+      "notFoundTitle": "Paper record not found",
+      "notFoundDescription": "{{headline}} — not found by this DOI in Library or workspace papers.jsonl",
+      "notLinkedTitle": "Paper not linked to Zotero",
+      "notLinkedDescription": "{{headline}} — run \"Add to Zotero\" on it in the workspace papers panel first, then click this button to jump to the Library highlight"
+    },
+    "decisions": {
+      "expand": "Expand Per-Paper Decisions",
+      "collapse": "Collapse Per-Paper Decisions"
+    }
+  }
+}

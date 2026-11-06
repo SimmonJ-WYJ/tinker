@@ -1,0 +1,11 @@
+{
+  "title": "本地数据将关联到此账户",
+  "papers_one": "{{count}} 篇论文",
+  "papers_other": "{{count}} 篇论文",
+  "notes_one": "{{count}} 条笔记",
+  "notes_other": "{{count}} 条笔记",
+  "evidenceSets_one": "{{count}} 个证据集",
+  "evidenceSets_other": "{{count}} 个证据集",
+  "attributeLabel": "将本地数据关联到此账户",
+  "attributeHint": "之后可在账户设置中取消关联"
+}

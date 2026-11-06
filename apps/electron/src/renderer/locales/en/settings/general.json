@@ -1,0 +1,42 @@
+{
+  "general": {
+    "language": {
+      "label": "Language",
+      "description": "Current UI language. More languages coming soon."
+    },
+    "languageOptions": {
+      "en": "English",
+      "zh": "Chinese (Simplified)"
+    },
+    "theme": {
+      "label": "Theme",
+      "description": "Follow system, or force light/dark."
+    },
+    "themeOptions": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "notifications": {
+      "desktopLabel": "Desktop notifications",
+      "desktopDescription": "Send a notification when the Agent finishes a task or needs your attention",
+      "soundLabel": "Blocking action sound",
+      "soundDescription": "Play a sound when permission, question, or plan confirmation requires you to step in",
+      "taskCompleteLabel": "Task complete sound",
+      "taskCompleteDescription": "Sound played after the Agent finishes a task",
+      "permissionLabel": "Permission request sound",
+      "permissionDescription": "Sound played when permission confirmation is required",
+      "exitPlanLabel": "Plan confirmation sound",
+      "exitPlanDescription": "Sound played when the Agent submits a plan and waits for confirmation",
+      "mute": "Mute",
+      "popoverCancel": "Cancel",
+      "popoverConfirm": "Confirm"
+    },
+    "archive": {
+      "label": "Auto archive",
+      "description": "Conversations not updated after the specified days will be moved to Archived. Pinned conversations are not auto-archived.",
+      "disabled": "Disabled",
+      "days": "{{count}} days"
+    }
+  }
+}

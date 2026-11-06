@@ -1,0 +1,25 @@
+{
+  "proxy": {
+    "loading": "加载中...",
+    "section": {
+      "title": "代理配置",
+      "description": "配置后所有 AI API 请求（Agent）将通过代理发送"
+    },
+    "enableLabel": "启用代理",
+    "enableDescription": "开启后可选择系统代理或手动配置代理地址",
+    "modeSection": "代理模式",
+    "system": {
+      "title": "系统代理（推荐）",
+      "description": "自动检测操作系统的代理设置（macOS 网络偏好设置、Windows Internet 选项等）",
+      "detect": "检测系统代理",
+      "detected": "检测到系统代理：{{url}}",
+      "detectFailed": "检测失败"
+    },
+    "manual": {
+      "title": "手动配置",
+      "description": "手动输入代理地址和端口",
+      "placeholder": "http://127.0.0.1:7890",
+      "format": "格式：http://host:port 或 https://host:port"
+    }
+  }
+}

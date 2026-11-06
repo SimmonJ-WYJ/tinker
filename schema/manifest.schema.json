@@ -1,0 +1,62 @@
+{
+  "$id": "https://opensci.io/asci/schema/manifest.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/ExportManifest",
+  "definitions": {
+    "ExportManifest": {
+      "type": "object",
+      "properties": {
+        "exportFormatVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "appVersion": {
+          "type": "string"
+        },
+        "exportedAt": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ExportManifestFileEntry"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "exportFormatVersion",
+        "appVersion",
+        "exportedAt",
+        "files",
+        "warnings"
+      ],
+      "additionalProperties": false
+    },
+    "ExportManifestFileEntry": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        },
+        "count": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "path",
+        "schema",
+        "count"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

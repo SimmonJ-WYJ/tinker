@@ -1,0 +1,14 @@
+/* ===== 注入层：@import 串联实现层 5 文件 + @tailwind 三件套 =====
+   ADR-003 B-2（issue #292）：拆分实现层。@import 必须先于 @tailwind，
+   否则 Tailwind preflight 在 @import 内联前注入，layer 顺序错乱。
+   要求 postcss.config.js 的 plugin chain 首位为 'postcss-import'。 */
+
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
+@import './utilities.css';
+@import './theme-overrides.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

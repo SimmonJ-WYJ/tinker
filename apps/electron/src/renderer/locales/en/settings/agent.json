@@ -1,0 +1,82 @@
+{
+  "agent": {
+    "noWorkspace": "Please select or create a research project first",
+    "mcp": {
+      "section": "MCP servers (global)",
+      "description": "Visible to all workspaces",
+      "add": "Add server",
+      "loading": "Loading...",
+      "empty": "No MCP servers configured. Click \"Add server\" above to start.",
+      "deleteConfirm": "Delete MCP server \"{{name}}\"? This action cannot be undone.",
+      "builtin": {
+        "badge": "Built-in",
+        "statusEnabled": "Enabled",
+        "statusDisabled": "Disabled",
+        "fallbackDescription": "Built-in MCP (assembled at runtime)",
+        "fallbackControl": "Cannot be toggled here",
+        "zoteroDescription": "Zotero library and attachment access",
+        "zoteroControl": "Toggle in Settings → Zotero",
+        "ocrDescription": "Local PaddleOCR image text recognition",
+        "ocrControl": "Toggle in Settings → Zotero → Image OCR",
+        "asrDescription": "Local SenseVoice speech recognition",
+        "asrControl": "Toggle in Settings → Zotero → Speech recognition",
+        "paperSearchDescription": "Parallel search across 22+ academic sources",
+        "paperSearchControl": "Auto-enabled when uv is ready"
+      },
+      "row": {
+        "edit": "Edit",
+        "delete": "Delete"
+      }
+    }
+  },
+  "mcpForm": {
+    "title": {
+      "edit": "Edit MCP server",
+      "create": "Add MCP server"
+    },
+    "cancel": "Cancel",
+    "saveEdit": "Save changes",
+    "createServer": "Create server",
+    "transport": {
+      "stdio": "stdio (command line)",
+      "http": "HTTP (Streamable HTTP)",
+      "sse": "SSE (Server-Sent Events)"
+    },
+    "section": "Basic information",
+    "fields": {
+      "name": "Server name",
+      "namePlaceholder": "e.g. github-mcp",
+      "reservedName": "Name \"{{name}}\" is reserved for built-in MCP and cannot be used for a custom server.",
+      "transportLabel": "Transport type",
+      "transportPlaceholder": "Select transport type",
+      "command": "Command",
+      "commandPlaceholder": "e.g. npx",
+      "args": "Arguments",
+      "argsPlaceholder": "Comma-separated, e.g. -y, @modelcontextprotocol/server-github",
+      "argsDescription": "Separate multiple arguments with commas",
+      "env": "Environment variables",
+      "envDescription": "One per line, format: KEY=VALUE",
+      "timeout": "Startup timeout (seconds)",
+      "timeoutDescription": "Maximum wait time for the MCP server to start. Default 30 seconds.",
+      "url": "URL",
+      "urlPlaceholder": "e.g. http://localhost:3000/mcp",
+      "headers": "Headers",
+      "headersDescription": "One per line, format: Key: Value"
+    },
+    "test": {
+      "label": "Connection test",
+      "description": "Must pass the test before enabling",
+      "running": "Testing...",
+      "run": "Test connection",
+      "success": "Test succeeded",
+      "failed": "Test failed",
+      "failureFallback": "Test failed",
+      "untested": "Not tested yet. Click \"Test connection\" to verify the configuration."
+    },
+    "enable": {
+      "label": "Enable this server",
+      "descriptionTested": "When enabled, this MCP server will be loaded into Agent sessions",
+      "descriptionUntested": "Can only be enabled after a successful test"
+    }
+  }
+}

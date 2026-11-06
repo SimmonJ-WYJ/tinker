@@ -1,0 +1,108 @@
+{
+  "graph": {
+    "fallbackTitle": "Citation graph",
+    "pipeline": {
+      "seed": "Locate seed",
+      "references": "Hop 1 references",
+      "citedBy": "Hop 1 cited by",
+      "hop2": "Hop 2 expansion",
+      "errorPrefix": "Error: ",
+      "describe": {
+        "seed": "Locate the paper in OpenAlex by DOI / arXiv ID / title to fix the seed node. DOI is most precise; title is a last-resort fallback (may return a different version of a same-titled paper).",
+        "references": "Read the seed's referenced_works field to fetch \"what this paper cites\". Current scale: up to {{refs}} entries in OpenAlex order. Edge direction: seed → referenced paper.",
+        "citedBy": "Use filter=cites to look up \"who cites this paper\", sorted by citation count descending. Current scale: up to {{citedBy}} entries (the {{citedBy}} most influential follow-ups). Edge direction: citing → seed.",
+        "hop2": "Pick the top {{topN}} most-cited nodes from hop 1 as parents, expanding each by {{refsPer}} references + {{citedByPer}} cited_by to form 2-hop relations. Theoretical cap {{cap}} new nodes; fewer after de-duplication."
+      }
+    },
+    "scalePreset": {
+      "small": "S",
+      "medium": "M",
+      "large": "L",
+      "describe": "Hop 1: {{refs}} refs + {{citedBy}} cited-by; Hop 2: top {{topN}} × ({{refsPer}}+{{citedByPer}}) ≤ {{cap}} nodes"
+    },
+    "node": {
+      "kind": {
+        "seed": "Seed paper",
+        "reference": "1-hop reference",
+        "citedBy": "1-hop cited by",
+        "hop2": "2-hop node"
+      },
+      "inLibrary": "In library",
+      "alreadyAdded": "Added to Zotero",
+      "loading": "Loading graph…",
+      "meta": {
+        "authors": "Authors: ",
+        "andOthers": " +{{count}} others",
+        "year": "Year: ",
+        "venue": "Venue: ",
+        "citedByCount": "Citations: ",
+        "doi": "DOI: "
+      },
+      "actions": {
+        "openDoi": "Open DOI page",
+        "openUrl": "Open source link",
+        "addedTitle": "Already added to Zotero in this session",
+        "missingTitleTitle": "Missing title — cannot create Zotero entry",
+        "useExistingTitle": "Workspace already has this entry; will write back linkedZoteroKey",
+        "createNewTitle": "Create a new Zotero entry from node metadata (Zotero must be running)",
+        "addToZotero": "Add to Zotero"
+      },
+      "toast": {
+        "openLinkFailed": "Failed to open external link: {{message}}",
+        "addSuccess": "Added to Zotero",
+        "addSuccessWithPdf": "Added to Zotero, PDF downloaded automatically",
+        "addFailed": "Failed to add to Zotero: {{message}}"
+      }
+    },
+    "fitView": "Fit to view (show all nodes)",
+    "fitViewLabel": "Fit",
+    "centerSeed": "Back to seed paper",
+    "centerSeedLabel": "Re-center",
+    "legendExpand": "Expand legend",
+    "legendCollapse": "Collapse legend",
+    "clearCacheCurrent": "Clear current graph cache and rebuild",
+    "clearCacheAll": "Clear all graph caches",
+    "legend": {
+      "title": "Legend",
+      "node": {
+        "seed": "Seed paper",
+        "reference": "1-hop reference",
+        "citedBy": "1-hop cited by",
+        "hop2": "2-hop node",
+        "inLibrary": "In library"
+      },
+      "edge": {
+        "references": "References (outgoing)",
+        "citedBy": "Cited by (incoming)"
+      },
+      "toggle": {
+        "nodeLabels": "Node labels",
+        "edgeLabels": "Edge labels"
+      },
+      "scale": {
+        "label": "Expansion scale",
+        "tooltipSuffix": "Switching rebuilds with the same seed paper"
+      },
+      "cache": {
+        "label": "Cache",
+        "tooltip": "Caches are keyed by seed + expansion scale and stored at <code>~/.asci/citation-graph-cache/</code>. A hit displays instantly without querying OpenAlex. Clearing the current entry refetches and overwrites the cache.",
+        "clearCurrent": "Clear current",
+        "clearAll": "Clear all",
+        "clearedCurrent": "Current graph cache cleared, rebuilding…",
+        "noCacheCurrent": "No cache for the current graph, rebuilding…",
+        "clearedCount": "Cleared {{count}} graph cache entries",
+        "clearFailed": "Clear failed: {{message}}",
+        "clearAllFailed": "Clear all failed: {{message}}"
+      }
+    },
+    "summary_one": "Citation graph · {{count}} node · {{edges}} edges",
+    "summary_other": "Citation graph · {{count}} nodes · {{edges}} edges",
+    "summaryTruncated": " · truncated",
+    "close": "Close",
+    "loadFailed": "Failed to load citation graph",
+    "locating": "Locating the seed paper…",
+    "locatingHint": "First query takes a few seconds, please wait",
+    "noCitations": "This paper has no available citations or references yet — OpenAlex may not have indexed them.",
+    "truncatedNotice": "Reached the node limit ({{limit}}); 2-hop expansion stopped early. Pagination and filters are coming in a future release."
+  }
+}

@@ -1,0 +1,61 @@
+/**
+ * PdfRenderer 局部样式：
+ *   - textLayer 上的 quote 高亮规则
+ *   - 多页 slot 滚动容器的 scroll-padding（避免 scrollIntoView 紧贴顶边）
+ *
+ * 选择器加 .textLayer 前缀确保只命中我们渲染的 PDF text layer，不影响其他 .note-quote-highlight。
+ *
+ * 「荧光笔」配方（让黑字看上去保持黑）：
+ *   - mix-blend-mode: multiply 提到 .textLayer 这一层（而不是内层高亮 span）：
+ *     内层 span 的父 textItem 是 position:absolute + z-index:1，自带 stacking context，
+ *     在内层 blend 时 backdrop 全透明 → 黄色还原成不透明，会覆盖 canvas 上的字。
+ *     提到 textLayer 层后，整个 layer 先内部合成（透明 + 黄色矩形），再与 canvas 像素相乘：
+ *       透明区域 × canvas = canvas（黑字白底原样透过）
+ *       黄色矩形 × 白底 = 黄（高亮可见）
+ *       黄色矩形 × 黑字 = 黑（字保持锐利）
+ *   - 高亮背景用不透明色（不再 alpha）：multiply 不需要 alpha 也能正确混合
+ */
+
+.textLayer {
+  mix-blend-mode: multiply;
+}
+
+/*
+ * 我们注入的内层高亮 span：把匹配到的子串单独包起来,背景只覆盖这段字形(不染整行)。
+ * pdfjs 的 `.textLayer :is(span,br)` 规则会把**所有**后代 span 设成 position:absolute,
+ * 内层 span 必须显式 position:static 才能在父 span(absolute+transform 缩放)内 inline 排布,
+ * 背景框随字形(含 scaleX 拉伸)精确贴合。两类 class 的具体背景色见下面各自规则。
+ * 本规则 (.textLayer .pdf-hl-inner) 双 class 特异性 > pdfjs 单 span 规则,override 生效。
+ */
+.textLayer .pdf-hl-inner {
+  position: static;
+}
+
+.textLayer .note-quote-highlight {
+  background-color: rgb(254, 240, 138); /* yellow-200 */
+  cursor: pointer;
+}
+
+.textLayer .note-quote-highlight:hover {
+  background-color: rgb(253, 224, 71); /* yellow-300：hover 加深一档 */
+}
+
+/* scrollIntoView({ block: 'start' }) 时让 slot 顶部留一点呼吸空间 */
+.pdf-slot-scroll {
+  scroll-padding-top: 12px;
+  /* 始终预留竖向滚动条沟槽：否则 loading→渲染后内容高度变化导致滚动条出现/消失，
+     clientWidth 抖动 → availableWidth 二次变化 → PDF 二次 re-fit（"re-fit twice"）。
+     恒定预留后量到的可用宽度稳定，只 fit 一次。 */
+  scrollbar-gutter: stable;
+}
+
+/* 搜索命中：稍深一档黄，与 note quote 高亮区分 */
+.textLayer .pdf-search-match {
+  background-color: rgb(253, 224, 71); /* yellow-300 */
+}
+
+/* 当前激活那条：饱和橙黄 + 外发光（外发光也走 multiply，自动适应 canvas 背景） */
+.textLayer .pdf-search-current {
+  background-color: rgb(251, 146, 60); /* orange-400 */
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.7);
+}

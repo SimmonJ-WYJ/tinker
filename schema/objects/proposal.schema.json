@@ -1,0 +1,126 @@
+{
+  "$id": "https://opensci.io/asci/schema/objects/proposal.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Proposal",
+  "definitions": {
+    "Proposal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "visibility": {
+          "$ref": "#/definitions/ObjectVisibility"
+        },
+        "kind": {
+          "$ref": "#/definitions/ProposalKind"
+        },
+        "sourceCapability": {
+          "type": "string"
+        },
+        "payload": {},
+        "modifiedPayload": {},
+        "reasoning": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/ProposalStatus"
+        },
+        "targetObjectRef": {
+          "$ref": "#/definitions/ProposalTargetRef"
+        },
+        "dismissPolicy": {
+          "$ref": "#/definitions/ProposalDismissPolicy"
+        },
+        "decidedAt": {
+          "$ref": "#/definitions/Timestamp"
+        }
+      },
+      "required": [
+        "createdAt",
+        "dismissPolicy",
+        "id",
+        "kind",
+        "payload",
+        "reasoning",
+        "sourceCapability",
+        "status",
+        "targetObjectRef",
+        "updatedAt",
+        "visibility"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectId": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "type": "string",
+      "enum": [
+        "visible",
+        "archived",
+        "deleted"
+      ]
+    },
+    "ProposalKind": {
+      "type": "string",
+      "enum": [
+        "citation-relation",
+        "evidence-set"
+      ]
+    },
+    "ProposalStatus": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected",
+        "modified"
+      ]
+    },
+    "ProposalTargetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/ObjectKind"
+        },
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ]
+    },
+    "ObjectKind": {
+      "type": "string",
+      "enum": [
+        "paper",
+        "evidence-ref",
+        "note",
+        "evidence-set",
+        "proposal",
+        "review"
+      ]
+    },
+    "ProposalDismissPolicy": {
+      "type": "string",
+      "enum": [
+        "once",
+        "scoped",
+        "silence-this-kind"
+      ]
+    }
+  }
+}

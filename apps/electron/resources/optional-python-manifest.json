@@ -1,0 +1,25 @@
+{
+  "platform": "darwin-arm64",
+  "schema": 1,
+  "artifacts": [
+    {
+      "name": "python",
+      "version": "3.12.8",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20250115/cpython-3.12.8+20250115-aarch64-apple-darwin-install_only.tar.gz",
+      "integrity": "sha512-ZbECbl9aVREXVdn+VCRZkAOsSEtxNc07srN+VZWrS8JgQ4b3E/mIPoEpBircD6+wTfYZz1EL9phZW3nAjmuI3g==",
+      "format": "runtime-tgz",
+      "entrypoint": "python/bin/python3.12"
+    },
+    {
+      "name": "uv",
+      "version": "0.5.14",
+      "url": "https://github.com/astral-sh/uv/releases/download/0.5.14/uv-aarch64-apple-darwin.tar.gz",
+      "integrity": "sha512-PI+6Ux6yJZSumxIBYAWprbXi/DUwSam4BQYi0LpuIRCEii5ZkKwRaNOSpZdbkIQ0pOQVtQdnrOVvA3PVQxXSog==",
+      "format": "runtime-tgz",
+      "entrypoint": "uv-aarch64-apple-darwin/uv",
+      "prunePaths": [
+        "uv-aarch64-apple-darwin/uvx"
+      ]
+    }
+  ]
+}

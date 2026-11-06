@@ -1,0 +1,108 @@
+{
+  "graph": {
+    "fallbackTitle": "引用图谱",
+    "pipeline": {
+      "seed": "定位中心",
+      "references": "第 1 层引用",
+      "citedBy": "第 1 层被引",
+      "hop2": "第 2 层扩展",
+      "errorPrefix": "错误：",
+      "describe": {
+        "seed": "根据 DOI / arXiv ID / 标题，在 OpenAlex 里查询定位这篇论文，确定图谱的中心节点。DOI 匹配最精准，标题匹配为最后兜底（可能返回同名论文的其他版本）。",
+        "references": "读取中心论文的 referenced_works 字段，拉取「这篇论文引用了谁」。当前规模：最多 {{refs}} 条，按 OpenAlex 返回顺序。边方向：中心 → 被引论文。",
+        "citedBy": "用 filter=cites 反查「谁引用了这篇论文」，按被引次数降序。当前规模：最多 {{citedBy}} 条（即影响力最高的 {{citedBy}} 篇后续工作）。边方向：引用者 → 中心。",
+        "hop2": "从第 1 层所有节点中挑出被引数最高的 top {{topN}} 作为父节点，各展开 {{refsPer}} 条 references + {{citedByPer}} 条 cited_by，形成二跳关系。理论上限 {{cap}} 个新节点，去重后实际更少。"
+      }
+    },
+    "scalePreset": {
+      "small": "小",
+      "medium": "中",
+      "large": "大",
+      "describe": "1 层：{{refs}} 引用 + {{citedBy}} 被引；2 层：top {{topN}} × ({{refsPer}}+{{citedByPer}}) ≤ {{cap}} 节点"
+    },
+    "node": {
+      "kind": {
+        "seed": "中心论文",
+        "reference": "一跳引用",
+        "citedBy": "一跳被引",
+        "hop2": "二跳节点"
+      },
+      "inLibrary": "库内",
+      "alreadyAdded": "已加入 Zotero",
+      "loading": "图谱加载中…",
+      "meta": {
+        "authors": "作者：",
+        "andOthers": " 等 {{count}} 人",
+        "year": "年份：",
+        "venue": "来源：",
+        "citedByCount": "被引次数：",
+        "doi": "DOI："
+      },
+      "actions": {
+        "openDoi": "打开 DOI 页面",
+        "openUrl": "打开原文链接",
+        "addedTitle": "已在当前会话加入 Zotero",
+        "missingTitleTitle": "缺少标题，无法创建 Zotero 条目",
+        "useExistingTitle": "工作区论文库已有此条目，将回写 linkedZoteroKey",
+        "createNewTitle": "直接以节点元数据在 Zotero 创建新条目（需 Zotero 已打开）",
+        "addToZotero": "加入 Zotero"
+      },
+      "toast": {
+        "openLinkFailed": "打开外部链接失败：{{message}}",
+        "addSuccess": "已加入 Zotero",
+        "addSuccessWithPdf": "已加入 Zotero，已自动下载 PDF",
+        "addFailed": "加入 Zotero 失败：{{message}}"
+      }
+    },
+    "fitView": "适应画面（显示全部节点）",
+    "fitViewLabel": "适应",
+    "centerSeed": "回到中心论文",
+    "centerSeedLabel": "回中心",
+    "legendExpand": "展开图例",
+    "legendCollapse": "收起图例",
+    "clearCacheCurrent": "清除当前图谱的缓存并重新构建",
+    "clearCacheAll": "清除所有图谱缓存",
+    "legend": {
+      "title": "图例",
+      "node": {
+        "seed": "中心论文",
+        "reference": "一跳引用",
+        "citedBy": "一跳被引",
+        "hop2": "二跳节点",
+        "inLibrary": "库内论文"
+      },
+      "edge": {
+        "references": "引用（向后）",
+        "citedBy": "被引（向前）"
+      },
+      "toggle": {
+        "nodeLabels": "节点名字",
+        "edgeLabels": "边名字"
+      },
+      "scale": {
+        "label": "展开规模",
+        "tooltipSuffix": "切换后会以相同中心论文重新构建"
+      },
+      "cache": {
+        "label": "缓存",
+        "tooltip": "缓存按 seed + 展开规模哈希存于 <code>~/.asci/citation-graph-cache/</code>，命中会瞬间展示，不查 OpenAlex。清除当前后会重新抓取并覆盖缓存。",
+        "clearCurrent": "清当前",
+        "clearAll": "清全部",
+        "clearedCurrent": "已清除当前图谱缓存，正在重建…",
+        "noCacheCurrent": "当前图谱无缓存，重新构建中…",
+        "clearedCount": "已清空 {{count}} 条图谱缓存",
+        "clearFailed": "清除失败：{{message}}",
+        "clearAllFailed": "清空失败：{{message}}"
+      }
+    },
+    "summary_one": "引用图谱 · 共 {{count}} 个节点 · {{edges}} 条边",
+    "summary_other": "引用图谱 · 共 {{count}} 个节点 · {{edges}} 条边",
+    "summaryTruncated": " · 已截断",
+    "close": "关闭",
+    "loadFailed": "图谱加载失败",
+    "locating": "正在定位中心论文…",
+    "locatingHint": "首次查询需要几秒，请稍候",
+    "noCitations": "该论文暂无可用的引用 / 被引数据；可能是 OpenAlex 尚未收录其参考文献。",
+    "truncatedNotice": "已达到节点上限（{{limit}}），二跳展开已提前结束。如需完整图谱，后续版本将支持分页与过滤。"
+  }
+}

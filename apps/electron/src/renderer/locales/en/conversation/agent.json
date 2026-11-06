@@ -1,0 +1,208 @@
+{
+  "agent": {
+    "toast": {
+      "zoteroLaunchFailed": {
+        "title": "Failed to launch Zotero",
+        "description": "Check whether Zotero is installed"
+      },
+      "appendDuringStreaming": {
+        "title": "Cannot append attachments while Agent is running",
+        "description": "Wait until the run completes, or remove the attachments to send text only"
+      },
+      "appendFailed": {
+        "title": "Failed to append message"
+      }
+    },
+    "planMode": {
+      "title": "Agent is planning…",
+      "subtitle": "It will ask for your approval when it's done"
+    },
+    "emptyState": {
+      "welcomeTitle": "Welcome to Tinker Agent",
+      "welcomeBody": "Select an Agent provider first. Once configured, you can start chatting with the Agent.",
+      "noModelTitle": "No models available",
+      "noModelBody": "The current channel has no usable model. Configure one in Settings to start the conversation."
+    },
+    "exitPlanBanner": {
+      "title": "Plan awaiting approval",
+      "subtitle": "Agent finished planning — pick how to continue",
+      "permissionsHeader": "Permissions this plan needs:",
+      "feedbackPlaceholder": "Type your revisions…",
+      "keyboardHint": "Click to select · ↑↓ Enter to confirm · 1-4 quick pick",
+      "options": {
+        "autoApprove": {
+          "label": "Approve and auto-execute",
+          "description": "Auto-approve all follow-up actions"
+        },
+        "approveManual": {
+          "label": "Approve, manually confirm edits",
+          "description": "Follow-up file edits require per-step confirmation"
+        },
+        "reject": {
+          "label": "Reject plan",
+          "description": "Reject directly; Agent will not execute the plan"
+        },
+        "feedback": {
+          "label": "Provide revisions",
+          "description": "Tell the Agent what to adjust"
+        }
+      }
+    },
+    "askUserBanner": {
+      "title": "Tinker Agent needs your input",
+      "tabLabel": "{{idx}}-{{kind}}: {{name}}",
+      "kindSingle": "Single",
+      "kindMulti": "Multi",
+      "questionLabel": "Question {{idx}}",
+      "questionHeader": "{{idx}}-{{kind}}{{suffix}}",
+      "headerSuffix": ": {{header}}",
+      "keyboardHint": "↑↓ select · Enter {{next}}",
+      "next": "next",
+      "confirmKey": "confirm",
+      "confirm": "Confirm",
+      "other": "Other…",
+      "otherPlaceholder": "Type a custom answer…"
+    },
+    "taskProgress": {
+      "title": "Task progress",
+      "unnamedTask": "Untitled task",
+      "taskIdFallback": "Task #{{id}}",
+      "expandAll": "Show all {{count}} items"
+    },
+    "toolActivity": {
+      "generateImage": "Generate image",
+      "collapseLabel": "Collapse tool activity",
+      "expandLabel": "Show all {{count}} tool actions",
+      "errorBadge": "Error"
+    },
+    "contentBlock": {
+      "prompt": "Prompt",
+      "toolUsesCount": "{{count}} tool call",
+      "toolUsesCount_other": "{{count}} tool calls",
+      "childTools": "{{count}} tool call",
+      "childTools_other": "{{count}} tool calls",
+      "tokensCount": "{{formattedCount}} tokens"
+    },
+    "litReviewDirections": {
+      "title": "Choose a review direction",
+      "subtitle": "lit-review · Turn 1",
+      "rerollLabel": "Try another set",
+      "customLabel": "Write my own direction",
+      "comprehensiveLabel": "Comprehensive review (cover all papers)",
+      "comprehensiveDescription": "Don't narrow to one direction — write a panoramic review over every paper in the evidence set",
+      "customTitle": "Write your own review direction",
+      "customPlaceholder": "Describe the direction you want the review to take...",
+      "cancel": "Cancel",
+      "submitCustom": "Use this direction"
+    },
+    "searchPlanConfirm": {
+      "title": "Confirm search plan",
+      "subtitle": "lit-search · confirm before running",
+      "field": {
+        "researchQuestion": "Question",
+        "keywords": "Keywords",
+        "sources": "Sources",
+        "methodTerms": "Method terms",
+        "objectTerms": "Object terms",
+        "timeRange": "Time range",
+        "targetCount": "Target count"
+      },
+      "action": {
+        "confirm": "Run this plan",
+        "adjust": "Let me adjust",
+        "cancel": "Cancel"
+      },
+      "adjustTitle": "Adjust the search plan",
+      "adjustPlaceholder": "Describe what to change in one line, e.g.: search arXiv only, add post-2020, drop keyword X...",
+      "adjustSubmit": "Submit adjustment"
+    },
+    "contextBadge": {
+      "input": "Input",
+      "output": "Output",
+      "cacheWrite": "Cache write",
+      "cacheRead": "Cache read",
+      "context": "Context",
+      "used": "Used",
+      "inProgress": "Conversation running",
+      "manualCompact": "Compact manually"
+    },
+    "sdkMessage": {
+      "contextCompacted": "Context compacted",
+      "compacting": "Compacting…",
+      "compactingContext": "Compacting context…",
+      "unknownError": "Unknown error",
+      "abortedByUser": "Aborted by user"
+    },
+    "messages": {
+      "retryTitle": "Retry failed ({{current}}/{{max}})",
+      "retryCountdown": "Retry countdown {{countdown}}s ({{current}}/{{max}})",
+      "retrying": "Retrying ({{current}}/{{max}})",
+      "attemptHistory": "Attempt history:",
+      "countdownWait": "Waiting {{seconds}}s before attempt {{n}}",
+      "attempting": "Attempting attempt {{n}}…",
+      "attemptDetail": "Attempt {{n}} ({{time}}) - {{reason}}",
+      "envRuntime": "Runtime: {{value}}",
+      "envPlatform": "Platform: {{value}}",
+      "envModel": "Model: {{value}}",
+      "envWorkspace": "Workspace: {{value}}",
+      "showStderr": "Show stderr output",
+      "showStack": "Show stack trace",
+      "actionCompact": "Compact context",
+      "actionRetry": "Retry",
+      "actionRetryNewSession": "Retry in new session",
+      "statDuration": "Duration: {{value}}",
+      "statInput": "Input: {{value}}",
+      "statOutput": "Output: {{value}}",
+      "statCacheWrite": "Cache write: {{value}}",
+      "statCacheRead": "Cache read: {{value}}",
+      "agentRunning": "Agent Running {{elapsed}}",
+      "thinking": "Thinking",
+      "thinkingStreaming": "Thinking...",
+      "thinkingWithDuration": "Thinking · {{duration}}s",
+      "executedSteps": "Executed {{count}} steps"
+    },
+    "sessionPapers": {
+      "hiddenCount": "−{{count}}",
+      "hiddenDetail": "{{count}} paper hidden because no URL link",
+      "hiddenDetail_other": "{{count}} papers hidden because no URL link",
+      "doiFragment": "(DOI fragment)",
+      "unidentified": "(unidentified)"
+    },
+    "toolResult": {
+      "collapse": "Collapse",
+      "fullContent": "Full content",
+      "previewLines": "Preview {{count}} lines",
+      "showAll": "Show all ({{chars}} chars, {{lines}} lines)",
+      "wroteFileLabel": "Wrote",
+      "editedFileLabel": "Edited",
+      "openWithSystem": "Open with system app",
+      "revealInFolder": "Show in folder",
+      "editSuccess": "Edit successful",
+      "matches": "{{matches}} matches, {{files}} files",
+      "filesCount": "{{count}} file",
+      "filesCount_other": "{{count}} files",
+      "searchResults": "{{count}} result",
+      "searchResults_other": "{{count}} results"
+    },
+    "attachedDirs": {
+      "reference": "Reference"
+    },
+    "citationGraph": {
+      "edgeReferences": "Cites",
+      "edgeCitedBy": "Cited by"
+    },
+    "languageLock": {
+      "lockedTo": "Reply locked to {{language}}",
+      "lang_en": "English",
+      "lang_zh": "Chinese",
+      "driftWarning": "Output drifted to a different language",
+      "driftTooltip": "Detected {{ratio}}% characters in a different script than the expected reply language. The model may have ignored the language lock."
+    },
+    "process": {
+      "checking": "Checking sources",
+      "records": "View activity",
+      "actions": "{{count}} actions",
+      "working": "Working on your request"
+    }
+  }
+}

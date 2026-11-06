@@ -1,0 +1,87 @@
+{
+  "shortcuts": {
+    "hint": "Click a shortcut to customize. Press Esc to cancel recording.",
+    "resetAll": "Reset all to default",
+    "resetAllConfirm": "Reset all customized shortcuts to their defaults? This cannot be undone.",
+    "resetTitle": "Reset to default",
+    "send": {
+      "section": "Send messages",
+      "label": "Send / newline shortcut",
+      "description": "Switch between Enter to send or to insert a newline",
+      "enterToSend": "Enter to send",
+      "modifierEnterToSend": "{{modifier}}+Enter to send"
+    },
+    "globalNote": "Global shortcuts trigger even when the app is not focused, and may conflict with the system or other apps",
+    "recorder": {
+      "conflict": "{{key}} conflicts with \"{{name}}\"",
+      "cancel": "Cancel",
+      "override": "Override",
+      "press": "Press a shortcut...",
+      "tooltip": "Click to customize"
+    },
+    "category": {
+      "app": "App",
+      "edit": "Editing",
+      "navigation": "Navigation",
+      "global": "Global"
+    },
+    "items": {
+      "open-settings": {
+        "name": "Open settings",
+        "description": "Open the application settings panel"
+      },
+      "new-session": {
+        "name": "New session",
+        "description": "Create a Chat conversation or an Agent session based on the current mode"
+      },
+      "toggle-sidebar": {
+        "name": "Toggle sidebar",
+        "description": "Show or hide the left sidebar"
+      },
+      "toggle-mode": {
+        "name": "Toggle mode",
+        "description": "Switch between Chat and Agent modes"
+      },
+      "global-search": {
+        "name": "Global search",
+        "description": "Search conversations and sessions"
+      },
+      "focus-input": {
+        "name": "Focus input",
+        "description": "Jump to the input box"
+      },
+      "editor-bold": {
+        "name": "Bold / Unbold",
+        "description": "Toggle bold text in the input (Cmd+B is already used to toggle the sidebar)"
+      },
+      "editor-strikethrough": {
+        "name": "Strikethrough / Remove strikethrough",
+        "description": "Toggle strikethrough on text in the input"
+      },
+      "clear-context": {
+        "name": "Clear context",
+        "description": "Clear the context of the current conversation"
+      },
+      "stop-generation": {
+        "name": "Stop generation",
+        "description": "Interrupt the current AI response"
+      },
+      "reference-selected-files": {
+        "name": "Reference selected files",
+        "description": "Add files currently selected in the FileBrowser as mentions in the composer"
+      },
+      "close-tab": {
+        "name": "Close current tab",
+        "description": "Close the currently active Chat or Agent tab"
+      },
+      "quick-task": {
+        "name": "Quick task",
+        "description": "Open the floating quick task input window"
+      },
+      "show-main-window": {
+        "name": "Show main window",
+        "description": "Show and focus the Tinker main window"
+      }
+    }
+  }
+}

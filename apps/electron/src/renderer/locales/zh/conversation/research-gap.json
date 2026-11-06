@@ -1,0 +1,43 @@
+{
+  "researchGap": {
+    "trustFooter": "仅在所选 {{count}} 篇内成立，不代表「全世界没人做过」；是否值得做由你判断。",
+    "table": {
+      "paperHeader": "论文",
+      "aiColumn": "AI",
+      "manageColumns": "管理列",
+      "emptyCell": "未涉及"
+    },
+    "undo": "撤回",
+    "redo": "恢复",
+    "cell": {
+      "sourceLabel": "出处",
+      "jumpToSource": "跳到原文"
+    },
+    "insights": {
+      "gapsTitle": "组合空白",
+      "conflictsTitle": "结论冲突",
+      "involvedPapers": "涉及 {{count}} 篇"
+    },
+    "deposit": {
+      "selected": "已选 {{count}} 项",
+      "button": "加入证据集",
+      "addOne": "加入证据集",
+      "selectAll": "全选",
+      "involvedLabel": "涉及论文",
+      "dialogTitle": "把 {{count}} 条洞察加入证据集",
+      "modeExisting": "已有集合",
+      "modeNew": "新建集合",
+      "loading": "加载中…",
+      "selectPlaceholder": "选择一个证据集",
+      "empty": "还没有证据集，去新建一个",
+      "newNamePlaceholder": "证据集名称",
+      "cancel": "取消",
+      "confirm": "加入",
+      "toastDone": "已加入「{{name}}」（{{count}} 条洞察）",
+      "noWorkspace": "请先选择一个工作区",
+      "error": "加入证据集失败"
+    },
+    "empty": "暂无研究空白分析。勾选一组论文后发起「找研究空白」。",
+    "notFound": "这份分析已不在内存中。重新发起一次，或在对话里点结果卡片重新打开。"
+  }
+}

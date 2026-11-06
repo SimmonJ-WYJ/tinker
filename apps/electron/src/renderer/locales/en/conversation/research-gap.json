@@ -1,0 +1,43 @@
+{
+  "researchGap": {
+    "trustFooter": "Holds only within these {{count}} papers — it does not claim \"no one in the world has done this\". Whether a gap is worth pursuing is your call.",
+    "table": {
+      "paperHeader": "Paper",
+      "aiColumn": "AI",
+      "manageColumns": "Manage columns",
+      "emptyCell": "Not covered"
+    },
+    "undo": "Undo",
+    "redo": "Redo",
+    "cell": {
+      "sourceLabel": "Source",
+      "jumpToSource": "Jump to source"
+    },
+    "insights": {
+      "gapsTitle": "Combination gaps",
+      "conflictsTitle": "Conflicting conclusions",
+      "involvedPapers": "{{count}} papers"
+    },
+    "deposit": {
+      "selected": "{{count}} selected",
+      "button": "Add to evidence set",
+      "addOne": "Add to evidence set",
+      "selectAll": "Select all",
+      "involvedLabel": "Involved papers",
+      "dialogTitle": "Add {{count}} insight(s) to evidence set",
+      "modeExisting": "Existing set",
+      "modeNew": "New set",
+      "loading": "Loading…",
+      "selectPlaceholder": "Choose an evidence set",
+      "empty": "No evidence sets yet — create one",
+      "newNamePlaceholder": "Evidence set name",
+      "cancel": "Cancel",
+      "confirm": "Add",
+      "toastDone": "Added to \"{{name}}\" ({{count}} insight(s))",
+      "noWorkspace": "Select a workspace first",
+      "error": "Failed to add to evidence set"
+    },
+    "empty": "No research-gap analysis yet. Pick a group of papers and run \"Find research gap\".",
+    "notFound": "This analysis is no longer loaded. Re-run it, or reopen it from the result card in the conversation."
+  }
+}

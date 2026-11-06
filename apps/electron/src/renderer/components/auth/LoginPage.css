@@ -1,0 +1,96 @@
+/* 登录页局部布局：1440×960 对齐设计稿，窄窗保持主操作可达。 */
+.login-page {
+  --primary: var(--foreground);
+  line-height: 1.45;
+}
+
+.login-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 100%;
+  padding: 16px;
+}
+
+.login-page__story {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 32px 44px 52px;
+}
+
+.login-page__brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 32px;
+}
+
+.login-page__intro { margin-top: 60px; }
+.login-page__headline {
+  margin-top: 20px;
+  font-size: clamp(36px, 3.48vw, 50px);
+  line-height: 1.15;
+}
+.login-page__description { margin-top: 16px; }
+.login-page__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 76px;
+}
+.login-page__step { min-height: 108px; padding: 16px 24px 12px; }
+.login-page__step-title { margin-top: 8px; }
+.login-page__step-description { margin-top: 8px; }
+.login-page__story-footer { margin-top: auto; padding-top: 64px; }
+
+.login-page__sign-in {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 64px 32px;
+}
+.login-page__form {
+  width: 100%;
+  max-width: 440px;
+}
+.login-page__welcome { font-size: 34px; }
+.login-page__actions { margin-top: 44px; }
+.login-page .login-page__submit { height: 56px; }
+.login-page .login-page__submit svg { width: 24px; height: 24px; }
+.login-page .login-page__cancel { height: 40px; margin-top: 12px; font-size: 13px; }
+.login-page__pending { min-height: 56px; }
+.login-page__privacy { margin-top: 28px; padding-top: 24px; }
+
+@media (max-width: 1199px) {
+  .login-page__story { padding-inline: 32px; }
+  .login-page__brand-row { flex-wrap: wrap; gap: 8px 16px; }
+  .login-page__steps { margin-top: 48px; }
+  .login-page__step-title { font-size: 18px; }
+  .login-page__sign-in { padding-inline: 28px; }
+  .login-page__welcome { font-size: 30px; }
+}
+
+@media (max-width: 899px) {
+  .login-page__layout { grid-template-columns: minmax(0, 1fr); }
+  .login-page__story { padding: 40px 28px 32px; }
+  .login-page__intro { margin-top: 40px; }
+  .login-page__headline { font-size: 40px; }
+  .login-page__steps { margin-top: 32px; }
+  .login-page__story-footer { padding-top: 32px; }
+  .login-page__sign-in { padding: 48px 28px; }
+  .login-page__form { transform: none; }
+}
+
+@media (max-width: 479px) {
+  .login-page__layout { padding: 8px; gap: 8px; }
+  .login-page__story { padding-inline: 20px; }
+  .login-page__brand-row { align-items: flex-start; flex-direction: column; }
+  .login-page__headline { font-size: 34px; }
+  .login-page__step { padding-inline: 20px; }
+  .login-page__story-footer { align-items: flex-start; }
+  .login-page__sign-in { padding: 40px 20px; }
+  .login-page__welcome { font-size: 28px; }
+}

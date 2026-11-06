@@ -1,0 +1,163 @@
+{
+  "conceptSpotlight": {
+    "replayTooltip": "重看演示",
+    "skipAll": "跳过引导",
+    "next": "下一步",
+    "done": "完成",
+    "evidenceSet": {
+      "step0": {
+        "label": "第 1/3 步 · 证据集",
+        "title": "证据集 = 跨论文的证据合集",
+        "body": "把多篇论文里支持同一论点的片段集中起来，方便回头查、引、写综述。"
+      },
+      "step1": {
+        "label": "第 2/3 步 · 怎么建",
+        "title": "在 PDF 里建证据集",
+        "body": "进文献库 → 打开 PDF → 划词 → 「加入证据集」。证据自动带原文出处。"
+      },
+      "step2": {
+        "label": "第 3/3 步 · 用证据集",
+        "title": "进入新建任务 → 在对话里 @ 提及证据集",
+        "body": "选中证据集后，Agent 写综述 / 报告时会自动带原文出处。"
+      }
+    },
+    "paperNotes": {
+      "step0": {
+        "label": "第 1/2 步 · 论文笔记",
+        "title": "Note = 论文上的轻量批注",
+        "body": "锚定在 PDF 具体段落，随手记一句。所有 note 同时收录到证据集里。"
+      },
+      "step1": {
+        "label": "第 2/2 步 · 怎么建",
+        "title": "选词建 note",
+        "body": "在 PDF 上选中一段文字 → 点弹出气泡里的「记下」即可。"
+      }
+    }
+  },
+  "spotlight": {
+    "skipAll": "跳过引导",
+    "skipSubStage": "跳过这步",
+    "next": "下一步",
+    "done": "完成",
+    "configureLlm": {
+      "step0": {
+        "label": "第 1/3 步 · 配置",
+        "title": "先配置一个 LLM 渠道",
+        "body": "没有 API Key 就跑不了 Agent。点这里进入设置页。"
+      },
+      "step1": {
+        "label": "第 1/3 步 · 添加",
+        "title": "点“添加配置”加渠道",
+        "body": "选 Anthropic / Kimi / DeepSeek 等供应商，粘贴 API Key 即可创建。"
+      },
+      "step2": {
+        "label": "第 1/3 步 · 完成",
+        "title": "配置完成后关闭设置",
+        "body": "点这里关闭设置返回主界面，继续下一步引导。"
+      }
+    },
+    "connectZotero": {
+      "step0": {
+        "label": "第 2/3 步 · 连接",
+        "title": "连接 Zotero（可选）",
+        "body": "连上 Zotero 后 Agent 能读你的文献库 PDF。不用 Zotero 也可以跳过。"
+      },
+      "step0Connected": {
+        "label": "第 2/3 步 · 已连接",
+        "title": "已连接 Zotero ✓",
+        "body": "你的文献库已就绪，Agent 能读取里面的 PDF。点这里进入文献库查看。"
+      },
+      "step1": {
+        "label": "第 2/3 步 · 启动",
+        "title": "启动 Zotero 桌面版",
+        "body": "点这里启动 Zotero。如果电脑上没装或不需要，可跳过这步。"
+      }
+    },
+    "newTask": {
+      "step0": {
+        "label": "第 3/3 步 · 任务",
+        "title": "新建你的第一个任务",
+        "body": "点这里创建一个新会话开始工作。"
+      },
+      "step1": {
+        "label": "第 3/3 步 · 起手",
+        "title": "试试这些起手式",
+        "body": "吉祥物下方有 4 个示例 prompt，点击即可填入输入框开始对话。"
+      }
+    }
+  },
+  "starterChips": {
+    "searchProtein": {
+      "label": "检索蛋白结构相关论文",
+      "prompt": "检索 大模型 + 蛋白结构预测 相关论文"
+    },
+    "analyzePdf": {
+      "label": "分析这篇 PDF 的结论",
+      "prompt": "帮我分析这篇 PDF 的核心结论"
+    },
+    "importZotero": {
+      "label": "导入 Zotero 集合",
+      "prompt": "导入我当前 Zotero 集合并整理"
+    },
+    "generateReview": {
+      "label": "生成主题综述",
+      "prompt": "生成关于「主题」的文献综述"
+    }
+  },
+  "welcome": {
+    "mascotAlt": "Tinker 吉祥物",
+    "greetingNight": "夜深了",
+    "greetingMorning": "早上好",
+    "greetingAfternoon": "下午好",
+    "greetingEvening": "晚上好",
+    "salutation": "{{name}}，{{greeting}}",
+    "tagline": "欢迎体验 Tinker Alpha，与你的科研智能体一起开始工作。"
+  },
+  "tips": {
+    "macShortcutNew": "按 ⌘N 快速创建新对话",
+    "macShortcutSearch": "按 ⌘F 搜索历史对话",
+    "macShortcutSettings": "按 ⌘, 打开设置",
+    "macShortcutSidebar": "按 ⌘B 切换侧边栏显示",
+    "macShortcutMode": "按 ⌘⇧M 快速切换 Chat / Agent 模式",
+    "macShortcutFocus": "按 ⌘L 快速跳转到输入框",
+    "macShortcutClear": "按 ⌘K 清除当前对话上下文",
+    "macShortcutStop": "按 ⌘. 中断 AI 响应",
+    "macShortcutClose": "按 ⌘W 关闭当前标签页",
+    "macShortcutZoom": "按 ⌘+ / ⌘- 可以放大或缩小界面，⌘0 重置",
+    "winShortcutNew": "按 Ctrl+N 快速创建新对话",
+    "winShortcutSearch": "按 Ctrl+F 搜索历史对话",
+    "winShortcutSettings": "按 Ctrl+, 打开设置",
+    "winShortcutSidebar": "按 Ctrl+B 切换侧边栏显示",
+    "winShortcutMode": "按 Ctrl+Shift+M 快速切换 Chat / Agent 模式",
+    "winShortcutFocus": "按 Ctrl+L 快速跳转到输入框",
+    "winShortcutClear": "按 Ctrl+K 清除当前对话上下文",
+    "winShortcutStop": "按 Ctrl+. 中断 AI 响应",
+    "winShortcutClose": "按 Ctrl+W 关闭当前标签页",
+    "winShortcutZoom": "按 Ctrl++ / Ctrl+- 可以放大或缩小界面，Ctrl+0 重置",
+    "tipAgentFile": "输入 @ 可以引用工作区文件、Skill、MCP 或 Zotero 文献",
+    "tipAttachment": "支持拖拽 PDF / Office 文件到输入框直接上传附件",
+    "tipShortcutsCustom": "在设置 → 快捷键中可以自定义所有快捷键",
+    "taskSearch": "试试「帮我检索关于 XX 主题近三年的高引用论文」让 Agent 自动搜索 arXiv / PubMed",
+    "taskReview": "试试「围绕 XX 方向写一份结构化文献综述初稿」让 Agent 按 IMRaD 组织论述",
+    "taskCompare": "上传两篇 PDF 后问「对比这两种方法的核心差异与适用场景」",
+    "taskSummarize": "把 PDF 拖进来，问「总结这篇论文的研究问题、方法和结论」",
+    "taskZotero": "连接 Zotero 后，@ 可以直接引用文库条目，Agent 会带着全文上下文回答",
+    "taskOutline": "试试「为 XX 课题生成一份实验设计与时间线初稿」"
+  },
+  "home": {
+    "title": "今天，你想创造什么？",
+    "placeholder": "问一个问题，或描述你想构建的东西……",
+    "privacy": "会话保存在本机；使用远程模型时，相关内容会发送至所选服务商。",
+    "newConversation": "新对话",
+    "explore": "探索一个主题",
+    "build": "与 AI 一起编程",
+    "write": "写一份初稿",
+    "explorePrompt": "帮我理解一个话题。先问我想了解什么，再解释关键概念和仍不确定的部分。",
+    "buildPrompt": "帮我规划一个软件项目。先问我想做什么，再建议一个小的起步任务。",
+    "writePrompt": "根据我的笔记帮我写一份清晰的初稿。先询问受众、写作目的和参考材料。",
+    "send": "发送消息",
+    "stop": "停止生成",
+    "projectFailed": "无法打开此项目，请重试。",
+    "draftHint": "点击示例填入草稿，确认后再发送。"
+  }
+}

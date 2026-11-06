@@ -1,0 +1,61 @@
+{
+  "name": "asci",
+  "version": "0.1.30",
+  "description": "The next gen ai software with general agents",
+  "license": "Apache-2.0",
+  "author": "OPENSCI Labs",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "ASCI_AUTH_NO_BYPASS=1 bun run --filter='@asci/electron' dev",
+    "dev:skip-login": "ASCI_SKIP_LOGIN=1 bun run --filter='@asci/electron' dev",
+    "electron:dev": "bun run --filter='@asci/electron' dev",
+    "electron:build": "bun run --filter='@asci/electron' build",
+    "electron:start": "bun run --filter='@asci/electron' start",
+    "build": "bun run --filter='*' build",
+    "typecheck": "bun run --filter='*' typecheck",
+    "test": "bun test",
+    "lint": "eslint .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/parser": "8.59.4",
+    "eslint": "10.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "ts-json-schema-generator": "^2.9.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "jotai": "^2.17.1"
+  },
+  "trustedDependencies": [
+    "@vscode/ripgrep",
+    "electron",
+    "esbuild",
+    "ffmpeg-static",
+    "onnxruntime-node",
+    "sharp"
+  ],
+  "overrides": {
+    "tar": "^7.5.15",
+    "tmp": "^0.2.7",
+    "fast-uri": "^3.1.2",
+    "shell-quote": "^1.8.4",
+    "esbuild": "^0.28.1",
+    "form-data": "^4.0.6",
+    "ws": "^8.21.0",
+    "vite": "^6.4.3",
+    "hono": "^4.12.25"
+  }
+}

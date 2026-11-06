@@ -1,0 +1,60 @@
+/* ===== components 层：项目特有的组件级样式 hook ===== */
+
+@layer components {
+  /* 设置卡片样式：细边框 + 无阴影（Codex 风）；深色由 theme-overrides.css 调整背景为透明 */
+  .settings-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  /* ===== Shiki 代码块样式 ===== */
+  .code-block-wrapper {
+    contain: content;
+  }
+
+  .code-block-wrapper pre.shiki {
+    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+    background-color: hsl(var(--code-bg)) !important;
+  }
+
+  .code-block-wrapper pre.shiki code {
+    display: block;
+    font-family: inherit;
+    background: transparent;
+    padding: 0;
+  }
+
+  /* 代码行：限制重排范围，GPU 合成优化 */
+  .code-block-wrapper .line {
+    display: inline;
+    contain: none;
+  }
+
+  /* ===== 滚动进度条 — 亮主题（深色由 theme-overrides.css 覆盖） ===== */
+  .scroll-progress-thumb {
+    background-color: hsl(var(--foreground) / 0.14);
+  }
+  .scroll-progress-thumb:hover {
+    background-color: hsl(var(--foreground) / 0.25);
+  }
+  .scroll-progress-thumb-active {
+    background-color: hsl(var(--foreground) / 0.32) !important;
+  }
+
+  /* ===== 计划模式：输入框定位上下文 ===== */
+  .plan-mode-border {
+    position: relative;
+  }
+}
+
+/* ===== 下拉菜单 / 下拉选择：悬停可选项显示手型光标（禁用项除外） =====
+   覆盖 Radix Dropdown / Select item 默认的 cursor-default。
+   role 覆盖 menuitem / menuitemcheckbox / menuitemradio / option。
+   不放进 @layer：utilities 层（.cursor-default）按 cascade layer 顺序压过
+   components 层，故须用未分层规则才能稳定覆盖。 */
+[role='menuitem']:not([data-disabled]),
+[role='menuitemcheckbox']:not([data-disabled]),
+[role='menuitemradio']:not([data-disabled]),
+[role='option']:not([data-disabled]) {
+  cursor: pointer;
+}

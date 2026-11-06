@@ -1,0 +1,79 @@
+{
+  "$id": "https://opensci.io/asci/schema/objects/evidence-set.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/EvidenceSet",
+  "definitions": {
+    "EvidenceSet": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "visibility": {
+          "$ref": "#/definitions/ObjectVisibility"
+        },
+        "noteId": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "persisted": {
+          "type": "boolean"
+        },
+        "evidenceRefIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ObjectId"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "savedAt": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/definitions/EvidenceSetSource"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "createdAt",
+        "evidenceRefIds",
+        "id",
+        "persisted",
+        "updatedAt",
+        "visibility",
+        "workspaceId"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectId": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "type": "string",
+      "enum": [
+        "visible",
+        "archived",
+        "deleted"
+      ]
+    },
+    "EvidenceSetSource": {
+      "type": "string",
+      "enum": [
+        "user-highlight",
+        "agent-assembled"
+      ]
+    }
+  }
+}

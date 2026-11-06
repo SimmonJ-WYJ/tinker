@@ -1,0 +1,279 @@
+name: CI
+
+# 触发：pull_request / push（base=main）。
+# 版本号 bump 已左移到本地 pre-commit 钩子（scripts/bump-version-on-commit.mjs），
+# commit 时即钉到 origin/main patch+1；不再有服务端 auto-resolve 工作流 / pre-push 版本守门，
+# 故移除原 workflow_run 补偿路径。
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 透传事件上下文。保留 ctx 间接层（下游 job 统一读 needs.ctx.outputs.*）便于将来扩展：
+  # 常规 pull_request / push 路径下 head_sha 留空，actions/checkout 自动用触发 ref。
+  ctx:
+    name: Resolve Context
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+    steps:
+      - name: Resolve
+        id: resolve
+        run: |
+          set -euo pipefail
+          # pull_request / push 常规路径：上下文直接来自事件，head_sha 留空走默认 ref。
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::regular path (${{ github.event_name }})"
+
+  verify-email:
+    name: Verify Commit Email
+    needs: ctx
+    if: needs.ctx.outputs.should_run == 'true'
+    uses: OPENSCI-Labs/.github/.github/workflows/verify-commit-email.yml@main
+    permissions:
+      contents: read
+
+  # 任意文件改动都跑全套 CI（typecheck / test / lint / gitleaks）。
+  # 背景（#362 调查）：旧 paths-filter 只盯 packages/apps/根 package.json/bun.lock/根 tsconfig，
+  # 漏掉了 per-package tsconfig.json、eslint.config.js / eslint-rules/**、tests/**、bunfig.toml、
+  # docs/**、.github/** 与 scripts/** —— 改这些时 CI 静默跳过，校验出现盲区。
+  # 现在 'code' 对任何文件都为 true；保留 changes job + if 守门结构，便于将来再收窄。
+  changes:
+    name: Detect Changes
+    needs: ctx
+    if: needs.ctx.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            code:
+              - '**'
+
+  # 串行预热 bun 全局缓存，避免 typecheck 与 test 并行启动时同时 cache miss
+  # 各自下载依赖。downstream 仅做本地链接，install 时间从 ~14s 降到 ~3-5s。
+  prep-deps:
+    name: Prep deps
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Cache bun install
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+      - name: Populate cache (only on miss)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: bun install --frozen-lockfile
+
+  typecheck:
+    name: Typecheck
+    needs: [ctx, changes, prep-deps]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # 命中 prep-deps 写入的 bun 全局缓存，install 走本地链接
+      - name: Restore bun install cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Typecheck (all workspaces)
+        run: bun run typecheck
+
+  test:
+    name: Test
+    needs: [ctx, changes, prep-deps]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # 同 prep-deps key，命中本地缓存
+      - name: Restore bun install cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Run tests
+        run: bun test
+
+  # ADR-003 B-6：禁止 Tailwind 调色板硬编码 className，强制语义 token
+  lint:
+    name: Lint
+    needs: [ctx, changes, prep-deps]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Restore bun install cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint
+        run: bun run lint
+
+  # 依赖漏洞扫描（#418 / PRD 0.3.0 §五 安全机制 "运维" 行）：high+ 漏洞硬阻断 PR。
+  # 复用 prep-deps 预热的 bun 全局缓存，install 走本地链接。无 --ignore 豁免：
+  # 存量漏洞已在 root package.json overrides 中修掉，未来上游新曝 high 会即时阻断。
+  audit:
+    name: Dependency Audit
+    needs: [ctx, changes, prep-deps]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Restore bun install cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Audit (block high+ vulnerabilities)
+        run: bun audit --audit-level=high
+
+  gitleaks:
+    name: Secret Scan
+    needs: ctx
+    if: needs.ctx.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar xz -C /usr/local/bin gitleaks
+      - name: Run gitleaks (pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          gitleaks detect --source . --verbose \
+            --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+      - name: Run gitleaks (push)
+        if: github.event_name == 'push'
+        run: |
+          gitleaks detect --source . --verbose \
+            --log-opts="${{ github.event.before }}..${{ github.sha }}"
+
+  # 防呆：普通 PR 不得把 apps/electron/package.json.version bump 成 prerelease（-rc.N 等）形式
+  # 背景：0.x.y 阶段 CLAUDE.md「改到哪个包就 bump patch」，-rc.N 后缀只能由发版 agent 的
+  #       chore/release-* PR 添加。曾出现普通 PR 误把 version 一路 bump 到 0.1.179-rc.8 的事故。
+  # 只在「本 PR 改了 version」且「改成了 prerelease 形式」且「非 chore/release-* 分支」时 fail，避免误伤。
+  version-lint:
+    name: Version Lint
+    needs: ctx
+    if: needs.ctx.outputs.should_run == 'true' && github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.ctx.outputs.head_sha }}
+          fetch-depth: 0   # 需要 base commit 在本地历史里，供 git show "$BASE_SHA:..." 读取
+      - name: Disallow prerelease version in non-release PRs
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          HEAD_VERSION=$(jq -r '.version' apps/electron/package.json)
+          BASE_VERSION=$(git show "$BASE_SHA:apps/electron/package.json" | jq -r '.version')
+          echo "base version : $BASE_VERSION"
+          echo "head version : $HEAD_VERSION"
+          echo "head branch  : $HEAD_REF"
+          # 发版 PR（chore/release-*）允许带 -rc.N
+          if [[ "$HEAD_REF" == chore/release-* ]]; then
+            echo "::notice::Release branch — prerelease suffix allowed."
+            exit 0
+          fi
+          # 只在「本 PR 改了 version」且「新值是 prerelease 形式」时才 fail
+          if [[ "$HEAD_VERSION" != "$BASE_VERSION" && "$HEAD_VERSION" == *-* ]]; then
+            echo "::error::普通 PR 不得把版本号 bump 成 prerelease 形式（'$BASE_VERSION' → '$HEAD_VERSION'）。请改为 plain patch（如 0.1.180 → 0.1.181），不要碰 -rc.N 后缀；-rc.N 只能由发版 agent 的 chore/release-* PR 添加。详见 docs/release-playbook.md §3.1.1。"
+            exit 1
+          fi
+          echo "::notice::Version OK."
+
+  # Gate job —— 将此作为 branch protection 中唯一的必需状态检查
+  # 被 path filter 跳过的 job 不会阻塞合并
+  ci-status:
+    name: CI Status
+    if: always()
+    needs: [ctx, verify-email, changes, prep-deps, typecheck, test, lint, audit, gitleaks, version-lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate
+        id: eval
+        if: needs.ctx.outputs.should_run == 'true'
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "result=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=success" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Fail if any job failed
+        if: needs.ctx.outputs.should_run == 'true' && steps.eval.outputs.result == 'failure'
+        run: |
+          echo "::error::One or more CI jobs failed or were cancelled"
+          exit 1

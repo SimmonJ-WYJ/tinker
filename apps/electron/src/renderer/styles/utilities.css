@@ -1,0 +1,201 @@
+/* ===== utilities 层：项目特有的 utility class + 动效 keyframes ===== */
+
+@layer utilities {
+  /* Draggable title bar region for Electron window */
+  .titlebar-drag-region {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  /* ===== Shell 外壳背景（窗口缝隙处的实色底） =====
+     亮主题：始终低于卡片一档，避免顶层卡片顶部与窗口底色撞色
+     暗主题：使用 muted 实色，强化"沉入"感
+     通过 token 自适应主题，无需 .dark 变体 */
+  .shell-bg {
+    background-color: hsl(var(--muted));
+  }
+
+  /* ===== TabBar 背景 ===== */
+  .tabbar-bg {
+    background-color: hsl(var(--muted) / 0.5);
+  }
+
+  /* 快速任务窗口：透明背景 + 无拖拽 */
+  .quick-task-container {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  /* ===== 全局：所有弹层免疫顶部窗口拖拽区 =====
+     无边框窗顶 50px 是 app-region:drag（AppShell），Electron 按几何矩形算拖拽、无视 z-index，
+     浮在其上的弹层不 no-drag 就会被吞鼠标事件。这里统一兜底，替代逐组件内联：
+     - [role=dialog]/[role=alertdialog]：Radix Dialog/AlertDialog/Sheet 的 Content（modal 类）
+     - [data-radix-popper-content-wrapper]：Radix Popover/Dropdown/Select/Tooltip 的 popper 容器
+     - [data-sonner-toaster]/[data-sonner-toast]：Sonner toast viewport + 每条 toast
+       （app-region 不继承，viewport 与每条 toast 都得显式声明；toast position:absolute 故必须单标）
+     注：Radix Overlay（dim 背景）无 role、无稳定弹层 data-attr，仍由各组件内联 titlebar-no-drag 承担。 */
+  [role='dialog'],
+  [role='alertdialog'],
+  [data-radix-popper-content-wrapper],
+  [data-sonner-toaster],
+  [data-sonner-toast] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  /* 细腻卡片阴影 */
+  .shadow-minimal {
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.03),
+      0 1px 3px 0 rgb(0 0 0 / 0.06);
+  }
+
+  /* 隐藏滚动条但保留滚动功能 */
+  .scrollbar-none,
+  .scrollbar-none > * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar,
+  .scrollbar-none > *::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 纤细滚动条 */
+  .scrollbar-thin,
+  .scrollbar-thin > * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar,
+  .scrollbar-thin > *::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track,
+  .scrollbar-thin > *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb,
+  .scrollbar-thin > *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover,
+  .scrollbar-thin > *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* 对话正文里的行内 chip：按文字行做光学居中，避免继承 Button 的按钮盒模型。 */
+  .asci-inline-chip {
+    display: inline-flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    height: 20px !important;
+    min-height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 20px !important;
+    vertical-align: -0.16em !important;
+  }
+
+  .asci-inline-chip > svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+
+  .asci-inline-chip-text {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    line-height: 20px;
+  }
+
+  /* 滚动区域上下渐隐遮罩 */
+  .mask-fade-y {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 3%,
+      black 97%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 3%,
+      black 97%,
+      transparent 100%
+    );
+  }
+
+  .spinner {
+    width: 0.75em;
+    height: 0.75em;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 0.075em;
+  }
+
+  .spinner-cube {
+    background-color: currentColor;
+    animation: spinner 1.3s infinite ease-in-out;
+  }
+
+  /* 9 个 cube 的动画延迟（创建波浪效果） */
+  .spinner-cube:nth-child(1) { animation-delay: 0.2s; }
+  .spinner-cube:nth-child(2) { animation-delay: 0.3s; }
+  .spinner-cube:nth-child(3) { animation-delay: 0.4s; }
+  .spinner-cube:nth-child(4) { animation-delay: 0.1s; }
+  .spinner-cube:nth-child(5) { animation-delay: 0.2s; }
+  .spinner-cube:nth-child(6) { animation-delay: 0.3s; }
+  .spinner-cube:nth-child(7) { animation-delay: 0s; }
+  .spinner-cube:nth-child(8) { animation-delay: 0.1s; }
+  .spinner-cube:nth-child(9) { animation-delay: 0.2s; }
+
+  .edge-breath {
+    animation: edge-breath 1.8s ease-out infinite;
+  }
+  .edge-breath:hover {
+    animation-play-state: paused;
+  }
+
+  /* ===== 全局：聚焦时抹掉 ring 颜色（保留 border / opacity / bg 变化） =====
+     Tailwind 的 focus ring 通过 box-shadow + --tw-ring-color 渲染；把颜色设透明即可让
+     光环隐形，而不动 border / opacity。仅改 CSS 变量，对无 ring 工具类的元素无副作用，
+     故覆盖所有可聚焦控件（input / textarea / button / select / checkbox / radio / switch / slider…）。
+     置于 @layer utilities 内、与 Tailwind 的 ring-* 同层；用 `html ` 前缀把选择器优先级抬到
+     (0,1,1)，稳压 Tailwind 单类 `.ring-*`(0,1,0)，跨 layer 时低层会被高层无视，故不可放 components 层。 */
+  html :focus,
+  html :focus-visible {
+    --tw-ring-color: transparent;
+  }
+}
+
+/* ===== Spinner 动画（SpinKit Grid）===== */
+/* @keyframes 须在 @layer 外（Tailwind 处理 @layer 时会过滤 at-rule） */
+
+@keyframes spinner {
+  0%, 70%, 100% {
+    transform: scale3D(1, 1, 1);
+  }
+  35% {
+    transform: scale3D(0, 0, 1);
+  }
+}
+
+/* ===== 边缘扩散呼吸动效（用于引导用户点击空态按钮）===== */
+/* 单向涟漪：从描边处向外扩散并淡出；起始为 0 半径（不可见），循环回到起点是无缝的 */
+@keyframes edge-breath {
+  0% {
+    box-shadow: 0 0 0 0 hsl(217 91% 60% / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 9px hsl(217 91% 60% / 0);
+  }
+}

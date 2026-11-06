@@ -1,0 +1,24 @@
+/* ===== theme-overrides 层：.dark 覆盖（高特异性，不需要 @layer 提升）===== */
+
+/* 输入框内代码块：深色主题用 muted bg + 正常前景色 */
+.dark .tiptap pre {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+/* 设置卡片：深色卡片背景与窗口同色，回退为透明 + 更弱边框 */
+.dark .settings-card {
+  background: transparent;
+  border-color: hsl(var(--border) / 0.3);
+}
+
+/* 滚动进度条：深色下略调对比度 */
+.dark .scroll-progress-thumb {
+  background-color: hsl(var(--foreground) / 0.12);
+}
+.dark .scroll-progress-thumb:hover {
+  background-color: hsl(var(--foreground) / 0.22);
+}
+.dark .scroll-progress-thumb-active {
+  background-color: hsl(var(--foreground) / 0.30) !important;
+}

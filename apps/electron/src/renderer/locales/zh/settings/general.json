@@ -1,0 +1,42 @@
+{
+  "general": {
+    "language": {
+      "label": "界面语言",
+      "description": "当前界面显示语言。更多语言即将上线。"
+    },
+    "languageOptions": {
+      "en": "英语",
+      "zh": "简体中文"
+    },
+    "theme": {
+      "label": "外观主题",
+      "description": "跟随系统，或强制使用浅色 / 深色。"
+    },
+    "themeOptions": {
+      "system": "跟随系统",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "notifications": {
+      "desktopLabel": "桌面通知",
+      "desktopDescription": "Agent 完成任务或需要操作时发送通知",
+      "soundLabel": "阻塞操作提示音",
+      "soundDescription": "权限确认、问题回答、计划确认等需要你介入时播放提示音",
+      "taskCompleteLabel": "任务完成音效",
+      "taskCompleteDescription": "Agent 完成任务后的提示音",
+      "permissionLabel": "权限审批音效",
+      "permissionDescription": "需要确认权限时的提示音",
+      "exitPlanLabel": "计划确认音效",
+      "exitPlanDescription": "Agent 提交计划等待确认时的提示音",
+      "mute": "静音",
+      "popoverCancel": "取消",
+      "popoverConfirm": "确定"
+    },
+    "archive": {
+      "label": "自动归档",
+      "description": "超过指定天数未更新的对话将移入归档，可在归档中恢复。置顶对话不会自动归档。",
+      "disabled": "禁用",
+      "days": "{{count}} 天"
+    }
+  }
+}

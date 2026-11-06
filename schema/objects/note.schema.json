@@ -1,0 +1,49 @@
+{
+  "$id": "https://opensci.io/asci/schema/objects/note.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Note",
+  "definitions": {
+    "Note": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "visibility": {
+          "$ref": "#/definitions/ObjectVisibility"
+        },
+        "body": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "body",
+        "createdAt",
+        "id",
+        "updatedAt",
+        "visibility"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectId": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "type": "string",
+      "enum": [
+        "visible",
+        "archived",
+        "deleted"
+      ]
+    }
+  }
+}

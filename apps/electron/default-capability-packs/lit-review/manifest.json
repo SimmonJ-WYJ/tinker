@@ -1,0 +1,117 @@
+{
+  "packId": "lit-review",
+  "version": "0.2.18",
+  "summaryI18n": {
+    "zh": "把已整理好的论文写成文献综述 / survey（只负责写，不做检索）",
+    "en": "Write a literature review / survey from already-curated papers (writing only, not search)"
+  },
+  "scenarioAgent": {
+    "name": "lit-review",
+    "description": "Literature review / survey WRITING scenario agent (0.2 first-class capability pack). Route here whenever the user wants to write or generate a literature review / survey — in any phrasing or language: 'write a review', 'survey the literature on X', '综述 / 写综述 / 写一篇综述 / 生成综述 / 对这几篇文献做综述 / 针对 X 写一个综述'. The source papers may come from a previously curated EvidenceSet, OR be @-mentioned / named inline by the user in the request itself — both are in scope. This owns review WRITING; it does NOT do paper search / discovery (that is lit-search's job — route there for 'find / search / look up papers'). Two-phase flow: Turn 1 dispatches review-proposer SubAgent to propose 3 directions and renders a ChoiceCard via `mcp__litreview__present_directions`; Turn 2 dispatches a reader fan-out (readers are the single source of reading — wiki structured source only, never PDFs) to produce evidence rows, then generates the review body via the `body-writer` SubAgent declared as the PLAN's `terminal_subagent` (body-writer runs the `literature-review-result` skill in its own isolated context, consumes the evidence rows from the `.context` cache, does not read papers, and returns only a terse pointer so the review prose never enters the main loop), and fact-checker verifies.",
+    "promptPath": "scenario/system-prompt.md",
+    "tools": ["mcp__litreview__present_directions"],
+    "model": "sonnet"
+  },
+  "skillRefs": [
+    "literature-review-result"
+  ],
+  "mcpRefs": [
+    "paper-search"
+  ],
+  "subAgents": [
+    {
+      "name": "evidence-broadener",
+      "description": "Turn-1-only evidence enricher. Using the review topic, runs LOCAL hybrid semantic search (mcp__papers-rg__papers_semantic_search) over the user's OWN library — scoped to the current workspace's papers (via workspace_papers_list) and EXCLUDING papers already in the EvidenceSet — to surface owned-but-not-yet-included papers/passages relevant to the review. Rewrites non-English topics to English before searching (e5 cross-lingual recall is weak). Returns a SUGGESTION list only (candidate paperId + title + one-line why + verbatim snippet); it NEVER adds anything to the EvidenceSet and NEVER does external paper-search discovery. Use ONLY in Turn 1, alongside review-proposer, to help the user decide whether to broaden the set before writing. Degrades to no-op when semantic search is unavailable (papers-rg-only retrieval mode).",
+      "promptPath": "sub-agents/evidence-broadener.md",
+      "tools": [
+        "mcp__papers-rg__papers_semantic_search",
+        "mcp__workspace_papers__workspace_papers_list"
+      ],
+      "model": "haiku"
+    },
+    {
+      "name": "review-proposer",
+      "description": "Review-direction proposer (spec §5.4 Turn 1). Inspects an already-curated EvidenceSet of papers and proposes exactly 3 candidate review directions, each with thesis + 6-chapter outline + paper subset. Outputs strict structured JSON (no prose) so the lit-review Turn 1 ChoiceCard can render it. Use this SubAgent ONLY at the start of a literature-review session before any actual review prose has been written.",
+      "promptPath": "sub-agents/review-proposer.md",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep"
+      ],
+      "model": "sonnet"
+    },
+    {
+      "name": "evidence-triager",
+      "description": "Turn-2 pre-reading ENTRY step — ALWAYS runs first, before any reader. Two jobs: (1) Source readiness precheck — a deterministic batch wiki-index lookup (mcp__zotero__zotero_wiki_lookup_batch) over the fixed papersInScope classifies each paper readable (found=true, has a parsed full-text source) vs unreadable (parse pending/failed, not in index, or no source), and emits sourceAvailability + an allUnreadable flag. readiness MUST come from the wiki index, not semantic search (a paper absent from the index just returns zero hits). (2) Reading-budget allocation — ONLY when there are enough readable papers AND semantic search is available, runs one LOCAL semantic search per chapter STRICTLY WITHIN the readable subset (paperIds filter) and ranks/splits them into deepRead vs light; when nothing is readable it makes ZERO semantic calls. It is triage over an already-fixed set — NOT retrieval; deepRead/light only ever contain readable papers. The planner branches on allUnreadable: true → skip the reader fan-out, write from abstracts; false → reader fan-out over the readable deepRead list.",
+      "promptPath": "sub-agents/evidence-triager.md",
+      "tools": [
+        "mcp__zotero__zotero_wiki_lookup_batch",
+        "mcp__papers-rg__papers_semantic_search"
+      ],
+      "model": "haiku"
+    },
+    {
+      "name": "evidence-skimmer",
+      "description": "Turn-2-only batch reader for the TAIL of a large paper set (papersInScope > 10). After evidence-triager ranks the set, the core (deepRead) papers get full readers and evidence-skimmer produces evidence for the light (tail) papers in ONE pass: it first batch-resolves every light paper's parent key → attachmentKey via zotero_wiki_lookup_batch (the papers-rg read tools need the true attachmentKey, and the dispatch may omit it or forward a parent key), then jumps to the semantic-hit anchors the triager forwarded, reads small context windows (papers_read_article_section / papers_read_context), and extracts verbatim contiguous-span evidence rows (source_id = parent item key) — never quoting the raw snippet. It does NOT read whole papers; papers whose hits do not cover their target chapters (or lack a §5 gap signal) it FLAGS as needsDeepRead for a follow-up reader rather than reading them itself. Caches covered papers to .context/<key>.evidence.json. Replaces the per-paper light reader fan-out so reader count stays O(deepReadCap), not O(papers). Use ONLY in Turn 2 for the light tier of a >10-paper set when semantic search is available.",
+      "promptPath": "sub-agents/evidence-skimmer.md",
+      "tools": [
+        "Read",
+        "Write",
+        "mcp__zotero__zotero_wiki_lookup_batch",
+        "mcp__papers-rg__papers_read_article_section",
+        "mcp__papers-rg__papers_read_context",
+        "mcp__papers-rg__papers_search_keywords",
+        "mcp__papers-rg__papers_semantic_search"
+      ],
+      "model": "haiku"
+    },
+    {
+      "name": "reader",
+      "description": "Close reader and the lit-review pipeline's single source of reading. Self-resolves a paper via zotero_wiki_lookup, then reads it from the Zotero wiki structured source (.article.md / .txt outline-first, raw .md fallback) — NEVER from a PDF and never from the network. Precisely extracts methods / conclusions / limitations / key data points as evidence rows (verbatim contiguous quote + locator + reading bucket) that the body-writer turns into the review verbatim. Does NOT perform cross-paper synthesis. Supports two dispatch-selected depth modes: readMode full (outline-first deep read) and readMode light (budgeted semantic jump-read for tail papers in large reviews); when papers_semantic_search is available it jump-reads to the passages relevant to the review direction instead of guessing sections. Use to read a paper in scope in Turn 2; degrades to abstract-only / insufficient when the wiki source is not ready.",
+      "promptPath": "sub-agents/reader.md",
+      "tools": [
+        "Read",
+        "Write",
+        "mcp__zotero__zotero_wiki_lookup",
+        "mcp__papers-rg__papers_semantic_search",
+        "mcp__papers-rg__papers_read_outline",
+        "mcp__papers-rg__papers_read_article_section",
+        "mcp__papers-rg__papers_search_keywords",
+        "mcp__papers-rg__papers_read_context"
+      ],
+      "model": "haiku"
+    },
+    {
+      "name": "body-writer",
+      "description": "Turn-2 terminal producer of the review body. Runs in its OWN isolated context and invokes the `literature-review-result` skill (loaded via this subAgent's `skills`) to synthesize the §1–§8 review HTML from the readers' evidence rows (which it globs from the session `.context/*.evidence.json` cache), saving it to `reviews/<timestamp>-<slug>.html`. It returns ONLY a terse pointer (file path + chapter count + deep-read/abstract-only/metadata-only counts) to the main Agent — the full review prose stays inside this subAgent's context and never enters the main loop, which is what keeps a large review from triggering a mid-run context compaction. It does NOT read papers (reading happened in the reader fan-out) and is the SOLE producer of the review body — the main Agent must never hand-write the review itself. Dispatch as the Turn-2 PLAN's `terminal_subagent`, after all readers / skimmer / escalation readers return and before fact-checker.",
+      "promptPath": "sub-agents/body-writer.md",
+      "tools": [
+        "Skill",
+        "Write",
+        "Read",
+        "Glob",
+        "mcp__papers-rg__papers_search_keywords",
+        "mcp__papers-rg__papers_read_context",
+        "mcp__workspace_papers__workspace_papers_list"
+      ],
+      "skills": [
+        "literature-review-result"
+      ],
+      "model": "sonnet"
+    },
+    {
+      "name": "fact-checker",
+      "description": "Final auditor. Runs traceability checks against any deliverable (candidate list / close-reading notes / review document): every citation must resolve to its source; everything suspicious gets flagged. Independent of any specific Skill — the last-line anti-hallucination defense across scenarios. Use as the final gate before delivery.",
+      "promptPath": "sub-agents/fact-checker.md",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Bash",
+        "WebFetch"
+      ],
+      "model": "haiku"
+    }
+  ],
+  "uiFramework": "conversation-and-artifact"
+}

@@ -1,0 +1,3 @@
+{
+  "{apps/electron/src,packages/*/src}/**/*.{ts,tsx,js,jsx}": "eslint --no-warn-ignored"
+}

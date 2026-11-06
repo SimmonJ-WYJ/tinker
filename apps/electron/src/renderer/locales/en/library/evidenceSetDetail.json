@@ -1,0 +1,136 @@
+{
+  "evidenceSetDetail": {
+    "title": "Evidence Set",
+    "untitled": "(untitled set)",
+    "loading": "Loading...",
+    "currentPaperBadge": "Current paper",
+    "joinedAt": "Added {{time}} ago",
+    "joinedRecently": "Added just now",
+    "persisted": {
+      "yes": "Saved",
+      "no": "Temporary"
+    },
+    "counts": {
+      "papers": "{{count}} papers",
+      "evidenceRefs": "{{count}} evidence refs",
+      "notes": "{{count}} notes"
+    },
+    "tabs": {
+      "setNotes": "Set Notes",
+      "setNotesHint": "Notes about the entire collection — synthesis ideas, hypotheses, todos. Per-paper notes go on the paper detail page.",
+      "memberNotes": "Member Paper Notes",
+      "papers": "Papers"
+    },
+    "search": {
+      "notesPlaceholder": "Search note content...",
+      "papersPlaceholder": "Search papers..."
+    },
+    "actions": {
+      "newSetNote": "New set note",
+      "newSetNoteTooltip": "New set note ({{shortcut}})",
+      "addMorePapers": "Add papers",
+      "removePaper": "Remove",
+      "openPaper": "Open paper",
+      "viewAllInSheet": "View all in sheet",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "empty": {
+      "setNotes": "No set notes yet",
+      "setNotesExample": "Example: This set supports H1 of the 0.3 review, focusing on N400 + LPP paths",
+      "memberNotes": "No notes on papers in this set yet",
+      "papers": "No papers in this set yet",
+      "note": "No note yet",
+      "searchNoMatch": "No matching results",
+      "setNotFound": "This evidence set no longer exists"
+    },
+    "removePaperConfirm": {
+      "title": "Remove this paper from the set?",
+      "description": "The paper itself and its notes remain; only the set membership is removed.",
+      "confirm": "Remove",
+      "cancel": "Cancel"
+    },
+    "deleteParagraphConfirm": {
+      "title": "Delete this paragraph?",
+      "description": "Cannot be undone. The paper itself stays in the evidence set.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "create": {
+      "title": "New set note",
+      "bodyPlaceholder": "Capture thoughts, hypotheses, or todos about this collection as a whole...",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "addPapers": {
+      "title": "Add more papers",
+      "helper": "Paste paper keys; separate multiple keys by comma or newline",
+      "placeholder": "PAPER_KEY_A, PAPER_KEY_B",
+      "confirm": "Add"
+    },
+    "toast": {
+      "noteCreated": "Set note created",
+      "editFailed": "Failed to save, please retry",
+      "noPdf": "No PDF attached"
+    },
+    "badge": {
+      "moreLabel": "{{count}} more evidence sets"
+    },
+    "notesView": {
+      "groupBy": {
+        "label": "Group by",
+        "time": "Time",
+        "set": "Set"
+      },
+      "unassigned": "Unassigned notes",
+      "groupHeader": "{{name}} · {{notesCount}} notes · {{papersCount}} papers"
+    },
+    "members": {
+      "notesSection": "Notes",
+      "evidenceSection": "Evidence",
+      "addNote": "Add note",
+      "addEvidence": "Add evidence",
+      "addNotePlaceholder": "Write a note... (no highlight needed, just jot your thought)",
+      "saveNote": "Save note",
+      "cancel": "Cancel",
+      "deleteNote": "Delete note",
+      "removeEvidence": "Remove from set",
+      "addTag": "Tag",
+      "removeTag": "Remove tag",
+      "emptyNotes": "No notes yet",
+      "emptyEvidence": "No evidence yet",
+      "jumpToPaper": "Jump to source",
+      "jumpToReview": "Open review",
+      "sourceKind": {
+        "paper": "Paper source",
+        "review": "Review source",
+        "conversation": "Conversation source"
+      }
+    },
+    "addEvidenceDialog": {
+      "title": "Add evidence",
+      "subtitle": "Reference an item from your materials; the source link is preserved",
+      "segPaper": "Papers",
+      "segReview": "Reviews",
+      "segConversation": "Conversations",
+      "cite": "Cite",
+      "inSet": "Added",
+      "viewConversation": "View conversation",
+      "cancel": "Cancel",
+      "searchPlaceholder": "Search…",
+      "searchSessionsPlaceholder": "Search conversations…",
+      "searchTurnsPlaceholder": "Search Q&A…",
+      "emptyPapers": "No Zotero-linked papers in this workspace",
+      "emptyReviews": "No reviews yet",
+      "emptySessions": "No conversations in this workspace",
+      "emptyTurns": "No addable Q&A in this conversation",
+      "hasPdf": "PDF",
+      "noPdf": "No PDF",
+      "added": "Added to set",
+      "alreadyIn": "Already in this set",
+      "addFailed": "Failed to add, please retry"
+    }
+  }
+}

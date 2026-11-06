@@ -1,0 +1,82 @@
+{
+  "agent": {
+    "noWorkspace": "请先选择或创建一个科研项目",
+    "mcp": {
+      "section": "MCP 服务器（全局）",
+      "description": "对所有工作区可见",
+      "add": "添加服务器",
+      "loading": "加载中...",
+      "empty": "还没有配置任何 MCP 服务器，点击上方“添加服务器”开始",
+      "deleteConfirm": "确定删除 MCP 服务器「{{name}}」？此操作不可恢复。",
+      "builtin": {
+        "badge": "内建",
+        "statusEnabled": "已启用",
+        "statusDisabled": "已停用",
+        "fallbackDescription": "内建 MCP（运行时拼接）",
+        "fallbackControl": "不可在此切换",
+        "zoteroDescription": "Zotero 文献库与附件读取",
+        "zoteroControl": "在「设置 → Zotero」中切换",
+        "ocrDescription": "本机 PaddleOCR 图像文字识别",
+        "ocrControl": "在「设置 → Zotero → 图片识别」中切换",
+        "asrDescription": "本机 SenseVoice 语音识别",
+        "asrControl": "在「设置 → Zotero → 语音识别」中切换",
+        "paperSearchDescription": "22+ 学术数据源并行检索",
+        "paperSearchControl": "uv 就绪后自动启用"
+      },
+      "row": {
+        "edit": "编辑",
+        "delete": "删除"
+      }
+    }
+  },
+  "mcpForm": {
+    "title": {
+      "edit": "编辑 MCP 服务器",
+      "create": "添加 MCP 服务器"
+    },
+    "cancel": "取消",
+    "saveEdit": "保存修改",
+    "createServer": "创建服务器",
+    "transport": {
+      "stdio": "stdio（命令行）",
+      "http": "HTTP（Streamable HTTP）",
+      "sse": "SSE（Server-Sent Events）"
+    },
+    "section": "基本信息",
+    "fields": {
+      "name": "服务器名称",
+      "namePlaceholder": "例如：github-mcp",
+      "reservedName": "名称「{{name}}」为内建 MCP 保留名，不可用作自定义服务器。",
+      "transportLabel": "传输类型",
+      "transportPlaceholder": "选择传输类型",
+      "command": "命令",
+      "commandPlaceholder": "例如：npx",
+      "args": "参数",
+      "argsPlaceholder": "逗号分隔，例如：-y, @modelcontextprotocol/server-github",
+      "argsDescription": "多个参数用逗号分隔",
+      "env": "环境变量",
+      "envDescription": "每行一个，格式：KEY=VALUE",
+      "timeout": "启动超时（秒）",
+      "timeoutDescription": "MCP 服务器启动的最大等待时间，默认 30 秒",
+      "url": "URL",
+      "urlPlaceholder": "例如：http://localhost:3000/mcp",
+      "headers": "请求头",
+      "headersDescription": "每行一个，格式：Key: Value"
+    },
+    "test": {
+      "label": "连接测试",
+      "description": "必须测试成功后才能启用",
+      "running": "测试中...",
+      "run": "测试连接",
+      "success": "测试成功",
+      "failed": "测试失败",
+      "failureFallback": "测试失败",
+      "untested": "尚未测试连接。请先点击“测试连接”按钮验证配置是否正确。"
+    },
+    "enable": {
+      "label": "启用此服务器",
+      "descriptionTested": "开启后该 MCP 服务器将在 Agent 会话中加载",
+      "descriptionUntested": "只有测试成功后才能启用"
+    }
+  }
+}

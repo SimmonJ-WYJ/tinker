@@ -1,0 +1,37 @@
+# 预推送守门：校验本次 push 的所有 commit 邮箱合规（镜像 CI verify-commit-email）。
+# 版本号 bump 已左移到 pre-commit 钩子（scripts/bump-version-on-commit.mjs）：commit 时即
+# 钉到 origin/main patch+1，故 push 时版本天然 > remote，pre-push 不再碰版本号。
+# 在本地拦截，避免推上去后 CI Status 才红再返工 rebase。
+# git 通过 stdin 传入每个待推送 ref：<local_ref> <local_sha> <remote_ref> <remote_sha>
+
+# 重量级校验：镜像 CI 的 typecheck + test，整库各跑一次（不在下方 per-ref 循环里跑）。
+# 任一失败即拦截，避免推上去 CI 才红。绕过：git push --no-verify
+bun run typecheck || exit 1
+bun test || exit 1
+
+zero="0000000000000000000000000000000000000000"
+
+# 循环前 fetch 一次 origin main，供邮箱校验的 merge-base 基准使用。
+# 离线失败不阻断：拿不到 origin/main 时 merge-base 兜底（见下方 range 计算）。
+git fetch -q origin main 2>/dev/null || true
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # 删除分支（local_sha 全 0）无 commit 可校验，跳过
+  [ "$local_sha" = "$zero" ] && continue
+
+  if [ "$remote_sha" = "$zero" ]; then
+    # 新分支：远端无此 ref。以 origin/main 为基准，只校验本分支新增 commit，
+    # 不回扫整条历史（历史里的旧邮箱不该被本次 push 拦）。
+    base=$(git merge-base "$local_sha" origin/main 2>/dev/null || echo "")
+    if [ -n "$base" ]; then
+      range="$base..$local_sha"
+    else
+      range="$local_sha -1"   # 兜底：拿不到基准时只校验最新 commit
+    fi
+  else
+    # 已有分支：只校验远端 head 到本地 head 之间的新 commit
+    range="$remote_sha..$local_sha"
+  fi
+
+  bash scripts/verify-commit-email.sh "$range" || exit 1
+done

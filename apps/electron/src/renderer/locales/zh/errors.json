@@ -1,0 +1,66 @@
+{
+  "global": {
+    "crashed": "出错了",
+    "reload": "重新加载"
+  },
+  "preview": {
+    "failed": "预览失败",
+    "unknown": "未知错误",
+    "retry": "重试",
+    "openExternal": "另开窗口"
+  },
+  "common": {
+    "unknown": "未知错误"
+  },
+  "channelTest": {
+    "success": "连接成功",
+    "channelNotFound": "渠道不存在",
+    "unknownError": "未知错误",
+    "connectionTestFailed": "连接测试失败：{{message}}",
+    "invalidApiKey": "API Key 无效",
+    "invalidApiKeyWithDetail": "API Key 无效：{{detail}}",
+    "endpointNotFound": "端点不存在 (404)：请检查 Base URL 是否为正确的 Anthropic 兼容端点",
+    "apiKeyNonAscii": "API Key 第 {{pos}} 位包含非 ASCII 字符（U+{{code}}），请检查是否误粘贴了中文或特殊符号",
+    "moonshotOpenAIEndpoint": "当前 Base URL 是 Moonshot OpenAI 兼容端点（/v1），curl /v1/models 成功只能说明该 OpenAI 风格接口可用；ASCI Agent 当前需要 Anthropic Messages 兼容端点。请将供应商切换为 Moonshot Anthropic，并使用 Base URL：https://api.moonshot.cn/anthropic。",
+    "kimiCodeAuth": "Kimi Code 认证失败：api.kimi.com/coding 与 api.moonshot.cn/v1 属于不同账号体系，API Key 不互通。如果你使用的是 Moonshot 开放平台 Key，请不要填 Kimi Code 端点；如果要使用 Kimi Code，请在 Kimi Code 控制台创建对应 API Key。",
+    "responseDetail": "原始响应：{{detail}}",
+    "providerPattern": {
+      "loginFail": "登录失败",
+      "carryXApiKey": "请在请求头 'X-Api-Key' 中携带 API 密钥",
+      "authenticationError": "鉴权失败",
+      "invalidApiKey": "API Key 无效",
+      "incorrectApiKey": "API Key 不正确",
+      "invalidBearerToken": "Bearer Token 无效",
+      "rateLimit": "请求速率超限",
+      "insufficientQuota": "额度不足",
+      "permissionDenied": "权限不足",
+      "modelNotFound": "模型不存在"
+    },
+    "customModelRequired": "请先添加并启用一个模型 ID，再测试中转站。",
+    "customInvalidUrl": "请输入有效的 HTTP(S) Base URL，不要包含账号密码、查询参数或片段。",
+    "customRequestFailed": "模型请求失败（HTTP {{status}}），请检查模型 ID、API Key、余额及 Base URL。",
+    "customInvalidResponse": "中转站返回格式不符合所选 API 协议，请检查配置。",
+    "customBridgeFailed": "无法启动本地 OpenAI 协议转换，请检查中转站配置后重试。",
+    "imageChatUnsupported": "请选择聊天渠道进行对话，生图渠道由图片生成工具调用。"
+  },
+  "mcpTest": {
+    "success": "连接成功",
+    "failed": "连接失败"
+  },
+  "agentRewind": {
+    "failedTitle": "回退失败",
+    "blockedForkPreFork": "无法回退到该点",
+    "blockedForkPreForkDetail": "该消息复制自分叉前的源会话。请在源会话中回退，或从该点重新分叉一个新会话。",
+    "blockedPostRecovery": "无法回退到该点",
+    "blockedPostRecoveryDetail": "该消息所属的原 SDK 会话已在错误恢复过程中被替换，无法精准回退到该位置。"
+  },
+  "agentOrchestrator": {
+    "rateLimited": "语言模型渠道触发限流（HTTP 429）。请稍后手动重试；先检查已有结果，避免重复计费。",
+    "emptyResponse": "语言模型没有返回正文或工具调用，中转可能已计费。请先检查已有结果，再手动重试；Tinker 未自动重跑生图。",
+    "incompleteResponse": "响应流结束但没有完成状态。请先检查已有结果，再手动重试，避免重复计费。",
+    "pdfDocumentBlockRefused": "当前渠道（{{provider}}）不支持向上游发送 PDF 文档内容块，已收到 HTTP {{statusCode}}。建议在「设置 → 模型配置」关闭「支持 PDF document block」开关（已默认关闭），或切换到 DeepSeek / Anthropic 等支持的渠道续聊。"
+  },
+  "dataExport": {
+    "validationFailed": "导出校验失败：{{dataFile}} 内对象（id: {{objectId}}）不符合 O1 schema，未生成文件。请向我们反馈此问题。"
+  }
+}

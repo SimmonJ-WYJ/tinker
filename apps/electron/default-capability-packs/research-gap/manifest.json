@@ -1,0 +1,67 @@
+{
+  "packId": "research-gap",
+  "version": "0.1.0",
+  "summaryI18n": {
+    "zh": "在你选的一组论文上铺对照表，标出没人填的维度组合与互相矛盾的结论（不替你下创新结论）",
+    "en": "Lay a comparison table over your selected papers and flag uncovered dimension combinations and conflicting conclusions (it never decides novelty for you)"
+  },
+  "scenarioAgent": {
+    "name": "research-gap",
+    "description": "Research-gap (in-selection) scenario agent (0.4 Epic 1). Route here whenever the user wants to find research gaps / 研究空白 over a SELECTED group of papers — phrasings like 'find the research gap', 'find gaps', 'compare these papers', 'build a comparison table', '找研究空白 / 研究空白 / 对照表 / 这几篇还有什么没做 / 哪些结论矛盾'. The papers come from the user's selection in the search-results panel or an EvidenceSet (passed in the request). It does NOT search/discover papers (that is lit-search) and does NOT write a survey (that is lit-review). Three steps over the FIXED selected set: (1) dispatch column-proposer to propose 4-6 comparable dimensions (columns); (2) dispatch cell-extractor (one per paper, reading via papers-rg wiki source) to fill each cell with a value + a verbatim source anchor; (3) dispatch gap-analyzer to mark combination gaps + conclusion conflicts with rationale. Then assemble the full table and call `mcp__researchgap__present_research_gap_table` ONCE to render it in the right-side tab. HARD RULES (spec §5.5): scope is STRICTLY the selected papers — NEVER say '全领域/全世界/没人做过/no one has ever' and NEVER output a 'this is novel / worth doing / 创新点' verdict; you lay out the table and flag gaps/conflicts, the user judges. Columns are editable by the user in the table view, so propose, do not force.",
+    "promptPath": "scenario/system-prompt.md",
+    "tools": ["mcp__researchgap__present_research_gap_table"],
+    "model": "sonnet"
+  },
+  "subAgents": [
+    {
+      "name": "column-proposer",
+      "description": "Step 1 of research-gap. Given the FIXED set of selected papers, skims each paper's structured source (outline + key sections via papers-rg) and proposes exactly 4-6 COMPARABLE dimensions (columns) that this group of papers can be lined up on — e.g. dataset / backbone / pretraining / setting / metric. Outputs strict structured JSON: a list of { id, name } columns + a one-line note why each is comparable. Prefers focused, discriminating dimensions (the more focused, the more meaningful the gaps). Does NOT fill values and does NOT invent dimensions only one paper has. Use ONLY at the start, before extraction.",
+      "promptPath": "sub-agents/column-proposer.md",
+      "tools": [
+        "mcp__papers-rg__papers_read_outline",
+        "mcp__papers-rg__papers_read_article_section",
+        "mcp__papers-rg__papers_semantic_search",
+        "Read",
+        "Glob"
+      ],
+      "model": "sonnet"
+    },
+    {
+      "name": "cell-extractor",
+      "description": "Step 2 of research-gap (the extraction crux — dispatched once per paper, runs in parallel). Given ONE paper and the confirmed column list, reads that paper from the Zotero wiki structured source (papers-rg: outline → section → context; never PDFs, never the network) and extracts, for EACH column, the paper's value + a VERBATIM source anchor (contiguous quote + locator like '§4.1'). If the paper does not address a dimension, sets value=null (do NOT guess). Writes one cells cache file to .context/<paperId>.cells.json. NEVER fabricates a value or an anchor — an unsupported cell must be null. Use in Step 2, one per paper in scope.",
+      "promptPath": "sub-agents/cell-extractor.md",
+      "tools": [
+        "Read",
+        "Write",
+        "mcp__papers-rg__papers_read_outline",
+        "mcp__papers-rg__papers_read_article_section",
+        "mcp__papers-rg__papers_read_context",
+        "mcp__papers-rg__papers_search_keywords",
+        "mcp__papers-rg__papers_semantic_search"
+      ],
+      "model": "haiku"
+    },
+    {
+      "name": "gap-analyzer",
+      "description": "Step 3 of research-gap. Reads all per-paper cells caches (.context/*.cells.json) — i.e. the filled paper×dimension table — and marks: (a) combination gaps = value-combinations across 1-2 key dimensions that NO paper in this set covers (e.g. 'ViT + from-scratch + tieredImageNet 无人覆盖'); (b) conclusion conflicts = papers that report opposite conclusions under comparable settings. Each item gets a rationale + supportingPaperIds/paperIds + involvedColumnIds, STRICTLY within the selected set. Outputs structured JSON only. HARD RULE: never phrase a gap as 'no one in the world has done X'; it is only 'not covered within these N papers'. Does not judge whether a gap is worth pursuing. Use in Step 3 after extraction.",
+      "promptPath": "sub-agents/gap-analyzer.md",
+      "tools": [
+        "Read",
+        "Glob"
+      ],
+      "model": "sonnet"
+    },
+    {
+      "name": "gap-fact-checker",
+      "description": "Final auditor for research-gap. Verifies every filled cell's value is supported by its verbatim anchor, and that every gap/conflict's rationale only references papers in scope. Flags any cell or insight whose claim is not traceable, and scans the output for forbidden over-claims ('全领域/全世界/没人做过/novel/创新点'). The last-line anti-hallucination + trust-boundary gate before the table is presented. Use as the final step.",
+      "promptPath": "sub-agents/gap-fact-checker.md",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep"
+      ],
+      "model": "haiku"
+    }
+  ],
+  "uiFramework": "conversation-and-artifact"
+}

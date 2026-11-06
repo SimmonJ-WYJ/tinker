@@ -1,0 +1,224 @@
+{
+  "zotero": {
+    "section": {
+      "title": "Zotero library",
+      "description": "Let the Agent search the local Zotero desktop and read PDFs. All traffic stays on this machine — nothing is uploaded."
+    },
+    "status": {
+      "notInstalled": "Zotero not detected",
+      "notRunning": "Zotero not running",
+      "noApi": "Local API disabled",
+      "ready": "Connected",
+      "paused": "Connected · Agent off"
+    },
+    "master": {
+      "title": "Agent access",
+      "description": "Allow Agent to call Zotero"
+    },
+    "actions": {
+      "downloadZotero": "Download Zotero",
+      "launchZotero": "Launch Zotero",
+      "launching": "Launching...",
+      "viewDocs": "View instructions"
+    },
+    "ocr": {
+      "label": "Image OCR",
+      "description": "Auto-extract text from images",
+      "pill": "Bundled"
+    },
+    "asr": {
+      "label": "Speech recognition (ASR)",
+      "description": "Auto-transcribe audio attachments",
+      "pill": "1GB"
+    },
+    "asrToast": {
+      "downloading": "Downloading speech-recognition model",
+      "downloadingDesc": "About 1GB. It will be enabled automatically when finished.",
+      "ready": "Speech-recognition model is ready"
+    },
+    "asrProgress": {
+      "phase": {
+        "download": "Downloading",
+        "extract": "Extracting"
+      },
+      "etaSeconds": "{{count}} seconds",
+      "etaCompound": "{{minutes}} min {{seconds}} sec",
+      "remaining": "ETA {{eta}}",
+      "cancel": "Cancel download",
+      "downloadFailed": "Download failed: {{error}}"
+    },
+    "installPath": {
+      "title": "Install location",
+      "descriptionAuto": "Auto-detected; override only for non-standard locations",
+      "descriptionCustom": "Custom location; clear to fall back to auto-detect",
+      "descriptionNotFound": "Not found; pick the Zotero app / executable manually",
+      "pill": "Optional",
+      "placeholder": "/Applications/Zotero.app  or  C:\\Tools\\Zotero\\zotero.exe",
+      "browse": "Browse",
+      "save": "Save",
+      "clear": "Clear custom path",
+      "savedToast": "Zotero install location saved",
+      "clearedToast": "Custom Zotero location cleared",
+      "invalidTitle": "Invalid Zotero location",
+      "invalidReason": {
+        "not-exists": "Path does not exist.",
+        "not-a-zotero-binary": "This does not look like a Zotero application or executable.",
+        "platform-mismatch": "Selected file does not match this operating system."
+      },
+      "currentDetected": "Detected: {{path}}",
+      "source": {
+        "default": "default location",
+        "path": "from PATH",
+        "custom": "custom"
+      }
+    },
+    "dataDir": {
+      "title": "Data directory",
+      "description": "Empty = system default; otherwise enter absolute path",
+      "pill": "Optional",
+      "save": "Save"
+    },
+    "advanced": {
+      "label": "Advanced · paths / sync / experimental",
+      "labelWarning": "⚠ Auto-expanded — check install location",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
+    "pdfSync": {
+      "title": "PDF sync",
+      "description": "Auto-detect changes in the Zotero library",
+      "syncing": "Syncing...",
+      "syncNow": "Sync now"
+    },
+    "structuredTxt": {
+      "title": "Generate structured TXT (experimental)",
+      "description": "Run layout-aware extraction + heuristic section detection over all PDFs, producing a rich `.txt` (YAML frontmatter + OUTLINE + paragraph anchors). Independent of the .md / article pipeline; existing sync is unaffected",
+      "generating": "Generating...",
+      "generateAll": "Generate all",
+      "toastSuccess": "Generated {{generated}} .txt files (skipped {{skipped}} missing PDFs)",
+      "toastPartial": "Generated {{generated}}, {{failed}} failed",
+      "toastEmpty": "Zotero library is empty — no PDFs to generate",
+      "toastFailed": "Structured TXT generation failed"
+    },
+    "syncToast": {
+      "baseline": "Baseline created ({{count}} PDFs)",
+      "diff": "Synced — added {{added}}, modified {{modified}}, deleted {{deleted}}",
+      "noChanges": "Zotero PDFs unchanged",
+      "offline": "Zotero is not running, cannot sync",
+      "disabled": "Zotero integration is disabled",
+      "syncFailed": "Sync failed",
+      "launchFailed": "Failed to launch Zotero",
+      "launchFailedDesc": "Please check whether Zotero is installed",
+      "enabled": "Zotero Agent access enabled",
+      "disabledNotice": "Zotero Agent access disabled"
+    },
+    "media": {
+      "section": {
+        "title": "Attachment cache",
+        "description": "Cached parse results; safe to clear"
+      },
+      "card": {
+        "title": "Clear parsing cache",
+        "metric": "{{count}} entries · {{size}}",
+        "description": "Re-parses on next use; original files kept"
+      },
+      "advanced": {
+        "title": "Advanced maintenance",
+        "summary": "Attachment parsing cache: {{count}} entries · {{size}}",
+        "expand": "Expand",
+        "collapse": "Collapse",
+        "hint": "Clearing re-parses attachments and does not delete Zotero files."
+      },
+      "buttons": {
+        "refresh": "Refresh status",
+        "clear": "Clear cache",
+        "clearLong": "Clear recognition results"
+      },
+      "clearConfirm": "Clear {{count}} cached Zotero attachment recognition results? Original Zotero files will not be deleted; attachments will be re-parsed on next use."
+    },
+    "article": {
+      "section": {
+        "title": "Paragraph summary enrichment (experimental)",
+        "description": "Per-paragraph LLM summaries for PDFs"
+      },
+      "enable": {
+        "label": "Enable paragraph summary enrichment",
+        "description": "LLM summary per PDF paragraph; billed by token"
+      },
+      "channel": {
+        "label": "Channel",
+        "placeholder": "Default",
+        "defaultOption": "Default (first enabled channel)"
+      },
+      "model": {
+        "label": "Model",
+        "placeholder": "Default",
+        "defaultOption": "Default (first enabled model)",
+        "hint": "Recommended: a fast & cheap model (Haiku / DeepSeek / GPT-4o-mini). High call frequency, low reasoning depth — long-context models add cost and latency."
+      },
+      "status": {
+        "title": "Generation status",
+        "summary": "{{total}} total · {{completed}} generated · {{inflight}} in progress · {{failed}} failed",
+        "recentFailed": "Recent failures",
+        "retryCount": "(retried {{count}}×)"
+      },
+      "actions": {
+        "retryFailed": "Retry failed",
+        "regenerateAll": "Regenerate all",
+        "regenerateTooltip": "Regenerate every .article.md (including completed ones)"
+      },
+      "toast": {
+        "enabled": "Paragraph summary enrichment enabled",
+        "disabled": "Paragraph summary enrichment disabled",
+        "updateFailed": "Failed to update configuration",
+        "retryEnqueued": "Re-queued {{count}} failed tasks",
+        "retryNone": "No failed tasks to retry",
+        "retryFailed": "Retry failed",
+        "regenerateEmpty": "No papers available to regenerate",
+        "regenerateConfirm": "About to regenerate all {{count}} .article.md files. This will consume LLM tokens. Continue?",
+        "regenerateEnqueued": "Reset and re-queued {{count}} tasks",
+        "regenerateFailed": "Failed to regenerate"
+      }
+    },
+    "embedding": {
+      "section": {
+        "title": "Semantic Search (Experimental)",
+        "description": "Builds a local vector index over your library: recall relevant passages with natural-language queries, speed up multi-paper Q&A and reviews, and anchor evidence at paragraph precision. Embedding runs on-device (one-time ~135MB model download) — full text never leaves your machine, zero token cost."
+      },
+      "mode": {
+        "label": "Retrieval mode",
+        "description": "Pick which retrieval tools new Agent sessions get (for A/B evaluation). Vector only: semantic search. Keyword only: ripgrep keyword search, vector indexing stops. Vector + keyword: both. Deep-read tools stay in every mode. Applies to new sessions; the existing index is kept.",
+        "vector": "Vector only",
+        "papersRg": "Keyword only",
+        "both": "Vector + keyword"
+      },
+      "model": {
+        "title": "Embedding model",
+        "missing": "Local embedding model not downloaded (~{{size}}). Until it's ready, search falls back to keyword matching",
+        "downloading": "Downloading {{pct}}% ({{done}} / {{total}})",
+        "verifying": "Verifying…",
+        "error": "Download failed: {{error}}",
+        "download": "Download model",
+        "retry": "Retry download"
+      },
+      "status": {
+        "title": "Index status",
+        "summary": "{{total}} papers, {{completed}} indexed, {{inflight}} in progress, {{failed}} failed",
+        "chunks": "{{count}} chunks",
+        "recentFailed": "Recent failures"
+      },
+      "actions": {
+        "rebuild": "Rebuild index",
+        "rebuildTooltip": "Clear the vector index and re-embed all papers (use after model upgrades or index corruption)"
+      },
+      "toast": {
+        "modeChanged": "Retrieval mode set to {{mode}} — applies to new Agent sessions",
+        "updateFailed": "Failed to update semantic search settings",
+        "downloadFailed": "Failed to start model download",
+        "rebuildConfirm": "This clears the vector index and re-embeds all papers. Continue?",
+        "rebuildEnqueued": "Rebuild started, {{count}} papers enqueued",
+        "rebuildFailed": "Failed to rebuild index"
+      }
+    }
+  }
+}

@@ -1,0 +1,164 @@
+# GitHub Actions: 自动打包分发
+#
+# 触发条件：推送 v* tag（如 v0.4.0）
+# 构建 macOS 和 Windows 产物并发布到 GitHub Releases
+#
+# macOS 签名策略：ad-hoc 临时签名（无需 Apple Developer 账号）
+#   - electron-builder 通过 CSC_IDENTITY_AUTO_DISCOVERY=false 跳过 Developer ID 自动发现
+#   - 产物为 ad-hoc 自签，用户首次打开需右键 "打开" 绕过 Gatekeeper
+#   - 不进行 Apple 公证（ad-hoc 不支持）
+# GITHUB_TOKEN 由 GitHub Actions 自动提供，无需手动配置
+#
+# Guard：preflight job 检测该 tag 是否已有 release（draft 或 published）
+#   - 真正的新 tag push   → 无 release → 正常构建
+#   - 手动 Publish draft  → GitHub 自动建 tag 触发本 workflow → release 已存在 → 跳过重复构建
+#   背景：notify-lark-release.yml 引入后,publish draft 会创建 tag 并意外触发 release.yml
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - name: Skip if release for this tag already has built assets
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          # 查询 release 的 asset 数量(draft 或 published 都算)
+          # >0  → 之前已成功构建过(可能是 draft 等待 review,或副作用触发的重复构建) → 跳过
+          # =0  → release 不存在 / 存在但 assets 为空(build 失败留下空壳) → 允许构建
+          ASSET_COUNT=$(gh release view "$TAG" --repo "$REPO" --json assets -q '.assets | length' 2>/dev/null || echo 0)
+          if [ "${ASSET_COUNT:-0}" -gt 0 ]; then
+            echo "::notice::Release for $TAG already has $ASSET_COUNT asset(s); skipping rebuild"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No release/assets for $TAG; proceeding with build"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            arch: arm64
+            asci-py-target: darwin-arm64
+            builder-arch-flag: --arm64
+          - os: macos-latest
+            platform: mac
+            arch: x64
+            asci-py-target: darwin-x64
+            builder-arch-flag: --x64
+          - os: windows-latest
+            platform: win
+            arch: x64
+            asci-py-target: win32-x64
+            builder-arch-flag: --x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 安装 Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: 安装依赖
+        # @vscode/ripgrep postinstall 会调 api.github.com 拉 prebuilt 二进制；
+        # 不带 token 时走 unauth 配额（60/hr/IP），GH-hosted runner 共享出口 IP
+        # 高峰直接 403。带 GITHUB_TOKEN 后 download.js 会加 Authorization header,
+        # 配额抬到 5000/hr。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun install
+
+      # 缓存 4 工具 runtime stage（key 基于 manifest 哈希；命中则跳过下载）
+      - name: 缓存 runtimes
+        uses: actions/cache@v5
+        with:
+          path: apps/electron/dist/runtimes/${{ matrix.asci-py-target }}
+          key: runtimes-${{ matrix.asci-py-target }}-${{ hashFiles('apps/electron/scripts/runtimes-manifest.json') }}
+
+      # Stage 4 个内置工具（Node / Git / uv / Python）到 dist/runtimes/<arch>/
+      # 缓存未命中时下载并校验 SHA256，命中时跳过
+      - name: Stage runtimes
+        run: bun run stage:runtimes
+        working-directory: apps/electron
+
+      # 构建应用
+      # 遥测 publishable key 由 committed 的 apps/electron/telemetry.config.json
+      # 提供，构建期 build-main.ts 自动注入，CI 无需额外 secret（ADR-011）。
+      # 如需不改代码临时轮换，可在此步加 env: ASCI_POSTHOG_KEY/ASCI_SENTRY_DSN 覆盖。
+      - name: 构建 Electron 应用
+        run: bun run electron:build
+        working-directory: .
+
+      # better-sqlite3 用 V8/NAN 旧式绑定，ABI 绑死 NODE_MODULE_VERSION；bun install 默认按 Node
+      # 取/编得到的是 Node ABI 产物，在 Electron 主进程里 require 会崩。这里重建到 Electron ABI：
+      # 快路径下 electron 预编译，失败回退 @electron/rebuild 源码编译（详见 rebuild-better-sqlite3.ts）。
+      # --arch 传 matrix.arch，支持 arm64 runner 交叉出 mac x64 包。
+      - name: 重建 better-sqlite3 到 Electron ABI
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: bun run rebuild -- --arch "$TARGET_ARCH"
+        working-directory: apps/electron
+
+      # 校验门：打包前断言 better-sqlite3 在 Electron ABI 下可加载，不匹配直接 fail（挡住 ABI
+      # 错配的包流到用户机器上启动崩溃）。dlopen 需 runner arch == 目标 arch，交叉构建时自跳过
+      # （此时产物 ABI 由上一步命令显式针对 electron 保证）。
+      - name: 校验 better-sqlite3 ABI 匹配 Electron
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        working-directory: apps/electron
+        run: |
+          RUNNER_ARCH="$(node -p process.arch)"
+          if [ "$RUNNER_ARCH" != "$TARGET_ARCH" ]; then
+            echo "::notice::runner arch=$RUNNER_ARCH ≠ target=$TARGET_ARCH（交叉构建），跳过 dlopen 校验"
+            exit 0
+          fi
+          ELECTRON_RUN_AS_NODE=1 npx electron -e "const p=require('path').dirname(require.resolve('better-sqlite3/package.json'))+'/build/Release/better_sqlite3.node'; process.dlopen({exports:{}}, p); console.log('✅ better-sqlite3 ABI 匹配 Electron')"
+
+      # 打包并发布到 GitHub Releases
+      - name: 打包并发布 (macOS)
+        if: matrix.platform == 'mac'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ad-hoc 临时签名：禁用 Developer ID 自动发现，让 electron-builder 走 ad-hoc 自签
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ASCI_PY_TARGET: ${{ matrix.asci-py-target }}
+        run: npx electron-builder --mac ${{ matrix.builder-arch-flag }} --publish always
+        working-directory: apps/electron
+
+      - name: 打包并发布 (Windows)
+        if: matrix.platform == 'win'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASCI_PY_TARGET: ${{ matrix.asci-py-target }}
+        run: npx electron-builder --win ${{ matrix.builder-arch-flag }} --publish always
+        working-directory: apps/electron

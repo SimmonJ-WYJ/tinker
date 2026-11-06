@@ -1,0 +1,357 @@
+{
+  "minimap": {
+    "title": "Message navigation",
+    "searchPlaceholder": "Search messages...",
+    "noMatches": "No matching messages",
+    "emptyMessage": "(empty message)"
+  },
+  "sidePanel": {
+    "sessionFiles": "Session files",
+    "filesTooltip": "Files specific to this session — only the Agent of this conversation can access them",
+    "uploadTooltip": "Upload file to session",
+    "openInFinder": "Open in Finder",
+    "dragOverlay": "Drop here to upload to session",
+    "noWorkspace": "Please select a project",
+    "uploadFailed": "File upload failed",
+    "addedFile_one": "Added {{count}} file",
+    "addedFile_other": "Added {{count}} files"
+  },
+  "sessionPapers": {
+    "title": "Current search",
+    "tooltip": "Papers found by the Agent in this session. Click a card for details, or add it to the Zotero library.",
+    "live": {
+      "searching": "Searching ({{done}}/{{total}})",
+      "organizing": "Organizing candidates",
+      "enrichProgress": "Filling in abstracts ({{enriched}}/{{total}})",
+      "enrichComplete": "Abstracts complete ({{enriched}}/{{total}})",
+      "rawCountHint": "~{{count}}",
+      "scoreProgress": "Scoring ({{scored}}/{{total}})",
+      "scoreComplete": "Scoring complete ({{scored}}/{{total}})",
+      "reporting": "Generating a {{sections}}-section report for {{count}} papers…"
+    },
+    "authoritativeHint": "This is the final deduplicated count of papers ingested locally. If the Agent reports a different number in chat, defer to this count (its number may be a pre-dedup source-API figure).",
+    "addedToZotero": "Added",
+    "addedToZoteroTooltip": "Added to Zotero",
+    "addToZotero": "Add to Zotero",
+    "link": "Link",
+    "refresh": "Refresh",
+    "expand": "Expand to large window",
+    "loading": "Loading...",
+    "empty": "No search results yet",
+    "emptyHint": "Search results gathered here automatically.\nIf the Agent reports \"no match\" in the conversation, this stays empty — defer to the Agent's explicit message.",
+    "papersCount": "· {{count}} papers",
+    "sortLabel": "Sort by",
+    "sortRelevanceDesc": "Relevance ↓",
+    "sortRelevanceAsc": "Relevance ↑",
+    "sortCitationsDesc": "Citations ↓",
+    "sortCitationsAsc": "Citations ↑",
+    "sortYearDesc": "Year ↓",
+    "sortYearAsc": "Year ↑",
+    "sortImpactDesc": "Impact factor ↓",
+    "sortImpactAsc": "Impact factor ↑",
+    "sortSourceDesc": "Source Z–A",
+    "sortSourceAsc": "Source A–Z",
+    "sortJcrDesc": "JCR Q1 first",
+    "sortJcrAsc": "JCR Q4 first",
+    "sortVenueTierDesc": "Venue tier ↓",
+    "sortVenueTierAsc": "Venue tier ↑",
+    "citedBy": "Cited by {{count}}",
+    "impactFactor": "IF {{value}}",
+    "emptyAfterFilter": "No papers match current filters",
+    "emptyAfterFilterHint": "Try widening the year range or clearing some filters.",
+    "abstractUnavailable": "Abstract not available",
+    "publishedYearTooltip": "Publication year of this paper",
+    "scoreBadge": {
+      "tooltip": "Score based on {{dimensions}}",
+      "noData": "Score not available",
+      "dimCitations": "citations",
+      "dimRecency": "recency",
+      "dimCitationVelocity": "citation velocity",
+      "dimVenue": "venue",
+      "dimKeyword": "keyword match",
+      "partialHint": "Based on {{used}}/{{total}} dimensions — some data sources lack citation or venue info"
+    },
+    "score": {
+      "shortLabel": "Score",
+      "final": "score {{score}}",
+      "relevance": "relevance {{score}} (primary)",
+      "quality": "quality {{score}} (secondary)",
+      "dataConfidence": "confidence {{value}}",
+      "dimSemantic": "relevance",
+      "dimMethod": "method",
+      "dimVenue": "venue quality",
+      "dimPubStatus": "pub. status",
+      "dimRecency": "recency",
+      "dimInfluence": "influence",
+      "dimRepro": "reproducibility",
+      "nullMark": "—",
+      "reasonHighSemantic": "highly relevant",
+      "reasonHighMethod": "strong method match",
+      "reasonReweighted": "missing fields reweighted: {{fields}}",
+      "reasonJoiner": "; ",
+      "pubStatus": {
+        "preprint_only": "preprint only",
+        "preprint_with_doi": "preprint (with DOI)",
+        "accepted_pending_publication": "accepted, pending publication",
+        "published_workshop": "published in workshop",
+        "published_conference": "published (conference)",
+        "published_journal": "published (journal)",
+        "published_repository": "published (repository)",
+        "unknown": "publication status unknown"
+      }
+    },
+    "stats": {
+      "title": "Overview",
+      "simpleBadge": "{{count}} papers found",
+      "yearLabel": "Year",
+      "sourceLabel": "Source",
+      "relevanceLabel": "Relevance",
+      "relevancePlaceholder": "No relevance data yet",
+      "relevanceLow": "Low",
+      "relevanceHigh": "High",
+      "yearUnknown": "{{count}} unknown year",
+      "clickToFilter": "Click to filter",
+      "clickToClear": "Click to clear filter"
+    },
+    "filter": {
+      "button": "Filter",
+      "buttonActive_one": "Filter ({{count}} active)",
+      "buttonActive_other": "Filter ({{count}} active)",
+      "title": "Filter results",
+      "sectionOverview": "Overview",
+      "sectionMore": "More filters",
+      "sourceArxiv": "arXiv",
+      "sourcePubmed": "PubMed",
+      "sourceOpenalex": "OpenAlex",
+      "sourceSemanticscholar": "Semantic Scholar",
+      "sourceCrossref": "Crossref",
+      "sourceDblp": "DBLP",
+      "sourceIacr": "IACR",
+      "sourceBiorxiv": "bioRxiv/medRxiv",
+      "sourceEuropepmc": "EuropePMC",
+      "sourceCore": "CORE",
+      "sourceIeee": "IEEE/ACM",
+      "sourceWeb": "Web",
+      "sourceJournal": "OPENSCI Journal",
+      "sourceOther": "Other",
+      "citations": "Citations",
+      "citationsAny": "Any",
+      "citationsMin10": "≥ 10",
+      "citationsMin50": "≥ 50",
+      "citationsMin100": "≥ 100",
+      "citationsMin500": "≥ 500",
+      "score": "Score",
+      "scoreAny": "Any",
+      "scoreMin50": "≥ 50",
+      "scoreMin65": "≥ 65",
+      "scoreMin80": "≥ 80",
+      "jcrPartition": "JCR quartile",
+      "jcrQ1": "Q1",
+      "jcrQ2": "Q2",
+      "jcrQ3": "Q3",
+      "jcrQ4": "Q4",
+      "impactFactor": "Impact factor",
+      "ifAny": "Any",
+      "ifMin2": "≥ 2",
+      "ifMin5": "≥ 5",
+      "ifMin10": "≥ 10",
+      "venueTier": "Venue tier",
+      "venueTierTop": "Top",
+      "venueTierStrong": "Strong",
+      "venueTierNormal": "Normal",
+      "venueTierWeak": "Weak",
+      "sortAsc": "Sort by {{label}} ascending",
+      "sortDesc": "Sort by {{label}} descending",
+      "abstractOnly": "Only with abstract",
+      "reset": "Reset"
+    },
+    "selection": {
+      "rowCheckboxLabel": "Select this paper",
+      "selectAllTooltip": "Select all selectable papers",
+      "clearTooltip": "Clear selection",
+      "selectedCount": "Selected {{count}}",
+      "addToZotero": "Add to Zotero ({{count}})",
+      "noWorkspace": "Please select a project first"
+    },
+    "overview": {
+      "trigger": "Overview",
+      "title": "{{count}} papers · overview",
+      "yearLabel": "Year",
+      "sourceLabel": "Source",
+      "relevanceLabel": "Relevance",
+      "lowLabel": "Low",
+      "highLabel": "High",
+      "relevanceThresholdAll": "All",
+      "relevanceThresholdMin": "≥ {{value}}",
+      "relevanceUnavailable": "No relevance data",
+      "brushEmpty": "No selection",
+      "brushSingle": "{{year}} · {{count}} papers",
+      "brushRange": "{{start}} – {{end}} · {{count}} papers · {{span}} yrs",
+      "brushClear": "Clear"
+    },
+    "more": {
+      "trigger": "More",
+      "refresh": "Refresh",
+      "openInNewWindow": "Open in new window"
+    },
+    "multiSelect": "Select",
+    "density": {
+      "tooltip": "Density",
+      "compact": "Compact",
+      "normal": "Normal"
+    },
+    "bulk": {
+      "selectedSummary": "Selected {{selected}} / {{total}}",
+      "addToZotero": "Add to Zotero",
+      "exit": "Cancel",
+      "selectAll": "Select all",
+      "clearAll": "Clear selection",
+      "findResearchGap": "Find research gap",
+      "findingResearchGap": "Analyzing…"
+    },
+    "researchGapPrompt": {
+      "intro": "Run a research-gap comparison on the {{count}} papers I selected in the search results — build a comparison table, flag dimension combinations no paper covers and conflicting conclusions, keep every cell traceable, scope limited to these papers:",
+      "introNoList": "Run a research-gap comparison on the papers I selected — build a comparison table, flag uncovered dimension combinations and conflicting conclusions; scope limited to the selection."
+    }
+  },
+  "skillMention": {
+    "empty": "No matching skill"
+  },
+  "mcpMention": {
+    "empty": "No matching MCP server"
+  },
+  "citation": {
+    "returnButton": {
+      "label": "↩ Return to reading position before [{{n}}]",
+      "ariaLabel": "Return to the reading position before the citation"
+    },
+    "badge": {
+      "ariaLabel": "Citation {{n}}, click to jump to the matching entry in the references list"
+    },
+    "tooltip": {
+      "quoteLabel": "Cited passage",
+      "clickToJump": "Click to jump to the matching entry in §7 References",
+      "clickToOpenSource": "Click to open the source in the right panel"
+    },
+    "jumpFailed": {
+      "noContext": "[{{n}}] Cannot jump: citation context not found",
+      "notFoundTitle": "[{{n}}] not found in §7 References of this document",
+      "notFoundDescription": "§7 may not be fully generated yet, or the review structure is non-standard"
+    },
+    "unverified": {
+      "label": "unverified",
+      "tooltip": "This figure isn't tied to a cited source — treat it as unverified"
+    }
+  },
+  "doiChip": {
+    "tooltip": "View paper details",
+    "lookupFallback": "Paper metadata not found — opened in browser instead"
+  },
+  "rewind": {
+    "tooltip": "Rewind to here",
+    "confirmTitle": "Confirm rewind",
+    "confirmDescription": "Rewinding truncates all messages after this point and restores files to that snapshot. This is irreversible. Continue?",
+    "confirmCancel": "Cancel",
+    "confirmAction": "Rewind",
+    "successFull": "Rewound to this point",
+    "successFiles": "{{count}} file(s) restored",
+    "successNoFileChange": "No file changes",
+    "warningFilesOnly": "Conversation rewound",
+    "warningFilesDescription": "File restore unavailable: {{reason}}"
+  },
+  "fork": {
+    "tooltip": "Fork from here",
+    "success": "Fork session created",
+    "failed": "Failed to create fork"
+  },
+  "feedback": {
+    "thumbsUp": {
+      "tooltip": "Good response"
+    },
+    "thumbsDown": {
+      "tooltip": "Bad response"
+    },
+    "saveFailed": "Couldn't save your feedback — please try again"
+  },
+  "addToEvidenceSet": {
+    "tooltip": "Add to evidence set",
+    "popoverTitle": "Add to evidence set",
+    "loading": "Loading…",
+    "emptyList": "No evidence sets yet — create one to start",
+    "emptyNoReview": "Nothing to save yet — this session hasn't produced a review",
+    "emptyNoEvidence": "This answer cites no related papers — nothing to add to an evidence set",
+    "createNew": "New evidence set",
+    "saveAsSetPlaceholder": "Name this evidence set…",
+    "saveAsSetButton": "Create",
+    "renameButton": "Rename",
+    "savedHint": "Saved to evidence sets — you can still change the name",
+    "savedToast": "Saved \"{{name}}\"",
+    "renamedToast": "Renamed to \"{{name}}\"",
+    "saveError": "Save failed, please retry",
+    "openSetDetail": "Open evidence set details",
+    "addedToast": "Added Q&A to \"{{name}}\"",
+    "alreadyExistsToast": "Already in \"{{name}}\"",
+    "openSetAction": "Open",
+    "unnamedSet": "(unnamed set)"
+  },
+  "rightPanel": {
+    "tabs": {
+      "sessionFiles": "Session Files",
+      "sessionPapers": "Papers",
+      "filePreview": "File Preview",
+      "paperDetail": "Paper Detail",
+      "paperRecord": "Paper Record",
+      "researchGap": "Research Gap",
+      "quoteChat": "Quote Chat"
+    },
+    "textSelection": {
+      "askInSidebar": "Ask in sidebar",
+      "addToChat": "Add to chat"
+    },
+    "quoteChat": {
+      "noQuote": "No quote selected",
+      "selectedText": "Selected text:",
+      "askAbout": "Ask about this text:",
+      "placeholder": "Type your question here...",
+      "shortcut": "Cmd/Ctrl + Enter to send",
+      "send": "Send",
+      "sending": "Sending..."
+    },
+    "addTab": {
+      "restoreFiles": "Add Session Files",
+      "restorePapers": "Add Papers"
+    },
+    "tabSearch": {
+      "trigger": "Search tabs",
+      "placeholder": "Search open tabs…",
+      "empty": "No matching tabs"
+    },
+    "context": {
+      "close": "Close",
+      "closeOthers": "Close others",
+      "closeRight": "Close tabs to the right"
+    },
+    "scrollLeft": "Scroll tabs left",
+    "scrollRight": "Scroll tabs right",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "emptyState": "No tabs open"
+  },
+  "artifactCard": {
+    "open": "Open with",
+    "openInApp": "Open in app",
+    "openWithSystem": "Open with system app",
+    "revealInFolder": "Show in folder",
+    "type": {
+      "website": "Webpage",
+      "markdown": "Document · MD",
+      "pdf": "PDF",
+      "document": "Document",
+      "image": "Image",
+      "data": "Data",
+      "file": "File"
+    }
+  },
+  "messageMoreActions": "More message actions",
+  "imageRetryReview": "The previous image request may already have been charged. Your message is back in the input box. Inspect existing images and billing before sending a new request."
+}

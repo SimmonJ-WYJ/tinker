@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "title": "个人资料",
+    "description": "头像与显示名称将用于会话和通知",
+    "avatar": {
+      "label": "头像",
+      "description": "在会话和通知中显示的形象，点击右侧头像更换"
+    },
+    "name": {
+      "label": "显示名称",
+      "description": "在会话和通知中显示的名字",
+      "placeholder": "你的名字"
+    },
+    "changeAvatar": "更换头像",
+    "uploadCustom": "上传自定义图片",
+    "save": "保存",
+    "cancel": "取消",
+    "edit": "编辑"
+  }
+}

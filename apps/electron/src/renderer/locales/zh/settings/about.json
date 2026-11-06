@@ -1,0 +1,73 @@
+{
+  "about": {
+    "title": "关于 Tinker",
+    "description": "集成通用 AI Agent 的下一代人工智能软件",
+    "version": "版本",
+    "softwareUpdate": "软件更新",
+    "checkUpdate": "检查更新",
+    "goDownload": "前往下载",
+    "checking": "正在检查...",
+    "available": "新版本 v{{version}} 可用",
+    "upToDate": "已是最新版本",
+    "checkFailed": "检查失败",
+    "releaseNotes": "更新日志",
+    "debug": {
+      "title": "调试模式",
+      "description": "开启开发者诊断与仅调试 UI。即时生效；部分仅启动时初始化的诊断（错误上报）需重启后生效。"
+    },
+    "spotlight": {
+      "title": "新手引导",
+      "description": "重新播放 Spotlight 上手引导，了解核心功能位置",
+      "replay": "重新播放",
+      "failed": "引导启动失败"
+    },
+    "legal": {
+      "privacy": "隐私政策",
+      "terms": "服务条款"
+    },
+    "shell": {
+      "title": "Shell 环境（Windows）",
+      "subtitle": "Agent 模式需要 Git Bash 或 WSL 支持",
+      "summaryOk": "环境正常",
+      "summaryIssues": "{{count}} 项异常",
+      "expand": "展开",
+      "collapse": "收起",
+      "checking": "检测中...",
+      "recheck": "重新检查",
+      "gitBash": "Git Bash",
+      "wsl": "WSL",
+      "gitBashRequirement": "Git for Windows 自带",
+      "wslRequirement": "WSL 1 或 WSL 2",
+      "notInstalled": "未安装",
+      "wslDefault": "默认发行版：{{name}} ({{distros}})",
+      "wslDefaultUnset": "未设置",
+      "currentlyUsing": "当前使用：",
+      "gitBashRecommended": "Git Bash（推荐）",
+      "noShellWarning": "未检测到可用的 Shell 环境！",
+      "noShellHelp": "Agent 模式需要 Git Bash 或 WSL 才能运行。请安装其中之一后重启应用。"
+    }
+  },
+  "versionHistory": {
+    "title": "版本历史",
+    "loading": "加载中...",
+    "loadFailed": "加载失败",
+    "summary": {
+      "empty": "暂无版本历史",
+      "withCount": "最近 {{count}} 个稳定版本",
+      "default": "查看最近的 GitHub Releases"
+    },
+    "refresh": "刷新",
+    "expand": "展开版本历史",
+    "collapse": "收起版本历史",
+    "latest": "最新"
+  },
+  "releaseNotes": {
+    "preRelease": "预发布",
+    "github": "在 GitHub 上查看",
+    "today": "今天发布",
+    "yesterday": "昨天发布",
+    "daysAgo": "{{count}} 天前发布",
+    "weeksAgo": "{{count}} 周前发布",
+    "empty": "暂无发布说明"
+  }
+}

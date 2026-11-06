@@ -1,0 +1,48 @@
+name: lit-search retrieval benchmark
+
+# §8 召回基准：在干净网络（GitHub runner）跑 bench_retrieve.py，把 recall@20 表
+# 打到 job summary。本机到学术 API（openalex/crossref/arxiv）的 TLS 长期被中间盒
+# 重置（SSL_ERROR），本地出不了可信数 —— 故搬到 CI 跑。
+#
+# 触发：手动 workflow_dispatch；或 push 改动 bench 脚本 / 本 workflow 时自动跑一次。
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/electron/resources/paper-search-mcp/bench_retrieve.py'
+      - 'apps/electron/resources/paper-search-mcp/paper_search/service/**'
+      - '.github/workflows/lit-search-bench.yml'
+
+jobs:
+  bench:
+    name: retrieve recall@20 bench
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/electron/resources/paper-search-mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv (+ Python)
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run §8 retrieval benchmark
+        run: uv run python bench_retrieve.py | tee bench_out.txt
+
+      - name: Publish table to job summary
+        if: always()
+        run: |
+          {
+            echo '## lit-search retrieve recall@20 基准（干净网络）'
+            echo ''
+            echo '```'
+            cat bench_out.txt 2>/dev/null || echo '(no stdout captured — see step log for errors)'
+            echo '```'
+            echo ''
+            echo '判读：R@20_new ≈ R@20_base 且都 ≳0.8 → 召回未退；'
+            echo 'R@20_new 系统性 < R@20_base → 调 per_source_cap / 补源阈值。'
+          } >> "$GITHUB_STEP_SUMMARY"

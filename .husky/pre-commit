@@ -1,0 +1,9 @@
+# 提交前两件事：
+#   1. 版本 bump：对照 origin/main，把本分支改过的 workspace package.json 版本钉到
+#      remote patch+1（纯数字、无 -rc），改写后 git add，使 bump 落进本次 commit。
+#      恒 exit 0（自动修正不阻断提交）；离线 / 无 origin/main 时静默跳过。
+#   2. lint-staged：仅对暂存的 src 文件跑 eslint（秒级，规则见 eslint.config.js）。
+# typecheck / test 仍在 pre-push（整库跑一次，避免拖慢每次 commit）。
+# 绕过：git commit --no-verify
+node scripts/bump-version-on-commit.mjs || true
+bun x lint-staged

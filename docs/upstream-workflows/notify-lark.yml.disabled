@@ -1,0 +1,145 @@
+name: Notify Lark
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened, review_requested]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Lark notification
+        env:
+          LARK_WEBHOOK_URL: ${{ secrets.LARK_WEBHOOK_URL }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          REPO: ${{ github.repository }}
+          SENDER: ${{ github.event.sender.login }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request && 'true' || 'false' }}
+        run: |
+          # ── Skip silently when secret is unset (e.g. forks, fresh repo) ──
+          if [ -z "${LARK_WEBHOOK_URL}" ]; then
+            echo "::warning::LARK_WEBHOOK_URL not set; skipping Lark notification"
+            exit 0
+          fi
+
+          # ── Helper: extract first meaningful line, strip markdown syntax ──
+          preview() {
+            local text="$1"
+            [ -z "$text" ] && return
+            echo "$text" \
+              | sed 's/^##* *//' \
+              | sed 's/^\* *//' \
+              | sed 's/^- *//' \
+              | grep -v '^\s*$' \
+              | head -1 \
+              | cut -c1-100
+          }
+
+          CONTENT=""
+          EXTRA=""
+
+          case "${EVENT_NAME}" in
+            issues)
+              case "${EVENT_ACTION}" in
+                opened)   EMOJI="🆕"; VERB="创建了 Issue" ;;
+                closed)   EMOJI="✅"; VERB="关闭了 Issue" ;;
+                reopened) EMOJI="🔄"; VERB="重新打开了 Issue" ;;
+              esac
+              CONTENT="${EMOJI} **${SENDER}** ${VERB} [#${ISSUE_NUMBER} ${ISSUE_TITLE}](${ISSUE_URL})"
+              if [ "${EVENT_ACTION}" = "opened" ]; then
+                PREVIEW=$(preview "$ISSUE_BODY")
+                [ -n "$PREVIEW" ] && EXTRA="> ${PREVIEW}"
+              fi
+              ;;
+            pull_request)
+              case "${EVENT_ACTION}" in
+                opened)   EMOJI="🚀"; VERB="创建了 PR" ;;
+                closed)
+                  if [ "${PR_MERGED}" = "true" ]; then
+                    EMOJI="🎉"; VERB="合并了 PR"
+                  else
+                    EMOJI="❌"; VERB="关闭了 PR"
+                  fi
+                  ;;
+                reopened)          EMOJI="🔄"; VERB="重新打开了 PR" ;;
+                review_requested)  EMOJI="👀"; VERB="请求 Review PR" ;;
+              esac
+              CONTENT="${EMOJI} **${SENDER}** ${VERB} [#${PR_NUMBER} ${PR_TITLE}](${PR_URL})"
+              EXTRA="\`${PR_HEAD}\` → \`${PR_BASE}\`"
+              if [ "${EVENT_ACTION}" = "opened" ]; then
+                PREVIEW=$(preview "$PR_BODY")
+                [ -n "$PREVIEW" ] && EXTRA=$(printf "%s\n> %s" "$EXTRA" "$PREVIEW")
+              fi
+              ;;
+            pull_request_review)
+              case "${REVIEW_STATE}" in
+                approved)          EMOJI="✅"; VERB="批准了 PR" ;;
+                changes_requested) EMOJI="🔧"; VERB="请求修改 PR" ;;
+                commented)         EMOJI="💬"; VERB="评论了 PR" ;;
+              esac
+              CONTENT="${EMOJI} **${SENDER}** ${VERB} [#${PR_NUMBER} ${PR_TITLE}](${REVIEW_URL})"
+              PREVIEW=$(preview "$REVIEW_BODY")
+              [ -n "$PREVIEW" ] && EXTRA="> ${PREVIEW}"
+              ;;
+            issue_comment)
+              if [ "${IS_PR_COMMENT}" = "true" ]; then
+                TYPE="PR"
+              else
+                TYPE="Issue"
+              fi
+              CONTENT="💬 **${SENDER}** 评论了 ${TYPE} [#${ISSUE_NUMBER} ${ISSUE_TITLE}](${COMMENT_URL})"
+              PREVIEW=$(preview "$COMMENT_BODY")
+              [ -n "$PREVIEW" ] && EXTRA="> ${PREVIEW}"
+              ;;
+          esac
+
+          # ── Send to Lark via jq for safe JSON encoding ──
+          if [ -n "${CONTENT}" ]; then
+            if [ -n "${EXTRA}" ]; then
+              FULL_CONTENT=$(printf "%s\n\n%s" "$CONTENT" "$EXTRA")
+            else
+              FULL_CONTENT="$CONTENT"
+            fi
+
+            PAYLOAD=$(jq -n \
+              --arg content "$FULL_CONTENT" \
+              --arg repo "$REPO" \
+              '{
+                msg_type: "interactive",
+                card: {
+                  header: {
+                    title: { tag: "plain_text", content: ("GitHub · " + $repo) },
+                    template: "blue"
+                  },
+                  elements: [
+                    { tag: "markdown", content: $content }
+                  ]
+                }
+              }')
+
+            curl -sS --fail-with-body -X POST "${LARK_WEBHOOK_URL}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+          fi

@@ -1,0 +1,33 @@
+{
+  "title": "配置",
+  "subtitle": "管理 Agent 可用的 Skill 与能力包",
+  "tabs": {
+    "skills": "Skill",
+    "capabilityPacks": "能力包"
+  },
+  "capabilityPacks": {
+    "heading": "内置能力包",
+    "description": "开箱即用，无需配置。",
+    "empty": "暂无可用能力包。",
+    "emptyHint": "内置能力包随应用一同分发。若列表为空，可尝试重启应用以重新同步内置包。",
+    "search": "搜索能力包...",
+    "loading": "加载能力包列表…",
+    "manifestErrorLabel": "manifest 校验失败",
+    "manifestErrorHint": "该包 manifest 校验失败，其场景能力当前不可用。",
+    "metaScenarioAgent": "场景 Agent",
+    "metaVersion": "版本",
+    "metaSkills": "Skill 引用",
+    "metaMcps": "MCP 引用",
+    "noRefs": "（无）",
+    "defaultEnabledAria": "{{packId}} 默认启用",
+    "noSummary": "暂无摘要。",
+    "expandHint": "展开详情",
+    "collapseHint": "收起详情",
+    "back": "返回",
+    "backToList": "返回能力包列表",
+    "includes": "包含",
+    "skillLockedHint": "由能力包提供，默认启用、不可单独禁用",
+    "openMcpSettings": "打开 MCP 设置",
+    "loadError": "能力包列表加载失败"
+  }
+}

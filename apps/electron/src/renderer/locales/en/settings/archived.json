@@ -1,0 +1,17 @@
+{
+  "archived": {
+    "deleteDialog": {
+      "title": "Delete this conversation?",
+      "description": "This conversation cannot be recovered after deletion. Are you sure you want to delete it?"
+    },
+    "common": {
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "toast": {
+      "archived": "Archived",
+      "unarchived": "Unarchived"
+    },
+    "empty": "No archived conversations in this project"
+  }
+}

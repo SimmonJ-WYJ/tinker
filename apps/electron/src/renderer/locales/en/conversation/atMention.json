@@ -1,0 +1,85 @@
+{
+  "atMention": {
+    "header": "Choose source",
+    "category": {
+      "projectFiles": "Project files",
+      "library": "Library",
+      "evidenceSet": "Evidence sets"
+    },
+    "breadcrumb": {
+      "back": "Go back",
+      "projectFiles": "Project files",
+      "library": "Library",
+      "evidenceSet": "Evidence sets",
+      "allItems": "All items",
+      "collectionFallback": "Collection"
+    },
+    "allItems": "All items",
+    "evidenceSet": {
+      "untitled": "Untitled evidence set",
+      "paperCount_one": "{{count}} paper",
+      "paperCount_other": "{{count}} papers"
+    },
+    "rootHints": {
+      "workspaceFallbackName": "Workspace",
+      "workspaceWithDirs_one": "Workspace: {{name}} · {{count}} folder selected",
+      "workspaceWithDirs_other": "Workspace: {{name}} · {{count}} folders selected",
+      "workspaceOnly": "Workspace: {{name}}",
+      "noWorkspace": "No workspace set",
+      "evidenceSet": "Saved evidence sets in this workspace",
+      "evidenceSetNoWorkspace": "No workspace set",
+      "zotero": {
+        "disabled": "Zotero disabled",
+        "notRunning": "Zotero not running",
+        "loadFailed": "Load failed",
+        "loading": "Loading…",
+        "connected": "Zotero connected",
+        "papersCount_one": "{{count}} paper",
+        "papersCount_other": "{{count}} papers",
+        "papersCountOver": "{{limit}}+ papers",
+        "collectionsCount_one": "{{count}} collection",
+        "collectionsCount_other": "{{count}} collections"
+      }
+    },
+    "zotero": {
+      "disabled": {
+        "title": "Zotero disabled",
+        "description": "Enable it under Settings → Zotero to start using it"
+      },
+      "notRunning": {
+        "title": "Zotero not running",
+        "description": "Launch Zotero to reference library items",
+        "action": "Launch Zotero"
+      },
+      "error": {
+        "title": "Failed to load Zotero",
+        "loadFailedPrefix": "Load failed: {{message}}"
+      }
+    },
+    "search": {
+      "libraryRootCollections": "Search collections",
+      "libraryRootInline": "Search library items",
+      "libraryAllItems": "Search all Zotero items",
+      "libraryCollection": "Search items in this collection",
+      "evidenceSets": "Search evidence sets"
+    },
+    "empty": {
+      "files": "No matching files",
+      "entries": "No matching entries",
+      "categories": "No matching collections",
+      "evidenceSets": "No evidence sets in this workspace",
+      "generic": "No items"
+    },
+    "hintEnterFolder": "enter folder",
+    "hintBack": "back",
+    "creators": {
+      "andOthers": "{{first}} +{{count}} others"
+    },
+    "keyboardHint": {
+      "select": "↑↓ select",
+      "drillCollection": "→ enter collection",
+      "insert": "insert",
+      "back": "← back"
+    }
+  }
+}

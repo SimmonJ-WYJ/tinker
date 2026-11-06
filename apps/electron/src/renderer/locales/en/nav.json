@@ -1,0 +1,169 @@
+{
+  "shell": {
+    "splitterTooltip": "Drag to resize panel width",
+    "openPanel": "Open document panel",
+    "closePanel": "Close document panel"
+  },
+  "tabs": {
+    "scrollLeft": "Scroll tabs left",
+    "scrollRight": "Scroll tabs right",
+    "closeTab": "Close tab"
+  },
+  "sidebar": {
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "newTask": "New session",
+    "search": "Search",
+    "configure": "Configure",
+    "library": "Library",
+    "notes": "Evidence Sets",
+    "connectZotero": "Connect Zotero",
+    "workspace": "Workspace",
+    "emptySessions": "No sessions yet. Click \"New session\" above to start.",
+    "settings": "Settings",
+    "settingsWithUpdate": "Settings · Update available",
+    "deleteConversation": {
+      "title": "Delete this conversation?",
+      "description": "This conversation cannot be recovered after deletion. Are you sure you want to delete it?"
+    },
+    "toast": {
+      "archived": "Archived",
+      "unarchived": "Unarchived"
+    },
+    "projects": "Projects",
+    "recent": "Recent"
+  },
+  "attachedDirs": {
+    "header": "Attached directories (Agent can read and operate on these external folders)",
+    "empty": "Empty folder",
+    "menu": {
+      "showInFolder": "Show in folder",
+      "openFile": "Open file",
+      "rename": "Rename",
+      "moveTo": "Move to...",
+      "delete": "Delete"
+    }
+  },
+  "projectFiles": {
+    "title": "Project files",
+    "tooltip": "Cross-session project files. Belong to the entire research project; all conversations can reference them.",
+    "uploadTooltip": "Upload file to project",
+    "openInFinderTooltip": "Open in Finder",
+    "expandLabel": "Expand project files",
+    "collapseLabel": "Collapse project files",
+    "dragOverlay": "Drop here to upload to project",
+    "deleteDialog": {
+      "title": "Confirm delete",
+      "description": "Are you sure you want to delete <strong>{{name}}</strong>? This action cannot be undone."
+    },
+    "toast": {
+      "added_one": "Added {{count}} file",
+      "added_other": "Added {{count}} files",
+      "uploadFailed": "File upload failed",
+      "deleted": "Deleted {{name}}",
+      "deleteFailed": "Failed to delete",
+      "duplicateName": "A file with the same name already exists",
+      "renameFailed": "Failed to rename",
+      "moved": "Moved {{name}}",
+      "moveFailed": "Failed to move"
+    }
+  },
+  "searchDialog": {
+    "title": "Search conversations",
+    "placeholder": "Search conversations...",
+    "hint": "Type a keyword to search conversation titles and message content",
+    "noResults": "No matches found",
+    "groupTitleMatch": "Title matches",
+    "groupContentMatch": "Message content matches",
+    "footer": {
+      "select": "Select",
+      "open": "Open",
+      "close": "Close"
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "updateBadge": {
+    "withVersion": "v{{version}} update available",
+    "generic": "Update available",
+    "short": "Update",
+    "tooltip": "v{{version}} update available"
+  },
+  "projectSwitcher": {
+    "switchAria": "Switch research project",
+    "noneSelected": "No project selected",
+    "empty": "No research projects yet",
+    "createPlaceholder": "Project name...",
+    "createNew": "New project",
+    "manage": "Manage projects...",
+    "createFailed": "Failed to create project"
+  },
+  "sessionItem": {
+    "rename": "Rename",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "deleteSession": "Delete conversation"
+  },
+  "preview": {
+    "newWindow": "Open in new window",
+    "expand": "Expand preview",
+    "close": "Close preview"
+  },
+  "agentHeader": {
+    "editTitle": "Edit title",
+    "openFilePanel": "Open file panel",
+    "openSessionFolder": "Open session folder"
+  },
+  "fileBrowser": {
+    "loadFailed": "Failed to load",
+    "duplicateName": "A file with the same name already exists",
+    "renameFailed": "Failed to rename",
+    "emptyTitle": "No files yet",
+    "emptyHint": "Drop files here, or click upload above",
+    "emptyChildren": "Empty folder",
+    "openInFinderTooltip": "Open in Finder",
+    "reference": "Reference",
+    "referenceSelected": "Reference selected ({{count}})",
+    "moveSelected": "Move selected ({{count}})",
+    "deleteSelected": "Delete selected ({{count}})",
+    "deleteDialog": {
+      "title": "Confirm delete",
+      "descriptionMulti": "Delete the <strong>{{count}}</strong> selected items?",
+      "descriptionSingle": "Delete <strong>{{name}}</strong>?",
+      "directorySuffix": " (includes all child files)",
+      "warning": "This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    }
+  },
+  "projectManage": {
+    "title": "Manage research projects",
+    "description": "Rename, delete, or reorder by drag. The default project cannot be deleted; use the title bar to switch or create projects.",
+    "renameTooltip": "Rename",
+    "deleteTooltip": "Delete",
+    "renameFailed": "Failed to rename",
+    "deleteConfirm": {
+      "title": "Delete this research project?",
+      "description": "Project configuration will be removed, but local directory files are kept. Are you sure?",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    }
+  },
+  "projectTree": {
+    "expand": "Expand {{name}}",
+    "empty": "No sessions in project",
+    "search": "Search sessions",
+    "sessions": "Sessions",
+    "open": "Open project settings",
+    "description": "Conversations and work in this project",
+    "noResults": "No matching sessions",
+    "choose": "Choose a project"
+  },
+  "navigation": {
+    "back": "Back",
+    "forward": "Forward",
+    "sidebar": "Navigation"
+  }
+}

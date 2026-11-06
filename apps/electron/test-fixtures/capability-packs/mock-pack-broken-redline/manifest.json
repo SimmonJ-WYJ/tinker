@@ -1,0 +1,15 @@
+{
+  "packId": "mock-broken-pack",
+  "version": "0.1.0",
+  "scenarioAgent": {
+    "name": "general-purpose",
+    "description": "Should be rejected by red-line 2.",
+    "promptPath": "scenario/system-prompt.md",
+    "tools": [
+      "Read"
+    ]
+  },
+  "skillRefs": [],
+  "mcpRefs": [],
+  "uiFramework": "conversation-and-artifact"
+}

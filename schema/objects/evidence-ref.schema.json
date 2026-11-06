@@ -1,0 +1,297 @@
+{
+  "$id": "https://opensci.io/asci/schema/objects/evidence-ref.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/EvidenceRef",
+  "definitions": {
+    "EvidenceRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "visibility": {
+          "$ref": "#/definitions/ObjectVisibility"
+        },
+        "source": {
+          "$ref": "#/definitions/EvidenceRefSource"
+        },
+        "target": {
+          "$ref": "#/definitions/EvidenceRefTarget"
+        }
+      },
+      "required": [
+        "createdAt",
+        "id",
+        "source",
+        "target",
+        "updatedAt",
+        "visibility"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectId": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "type": "string",
+      "enum": [
+        "visible",
+        "archived",
+        "deleted"
+      ]
+    },
+    "EvidenceRefSource": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/EvidenceRefSourceKind"
+        },
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "anchor": {
+          "$ref": "#/definitions/Anchor"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "anchor"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceRefSourceKind": {
+      "type": "string",
+      "enum": [
+        "paper",
+        "review",
+        "conversation"
+      ]
+    },
+    "Anchor": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/AnchorType"
+        },
+        "snapshotText": {
+          "type": "string"
+        },
+        "locationData": {
+          "$ref": "#/definitions/AnchorLocation"
+        },
+        "version": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "snapshotText"
+      ],
+      "additionalProperties": false
+    },
+    "AnchorType": {
+      "type": "string",
+      "enum": [
+        "html",
+        "md",
+        "pdf",
+        "conversation"
+      ]
+    },
+    "AnchorLocation": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HtmlLocation"
+        },
+        {
+          "$ref": "#/definitions/MdLocation"
+        },
+        {
+          "$ref": "#/definitions/PdfLocation"
+        },
+        {
+          "$ref": "#/definitions/ConversationLocation"
+        }
+      ]
+    },
+    "HtmlLocation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "html"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "sectionId": {
+          "type": "string"
+        },
+        "paragraphIndex": {
+          "type": "number"
+        },
+        "citeIndex": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "MdLocation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "md"
+        },
+        "byteOffset": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "number"
+            },
+            "end": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        "lineNumber": {
+          "type": "number"
+        },
+        "paragraphIndex": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "PdfLocation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "pdf"
+        },
+        "page": {
+          "type": "number"
+        },
+        "bbox": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "ConversationLocation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "conversation"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "messageUuid": {
+          "type": "string"
+        },
+        "userMessageUuid": {
+          "type": "string"
+        },
+        "messageTimestamp": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "messageUuid"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceRefTarget": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "review"
+            },
+            "id": {
+              "$ref": "#/definitions/ObjectId"
+            },
+            "anchor": {
+              "$ref": "#/definitions/Anchor"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "anchor"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "evidence-set"
+            },
+            "id": {
+              "$ref": "#/definitions/ObjectId"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

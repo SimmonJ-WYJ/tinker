@@ -1,0 +1,16 @@
+{
+  "invalid-credentials": "邮箱或密码不正确",
+  "email-not-verified": "请先验证邮箱后再登录",
+  "email-already-exists": "该邮箱已被注册",
+  "weak-password": "密码强度不足，请使用至少 8 位包含字母和数字的密码",
+  "invalid-token": "此链接无效或已被使用",
+  "token-expired": "此链接已过期，请重新申请",
+  "rate-limited": "操作过于频繁，请稍等片刻后重试",
+  "network-error": "网络错误，请检查网络连接后重试",
+  "oauth-cancelled": "登录已取消",
+  "oauth-state-mismatch": "认证失败：安全校验未通过，请重试",
+  "oauth-provider-error": "登录服务提供商遇到错误，请重试",
+  "unknown": "发生未知错误，请重试",
+  "session-expired": "会话已过期，请重新登录",
+  "oauth-config-missing": "请在 ~/.asci-dev/（开发）或 ~/.asci/（正式）创建 auth-google.json，填入 Google Desktop OAuth clientId；详见 docs/google-login-setup.md。"
+}

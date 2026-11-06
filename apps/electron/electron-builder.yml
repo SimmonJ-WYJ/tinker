@@ -1,0 +1,241 @@
+# electron-builder 配置
+# 文档: https://www.electron.build/configuration/configuration
+
+appId: com.asci.tinker.candidate
+productName: Tinker
+copyright: Copyright © 2026 ASCI
+
+# Electron 版本（CI 环境 bun workspace 下无法自动检测，需显式指定）
+electronVersion: 39.5.1
+
+# 目录配置
+directories:
+  output: out
+  buildResources: resources
+
+# 压缩配置
+compression: normal
+
+# ASAR 打包配置（禁用 ASAR，确保 SDK native binary 可以直接执行）
+asar: false
+
+# 跳过 npm install（代码已被 esbuild/Vite 打包，npm 不识别 workspace:* 协议）
+npmRebuild: false
+
+# 通用文件配置
+files:
+  - dist/**/*
+  # runtime payload 走 mac/win 的 extraResources，避免 dist/**/* 把它再打一次进 asar/unpack
+  - "!dist/runtimes/**"
+  # dev-only 评估/重建脚本产物不进生产包
+  - "!dist/*-qa.cjs"
+  - "!dist/rag-eval.cjs"
+  - "!dist/rag-reindex.cjs"
+  - "!dist/eval-vectorization.cjs"
+  - package.json
+  # 包含 SDK 主包及 0.2.113+ per-platform native binary optional dependencies
+  - node_modules/@anthropic-ai/claude-agent-sdk/**/*
+  - node_modules/@anthropic-ai/claude-agent-sdk-*/**/*
+  # Zotero / OCR / ASR MCP 子进程 esbuild 排除的原生/大依赖，需运行时从 node_modules 解析
+  - node_modules/sharp/**/*
+  - node_modules/onnxruntime-node/**/*
+  - node_modules/paddleocr/**/*
+  - node_modules/pdf-parse/**/*
+  - node_modules/word-extractor/**/*
+  - node_modules/officeparser/**/*
+  - node_modules/sherpa-onnx-node/**/*
+  - node_modules/sherpa-onnx-*/**/*
+  - node_modules/ffmpeg-static/**/*
+  - node_modules/tar/**/*
+  - node_modules/unbzip2-stream/**/*
+  # papers-rg in-process MCP 用 @vscode/ripgrep 自带的 rg 二进制；
+  # 必须随包发布，且其 lib/index.js 用 __dirname 计算 rgPath，故必须保留为 external
+  - node_modules/@vscode/ripgrep/**/*
+  # better-sqlite3 native binding（build/Release/better_sqlite3.node）+ 其 bindings loader
+  # esbuild --external 后必须运行时从 node_modules 解析；electron-builder npmRebuild:false
+  # 故 dist 前需 `bun run rebuild` 重建为 Electron ABI（CI release.yml 打包前自动执行；
+  # 本地开发改完 better-sqlite3 后手动跑一次）
+  - node_modules/better-sqlite3/**/*
+  - node_modules/bindings/**/*
+  # sqlite-vec：向量索引扩展（SQLite loadable extension，无 node ABI 问题）；
+  # 主包 getLoadablePath() 用 __dirname 解析平台分包 dylib，故 esbuild --external + 两条都进包
+  - node_modules/sqlite-vec/**/*
+  - node_modules/sqlite-vec-*/**/*
+  # pdfjs-dist：renderer 已经通过 vite ?url 自己打 worker，本条目用于 main 进程的 structured
+  # .txt 链路（zotero-structured-txt）运行时动态 import 'pdfjs-dist/legacy/build/pdf.mjs'。
+  # esbuild 必须 --external:pdfjs-dist，否则 ESM 内部循环引用会被打散，运行时抛
+  # "PDFDocumentLoadingTask is not a constructor"。
+  - node_modules/pdfjs-dist/**/*
+  - node_modules/file-uri-to-path/**/*
+  # chokidar 与传递依赖；fsevents 是 macOS 原生可选 binding，必须运行时从 node_modules 解析
+  - node_modules/chokidar/**/*
+  - node_modules/fsevents/**/*
+  - node_modules/anymatch/**/*
+  - node_modules/braces/**/*
+  - node_modules/glob-parent/**/*
+  - node_modules/is-binary-path/**/*
+  - node_modules/is-glob/**/*
+  - node_modules/normalize-path/**/*
+  - node_modules/readdirp/**/*
+  # @sentry/electron（ADR-011 / CLAUDE.md §7.1 例外）：依赖 OTel 动态
+  # instrumentation（require-in-the-middle），不可被 esbuild bundle，
+  # 必须 external + 带完整传递依赖闭包（68 包，见 scripts/build-main.ts 注释）。
+  # @types/* 与 undici-types 虽在闭包内但运行时永不 require，刻意不带。
+  - node_modules/@sentry/**/*
+  - node_modules/@sentry-internal/**/*
+  - node_modules/@opentelemetry/**/*
+  - node_modules/@prisma/instrumentation/**/*
+  - node_modules/@fastify/otel/**/*
+  - node_modules/import-in-the-middle/**/*
+  - node_modules/require-in-the-middle/**/*
+  - node_modules/cjs-module-lexer/**/*
+  - node_modules/acorn/**/*
+  - node_modules/acorn-import-attributes/**/*
+  - node_modules/module-details-from-path/**/*
+  - node_modules/forwarded-parse/**/*
+  - node_modules/debug/**/*
+  - node_modules/ms/**/*
+  - node_modules/minimatch/**/*
+  - node_modules/balanced-match/**/*
+  - node_modules/brace-expansion/**/*
+  - node_modules/xtend/**/*
+  - node_modules/pg-int8/**/*
+  - node_modules/pg-protocol/**/*
+  - node_modules/pg-types/**/*
+  - node_modules/postgres-array/**/*
+  - node_modules/postgres-bytea/**/*
+  - node_modules/postgres-date/**/*
+  - node_modules/postgres-interval/**/*
+  # 排除 workspace 包的 symlink（代码已被 esbuild/Vite 打包到 dist/ 中）
+  - "!node_modules/@asci/**"
+
+# 通用额外资源
+extraResources:
+  # 默认 Skills 模板（首次启动时同步到 ~/.asci/default-skills/）
+  - from: default-skills
+    to: default-skills
+    filter:
+      - "**/*"
+  # 默认能力包（首次启动时同步到 ~/.asci/capability-packs/；spec §5 首发）
+  - from: default-capability-packs
+    to: default-capability-packs
+    filter:
+      - "**/*"
+  # ASCI 品牌 Logo 素材（品牌素材下载功能使用）
+  - from: resources/asci-logos
+    to: asci-logos
+    filter:
+      - "**/*"
+  # paper-search MCP Python 包（uv run --extra mcp 启动）
+  # paper-search-integration.ts 期望 <Resources>/paper-search-mcp/ 存在
+  - from: resources/paper-search-mcp
+    to: paper-search-mcp
+    filter:
+      - "**/*"
+      - "!.venv/**"
+      - "!__pycache__/**"
+      - "!**/__pycache__/**"
+  # 期刊分区/IF 本地表（唯一源在 packages/shared/src/constants，不随上面的 MCP 包 ship）。
+  # 复制进 MCP 包内 paper_search/constants/，供 fenqu_local 在打包态定位（dev 态走源目录）。
+  - from: ../../packages/shared/src/constants/fenqu_simple_2025.json
+    to: paper-search-mcp/paper_search/constants/fenqu_simple_2025.json
+
+# ============================================
+# macOS 配置
+# ============================================
+mac:
+  category: public.app-category.developer-tools
+  icon: resources/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  # ad-hoc 签名（无需 Apple Developer ID）：electron-builder 会跑
+  # `codesign --sign - --force --deep`，签名 Identifier 自动取 CFBundleIdentifier
+  # （com.asci.app）而非 Electron 默认的 linker-signed "Electron"。
+  # macOS Sequoia Installer 安装后能正确触发 LaunchServices 注册，
+  # /Applications/ASCI.app 在 Finder/Launchpad/Spotlight 可见。
+  # 若未来获取 Developer ID Application 证书，把 "-" 替换为证书 Common Name 即可。
+  identity: "-"
+  # 把 build:runtimes 输出的 4 工具 payload 嵌入 .app/Contents/Resources/runtimes/。
+  # 首启时 RuntimeBootstrapper 会拷贝到 ~/Library/Application Support/ASCI/runtimes/。
+  # 详见 docs/superpowers/specs/2026-05-06-bundled-runtimes-installer-design.md
+  extraResources:
+    - from: dist/runtimes/${env.ASCI_PY_TARGET}
+      to: runtimes
+      filter:
+        - "**/*"
+  # arch 由 CI 的 `--arm64` / `--x64` CLI flag 决定（每个 matrix job 各自 1 个 arch）。
+  # 不要在这里写死 arch 列表 —— electron-builder 的 yml 优先级高于 CLI flag，
+  # 会让 mac job 同时 build 双 arch（4 个产物），并在 pkg target 收尾时
+  # `unlink out/${appId}.pkg` 触发 ENOENT race（v0.1.95-rc.1 即此原因失败）。
+  target:
+    - dmg
+    - zip
+
+# pkg 配置（macOS Installer 包）
+pkg:
+  # .app 必须装到 /Applications 才符合 macOS 用户预期（dock / Spotlight / 拖拽）
+  # 这要求 admin 密码 —— 与 spec § 2 "无密码"决策的实际不可行偏差。
+  # 多 domain 允许 user-home 安装会让 .app 被错误展平到 ~/Applications/Contents/...
+  installLocation: /Applications
+  allowAnywhere: false
+  allowCurrentUserHome: false
+  allowRootDirectory: true
+  isRelocatable: false
+  isVersionChecked: false
+  overwriteAction: upgrade
+
+# DMG 配置
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+# ============================================
+# Windows 配置
+# ============================================
+win:
+  icon: resources/icon.ico
+  # 把 build:runtimes 输出的 4 工具 payload 嵌入 <Install>/resources/runtimes/。
+  # 首启时 RuntimeBootstrapper 会拷贝到 %APPDATA%/ASCI/runtimes/。
+  extraResources:
+    - from: dist/runtimes/${env.ASCI_PY_TARGET}
+      to: runtimes
+      filter:
+        - "**/*"
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+# NSIS 安装程序配置
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+# ============================================
+# Linux 配置
+# ============================================
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+
+# ============================================
+# 发布配置
+# ============================================
+publish:
+  provider: github
+  owner: SimmonJ-WYJ
+  repo: tinker

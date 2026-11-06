@@ -1,0 +1,24 @@
+{
+  "packId": "paper-retrieval-pack",
+  "version": "0.1.0",
+  "scenarioAgent": {
+    "name": "paper-retrieval-scenario",
+    "description": "Comprehensive paper retrieval specialist. Composes multi-source queries (paper-search MCP + WebSearch + citation trails) against the research need, persists every hit into the workspace paper index via mcp__paper-search__process_search_results, and reports exact display_count. Use when the user wants to find, look up, search, or discover papers on a topic — including follow-up / supplemental rounds in the same session.",
+    "promptPath": "scenario/system-prompt.md",
+    "tools": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "model": "sonnet"
+  },
+  "skillRefs": [],
+  "mcpRefs": [
+    "paper-search",
+    "asci-zotero"
+  ],
+  "uiFramework": "conversation-and-artifact"
+}

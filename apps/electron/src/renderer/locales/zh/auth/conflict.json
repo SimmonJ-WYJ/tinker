@@ -1,0 +1,12 @@
+{
+  "title": "本地数据属于另一个账户",
+  "description": "~/.asci/ 中的本地数据之前归属于另一个账户（{{uid}}）。请选择处理方式：",
+  "options": {
+    "continueLoggedIn": "继续登录 — 保留本地数据（可能无法访问）",
+    "exportAndClear": "导出本地数据并以此账户重新开始",
+    "cancel": "取消 — 退出登录"
+  },
+  "confirm": "确认",
+  "exportNotImplemented": "暂未实现导出功能，请联系支持。",
+  "continueHint": "你的本地数据将保留在磁盘上，但可能无法关联到此账户。"
+}

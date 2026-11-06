@@ -1,0 +1,31 @@
+{
+  "packId": "mock-rag-pack",
+  "version": "0.1.0",
+  "scenarioAgent": {
+    "name": "mock-rag-researcher",
+    "description": "Mock RAG literature reviewer. Use when user asks about RAG vs long-context comparison.",
+    "promptPath": "scenario/system-prompt.md",
+    "tools": [
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch"
+    ],
+    "model": "sonnet"
+  },
+  "skillRefs": [
+    "pdf-extract",
+    "web-search"
+  ],
+  "mcpRefs": [
+    "paper-search"
+  ],
+  "uiFramework": "conversation-and-artifact",
+  "proposals": [
+    {
+      "kind": "citation-relation",
+      "trigger": "review-generated",
+      "reasoningTemplate": "{papers} cite each other on {topic}"
+    }
+  ]
+}

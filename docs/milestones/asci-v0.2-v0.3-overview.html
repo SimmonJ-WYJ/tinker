@@ -1,0 +1,3327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCI 版本规划 · v0.2 / v0.3</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --ink-900: #18181b;
+    --ink-700: #3f3f46;
+    --ink-500: #71717a;
+    --ink-300: #d4d4d8;
+    --ink-200: #e4e4e7;
+    --ink-100: #f4f4f5;
+    --ink-50: #fafafa;
+    --indigo: #4f46e5;
+    --indigo-soft: #eef2ff;
+    --violet: #7c3aed;
+    --violet-soft: #f5f3ff;
+    --blue: #2563eb;
+    --blue-soft: #eff6ff;
+    --amber: #d97706;
+    --amber-soft: #fffbeb;
+    --slate-soft: #f8fafc;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ink-900);
+    background: #fff;
+    line-height: 1.6;
+  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Section 节奏 */
+  .section { padding-top: 5rem; padding-bottom: 5rem; }
+  .section-sm { padding-top: 3.5rem; padding-bottom: 3.5rem; }
+  @media (max-width: 768px) {
+    .section { padding-top: 3rem; padding-bottom: 3rem; }
+  }
+
+  /* 卡片 */
+  .card {
+    background: #fff;
+    border: 1px solid var(--ink-200);
+    border-radius: 14px;
+    transition: border-color 200ms, box-shadow 200ms;
+  }
+  .card-hover:hover {
+    border-color: var(--ink-300);
+    box-shadow: 0 4px 14px -8px rgba(0,0,0,0.08);
+  }
+
+  /* 段落标签条 — 0.2/0.3/0.4 段头 */
+  .epoch-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .epoch-02 { background: var(--violet-soft); color: var(--violet); }
+  .epoch-03 { background: var(--blue-soft); color: var(--blue); }
+  .epoch-04 { background: var(--ink-100); color: var(--ink-500); }
+  .epoch-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .epoch-02 .epoch-dot { background: var(--violet); }
+  .epoch-03 .epoch-dot { background: var(--blue); }
+  .epoch-04 .epoch-dot { background: var(--ink-500); }
+
+  /* 章节锚点编号 */
+  .chap-num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-500);
+    letter-spacing: 0.05em;
+  }
+
+  /* 时间线 */
+  .timeline-card {
+    flex: 1;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid var(--ink-200);
+    background: #fff;
+    position: relative;
+  }
+  .timeline-arrow {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    color: var(--ink-300);
+  }
+
+  /* Hero 标题 */
+  .hero-h1 {
+    font-size: clamp(2.25rem, 4.5vw, 3.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  /* sticky header */
+  .top-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border-bottom: 1px solid var(--ink-200);
+  }
+  .nav-link {
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-700);
+    transition: background 150ms, color 150ms;
+    cursor: pointer;
+  }
+  .nav-link:hover { background: var(--ink-100); color: var(--ink-900); }
+  .nav-link.epoch-02-link { color: var(--violet); }
+  .nav-link.epoch-03-link { color: var(--blue); }
+  .nav-link.epoch-04-link { color: var(--ink-500); }
+
+  /* Demo 主按钮 */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--ink-900);
+    color: #fff;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 150ms, transform 150ms;
+  }
+  .btn-primary:hover { background: #000; transform: translateY(-1px); }
+
+  /* Mermaid 容器 */
+  .mermaid-wrap {
+    background: var(--slate-soft);
+    border: 1px solid var(--ink-200);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .mermaid-wrap .mermaid { display: flex; justify-content: center; }
+
+  /* 推迟 / deferred 状态 */
+  .deferred {
+    background: var(--slate-soft);
+    border: 1.5px dashed var(--ink-300);
+    color: var(--ink-500);
+  }
+  .deferred .deferred-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--ink-100);
+    color: var(--ink-700);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  /* 章节小节标题 */
+  .h2-section {
+    font-size: clamp(1.5rem, 2.8vw, 2.125rem);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+    color: var(--ink-900);
+  }
+  .h3-block {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    font-weight: 700;
+    color: var(--ink-900);
+  }
+
+  /* 章节列表行 */
+  .chap-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    align-items: baseline;
+    transition: background 150ms;
+  }
+  .chap-row:hover { background: var(--ink-100); }
+  .chap-row + .chap-row { border-top: 1px solid var(--ink-100); }
+
+  /* 状态徽章 */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .badge-new { background: var(--indigo-soft); color: var(--indigo); }
+  .badge-mod { background: var(--amber-soft); color: var(--amber); }
+  .badge-defer { background: var(--ink-100); color: var(--ink-500); }
+  .badge-key { background: var(--violet-soft); color: var(--violet); }
+
+  /* 关键洞察块 */
+  .insight {
+    border-left: 3px solid var(--indigo);
+    background: var(--indigo-soft);
+    padding: 14px 18px;
+    border-radius: 0 10px 10px 0;
+    color: var(--ink-900);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .insight-violet { border-color: var(--violet); background: var(--violet-soft); }
+  .insight-blue { border-color: var(--blue); background: var(--blue-soft); }
+  .insight-amber { border-color: var(--amber); background: var(--amber-soft); }
+
+  /* ASCI 原型窗口外壳 */
+  .asci-window {
+    background: var(--ink-50);
+    border: 1px solid var(--ink-200);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 18px 40px -20px rgba(0,0,0,0.12);
+    display: grid;
+    grid-template-columns: 232px 1fr;
+    min-height: 660px;
+  }
+  .asci-window.single { grid-template-columns: 1fr; min-height: 580px; }
+  .asci-titlebar {
+    grid-column: 1 / -1;
+    height: 36px;
+    background: #f4f4f5;
+    border-bottom: 1px solid var(--ink-200);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 7px;
+  }
+  .traffic-light {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--ink-300);
+  }
+
+  /* asci sidebar */
+  .sb-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 11px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #52525b;
+    font-size: 13px;
+    transition: background 120ms;
+  }
+  .sb-item:hover { background: rgba(0,0,0,0.04); }
+  .sb-item.active {
+    background: #e4e4e7;
+    color: var(--ink-900);
+    font-weight: 600;
+  }
+  .sb-new-tag {
+    margin-left: auto;
+    font-size: 9px;
+    background: #fff;
+    color: var(--indigo);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 700;
+    border: 1px solid #c7d2fe;
+  }
+
+  /* 原型 stage */
+  .prototype-stage { display: none; }
+  .prototype-stage.active { display: block; animation: fadeIn 200ms ease-out; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* tab chip row */
+  .proto-tab {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--ink-700);
+    background: #fff;
+    border: 1px solid var(--ink-200);
+    cursor: pointer;
+    transition: all 150ms;
+    white-space: nowrap;
+  }
+  .proto-tab:hover { background: var(--ink-100); }
+  .proto-tab.active {
+    background: var(--ink-900);
+    border-color: var(--ink-900);
+    color: #fff;
+    font-weight: 600;
+  }
+  .proto-tab-num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0.7;
+  }
+
+  /* tab pill (内部用) */
+  .tab-pill.active { background: white; color: #18181b; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+
+  /* callout 节制使用 */
+  .callout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    background: var(--ink-100);
+    color: #52525b;
+    border: 1px dashed var(--ink-300);
+  }
+
+  /* Hypothesis status 状态机 */
+  .status-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .status-unknown { background: #fafafa; color: #52525b; border-color: #d4d4d8; }
+  .status-supported { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
+  .status-contradicted { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
+  .status-suspended { background: #fefce8; color: #a16207; border-color: #fcd34d; }
+
+  /* dismiss policy 三档 */
+  .policy-tier {
+    border: 1px solid var(--ink-200);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .policy-once { background: #fff; }
+  .policy-scoped { background: #fef9c3; border-color: #fde047; }
+  .policy-silence { background: #fee2e2; border-color: #fca5a5; }
+
+  /* 滚动 chip row 隐藏滚动条 */
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip-row { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* line-through 砍掉 */
+  .strike { text-decoration: line-through; opacity: 0.45; }
+
+  /* anchor offset for sticky header */
+  .anchor-target { scroll-margin-top: 88px; }
+
+  /* footer */
+  .footer-bg { background: #0a0a0b; color: #a1a1aa; }
+</style>
+</head>
+<body>
+
+<!-- ============== Sticky Header ============== -->
+<header class="top-header">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center">
+        <i data-lucide="atom" class="w-4 h-4 text-white"></i>
+      </div>
+      <div class="leading-tight">
+        <div class="text-[13px] font-bold text-zinc-900">ASCI</div>
+        <div class="text-[10px] text-zinc-500 tabular-nums">v0.2 / v0.3 规划</div>
+      </div>
+    </a>
+    <nav class="hidden md:flex items-center gap-1">
+      <a href="#v02" class="nav-link epoch-02-link">0.2 Beta</a>
+      <a href="#v03" class="nav-link epoch-03-link">0.3 发布</a>
+      <a href="#v04" class="nav-link epoch-04-link">0.4 候选</a>
+      <a href="#demo" class="nav-link">原型演示</a>
+    </nav>
+    <a href="#demo" class="btn-primary">
+      <i data-lucide="play" class="w-3.5 h-3.5"></i>
+      <span>查看 Demo</span>
+    </a>
+  </div>
+</header>
+
+<a id="top"></a>
+
+<!-- ============== Hero ============== -->
+<section class="section">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex items-center gap-2 mb-5 text-xs text-zinc-500 tabular-nums">
+      <i data-lucide="git-commit-horizontal" class="w-3.5 h-3.5"></i>
+      <span>最后更新 2026-05-14</span>
+      <span class="text-zinc-300">·</span>
+      <span>权威源 <code class="bg-zinc-100 px-1.5 py-0.5 rounded text-[11px]">docs/milestones/{0.2,0.3}/north-star.md</code></span>
+    </div>
+
+    <h1 class="hero-h1 text-zinc-900 mb-6">
+      v0.2 / v0.3 版本规划
+    </h1>
+
+    <div class="space-y-2 text-zinc-600 text-lg leading-relaxed max-w-3xl mb-12">
+      <p><span class="font-semibold text-violet-600">v0.2</span> 把<b class="text-zinc-900">"科研数据底座"</b>打好<span class="text-zinc-400"> · </span>内部 dogfood<span class="text-zinc-400"> · </span>3 周<span class="text-zinc-400"> · </span>截止 <span class="tabular-nums">2026-06-05</span></p>
+      <p><span class="font-semibold text-blue-600">v0.3</span> 把<b class="text-zinc-900">"房子"</b>建起来交付世界<span class="text-zinc-400"> · </span>公开发布<span class="text-zinc-400"> · </span>2 周<span class="text-zinc-400"> · </span>截止 <span class="tabular-nums">2026-06-19</span></p>
+    </div>
+
+    <!-- 时间线 3 段 -->
+    <div class="flex items-stretch gap-3 flex-col md:flex-row">
+      <div class="timeline-card" style="border-color: #ddd6fe; background: linear-gradient(180deg, #faf5ff 0%, #fff 70%);">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="epoch-tag epoch-02"><span class="epoch-dot"></span>0.2 BETA</span>
+          <span class="text-[10px] text-zinc-500 tabular-nums">3 周</span>
+        </div>
+        <div class="text-base font-bold text-zinc-900 mb-1">科研数据底座</div>
+        <div class="text-xs text-zinc-600 leading-relaxed">5 大对象 + Proposal 状态机 + 2 验证应用 + Agent 重构 + 能力包概念层</div>
+        <div class="mt-3 text-[11px] text-violet-600 font-semibold tabular-nums">→ 2026-06-05 内部 dogfood</div>
+      </div>
+      <div class="timeline-arrow"><i data-lucide="chevron-right" class="w-5 h-5"></i></div>
+      <div class="timeline-card" style="border-color: #bfdbfe; background: linear-gradient(180deg, #eff6ff 0%, #fff 70%);">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="epoch-tag epoch-03"><span class="epoch-dot"></span>0.3 公开发布</span>
+          <span class="text-[10px] text-zinc-500 tabular-nums">2 周</span>
+        </div>
+        <div class="text-base font-bold text-zinc-900 mb-1">账户 + 能力包 + 配套</div>
+        <div class="text-xs text-zinc-600 leading-relaxed">账户体系 + 自建服务器 + 能力包落地 + 自进化埋点 + GDPR + 自动更新</div>
+        <div class="mt-3 text-[11px] text-blue-600 font-semibold tabular-nums">→ 2026-06-19 公开发布</div>
+      </div>
+      <div class="timeline-arrow"><i data-lucide="chevron-right" class="w-5 h-5"></i></div>
+      <div class="timeline-card deferred">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="epoch-tag epoch-04"><span class="epoch-dot"></span>0.4 候选</span>
+          <span class="text-[10px] text-zinc-500">待定</span>
+        </div>
+        <div class="text-base font-bold text-zinc-700 mb-1">紧随 0.3.0 发布</div>
+        <div class="text-xs text-zinc-500 leading-relaxed">默认页 / 双节点 / 自进化 UI / 运维 SOP / GitHub OAuth 等</div>
+        <div class="mt-3 text-[11px] text-zinc-500 font-semibold">→ 0.3.0 进入 Week 2 时定稿</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 版本对比卡片 ============== -->
+<section class="section bg-zinc-50/50 border-y border-zinc-100">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="mb-8">
+      <div class="text-xs font-bold tracking-wider text-zinc-500 mb-2">VERSION SCOPE</div>
+      <h2 class="h2-section">两版本各做什么 · 一眼看清</h2>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-5">
+      <!-- 卡片 A: v0.2 -->
+      <article class="card p-7 card-hover" style="border-color: #ddd6fe;">
+        <div class="flex items-center justify-between mb-5">
+          <span class="epoch-tag epoch-02"><span class="epoch-dot"></span>v0.2 在做什么</span>
+          <i data-lucide="layers" class="w-5 h-5 text-violet-600"></i>
+        </div>
+        <h3 class="text-xl font-bold text-zinc-900 mb-1">科研数据底座</h3>
+        <p class="text-sm text-zinc-500 mb-5">内部 dogfood / 小范围内测 · 不公开发布</p>
+
+        <div class="space-y-3 mb-6">
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-violet-100 text-violet-700 flex items-center justify-center text-[11px] font-bold">1</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">5 大对象 + Proposal 交互对象</b><br><span class="text-xs text-zinc-500">Paper / EvidenceRef / Note / EvidenceSet / CitationRelation + 承载 Agent 主导哲学的 Proposal 状态机</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-violet-100 text-violet-700 flex items-center justify-center text-[11px] font-bold">2</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">2 个验证应用</b><br><span class="text-xs text-zinc-500">证据链查看器（V1-V3）+ 札记面板（V4-V6f，含 V6d Agent 自动评估假设）</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-violet-100 text-violet-700 flex items-center justify-center text-[11px] font-bold">3</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">Agent 拓展性重构</b><br><span class="text-xs text-zinc-500">Orchestrator 总控 + 领域子 Agent 分层，对齐 Claude Code SDK 推荐多 Agent 结构</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-violet-100 text-violet-700 flex items-center justify-center text-[11px] font-bold">4</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">能力包概念层（只想清楚不实现）</b><br><span class="text-xs text-zinc-500">Spec + UI 概念稿 + 5 名用户访谈，0.3 落地的前置</span></p>
+          </div>
+        </div>
+
+        <div class="pt-5 border-t border-zinc-100">
+          <div class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">关键产出</div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="text-[11px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-100">对象模型</span>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-100">Proposal 状态机</span>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-100">§零 Agent 主导哲学</span>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-100">能力包契约</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- 卡片 B: v0.3 -->
+      <article class="card p-7 card-hover" style="border-color: #bfdbfe;">
+        <div class="flex items-center justify-between mb-5">
+          <span class="epoch-tag epoch-03"><span class="epoch-dot"></span>v0.3 在做什么</span>
+          <i data-lucide="rocket" class="w-5 h-5 text-blue-600"></i>
+        </div>
+        <h3 class="text-xl font-bold text-zinc-900 mb-1">公开发布</h3>
+        <p class="text-sm text-zinc-500 mb-5">账户 + 能力包 + 发布配套 · macOS 首发</p>
+
+        <div class="space-y-3 mb-6">
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">1</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">独立账户体系</b><br><span class="text-xs text-zinc-500">Email + 密码 / Google OAuth / ORCID OAuth（科研标配）</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">2</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">自建服务器（5 服务单节点首发）</b><br><span class="text-xs text-zinc-500">认证 / 用户数据 / 埋点 / 更新 / 邮件 · 节点位置由 ADR-002 拍板（倾向欧盟）</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">3</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">能力包正式落地</b><br><span class="text-xs text-zinc-500">2 个首发包 + 独立"配置"页 + Settings 新 9 tab 重构</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">4</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">自进化埋点（仅采集不消费）</b><br><span class="text-xs text-zinc-500">6 类合规结构化信号攒数据，0.4 起进消费链路</span></p>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-shrink-0 w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">5</div>
+            <p class="text-sm text-zinc-700 leading-relaxed flex-1"><b class="text-zinc-900">GDPR MVP + 自动更新 + 数据所有权</b><br><span class="text-xs text-zinc-500">Privacy / ToS / EU 代表 · macOS 自动更新（Windows 视 EV 签名）· 一键导出 / 删除</span></p>
+          </div>
+        </div>
+
+        <!-- Scope 收敛 banner -->
+        <div class="rounded-xl p-4 bg-amber-50 border border-amber-200">
+          <div class="flex items-start gap-2.5">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0"></i>
+            <div class="text-xs text-amber-900 leading-relaxed">
+              <div class="font-bold mb-1">Scope 已收敛 · 5 项推迟 0.4</div>
+              <div class="text-amber-800">默认页改造 · 双节点路由 · 自进化透明度 UI · GitHub OAuth · <b>公开发布运维 SOP</b>（整章）</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============== v0.2 需求列表 ============== -->
+<div id="v02" class="anchor-target"></div>
+<section class="section">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex items-baseline justify-between mb-8 flex-wrap gap-3">
+      <div>
+        <span class="epoch-tag epoch-02 mb-3"><span class="epoch-dot"></span>v0.2 BETA · 内部 DOGFOOD</span>
+        <h2 class="h2-section mt-3">v0.2 需求列表</h2>
+        <p class="text-zinc-500 mt-2">截止 2026-06-05 · 11 个章节构成完整科研数据底座</p>
+      </div>
+      <a href="#v02-detail" class="text-sm text-indigo-600 hover:underline inline-flex items-center gap-1">
+        看详述 <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+      </a>
+    </div>
+
+    <div class="card p-2">
+      <a href="#v02-s0" class="chap-row">
+        <span class="chap-num">§零</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">ASCI Agent 主导原则</span>
+          <span class="text-xs text-zinc-500">含灰度回退条件（X1 访谈驱动）</span>
+          <span class="badge badge-key ml-auto">总则</span>
+        </div>
+      </a>
+      <a href="#v02-s1" class="chap-row">
+        <span class="chap-num">§一</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">5 大科研对象 + Proposal 交互对象</span>
+          <span class="text-xs text-zinc-500">Note <code class="bg-zinc-100 px-1 rounded">hypothesisStatus</code> 字段新增</span>
+        </div>
+      </a>
+      <a href="#v02-s1a" class="chap-row">
+        <span class="chap-num">§一-A</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">Proposal 对象模型与触发路径</span>
+          <span class="text-xs text-zinc-500">五档决策 / dismissPolicy 三档粒度</span>
+          <span class="badge badge-new ml-auto">交互核心</span>
+        </div>
+      </a>
+      <a href="#v02-s1b" class="chap-row">
+        <span class="chap-num">§一-B</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">典型科研旅程</span>
+          <span class="text-xs text-zinc-500">PhD 王老师做 RAG 综述（5 天故事）</span>
+          <span class="badge badge-new ml-auto">叙事</span>
+        </div>
+      </a>
+      <a href="#v02-s2" class="chap-row">
+        <span class="chap-num">§二</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">读写协议三铁律 + 对象标准开放</span>
+          <span class="text-xs text-zinc-500">P1-P3 + O1-O3</span>
+        </div>
+      </a>
+      <a href="#v02-s31" class="chap-row">
+        <span class="chap-num">§三-1</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">证据链查看器</span>
+          <span class="text-xs text-zinc-500">V1 / V2 / V2a / V2b / V3</span>
+        </div>
+      </a>
+      <a href="#v02-s32" class="chap-row">
+        <span class="chap-num">§三-2</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">札记面板</span>
+          <span class="text-xs text-zinc-500">V4-V6f，含 V6d Agent 自动评估假设</span>
+        </div>
+      </a>
+      <a href="#v02-s33" class="chap-row">
+        <span class="chap-num">§三-3</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">Agent 拓展性重构</span>
+          <span class="text-xs text-zinc-500">A0-A3 Orchestrator + 子 Agent</span>
+        </div>
+      </a>
+      <a href="#v02-s34" class="chap-row">
+        <span class="chap-num">§三-4</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">能力包概念层</span>
+          <span class="text-xs text-zinc-500">X1-X4，X1.1/X1.2 访谈验证项</span>
+        </div>
+      </a>
+      <a href="#v02-s6" class="chap-row">
+        <span class="chap-num">§六</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">0.3 前置准备</span>
+          <span class="text-xs text-zinc-500">F1 ADR-002 / F2 GDPR / F3 ADR-001</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============== v0.2 详述 ============== -->
+<div id="v02-detail" class="anchor-target"></div>
+<section class="bg-zinc-50/40 border-y border-zinc-100">
+  <div class="max-w-6xl mx-auto px-6 py-16 sm:py-20">
+    <div class="text-xs font-bold tracking-wider text-violet-600 mb-2">v0.2 · DETAILED</div>
+    <h2 class="h2-section mb-12">v0.2 详述</h2>
+
+    <!-- ===== §零 Agent 主导原则 ===== -->
+    <div id="v02-s0" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§零</span>
+        <h3 class="h3-block">ASCI Agent 主导原则</h3>
+        <span class="badge badge-key">总则 · 哲学滤镜</span>
+      </div>
+      <p class="text-sm text-zinc-600 mb-6">
+        能用 Agent 解决的<b class="text-zinc-900">观察 / 归纳 / 标注 / 整理</b>由 Agent 完成；用户只承担<b class="text-zinc-900">下达目标 / 审查 / 决策</b>。Agent 替代"有标准答案"的工作，用户保留"没有标准答案"的工作。
+      </p>
+
+      <!-- 3 列对比 -->
+      <div class="grid md:grid-cols-3 gap-3 mb-6">
+        <div class="rounded-xl p-5 border border-zinc-200">
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500">A</span>
+            <div class="text-sm font-bold text-zinc-700">实时建议</div>
+          </div>
+          <div class="text-xs text-zinc-500 mb-3 leading-relaxed">用户操作时浮现旁注</div>
+          <div class="text-[10px] text-zinc-400">0.4+ 评估</div>
+        </div>
+        <div class="rounded-xl p-5 border border-zinc-200">
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-zinc-500">B</span>
+            <div class="text-sm font-bold text-zinc-700">后台批处理</div>
+          </div>
+          <div class="text-xs text-zinc-500 mb-3 leading-relaxed">周期性扫工作区，产出待审清单</div>
+          <div class="text-[10px] text-zinc-400">0.4+ 评估</div>
+        </div>
+        <div class="rounded-xl p-5 border-2 border-violet-400 bg-violet-50/50">
+          <div class="flex items-center gap-2 mb-2.5">
+            <span class="w-7 h-7 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-bold">C</span>
+            <div class="text-sm font-bold text-violet-900">触发式 · 首选</div>
+          </div>
+          <div class="text-xs text-violet-700 mb-3 leading-relaxed font-medium">对象状态变化时 Agent 自动评估并产出判断卡片（Proposal）</div>
+          <div class="text-[10px] text-violet-600 font-bold">✓ 0.2 / 0.3 主路径</div>
+        </div>
+      </div>
+
+      <div class="insight insight-violet mb-6">
+        <b>关键洞察：</b>区分原则——写"这段方法可借鉴"（思考创造，用户主导）vs 标"A 反驳 B"（关系观察，Agent 主导用户决策）vs 写"我假设 X"（断言登记，用户可写，Agent 应主动识别并提议归类）。
+      </div>
+
+      <!-- 灰度回退 -->
+      <div>
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">灰度回退判据（由 X1 访谈触发）</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-zinc-200 rounded-lg overflow-hidden">
+            <thead>
+              <tr class="bg-zinc-100 text-zinc-700 text-xs">
+                <th class="px-4 py-2.5 text-left font-semibold">访谈抵触比例</th>
+                <th class="px-4 py-2.5 text-left font-semibold">处置</th>
+              </tr>
+            </thead>
+            <tbody class="text-zinc-700">
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5 font-semibold text-rose-700">≥ 50%</td><td class="px-4 py-2.5">§零 主路径降档为姿态 A 或 B</td></tr>
+              <tr class="border-t border-zinc-200 bg-amber-50/30"><td class="px-4 py-2.5 font-semibold text-amber-700">20% - 50%</td><td class="px-4 py-2.5">保留 C 姿态，新增 Settings toggle 服务抵触用户</td></tr>
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5 font-semibold text-emerald-700">&lt; 20%</td><td class="px-4 py-2.5">维持现状，C 姿态作为唯一主路径</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §一 5 大对象 + Proposal ===== -->
+    <div id="v02-s1" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§一</span>
+        <h3 class="h3-block">5 大对象 + Proposal 交互对象</h3>
+      </div>
+      <p class="text-sm text-zinc-600 mb-6">每个对象有唯一 ID、可被引用、可被追加、不依赖特定 UI。Proposal 不是核心研究产物，是 Agent 主导哲学的载体——所有 Agent 主动提议都先落 Proposal，用户决策后转化为正式对象。</p>
+
+      <div class="mermaid-wrap mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="network" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <div class="text-xs font-semibold text-zinc-500 uppercase tracking-[0.15em]">5 对象关系图</div>
+        </div>
+<pre class="mermaid">
+graph LR
+  P([Paper<br/>论文])
+  E([EvidenceRef<br/>证据条目])
+  N([Note<br/>笔记<br/>kind: note/hypothesis])
+  S([EvidenceSet<br/>证据集])
+  C([CitationRelation<br/>论文关系])
+
+  P -.被引用.-> E
+  P -.被备注.-> N
+  P -.from/to.-> C
+  C -.supports / contradicts / method-ref.-> P
+  S --contains--> P
+  S -.被备注.-> N
+
+  classDef paper fill:#ede9fe,stroke:#8b5cf6,stroke-width:2px,color:#1e293b
+  classDef ref fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#1e293b
+  classDef note fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e293b
+  classDef set fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#1e293b
+  classDef rel fill:#fce7f3,stroke:#ec4899,stroke-width:2px,color:#1e293b
+
+  class P paper
+  class E ref
+  class N note
+  class S set
+  class C rel
+</pre>
+      </div>
+
+      <!-- hypothesisStatus 字段 + 状态流转 -->
+      <div class="grid lg:grid-cols-2 gap-5">
+        <div>
+          <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">Note 关键字段</div>
+          <div class="rounded-lg border border-zinc-200 overflow-hidden text-sm">
+            <div class="grid grid-cols-3 bg-zinc-100 text-xs font-semibold text-zinc-700">
+              <div class="px-3 py-2">字段</div>
+              <div class="px-3 py-2">类型</div>
+              <div class="px-3 py-2">说明</div>
+            </div>
+            <div class="grid grid-cols-3 border-t border-zinc-200 text-xs">
+              <div class="px-3 py-2 font-mono text-zinc-800">kind</div>
+              <div class="px-3 py-2 text-zinc-600"><code class="bg-zinc-100 px-1 rounded">note | hypothesis</code></div>
+              <div class="px-3 py-2 text-zinc-600">默认 note，假设主路径由 Agent 触发式提议</div>
+            </div>
+            <div class="grid grid-cols-3 border-t border-zinc-200 text-xs bg-violet-50/40">
+              <div class="px-3 py-2 font-mono text-violet-700 font-semibold">hypothesisStatus</div>
+              <div class="px-3 py-2 text-zinc-600"><code class="bg-zinc-100 px-1 rounded">unknown | supported | contradicted | suspended</code></div>
+              <div class="px-3 py-2 text-zinc-600"><b class="text-violet-700">新增</b>，由 V6d Agent 判断采纳后回写</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">hypothesisStatus 状态流转</div>
+          <div class="bg-white border border-zinc-200 rounded-lg p-5">
+            <div class="flex items-center justify-center gap-2 mb-2 flex-wrap">
+              <div class="status-node status-unknown">unknown</div>
+            </div>
+            <div class="text-center my-2">
+              <i data-lucide="arrow-down" class="w-4 h-4 text-zinc-400 inline-block"></i>
+              <div class="text-[10px] text-zinc-500">V6d Agent 判断 + 用户采纳</div>
+            </div>
+            <div class="flex items-center justify-center gap-2 flex-wrap">
+              <div class="status-node status-supported"><i data-lucide="check" class="w-3 h-3"></i> supported</div>
+              <div class="status-node status-contradicted"><i data-lucide="x" class="w-3 h-3"></i> contradicted</div>
+              <div class="status-node status-suspended"><i data-lucide="pause" class="w-3 h-3"></i> suspended</div>
+            </div>
+            <div class="mt-3 text-[10px] text-zinc-500 text-center leading-relaxed">
+              EvidenceSet 新增 Paper 触发 → Agent 评估对挂载假设的支持 / 反驳<br>用户决策后 hypothesisStatus 自动更新（兜底支持手动覆盖）
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §一-A Proposal 状态机 ===== -->
+    <div id="v02-s1a" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover" style="border-color: #ddd6fe;">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§一-A</span>
+        <h3 class="h3-block">Proposal 状态机与决策粒度</h3>
+        <span class="badge badge-new">交互核心</span>
+      </div>
+      <p class="text-sm text-zinc-600 mb-6">Proposal 承载 §零 哲学：每个 Agent 主动产出（关系候选 / 证据集候选 / 假设登记 / V6d 评估）都先落 Proposal，由用户决策后才转化为正式对象。</p>
+
+      <!-- 状态流转 -->
+      <div class="grid lg:grid-cols-3 gap-4 mb-6">
+        <div class="lg:col-span-2 bg-white rounded-xl border border-zinc-200 p-5">
+          <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-4">Proposal 状态流转</div>
+          <div class="flex items-center justify-center gap-3 flex-wrap py-4">
+            <div class="status-node status-unknown" style="background: #fefce8; color: #a16207; border-color: #fcd34d;">
+              <i data-lucide="clock" class="w-3 h-3"></i> pending
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-zinc-400"></i>
+            <div class="flex flex-col gap-2">
+              <div class="status-node status-supported"><i data-lucide="check" class="w-3 h-3"></i> accepted</div>
+              <div class="status-node status-suspended" style="background: #eff6ff; color: #1d4ed8; border-color: #93c5fd;"><i data-lucide="pen" class="w-3 h-3"></i> modified</div>
+              <div class="status-node status-contradicted"><i data-lucide="x" class="w-3 h-3"></i> rejected</div>
+            </div>
+          </div>
+          <p class="text-xs text-zinc-500 leading-relaxed text-center mt-2">
+            Proposal 决策行为同时是 <b class="text-zinc-700">0.3 §三-A 自进化埋点</b>"用户反馈"通道的关键信号（按 sourceCapability × kind 分组统计采纳率）
+          </p>
+        </div>
+
+        <!-- 字段精简表 -->
+        <div class="bg-white rounded-xl border border-zinc-200 p-5">
+          <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">关键字段</div>
+          <div class="space-y-2 text-xs">
+            <div><code class="text-violet-700 font-semibold">kind</code><div class="text-zinc-500">citation-relation / evidence-set / hypothesis-promote / hypothesis-review</div></div>
+            <div><code class="text-violet-700 font-semibold">sourceCapability</code><div class="text-zinc-500">提出该 Proposal 的能力包标识</div></div>
+            <div><code class="text-violet-700 font-semibold">reasoning</code><div class="text-zinc-500">Agent 给出的理由文本（决策依据）</div></div>
+            <div><code class="text-violet-700 font-semibold">targetObjectRef</code><div class="text-zinc-500">落地对象引用（用于 scoped 粒度判断）</div></div>
+            <div><code class="text-violet-700 font-semibold">dismissPolicy</code><div class="text-zinc-500">once / scoped / silence-this-kind</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 五档决策 button row -->
+      <div class="bg-white rounded-xl border border-zinc-200 p-5 mb-6">
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-4">五档决策动作（每张 Proposal 卡片提供）</div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold inline-flex items-center gap-1.5">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i> 采纳
+          </button>
+          <button class="px-4 py-2 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-xs font-medium inline-flex items-center gap-1.5">
+            <i data-lucide="pen" class="w-3.5 h-3.5"></i> 修改
+          </button>
+          <button class="px-4 py-2 rounded-lg bg-white border border-zinc-300 text-zinc-700 text-xs font-medium inline-flex items-center gap-1.5">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i> 拒绝
+          </button>
+          <span class="text-zinc-300 mx-1">|</span>
+          <button class="px-4 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium inline-flex items-center gap-1.5">
+            <i data-lucide="eye-off" class="w-3.5 h-3.5"></i> 仅本对象不再提示
+          </button>
+          <button class="px-4 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium inline-flex items-center gap-1.5">
+            <i data-lucide="ban" class="w-3.5 h-3.5"></i> 不再提示这类
+          </button>
+        </div>
+      </div>
+
+      <!-- dismissPolicy 三档粒度示意 -->
+      <div class="mb-6">
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-4">dismissPolicy · 三档静默粒度</div>
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="policy-tier policy-once">
+            <div class="text-xs font-bold text-zinc-900 mb-1">once</div>
+            <div class="text-[11px] text-zinc-600 leading-relaxed mb-3">仅本条不再提示</div>
+            <div class="text-[10px] text-zinc-500 font-mono">范围：一条 Proposal</div>
+          </div>
+          <div class="policy-tier policy-scoped">
+            <div class="text-xs font-bold text-amber-900 mb-1">scoped</div>
+            <div class="text-[11px] text-amber-800 leading-relaxed mb-3">在 targetObjectRef 范围内静默同类</div>
+            <div class="text-[10px] text-amber-700 font-mono">范围：一个对象内</div>
+          </div>
+          <div class="policy-tier policy-silence">
+            <div class="text-xs font-bold text-rose-900 mb-1">silence-this-kind</div>
+            <div class="text-[11px] text-rose-800 leading-relaxed mb-3">全工作区永久静默该 sourceCapability 同 kind</div>
+            <div class="text-[10px] text-rose-700 font-mono">范围：全工作区</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 触发式产出点 -->
+      <div>
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">触发式产出点 · C 姿态落地</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-zinc-200 rounded-lg overflow-hidden">
+            <thead>
+              <tr class="bg-zinc-100 text-zinc-700 text-xs">
+                <th class="px-4 py-2.5 text-left font-semibold">触发事件</th>
+                <th class="px-4 py-2.5 text-left font-semibold">由谁产出</th>
+                <th class="px-4 py-2.5 text-left font-semibold">Proposal kind</th>
+              </tr>
+            </thead>
+            <tbody class="text-zinc-700 text-xs">
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">综述生成完成</td><td class="px-4 py-2.5">文献综述包</td><td class="px-4 py-2.5"><code class="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded">citation-relation</code></td></tr>
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">综述生成完成</td><td class="px-4 py-2.5">文献综述包</td><td class="px-4 py-2.5"><code class="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded">hypothesis-promote</code></td></tr>
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">检索结果入库</td><td class="px-4 py-2.5">文献检索包</td><td class="px-4 py-2.5"><code class="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded">evidence-set</code> / <code class="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded">citation-relation</code></td></tr>
+              <tr class="border-t border-zinc-200 bg-violet-50/40"><td class="px-4 py-2.5"><b>EvidenceSet 新增 Paper</b></td><td class="px-4 py-2.5">文献综述包</td><td class="px-4 py-2.5"><code class="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded font-semibold">hypothesis-review</code> · V6d 关键</td></tr>
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">用户写 Note 触发断言识别</td><td class="px-4 py-2.5">文献综述包</td><td class="px-4 py-2.5"><code class="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded">hypothesis-promote</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §一-B 典型科研旅程 ===== -->
+    <div id="v02-s1b" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§一-B</span>
+        <h3 class="h3-block">典型科研旅程 · PhD 王老师做 RAG 综述</h3>
+        <span class="badge badge-new">叙事</span>
+      </div>
+      <p class="text-sm text-zinc-600 mb-6">5 大对象 + Proposal 状态机 + 4 类工作主线如果只看模型表，读者很难判断"对科研用户是否真的有效"。下面用一个完整故事把模型串起来。</p>
+
+      <!-- 5 天时间线 -->
+      <div class="space-y-3">
+        <!-- Day 1 -->
+        <div class="grid grid-cols-[80px_1fr] gap-4">
+          <div class="text-right">
+            <div class="text-xs font-bold text-violet-600 tracking-wider mb-0.5">DAY 1</div>
+            <div class="text-[10px] text-zinc-500">建工作区</div>
+          </div>
+          <div class="bg-violet-50/50 border border-violet-100 rounded-xl p-4">
+            <div class="text-sm text-zinc-700 leading-relaxed mb-2">
+              新建工作区 <code class="bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-xs">rag-survey-2026</code>，启动文献检索包 → arXiv / Semantic Scholar 三路检索回 30 篇 → 用户勾选 12 篇入库
+            </div>
+            <div class="flex gap-1.5 flex-wrap text-[10px]">
+              <span class="px-2 py-0.5 rounded bg-white border border-violet-200 text-violet-700">12 × Paper</span>
+              <span class="px-2 py-0.5 rounded bg-white border border-violet-200 text-violet-700">8 × citation-relation Proposal</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day 2 -->
+        <div class="grid grid-cols-[80px_1fr] gap-4">
+          <div class="text-right">
+            <div class="text-xs font-bold text-violet-600 tracking-wider mb-0.5">DAY 2</div>
+            <div class="text-[10px] text-zinc-500">读论文写假设</div>
+          </div>
+          <div class="bg-violet-50/50 border border-violet-100 rounded-xl p-4">
+            <div class="text-sm text-zinc-700 leading-relaxed mb-2">
+              打开 Paper-RAG-Survey-2024 → 看到 3 条 citation-relation Proposal → 2 条采纳 1 条 <code class="bg-rose-50 text-rose-700 px-1 rounded text-[11px]">scoped</code> 拒绝 → 写 Note "RAG 在 1M token 仍优于长上下文" → Agent 识别断言句式 → 弹出 hypothesis-promote Proposal → 采纳，Note kind 翻为 hypothesis（status=unknown）
+            </div>
+            <div class="flex gap-1.5 flex-wrap text-[10px]">
+              <span class="px-2 py-0.5 rounded bg-white border border-violet-200 text-violet-700">2 × CitationRelation</span>
+              <span class="px-2 py-0.5 rounded bg-white border border-violet-200 text-violet-700">1 × hypothesis Note</span>
+              <span class="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700">体验 scoped 粒度</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day 3 -->
+        <div class="grid grid-cols-[80px_1fr] gap-4">
+          <div class="text-right">
+            <div class="text-xs font-bold text-violet-600 tracking-wider mb-0.5">DAY 3</div>
+            <div class="text-[10px] text-zinc-500">组织证据 跑综述</div>
+          </div>
+          <div class="bg-violet-50/50 border border-violet-100 rounded-xl p-4">
+            <div class="text-sm text-zinc-700 leading-relaxed mb-2">
+              手动归 5 篇到 EvidenceSet "RAG-vs-LongContext"（兜底）→ 挂载 hypothesis Note → 启动文献综述包生成综述 → 拆解为多条 EvidenceRef（绑定"综述句子 → Paper 段落"）
+            </div>
+            <div class="flex gap-1.5 flex-wrap text-[10px]">
+              <span class="px-2 py-0.5 rounded bg-white border border-violet-200 text-violet-700">1 × EvidenceSet</span>
+              <span class="px-2 py-0.5 rounded bg-white border border-violet-200 text-violet-700">38 × EvidenceRef</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day 4 高亮 V6d -->
+        <div class="grid grid-cols-[80px_1fr] gap-4">
+          <div class="text-right">
+            <div class="text-xs font-bold text-violet-600 tracking-wider mb-0.5">DAY 4</div>
+            <div class="text-[10px] text-zinc-500">Agent 评估假设</div>
+          </div>
+          <div class="bg-white border-2 border-violet-300 rounded-xl p-4 shadow-sm">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="badge badge-key"><i data-lucide="zap" class="w-3 h-3"></i> V6d 关键场景</span>
+            </div>
+            <div class="text-sm text-zinc-700 leading-relaxed mb-2">
+              检索 3 篇新论文加入 EvidenceSet → <b class="text-violet-700">EvidenceSet 新增 Paper 触发 hypothesis-review Proposal</b>：
+              Paper-A 倾向 <span class="text-rose-700 font-semibold">contradicts</span>（2M token 检索精度降至 73%）、Paper-B 倾向 <span class="text-emerald-700 font-semibold">supports</span>（1.5M token 仍 91%）、Paper-C neutral。
+              <br>Agent 推荐 → 采纳 → <b>hypothesisStatus 自动从 unknown 翻为 <span class="text-amber-700">suspended</span></b>
+            </div>
+            <div class="flex gap-1.5 flex-wrap text-[10px]">
+              <span class="status-node status-unknown" style="font-size: 10px; padding: 2px 8px;">unknown</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 text-zinc-400 self-center"></i>
+              <span class="status-node status-suspended" style="font-size: 10px; padding: 2px 8px;">suspended</span>
+              <span class="text-[10px] text-zinc-500 ml-2 self-center">由 V6d Agent 判断回写</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day 5 -->
+        <div class="grid grid-cols-[80px_1fr] gap-4">
+          <div class="text-right">
+            <div class="text-xs font-bold text-violet-600 tracking-wider mb-0.5">DAY 5</div>
+            <div class="text-[10px] text-zinc-500">沉淀</div>
+          </div>
+          <div class="bg-violet-50/50 border border-violet-100 rounded-xl p-4">
+            <div class="text-sm text-zinc-700 leading-relaxed mb-2">
+              打开笔记面板，按 <code class="bg-white border border-zinc-200 px-1.5 py-0.5 rounded text-xs">kind: hypothesis</code> 过滤 → 5 条假设：1 supported / 1 contradicted / 3 suspended → 直接作为综述 Discussion 章节核心论据
+            </div>
+            <div class="text-[11px] text-zinc-500 italic">
+              用户带走的不是 12 篇散乱 PDF —— 而是 <b class="text-zinc-700">12 Paper + 38 EvidenceRef + 17 CitationRelation + 23 Note（含 5 hypothesis Note + status）+ 3 EvidenceSet</b> 的结构化对象库
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §三-1 + §三-2 两个验证应用 ===== -->
+    <div id="v02-s31" class="anchor-target"></div>
+    <div id="v02-s32" class="anchor-target"></div>
+    <div class="grid lg:grid-cols-2 gap-5 mb-6">
+      <div class="card p-7 card-hover">
+        <div class="flex items-baseline gap-3 mb-3 flex-wrap">
+          <span class="chap-num">§三-1</span>
+          <h3 class="h3-block text-lg">证据链查看器</h3>
+        </div>
+        <p class="text-sm text-zinc-600 mb-4">验证对象模型 + 引用协议（P2）。继承 0.1 的 B 组综述链路。</p>
+        <div class="space-y-2 text-sm text-zinc-700">
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V1</code><span>综述句子点击 → 跳转 Paper 段落</span></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V2</code><span>Paper 详情可见所有关联 EvidenceRef / Note / CitationRelation</span></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V2a</code><span>兜底：用户手动添加关系（"⋯"菜单，不占主操作）</span></div>
+          <div class="flex gap-2.5 bg-violet-50/40 p-2 rounded"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V2b</code><span><b>Agent 主路径</b>：综述完成 / 检索入库 → citation-relation Proposal 落入"待审提议"区，含 reasoning</span></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V3</code><span>删除 Paper → 引用处标记"源已移除"</span></div>
+        </div>
+      </div>
+
+      <div class="card p-7 card-hover">
+        <div class="flex items-baseline gap-3 mb-3 flex-wrap">
+          <span class="chap-num">§三-2</span>
+          <h3 class="h3-block text-lg">札记面板</h3>
+        </div>
+        <p class="text-sm text-zinc-600 mb-4">验证追加 / 引用 / 查询协议 + Note kind 分化 + hypothesisStatus 生命周期。</p>
+        <div class="space-y-2 text-sm text-zinc-700">
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V4-V6</code><span>Note 自动关联 + 追加不覆盖 + 证据集中可检索</span></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V6a-b</code><span>侧边栏笔记入口 + 跳转关联对象</span></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V6c</code><span>兜底：手动设 kind / 按 kind 过滤</span></div>
+          <div class="flex gap-2.5 bg-violet-50/40 p-2 rounded"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V6c'</code><span><b>Agent 主路径</b>：识别断言句式 → hypothesis-promote Proposal</span></div>
+          <div class="flex gap-2.5 bg-white border-2 border-violet-300 p-2.5 rounded"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V6d</code><div><b class="text-violet-700">关键</b>：EvidenceSet 新增 Paper → Agent 评估对挂载 hypothesis 的 supports/contradicts/neutral → 用户采纳后<b>回写 hypothesisStatus</b></div></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V6e</code><span>100+ Note 查询性能无关（落实 P3）</span></div>
+          <div class="flex gap-2.5"><code class="text-violet-700 font-mono text-xs font-bold flex-shrink-0">V6f</code><span>Proposal 持久化 + dismissPolicy 三档生效</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §三-3 Agent 拓展性重构 ===== -->
+    <div id="v02-s33" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§三-3</span>
+        <h3 class="h3-block">Agent 拓展性重构</h3>
+      </div>
+      <p class="text-sm text-zinc-600 mb-6">把散落 main 进程的临时编排逻辑替换为 Orchestrator 总控 + 领域子 Agent 分层，<b class="text-zinc-900">对齐 Claude Code SDK 推荐多 Agent 结构</b>。</p>
+
+      <div class="mermaid-wrap mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="repeat" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <div class="text-xs font-semibold text-zinc-500 uppercase tracking-[0.15em]">Agent 架构 before / after</div>
+        </div>
+<pre class="mermaid">
+graph TB
+  subgraph Before["当前：散落调用"]
+    direction TB
+    UI1[UI 组件] -.直接调用.-> SDK1[Agent SDK]
+    M1[main/ipc.ts] -.直接调用.-> SDK1
+    H1[hooks] -.直接调用.-> SDK1
+  end
+  subgraph After["重构后：Orchestrator 总控 + 子 Agent 按任务类型划分"]
+    direction TB
+    UI2[UI 组件] --> ORCH[Orchestrator<br/>总管 Agent]
+    ORCH --> SR[paper-search<br/>检索子 Agent]
+    ORCH --> SUM[review-writer<br/>综述子 Agent]
+    ORCH -.allowedTools: Task.-> ORCH
+    ORCH -.注册中心.-> REG[("Skill / MCP / Provider<br/>统一注册<br/>（Zotero 是这一层的资源）")]
+  end
+
+  classDef before fill:#fee2e2,stroke:#ef4444,color:#1e293b
+  classDef after fill:#ede9fe,stroke:#8b5cf6,stroke-width:2px,color:#1e293b
+  classDef reg fill:#e0e7ff,stroke:#6366f1,color:#1e293b
+
+  class UI1,M1,H1,SDK1 before
+  class UI2,ORCH,SR,SUM after
+  class REG reg
+</pre>
+      </div>
+
+      <!-- SDK 推荐多 Agent 结构 -->
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <div class="text-xs font-semibold text-zinc-500 uppercase tracking-[0.15em]">Claude Agent SDK 推荐的多 Agent 结构</div>
+        </div>
+        <p class="text-sm text-zinc-600 mb-4">SDK 提供两种子 Agent 定义方式：<b class="text-zinc-900">Programmatic</b>（SDK 应用首选，主进程内联配置）与 <b class="text-zinc-900">Filesystem-based</b>（团队协作友好，每个子 Agent 一个 markdown 文件）。两者可共存；同名时 programmatic 优先。</p>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <!-- 方式 A · Programmatic -->
+          <div class="card p-5 border-2 border-violet-300 bg-violet-50/20">
+            <div class="flex items-center gap-2 mb-2">
+              <i data-lucide="code-2" class="w-4 h-4 text-violet-700"></i>
+              <div class="text-sm font-bold text-zinc-900">方式 A · Programmatic</div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-semibold">SDK 应用首选</span>
+            </div>
+            <p class="text-xs text-zinc-600 mb-3">在 <code class="bg-zinc-100 px-1 rounded text-[11px]">query()</code> 的 <code class="bg-zinc-100 px-1 rounded text-[11px]">options.agents</code> 字段以对象内联定义。主 Agent 需 <code class="bg-zinc-100 px-1 rounded text-[11px]">allowedTools: ['Task']</code> 才能调用子 Agent。</p>
+<pre class="bg-zinc-50 rounded-lg p-3 text-[10px] text-zinc-800 font-mono leading-relaxed overflow-x-auto m-0"><code>query({
+  prompt: userIntent,
+  options: {
+    allowedTools: ['Read', 'Task'],
+    agents: {
+      'paper-search': {
+        description: '科研论文检索专家',
+        prompt: 'You are a paper search...',
+        tools: ['mcp__arxiv__search',
+                'mcp__zotero__add'],
+        model: 'sonnet'
+      },
+      'review-writer': {
+        description: '综述编写与引用追溯',
+        prompt: 'You are a review specialist...',
+        tools: ['Read', 'Write'],
+        model: 'sonnet'
+      }
+    }
+  }
+})</code></pre>
+          </div>
+
+          <!-- 方式 B · Filesystem-based -->
+          <div class="card p-5 border border-zinc-200">
+            <div class="flex items-center gap-2 mb-2">
+              <i data-lucide="folder-tree" class="w-4 h-4 text-zinc-600"></i>
+              <div class="text-sm font-bold text-zinc-900">方式 B · Filesystem-based</div>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-semibold">团队协作友好</span>
+            </div>
+            <p class="text-xs text-zinc-600 mb-3">每个子 Agent 一个 markdown 文件，YAML frontmatter 描述能力（name / description / tools / model），body 为 system prompt。</p>
+
+            <div class="text-[10px] text-zinc-500 mb-1.5">项目级目录结构：</div>
+<pre class="bg-zinc-50 rounded-lg p-3 text-[10px] text-zinc-800 font-mono leading-relaxed mb-3 m-0"><code>.claude/
+  agents/
+    paper-search.md       # 检索子 Agent
+    review-writer.md      # 综述子 Agent
+    （未来按场景扩展）
+
+  ⚠ Zotero 不在此目录
+    （它是 Skill / MCP 层的资源）</code></pre>
+
+            <div class="text-[10px] text-zinc-500 mb-1.5">paper-search.md 内容示例：</div>
+<pre class="bg-zinc-50 rounded-lg p-3 text-[10px] text-zinc-800 font-mono leading-relaxed overflow-x-auto m-0"><code>---
+name: paper-search
+description: 科研论文检索专家
+tools:
+  - mcp__arxiv__search
+  - mcp__zotero__add
+model: sonnet
+---
+You are a paper search specialist...</code></pre>
+          </div>
+        </div>
+
+        <!-- Zotero 不是子 Agent 的说明 -->
+        <div class="insight insight-amber">
+          <b>⚠ Zotero 不是子 Agent。</b><br>
+          <span class="text-zinc-700 text-sm">子 Agent 按<b>任务类型 / 对话行为</b>划分（如检索 / 综述 / 写作），不按"消费哪个外部资源"划分。Zotero 是<b>系统底座</b>的资源/凭据（位于 Settings → Zotero tab），通过 <b>Skill / MCP</b> 形态被各子 Agent 消费——例如 <code class="bg-white px-1.5 py-0.5 rounded text-[11px]">paper-search</code> 子 Agent 的 <code class="bg-white px-1.5 py-0.5 rounded text-[11px]">tools</code> 列表中含 <code class="bg-white px-1.5 py-0.5 rounded text-[11px]">mcp__zotero__add</code>（入库 MCP），但不存在 <code class="bg-white px-1.5 py-0.5 rounded text-[11px]">zotero</code> 子 Agent。</span>
+        </div>
+      </div>
+
+      <!-- A3 契约四要素 + proposals -->
+      <div>
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">A3 能力包契约 · 四要素 + Proposal 副产品</div>
+        <div class="grid md:grid-cols-4 gap-2.5 mb-3">
+          <div class="rounded-xl p-4 border border-zinc-200 text-center">
+            <div class="w-10 h-10 mx-auto rounded-lg bg-zinc-100 flex items-center justify-center mb-2">
+              <i data-lucide="bot" class="w-5 h-5 text-zinc-700"></i>
+            </div>
+            <div class="text-sm font-bold text-zinc-900">场景 Agent 设定</div>
+            <div class="text-[10px] text-zinc-500 mt-1">系统提示词 + 对话行为</div>
+          </div>
+          <div class="rounded-xl p-4 border border-zinc-200 text-center">
+            <div class="w-10 h-10 mx-auto rounded-lg bg-zinc-100 flex items-center justify-center mb-2">
+              <i data-lucide="puzzle" class="w-5 h-5 text-zinc-700"></i>
+            </div>
+            <div class="text-sm font-bold text-zinc-900">Skill 引用</div>
+            <div class="text-[10px] text-zinc-500 mt-1">需要的 Skill 清单</div>
+          </div>
+          <div class="rounded-xl p-4 border border-zinc-200 text-center">
+            <div class="w-10 h-10 mx-auto rounded-lg bg-zinc-100 flex items-center justify-center mb-2">
+              <i data-lucide="server-cog" class="w-5 h-5 text-zinc-700"></i>
+            </div>
+            <div class="text-sm font-bold text-zinc-900">MCP 引用</div>
+            <div class="text-[10px] text-zinc-500 mt-1">需要的 MCP 服务清单</div>
+          </div>
+          <div class="rounded-xl p-4 border-2 border-indigo-300 bg-indigo-50/30 text-center">
+            <div class="w-10 h-10 mx-auto rounded-lg bg-indigo-100 flex items-center justify-center mb-2">
+              <i data-lucide="layout-panel-left" class="w-5 h-5 text-indigo-700"></i>
+            </div>
+            <div class="text-sm font-bold text-indigo-900">UI 框架</div>
+            <div class="text-[10px] text-indigo-700 mt-1">选择 + 渲染配置</div>
+          </div>
+        </div>
+
+        <div class="insight insight-violet">
+          <b>额外契约字段：<code class="bg-white px-1.5 py-0.5 rounded">capabilities.proposals[]</code></b><br>
+          <span class="text-zinc-700 text-sm">能力包声明自己能产出哪类 Proposal（kind + 触发点 + reasoning 模板），主程序据此把 Proposal 路由到对应详情页"待审提议"区。</span>
+        </div>
+
+        <!-- UI 框架库示意 -->
+        <div class="mt-4 px-4 py-3 bg-zinc-50 rounded-xl border border-zinc-200">
+          <div class="flex items-center gap-2 mb-2.5">
+            <i data-lucide="library" class="w-3.5 h-3.5 text-zinc-500"></i>
+            <div class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">UI 框架库（主程序提供 · 能力包选择）</div>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border-2 border-indigo-300 text-xs font-semibold text-indigo-700">
+              <i data-lucide="layout-panel-left" class="w-3.5 h-3.5"></i>
+              对话主 + 右侧产物
+              <span class="ml-1 text-[9px] px-1 py-0.5 rounded bg-indigo-100 text-indigo-700">0.3 内置</span>
+            </div>
+            <i data-lucide="plus" class="w-3 h-3 text-zinc-400"></i>
+            <div class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200 border-dashed text-xs text-zinc-400">
+              <i data-lucide="more-horizontal" class="w-3.5 h-3.5"></i>
+              <span>0.4+ 扩展：写作 / 实验 / 数据分析…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §三-4 能力包概念层 ===== -->
+    <div id="v02-s34" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§三-4</span>
+        <h3 class="h3-block">能力包概念层 · X1-X4</h3>
+      </div>
+      <p class="text-sm text-zinc-600 mb-6">
+        0.2 只做"看得见、可决策"的概念产物（Spec / 概念稿 / 用户验证 / 迁移方案）。<b class="text-zinc-900">具体实现层（首发包 / 配置页 / Settings 重构）放 0.3 §三-C。</b>
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <div class="card p-5">
+          <div class="flex items-center gap-2 mb-2">
+            <code class="text-violet-700 font-mono text-xs font-bold">X1</code>
+            <div class="text-sm font-bold text-zinc-900">≥5 名目标用户访谈</div>
+          </div>
+          <p class="text-xs text-zinc-600 leading-relaxed">输出能力包候选清单（≥3 类）+ 范式验证 / 推翻判断结论</p>
+        </div>
+        <div class="card p-5 border-2 border-amber-200 bg-amber-50/30">
+          <div class="flex items-center gap-2 mb-2">
+            <code class="text-amber-700 font-mono text-xs font-bold">X1.1</code>
+            <div class="text-sm font-bold text-zinc-900">Agent 主动提议接受度</div>
+            <span class="badge badge-mod ml-auto">驱动 §零</span>
+          </div>
+          <p class="text-xs text-zinc-700 leading-relaxed">让用户对 3 类 Proposal 样例评分接受度 1-5；≥50% 给 ≤2 分 → 触发 §零 主路径降档</p>
+        </div>
+        <div class="card p-5 border-2 border-amber-200 bg-amber-50/30">
+          <div class="flex items-center gap-2 mb-2">
+            <code class="text-amber-700 font-mono text-xs font-bold">X1.2</code>
+            <div class="text-sm font-bold text-zinc-900">Skill / 能力包二分心智识别度</div>
+            <span class="badge badge-mod ml-auto">驱动 0.3 CP5</span>
+          </div>
+          <p class="text-xs text-zinc-700 leading-relaxed">30 秒内区分"系统底座 vs Agent 生态"的正确率 &lt; 60% → 触发 CP5 强制约束降级</p>
+        </div>
+        <div class="card p-5">
+          <div class="flex items-center gap-2 mb-2">
+            <code class="text-violet-700 font-mono text-xs font-bold">X2-X4</code>
+            <div class="text-sm font-bold text-zinc-900">概念 Spec + UI 概念稿 + 迁移方案</div>
+          </div>
+          <p class="text-xs text-zinc-600 leading-relaxed">Spec 含四要素 + proposals[] 副产品；UI 概念稿覆盖 Proposal 决策走查；迁移方案确保 0.1/0.2 升级不丢配置</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== §六 ADR 同步推进 ===== -->
+    <div id="v02-s6" class="anchor-target"></div>
+    <div class="card p-8 mb-10 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§六</span>
+        <h3 class="h3-block">0.3 前置准备 · ADR 同步推进</h3>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="bg-zinc-50 rounded-xl p-5 border border-zinc-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="font-mono text-xs font-bold text-zinc-700">ADR-001</div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Proposed</span>
+          </div>
+          <div class="text-sm font-bold text-zinc-900 mb-1">本地存储后端选型</div>
+          <div class="text-xs text-zinc-500 mb-2">JSON 文件 / SQLite / DuckDB / 自定义二进制</div>
+          <div class="text-[10px] text-zinc-400">⏱ 必须在 V6e issue 开出前完成</div>
+        </div>
+        <div class="bg-zinc-50 rounded-xl p-5 border border-zinc-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="font-mono text-xs font-bold text-zinc-700">ADR-002</div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Proposed</span>
+          </div>
+          <div class="text-sm font-bold text-zinc-900 mb-1">服务器后端栈选型</div>
+          <div class="text-xs text-zinc-500 mb-2">部署平台 / 数据库 / 认证策略 / 应用层框架（4 粒度）</div>
+          <div class="text-[10px] text-zinc-400">⏱ Week 1 末签字</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== v0.2 outcome panel ===== -->
+    <div class="bg-gradient-to-br from-violet-50 via-indigo-50/40 to-white rounded-2xl border border-violet-200 p-8">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-7 h-7 rounded-md bg-violet-500 flex items-center justify-center">
+          <i data-lucide="trophy" class="w-4 h-4 text-white"></i>
+        </div>
+        <h3 class="text-lg font-bold text-violet-900">v0.2 做完后产品具备</h3>
+      </div>
+      <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-2.5">
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-violet-600 flex-shrink-0"></i><span>科研专用数据底座：论文 / 笔记（含假设）/ 证据都有家、可追溯</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-violet-600 flex-shrink-0"></i><span>综述每句话都能溯源到原文段落</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-violet-600 flex-shrink-0"></i><span>假设笔记证据变化时 Agent 自动评估并回写状态</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-violet-600 flex-shrink-0"></i><span>内部架构干净，可承接能力包和账户体系</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-violet-600 flex-shrink-0"></i><span>对象格式开放，未来外部工具可直接对接</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============== v0.3 需求列表 ============== -->
+<div id="v03" class="anchor-target"></div>
+<section class="section">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex items-baseline justify-between mb-8 flex-wrap gap-3">
+      <div>
+        <span class="epoch-tag epoch-03 mb-3"><span class="epoch-dot"></span>v0.3 · 公开发布</span>
+        <h2 class="h2-section mt-3">v0.3 需求列表</h2>
+        <p class="text-zinc-500 mt-2">截止 2026-06-19 · 13 个章节，含 5 项推迟 0.4 的范围收敛说明</p>
+      </div>
+      <a href="#v03-detail" class="text-sm text-blue-600 hover:underline inline-flex items-center gap-1">
+        看详述 <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+      </a>
+    </div>
+
+    <div class="card p-2">
+      <a href="#v03-s1" class="chap-row">
+        <span class="chap-num">§一</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">独立账户体系</span>
+          <span class="text-xs text-zinc-500">U1-U5 · Email + Google + ORCID</span>
+        </div>
+      </a>
+      <a href="#v03-s2" class="chap-row">
+        <span class="chap-num">§二</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">自建服务器</span>
+          <span class="text-xs text-zinc-500">S1-S4 · 5 服务单节点首发</span>
+        </div>
+      </a>
+      <a href="#v03-s3" class="chap-row">
+        <span class="chap-num">§三</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">数据埋点 + 崩溃</span>
+          <span class="text-xs text-zinc-500">T1-T4a · Sentry + PostHog</span>
+        </div>
+      </a>
+      <a href="#v03-s3a" class="chap-row">
+        <span class="chap-num">§三-A</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">Agent 自进化埋点</span>
+          <span class="text-xs text-zinc-500">AE1-AE5 · <b class="text-amber-700">仅采集不消费</b></span>
+          <span class="badge badge-mod ml-auto">UI 已收敛</span>
+        </div>
+      </a>
+      <a href="#v03-s3c" class="chap-row">
+        <span class="chap-num">§三-C</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">能力包实现层</span>
+          <span class="text-xs text-zinc-500">CP1-CP5 · 2 首发包 + 配置页 + Settings 重构</span>
+          <span class="badge badge-new ml-auto">灵魂改造</span>
+        </div>
+      </a>
+      <a href="#v03-s3d" class="chap-row">
+        <span class="chap-num">§三-D</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-500 strike">默认页改造</span>
+          <span class="text-xs text-zinc-500">DH1-DH4</span>
+          <span class="badge badge-defer ml-auto">整体推迟 0.4</span>
+        </div>
+      </a>
+      <a href="#v03-s4" class="chap-row">
+        <span class="chap-num">§四</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">版本更新</span>
+          <span class="text-xs text-zinc-500">UP1-UP3 · macOS 必做 / Windows 视 EV</span>
+        </div>
+      </a>
+      <a href="#v03-s5" class="chap-row">
+        <span class="chap-num">§五</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">安全机制 + GDPR MVP</span>
+          <span class="text-xs text-zinc-500">传输 / 认证 / API / 合规</span>
+        </div>
+      </a>
+      <a href="#v03-s5a" class="chap-row">
+        <span class="chap-num">§五-A</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">发布前置事务</span>
+          <span class="text-xs text-zinc-500">LT0-LT3 · 5 项 lead-time 盘点</span>
+          <span class="badge badge-mod ml-auto">硬截止 06-08</span>
+        </div>
+      </a>
+      <a href="#v03-s5b" class="chap-row">
+        <span class="chap-num">§五-B</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-500 strike">公开发布运维 SOP</span>
+          <span class="text-xs text-zinc-500">OPS1-OPS5</span>
+          <span class="badge badge-defer ml-auto">整章推迟 0.4 / V1</span>
+        </div>
+      </a>
+      <a href="#v03-s6" class="chap-row">
+        <span class="chap-num">§六</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">数据所有权</span>
+          <span class="text-xs text-zinc-500">DO1-DO4 · 一键导出 / 删除</span>
+        </div>
+      </a>
+      <a href="#v03-s7" class="chap-row">
+        <span class="chap-num">§七</span>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-zinc-900">用户激活路径</span>
+          <span class="text-xs text-zinc-500">AC1-AC3 · L0 → L3 阶梯</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============== v0.3 详述 ============== -->
+<div id="v03-detail" class="anchor-target"></div>
+<section class="bg-blue-50/20 border-y border-blue-100">
+  <div class="max-w-6xl mx-auto px-6 py-16 sm:py-20">
+    <div class="text-xs font-bold tracking-wider text-blue-600 mb-2">v0.3 · DETAILED</div>
+    <h2 class="h2-section mb-12">v0.3 详述</h2>
+
+    <!-- §一 账户体系 -->
+    <div id="v03-s1" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§一</span>
+        <h3 class="h3-block">独立账户体系</h3>
+      </div>
+      <p class="text-sm text-zinc-600 mb-5">用户终于有"账号"了——Email 注册 + 一键登录 + 同一邮箱可绑多种方式。<b class="text-zinc-900">U3 设计目的：同邮箱多绑定后任一方式登入同一账户。</b></p>
+      <div class="flex flex-wrap gap-2">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-700 text-xs font-medium">
+          <i data-lucide="mail" class="w-3.5 h-3.5"></i> Email + 密码
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+          <i data-lucide="chrome" class="w-3.5 h-3.5"></i> Google OAuth
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-200">
+          <i data-lucide="badge-check" class="w-3.5 h-3.5"></i> ORCID OAuth · 科研标配
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-50 text-zinc-400 text-xs font-medium border border-zinc-200 strike">
+          <i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub OAuth
+        </span>
+        <span class="text-xs text-zinc-400 self-center">→ 已砍出 0.3.0，看 0.4 反馈</span>
+      </div>
+    </div>
+
+    <!-- §二 自建服务器 -->
+    <div id="v03-s2" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§二</span>
+        <h3 class="h3-block">自建服务器</h3>
+      </div>
+      <p class="text-sm text-zinc-600 mb-5">5 个核心服务上线，节点位置由 ADR-002 拍板（倾向欧盟节点 · 合规一致性强）。</p>
+
+      <div class="bg-zinc-50 rounded-xl border border-zinc-200 p-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div class="bg-white border border-blue-200 rounded-lg p-3 text-center">
+            <i data-lucide="lock-keyhole" class="w-5 h-5 text-blue-600 mx-auto mb-1.5"></i>
+            <div class="text-xs font-bold text-zinc-900">认证服务</div>
+            <span class="text-[9px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-bold">P0</span>
+          </div>
+          <div class="bg-white border border-blue-200 rounded-lg p-3 text-center">
+            <i data-lucide="users" class="w-5 h-5 text-blue-600 mx-auto mb-1.5"></i>
+            <div class="text-xs font-bold text-zinc-900">用户数据</div>
+            <span class="text-[9px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-bold">P0</span>
+          </div>
+          <div class="bg-white border border-indigo-200 rounded-lg p-3 text-center">
+            <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-600 mx-auto mb-1.5"></i>
+            <div class="text-xs font-bold text-zinc-900">埋点接收</div>
+            <span class="text-[9px] px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded font-bold">P1</span>
+          </div>
+          <div class="bg-white border border-indigo-200 rounded-lg p-3 text-center">
+            <i data-lucide="download-cloud" class="w-5 h-5 text-indigo-600 mx-auto mb-1.5"></i>
+            <div class="text-xs font-bold text-zinc-900">版本更新</div>
+            <span class="text-[9px] px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded font-bold">P1</span>
+          </div>
+        </div>
+        <div class="bg-white border-2 border-dashed border-zinc-300 rounded-lg p-3 text-center mb-4">
+          <i data-lucide="mail" class="w-4 h-4 text-zinc-500 inline-block"></i>
+          <span class="text-xs font-bold text-zinc-700 ml-1">邮件服务</span>
+          <span class="text-[10px] text-zinc-500 ml-2">验证邮件 / 密码重置 · SPF/DKIM/DMARC 已认证</span>
+        </div>
+        <div class="flex items-center justify-center gap-3 text-xs text-zinc-500">
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-400"></span>0.3 单节点首发（倾向欧盟）</span>
+          <i data-lucide="arrow-right" class="w-3 h-3"></i>
+          <span class="inline-flex items-center gap-1 text-zinc-400"><span class="w-2 h-2 rounded-full bg-zinc-300"></span>0.4 双节点扩展（S5）</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- §三-A 自进化埋点（关键：消费链路明示） -->
+    <div id="v03-s3a" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover" style="border-color: #bfdbfe;">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§三-A</span>
+        <h3 class="h3-block">Agent 自进化埋点</h3>
+        <span class="badge badge-mod">仅采集不消费</span>
+      </div>
+
+      <!-- 0.3.0 阶段表（关键新增） -->
+      <div class="mb-6">
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">0.3.0 阶段数据消费链路</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-zinc-200 rounded-lg overflow-hidden">
+            <thead>
+              <tr class="bg-zinc-100 text-zinc-700 text-xs">
+                <th class="px-4 py-2.5 text-left font-semibold">阶段</th>
+                <th class="px-4 py-2.5 text-left font-semibold">数据动作</th>
+                <th class="px-4 py-2.5 text-left font-semibold">用户可见价值</th>
+              </tr>
+            </thead>
+            <tbody class="text-zinc-700 text-xs">
+              <tr class="border-t border-zinc-200 bg-blue-50/40"><td class="px-4 py-2.5 font-bold text-blue-700">0.3.0</td><td class="px-4 py-2.5"><b>只采集，不消费</b> · 6 类信号 schema + endpoint + client 埋点全链路完整</td><td class="px-4 py-2.5 text-zinc-500">无用户侧产品价值，仅奠定 0.4 数据基础</td></tr>
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5 font-bold">0.4</td><td class="px-4 py-2.5">开始消费 · Proposal 采纳率驱动能力包推荐 / Agent 风格微调 / 个性化路由</td><td class="px-4 py-2.5 text-zinc-500">用户首次感受到"Agent 越用越合手"</td></tr>
+              <tr class="border-t border-zinc-200"><td class="px-4 py-2.5 font-bold">V1</td><td class="px-4 py-2.5">完整链路 · 自动微调 / 联邦学习 / 本地小模型</td><td class="px-4 py-2.5 text-zinc-500">形成真正的数据飞轮</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 数据采集分层 mermaid -->
+      <div class="mermaid-wrap mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="git-branch" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <div class="text-xs font-semibold text-zinc-500 uppercase tracking-[0.15em]">数据采集分层 + 地域分支</div>
+        </div>
+<pre class="mermaid">
+graph LR
+  U["用户事件"]
+  U --> CRASH["崩溃<br/>错误"]
+  U --> EVT["功能<br/>使用"]
+  U --> AE["6 类<br/>自进化信号"]
+
+  CRASH --> S1["Sentry"]
+  EVT --> GATE1{"地域 +<br/>opt-in / opt-out"}
+  AE --> GATE2{"地域 +<br/>Settings toggle"}
+
+  GATE1 -->|"非欧盟 ✓"| PH["PostHog 通道"]
+  GATE1 -. "欧盟需 opt-in" .-> PH
+
+  GATE2 -->|"非欧盟 ✓"| AEX["自进化独立通道<br/>物理隔离"]
+  GATE2 -. "欧盟需 opt-in" .-> AEX
+
+  AEX -. "0.4 微调链路" .-> ML["模型微调 / RLHF"]
+
+  RED["绝不采集：<br/>论文内容 · 笔记原文 · 对话原文 · API Key · 用户名"]
+
+  classDef user fill:#fef3c7,stroke:#f59e0b,color:#1e293b
+  classDef gate fill:#fef9c3,stroke:#eab308,stroke-width:2px,color:#1e293b
+  classDef channel fill:#dbeafe,stroke:#3b82f6,color:#1e293b
+  classDef ae fill:#e0e7ff,stroke:#6366f1,stroke-width:2px,color:#1e293b
+  classDef future fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 4,color:#475569
+  classDef red fill:#fee2e2,stroke:#ef4444,color:#1e293b
+
+  class U,CRASH,EVT,AE user
+  class GATE1,GATE2 gate
+  class S1,PH channel
+  class AEX ae
+  class ML future
+  class RED red
+</pre>
+      </div>
+
+      <!-- 6 类信号 + 红线 -->
+      <div class="grid lg:grid-cols-3 gap-3">
+        <div class="lg:col-span-2 bg-white border border-zinc-200 rounded-xl p-5">
+          <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">6 类合规采集信号（0.3.0 全部完成）</div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="px-3 py-2 bg-zinc-50 rounded border border-zinc-200"><b class="text-zinc-900">任务结构</b><div class="text-zinc-500 text-[11px] mt-0.5">指令长度 / 领域 / 轮次数</div></div>
+            <div class="px-3 py-2 bg-zinc-50 rounded border border-zinc-200"><b class="text-zinc-900">工具使用</b><div class="text-zinc-500 text-[11px] mt-0.5">MCP / Skill 调用顺序成功率</div></div>
+            <div class="px-3 py-2 bg-violet-50 rounded border border-violet-200"><b class="text-violet-900">用户反馈 · 最关键</b><div class="text-violet-700 text-[11px] mt-0.5">Proposal 五档动作 + 显式赞踩 + 隐式信号</div></div>
+            <div class="px-3 py-2 bg-zinc-50 rounded border border-zinc-200"><b class="text-zinc-900">模型选型</b><div class="text-zinc-500 text-[11px] mt-0.5">Provider / 模型 / token vs 满意度</div></div>
+            <div class="px-3 py-2 bg-zinc-50 rounded border border-zinc-200"><b class="text-zinc-900">错误异常</b><div class="text-zinc-500 text-[11px] mt-0.5">卡死 / 超时 / 中断时机</div></div>
+            <div class="px-3 py-2 bg-zinc-50 rounded border border-zinc-200"><b class="text-zinc-900">工作区结构</b><div class="text-zinc-500 text-[11px] mt-0.5">论文库规模 / 对象创建频率</div></div>
+          </div>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
+            <div class="text-xs font-bold text-amber-900 uppercase tracking-wider">红线 · 绝不采集</div>
+          </div>
+          <ul class="text-xs text-amber-800 space-y-1 leading-relaxed">
+            <li>· 文献全文 / PDF 内容</li>
+            <li>· 笔记原文 / 对话原文</li>
+            <li>· API Key / 邮箱 / 用户名</li>
+            <li>· 含用户名的文件路径</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- §三-C 能力包实现层（灵魂改造） -->
+    <div id="v03-s3c" class="anchor-target"></div>
+    <div class="rounded-2xl border-2 border-blue-300 p-8 mb-6 shadow-lg shadow-blue-100/40 bg-gradient-to-br from-blue-50/40 via-white to-white">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§三-C</span>
+        <h3 class="h3-block">能力包实现层</h3>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold tracking-wider shadow-sm">
+          <i data-lucide="sparkles" class="w-3 h-3"></i> 灵魂改造
+        </span>
+      </div>
+      <p class="text-sm text-zinc-700 mb-6">从"散落配 Provider / MCP / Skill"变成"科研场景能力包"，用户心智从工具配置跃迁到场景。</p>
+
+      <!-- 配置分层 before/after -->
+      <div class="bg-white rounded-xl border border-zinc-200 p-6 mb-5">
+        <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-4">配置分层重构（旧 → 新）+ 左侧新"配置"页</div>
+        <div class="grid lg:grid-cols-2 gap-4">
+          <!-- 旧 -->
+          <div class="bg-zinc-50 rounded-lg p-4 border border-zinc-200">
+            <div class="text-[10px] font-bold text-zinc-500 tracking-wider mb-2">旧（0.1 / 0.2）</div>
+            <div class="text-xs font-bold text-zinc-700 mb-2">Settings · 8 tab</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">通用</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">模型</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">Zotero</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">代理</span>
+              <span class="px-2 py-1 bg-rose-50 border border-rose-200 rounded text-[11px] text-rose-700 strike">配置（MCP+Skill 混杂）</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">快捷键</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">已归档</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">关于</span>
+            </div>
+          </div>
+          <!-- 新 -->
+          <div class="bg-blue-50/50 rounded-lg p-4 border border-blue-200">
+            <div class="text-[10px] font-bold text-blue-600 tracking-wider mb-2">新（0.3）</div>
+            <div class="text-xs font-bold text-zinc-700 mb-2">Settings · 9 tab · <span class="text-blue-600">系统底座</span></div>
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">通用</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">模型</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">Zotero</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">代理</span>
+              <span class="px-2 py-1 bg-emerald-50 border border-emerald-300 rounded text-[11px] text-emerald-700 font-semibold">+ MCP（独立 tab）</span>
+              <span class="px-2 py-1 bg-emerald-50 border border-emerald-300 rounded text-[11px] text-emerald-700 font-semibold">+ 数据采集</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">快捷键</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">已归档</span>
+              <span class="px-2 py-1 bg-white border border-zinc-200 rounded text-[11px] text-zinc-600">关于</span>
+            </div>
+            <div class="border-t border-blue-200 pt-3">
+              <div class="text-[10px] font-bold text-blue-600 tracking-wider mb-1.5">+ 左侧 sidebar 新增 · <span class="text-indigo-700">Agent 上层生态</span></div>
+              <div class="bg-white border border-indigo-200 rounded-lg p-2.5">
+                <div class="text-xs font-bold text-indigo-700 mb-1.5 flex items-center gap-1.5">
+                  <i data-lucide="folder-cog" class="w-3.5 h-3.5"></i> 配置页（与"文献库"平级）
+                </div>
+                <div class="flex gap-1.5">
+                  <span class="px-2 py-0.5 bg-indigo-50 border border-indigo-200 rounded text-[10px] text-indigo-700">Skill 板块</span>
+                  <span class="px-2 py-0.5 bg-indigo-50 border border-indigo-200 rounded text-[10px] text-indigo-700">能力包板块</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 首发包卡片 -->
+      <div class="grid lg:grid-cols-2 gap-4 mb-5">
+        <div class="bg-white rounded-xl p-5 border border-blue-200">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="search" class="w-5 h-5 text-blue-600"></i>
+            <div class="font-bold text-base text-zinc-900">文献检索包</div>
+          </div>
+          <div class="text-xs text-zinc-600 mb-3">arXiv / Semantic Scholar / IACR / OpenReview · 检索 → 排序 → Zotero 入库</div>
+          <div class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">产出 Proposal</div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">evidence-set</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">citation-relation</span>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-blue-200">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+            <div class="font-bold text-base text-zinc-900">文献综述包</div>
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold">本体已完成</span>
+          </div>
+          <div class="text-xs text-zinc-600 mb-3">综述编排 + 引用追溯 · 0.3.0 仅契约接入 + 配置页注册 + 渲染配置适配</div>
+          <div class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">产出 Proposal</div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">citation-relation</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">hypothesis-promote</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200">hypothesis-review</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-zinc-500 italic leading-relaxed">
+        注：综述包能力本体由 0.1 综述链路（B 组：综述生成 + 引用追溯）+ 0.2 V1 证据链查看器共同构成，归属详见 0.2 §三-2 注。
+      </p>
+
+      <!-- CP5 软降级路径 -->
+      <div class="mt-5 insight insight-amber">
+        <b>CP5 软降级路径：</b><br>
+        <span class="text-sm">由 0.2 §三-4 X1.2 访谈结果驱动。若 X1.2 正确率 &lt; 60% → 强制约束（"UI 不存在两套配置入口分裂"）降级为弱约束：新版默认入口、旧版 deprecated 只读 0.3.0、0.4 删除。</span>
+      </div>
+    </div>
+
+    <!-- §三-D 默认页改造（推迟说明） -->
+    <div id="v03-s3d" class="anchor-target"></div>
+    <div class="deferred rounded-2xl p-8 mb-6">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§三-D</span>
+        <h3 class="h3-block text-zinc-600">默认页改造</h3>
+        <span class="deferred-label"><i data-lucide="pause" class="w-3 h-3"></i> 整体推迟 0.4</span>
+      </div>
+      <p class="text-sm text-zinc-600 mb-4">
+        2026-05-12 决策：DH1-DH4 全部推迟 0.4。0.3.0 保留 0.1 / 0.2 现有入口范式，用户从已安装的能力包（左侧"配置"页 → 能力包板块）或现有快捷入口进入场景任务。
+      </p>
+      <p class="text-xs text-zinc-500 mb-4 leading-relaxed">
+        <b>抽出理由</b>：默认页改造涉及总控 Agent 路由 / 自然语言意图识别 / 快捷入口卡片 3 块新工作，2 周窗口紧 + 与账户 / 服务器 / 能力包并发会挤爆窗口。
+      </p>
+      <a href="../0.4/design-inputs/default-page.md" class="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-900 underline">
+        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+        完整设计内容（DH1-DH4 等）已抽出到 0.4/design-inputs/default-page.md
+      </a>
+    </div>
+
+    <!-- §五-A 发布前置事务 -->
+    <div id="v03-s5a" class="anchor-target"></div>
+    <div class="card p-8 mb-6 card-hover" style="border-color: #fde68a;">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§五-A</span>
+        <h3 class="h3-block">发布前置事务 · lead-time</h3>
+        <span class="badge badge-mod"><i data-lucide="clock" class="w-3 h-3"></i> LT0 硬截止 2026-06-08</span>
+      </div>
+      <p class="text-sm text-zinc-600 mb-5">不是工程量问题，而是<b class="text-zinc-900">审核 / 物流 / 合同周期</b>问题。不前置启动，2 周代码窗口完不成。</p>
+
+      <div class="overflow-x-auto mb-5">
+        <table class="w-full text-sm border border-zinc-200 rounded-lg overflow-hidden">
+          <thead>
+            <tr class="bg-zinc-100 text-zinc-700 text-xs">
+              <th class="px-4 py-2.5 text-left font-semibold">事项</th>
+              <th class="px-4 py-2.5 text-left font-semibold">周期</th>
+              <th class="px-4 py-2.5 text-left font-semibold">0.3 卡点</th>
+            </tr>
+          </thead>
+          <tbody class="text-zinc-700 text-xs">
+            <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">Apple Developer + macOS Notarization</td><td class="px-4 py-2.5 tabular-nums">3-7 天</td><td class="px-4 py-2.5 text-zinc-500">不通过则 macOS 安装包被 Gatekeeper 拦截</td></tr>
+            <tr class="border-t border-zinc-200 bg-rose-50/30"><td class="px-4 py-2.5"><b>Windows EV Code Signing</b>（USB token）</td><td class="px-4 py-2.5 tabular-nums font-bold text-rose-700">2-4 周</td><td class="px-4 py-2.5 text-zinc-700"><b>最长 lead-time</b> · Week 1 末决策双平台 or macOS 首发</td></tr>
+            <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">ORCID OAuth client_id</td><td class="px-4 py-2.5 tabular-nums">1-2 周</td><td class="px-4 py-2.5 text-zinc-500">不通过则 ORCID 登录不可用</td></tr>
+            <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">Google OAuth verification</td><td class="px-4 py-2.5 tabular-nums">2-4 周</td><td class="px-4 py-2.5 text-zinc-500">不通过则 Google 登录显示"未验证"警告</td></tr>
+            <tr class="border-t border-zinc-200"><td class="px-4 py-2.5">邮件域 SPF/DKIM/DMARC + 邮件商认证</td><td class="px-4 py-2.5 tabular-nums">1-2 周</td><td class="px-4 py-2.5 text-zinc-500">不通过则邮件被标垃圾</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="insight insight-amber">
+        <b>Windows EV 决策路径：</b><br>
+        <span class="text-sm">Week 1 末（2026-06-12）若 EV token 未到位 → Windows 整体进 0.4，仅 macOS 首发。</span>
+      </div>
+    </div>
+
+    <!-- §五-B 公开发布运维 SOP（推迟说明） -->
+    <div id="v03-s5b" class="anchor-target"></div>
+    <div class="deferred rounded-2xl p-8 mb-6">
+      <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+        <span class="chap-num">§五-B</span>
+        <h3 class="h3-block text-zinc-600">公开发布运维 SOP</h3>
+        <span class="deferred-label"><i data-lucide="pause" class="w-3 h-3"></i> 整章推迟 0.4 / V1</span>
+      </div>
+      <p class="text-sm text-zinc-600 mb-4">
+        <b>2026-05-14 决策</b>：原计划在 0.3.0 落地 Status page / on-call 轮值 / Incident response SOP / P0 演练等 SaaS 级运维项（OPS1-OPS5）。整章推迟。
+      </p>
+      <div class="bg-white rounded-lg p-4 border border-zinc-200 mb-4">
+        <div class="text-xs font-bold text-zinc-700 mb-2">推迟理由</div>
+        <p class="text-xs text-zinc-600 leading-relaxed">
+          ASCI 0.3.0 发布的是<b class="text-zinc-900">桌面客户端产品</b>，不是 SaaS 服务；且<b class="text-zinc-900">非开源</b>，无需公开仓 issue triage / 社区 maintainer SOP。客户端产品对 SaaS 级运维的强需求要等到服务端依赖加深（桌面 ↔ Web 同步、A2A、共享 MCP）或用户规模化触发后再建。
+        </p>
+      </div>
+      <div>
+        <div class="text-xs font-bold text-zinc-700 mb-2">0.3.0 保留的最小运维基础（已在他处覆盖）</div>
+        <div class="space-y-1.5 text-xs text-zinc-600">
+          <div class="flex items-start gap-2">
+            <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0"></i>
+            <span><b class="text-zinc-700">崩溃自动上报</b>：§三 数据埋点 T1 / T4 / T4a Sentry，无需手动响应</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0"></i>
+            <span><b class="text-zinc-700">发布前置盘点</b>：§五-A lead-time（LT0-LT3）</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0"></i>
+            <span><b class="text-zinc-700">依赖漏洞扫描</b>：§五 Dependabot</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- §六 + §七 数据所有权 + 激活路径 -->
+    <div id="v03-s6" class="anchor-target"></div>
+    <div id="v03-s7" class="anchor-target"></div>
+    <div class="grid lg:grid-cols-5 gap-5 mb-10">
+      <div class="card p-7 lg:col-span-2 card-hover">
+        <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+          <span class="chap-num">§六</span>
+          <h3 class="h3-block text-lg">数据所有权</h3>
+        </div>
+        <p class="text-sm text-zinc-600 mb-4">"本地优先 + 开放格式 = 你的数据永远是你的"——从技术事实到用户可感知价值。</p>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs border border-blue-200">
+            <i data-lucide="folder" class="w-3.5 h-3.5"></i> DO1 · 数据位置可视化
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs border border-blue-200">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> DO2 · O1 格式导出
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs border border-blue-200">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> DO3 · 一键删除（GDPR Art. 17）
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs border border-blue-200">
+            <i data-lucide="megaphone" class="w-3.5 h-3.5"></i> DO4 · "本地优先"叙事
+          </span>
+        </div>
+      </div>
+
+      <div class="card p-7 lg:col-span-3 card-hover">
+        <div class="flex items-baseline gap-3 mb-4 flex-wrap">
+          <span class="chap-num">§七</span>
+          <h3 class="h3-block text-lg">用户激活路径 · L0 → L3</h3>
+        </div>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3 bg-zinc-50 rounded-lg p-3 border border-zinc-200" style="margin-left:0">
+            <div class="w-8 h-8 rounded-lg bg-zinc-200 flex items-center justify-center flex-shrink-0">
+              <span class="text-xs font-bold text-zinc-700">L0</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-zinc-900">完成首次检索 + 综述</div>
+              <div class="text-[11px] text-zinc-500">继承 0.1</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 bg-blue-50/40 rounded-lg p-3 border border-blue-100" style="margin-left:1rem">
+            <div class="w-8 h-8 rounded-lg bg-blue-200 flex items-center justify-center flex-shrink-0">
+              <span class="text-xs font-bold text-blue-800">L1</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-zinc-900">点综述引用 → 查看 Paper</div>
+              <div class="text-[11px] text-zinc-500">继承 0.2 证据链查看器</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 bg-indigo-50/60 rounded-lg p-3 border border-indigo-200" style="margin-left:2rem">
+            <div class="w-8 h-8 rounded-lg bg-indigo-300 flex items-center justify-center flex-shrink-0">
+              <span class="text-xs font-bold text-indigo-900">L2</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-zinc-900">在 Paper 上写第一条 Note</div>
+              <div class="text-[11px] text-indigo-700">引导气泡："对这段有想法？写下来"</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 bg-gradient-to-r from-violet-100 to-violet-50 rounded-lg p-3 border-2 border-violet-300" style="margin-left:3rem">
+            <div class="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center flex-shrink-0">
+              <span class="text-xs font-bold text-white">L3</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-violet-900">决策第一条 Agent 提议</div>
+              <div class="text-[11px] text-violet-700">AC1 引导气泡："看看哪些值得保留"</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+          <i data-lucide="target" class="w-3.5 h-3.5 inline-block"></i>
+          <span class="ml-1"><b>AC3 观察指标</b>：发布 14 天内 ≥15% 用户走到 L3 · 仅作 0.4 基线建立的输入，<b>不阻塞发布</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- v0.3 outcome panel -->
+    <div class="bg-gradient-to-br from-blue-50 via-indigo-50/40 to-white rounded-2xl border border-blue-200 p-8">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-7 h-7 rounded-md bg-blue-500 flex items-center justify-center">
+          <i data-lucide="trophy" class="w-4 h-4 text-white"></i>
+        </div>
+        <h3 class="text-lg font-bold text-blue-900">v0.3 做完后产品具备</h3>
+      </div>
+      <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-2.5">
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0"></i><span><b>完整产品形态</b>：下载 / 注册 / 登录 / 用 / 收到更新 闭环</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0"></i><span><b>新心智</b>：系统底座（Settings 9 tab）+ Agent 生态（左侧"配置"页）两层清晰分层</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0"></i><span>2 个首发能力包通过 A3 契约接入，产出 Proposal 落入待审区</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0"></i><span><b>数据掌控权</b>（一键导出 / 删除，GDPR 合规）</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0"></i><span>macOS 自动更新 · Windows 视 EV 签名 lead-time</span></li>
+        <li class="flex items-start gap-2 text-sm text-zinc-700"><i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 text-blue-600 flex-shrink-0"></i><span><b>Agent 进化燃料</b>（合规采集 6 类信号开始攒数据，0.4 起消费）</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============== v0.4 候选预告 ============== -->
+<div id="v04" class="anchor-target"></div>
+<section class="section">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="mb-8">
+      <span class="epoch-tag epoch-04 mb-3"><span class="epoch-dot"></span>v0.4 · 候选</span>
+      <h2 class="h2-section mt-3">0.4 候选预告 · 7 项</h2>
+      <p class="text-zinc-500 mt-2">0.3.0 进入 Week 2 时由产研 Lead 与战略评估确认后单独建文档</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-5 card-hover">
+        <i data-lucide="message-square" class="w-5 h-5 text-zinc-500 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">默认页改造</div>
+        <p class="text-xs text-zinc-500 leading-relaxed">中心对话框 + 总控 Agent 自动路由</p>
+        <a href="../0.4/design-inputs/default-page.md" class="mt-2 text-[10px] text-indigo-600 hover:underline inline-flex items-center gap-1"><i data-lucide="external-link" class="w-3 h-3"></i> design-inputs</a>
+      </div>
+      <div class="card p-5 card-hover">
+        <i data-lucide="globe-2" class="w-5 h-5 text-zinc-500 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">双节点路由</div>
+        <p class="text-xs text-zinc-500 leading-relaxed">S5 · 欧美双节点 IP 路由</p>
+      </div>
+      <div class="card p-5 card-hover">
+        <i data-lucide="eye" class="w-5 h-5 text-zinc-500 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">自进化透明度 UI</div>
+        <p class="text-xs text-zinc-500 leading-relaxed">AE3 / AE4 · 本周事件查看 + 一键清空 + opt-in 引导</p>
+      </div>
+      <div class="card p-5 card-hover">
+        <i data-lucide="download-cloud" class="w-5 h-5 text-zinc-500 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">Windows 自动更新</div>
+        <p class="text-xs text-zinc-500 leading-relaxed">若 EV 签名 lead-time 不及</p>
+      </div>
+      <div class="card p-5 card-hover">
+        <i data-lucide="github" class="w-5 h-5 text-zinc-500 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">GitHub OAuth</div>
+        <p class="text-xs text-zinc-500 leading-relaxed">视 0.3.0 用户反馈是否补回</p>
+      </div>
+      <div class="card p-5 card-hover">
+        <i data-lucide="library" class="w-5 h-5 text-zinc-500 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">UI 框架库扩展</div>
+        <p class="text-xs text-zinc-500 leading-relaxed">写作 / 实验日志 / 数据分析等多框架</p>
+      </div>
+      <div class="card p-5 card-hover" style="border-color: #fde68a; background: #fffbeb;">
+        <i data-lucide="alert-octagon" class="w-5 h-5 text-amber-600 mb-3"></i>
+        <div class="text-sm font-bold text-zinc-900 mb-1">公开发布运维 SOP</div>
+        <p class="text-xs text-amber-800 leading-relaxed font-medium">最新加入 · Status page / on-call / Incident SOP / P0 演练</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Demo 区（9 个原型，大方展示） ============== -->
+<div id="demo" class="anchor-target"></div>
+<section class="bg-zinc-900 text-zinc-100">
+  <div class="max-w-7xl mx-auto px-6 py-16 sm:py-20">
+    <div class="mb-8">
+      <div class="text-xs font-bold tracking-wider text-indigo-400 mb-2">PROTOTYPES · 原型演示</div>
+      <h2 class="h2-section text-white">9 个交互原型</h2>
+      <p class="text-zinc-400 mt-2">方向对齐用，不是最终视觉稿。色彩 / 布局贴合 ASCI 现有 zinc 灰系设计规范。</p>
+    </div>
+
+    <!-- Tab chip row -->
+    <div class="chip-row overflow-x-auto pb-2 mb-6 -mx-2 px-2">
+      <div class="flex items-center gap-2 min-w-max">
+        <button class="proto-tab active" data-prototype="p1">
+          <span class="proto-tab-num">P1</span>
+          <i data-lucide="notebook-text" class="w-3.5 h-3.5"></i>
+          <span>笔记板块</span>
+        </button>
+        <button class="proto-tab" data-prototype="p2">
+          <span class="proto-tab-num">P2</span>
+          <i data-lucide="file-pen" class="w-3.5 h-3.5"></i>
+          <span>笔记详情</span>
+        </button>
+        <button class="proto-tab" data-prototype="p3">
+          <span class="proto-tab-num">P3</span>
+          <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+          <span>Paper 详情</span>
+        </button>
+        <button class="proto-tab" data-prototype="p4">
+          <span class="proto-tab-num">P4</span>
+          <i data-lucide="link-2" class="w-3.5 h-3.5"></i>
+          <span>证据链查看器</span>
+        </button>
+        <button class="proto-tab" data-prototype="p5" style="border-color: #6366f1;">
+          <span class="proto-tab-num">P5</span>
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          <span>Proposal 决策卡片</span>
+        </button>
+        <button class="proto-tab" data-prototype="p6">
+          <span class="proto-tab-num">P6</span>
+          <i data-lucide="folder-cog" class="w-3.5 h-3.5"></i>
+          <span>配置页</span>
+        </button>
+        <button class="proto-tab" data-prototype="p7">
+          <span class="proto-tab-num">P7</span>
+          <i data-lucide="package-2" class="w-3.5 h-3.5"></i>
+          <span>能力包详情</span>
+        </button>
+        <button class="proto-tab" data-prototype="p8">
+          <span class="proto-tab-num">P8</span>
+          <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+          <span>Settings 9 tab</span>
+        </button>
+        <button class="proto-tab" data-prototype="p9">
+          <span class="proto-tab-num">P9</span>
+          <i data-lucide="user-circle" class="w-3.5 h-3.5"></i>
+          <span>账户 + 数据所有权</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 原型 stages -->
+    <!-- ====== P1 笔记板块 ====== -->
+    <section id="p1" class="prototype-stage active">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-new mt-1">新增</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P1 · 笔记板块（札记面板入口）</h3>
+            <p class="text-sm text-zinc-400">左侧 sidebar"笔记"一级入口；笔记列表按 kind 过滤（普通 / 假设），假设笔记可单独筛出并显示"待审"状态。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V4</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V6</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V6a-V6e</code>
+              · 0.2 §三-2
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · 我的科研工作区</div>
+        </div>
+
+        <aside class="bg-zinc-50/60 border-r border-zinc-200 p-2 overflow-y-auto">
+          <div class="sb-item"><i data-lucide="search" class="w-4 h-4"></i><span>搜索</span><span class="ml-auto text-[10px] text-zinc-400">⌘K</span></div>
+          <div class="sb-item"><i data-lucide="scroll-text" class="w-4 h-4"></i><span>文献库</span></div>
+          <div class="sb-item active"><i data-lucide="notebook-text" class="w-4 h-4"></i><span>笔记</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="folder-cog" class="w-4 h-4"></i><span>配置</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="archive" class="w-4 h-4"></i><span>已归档</span></div>
+          <div class="sb-item mt-1.5 justify-center bg-zinc-100"><i data-lucide="plus" class="w-4 h-4"></i><span class="font-medium text-zinc-700">新建任务</span></div>
+          <div class="mt-3 px-3 py-1.5 text-[10px] font-semibold text-zinc-400 tracking-wider uppercase">最近会话</div>
+          <div class="sb-item text-[12px]"><i data-lucide="message-square" class="w-3.5 h-3.5"></i><span class="truncate">RAG 综述</span></div>
+          <div class="sb-item text-[12px]"><i data-lucide="message-square" class="w-3.5 h-3.5"></i><span class="truncate">Diffusion 检索</span></div>
+        </aside>
+
+        <main class="bg-white overflow-y-auto">
+          <div class="px-6 py-4 border-b border-zinc-200 bg-white sticky top-0">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-lg font-semibold text-zinc-900 flex items-center gap-2">
+                  <i data-lucide="notebook-text" class="w-4 h-4 text-zinc-600"></i> 笔记
+                </h3>
+                <p class="text-xs text-zinc-500 mt-0.5 tabular-nums">共 24 条 · 5 条假设 · 3 条待审</p>
+              </div>
+              <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
+                <i data-lucide="plus" class="w-4 h-4"></i>新建笔记
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
+                <button class="tab-pill active px-3 py-1 text-xs font-medium rounded-md">全部 24</button>
+                <button class="tab-pill px-3 py-1 text-xs rounded-md text-zinc-600">普通 19</button>
+                <button class="tab-pill px-3 py-1 text-xs rounded-md text-zinc-600">假设 5</button>
+              </div>
+              <div class="flex-1"></div>
+              <div class="relative">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+                <input class="pl-8 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-lg w-44" placeholder="搜索笔记..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 space-y-2">
+            <!-- 假设笔记（待审） -->
+            <div class="card p-4 hover:bg-zinc-50/60 transition cursor-pointer">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-700"><i data-lucide="flask-conical" class="w-3 h-3 text-zinc-500"></i>假设</span>
+                <span class="badge badge-mod" style="padding: 1px 6px;">待审</span>
+                <span class="status-node status-suspended" style="font-size: 9px; padding: 1px 6px;">suspended</span>
+                <span class="text-[10px] text-zinc-400 ml-auto tabular-nums">2 小时前</span>
+              </div>
+              <div class="font-medium text-zinc-900 text-sm mb-1">RAG 在 1M token 以上场景仍优于长上下文</div>
+              <p class="text-xs text-zinc-600 line-clamp-2 leading-relaxed">假设：retrieval 精确度不随上下文长度线性退化；当前已挂载 8 篇论文，最新 V6d 评估倾向 suspended（证据双向）...</p>
+              <div class="mt-2 flex items-center gap-2 text-[10px] text-zinc-500">
+                <span class="inline-flex items-center gap-1"><i data-lucide="layers" class="w-2.5 h-2.5"></i>挂在 EvidenceSet · RAG-vs-LongContext</span>
+                <span class="text-zinc-300">·</span>
+                <span class="text-amber-700">新增 3 篇论文 · V6d 已评估</span>
+              </div>
+            </div>
+
+            <!-- 普通笔记 1 -->
+            <div class="card p-4 hover:bg-zinc-50/60 transition cursor-pointer">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-700"><i data-lucide="sticky-note" class="w-3 h-3 text-zinc-500"></i>笔记</span>
+                <span class="text-[10px] text-zinc-400 ml-auto tabular-nums">昨天 14:23</span>
+              </div>
+              <div class="font-medium text-zinc-900 text-sm mb-1">Section 4.2 的实验设计有 selection bias</div>
+              <p class="text-xs text-zinc-600 line-clamp-2 leading-relaxed">作者只在 MS MARCO 上测，没跨域验证。结论可能不适用于科学文献检索场景。</p>
+              <div class="mt-2 text-[10px] text-zinc-500 inline-flex items-center gap-1">
+                <i data-lucide="file-text" class="w-2.5 h-2.5"></i>关联 Paper · "Dense Retrieval for IR"
+              </div>
+            </div>
+
+            <!-- 假设笔记 2 supported -->
+            <div class="card p-4 hover:bg-zinc-50/60 transition cursor-pointer">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-zinc-700"><i data-lucide="flask-conical" class="w-3 h-3 text-zinc-500"></i>假设</span>
+                <span class="status-node status-supported" style="font-size: 9px; padding: 1px 6px;">supported</span>
+                <span class="text-[10px] text-zinc-400 ml-auto tabular-nums">3 天前</span>
+              </div>
+              <div class="font-medium text-zinc-900 text-sm mb-1">Re-ranking 在 first-stage recall 已足够好时收益边际</div>
+              <p class="text-xs text-zinc-600 line-clamp-2 leading-relaxed">BM25 / dense retrieval 的 recall@100 ≥ 95% 时，cross-encoder re-rank 额外收益不超过 1% nDCG@10...</p>
+              <div class="mt-2 text-[10px] text-zinc-500 inline-flex items-center gap-1">
+                <i data-lucide="layers" class="w-2.5 h-2.5"></i>挂在 EvidenceSet · Retrieval 优化
+              </div>
+            </div>
+
+            <div class="text-center py-3 text-[11px] text-zinc-400">还有 21 条 · 滚动加载</div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P2 笔记详情 ====== -->
+    <section id="p2" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-mod mt-1">改造</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P2 · 笔记详情（假设笔记 + V6d Agent 评估）</h3>
+            <p class="text-sm text-zinc-400">假设类笔记详情视图：内容 + kind 切换 + 关联 EvidenceSet + V6d 自动告警 + hypothesisStatus 显示。EvidenceSet 新增论文时 Agent 评估并产出 hypothesis-review Proposal 落入"待审提议"区。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V6c</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V6d</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · 笔记详情</div>
+        </div>
+        <aside class="bg-zinc-50/60 border-r border-zinc-200 p-2">
+          <div class="sb-item"><i data-lucide="search" class="w-4 h-4"></i><span>搜索</span></div>
+          <div class="sb-item"><i data-lucide="scroll-text" class="w-4 h-4"></i><span>文献库</span></div>
+          <div class="sb-item active"><i data-lucide="notebook-text" class="w-4 h-4"></i><span>笔记</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="folder-cog" class="w-4 h-4"></i><span>配置</span><span class="sb-new-tag">新</span></div>
+        </aside>
+
+        <main class="bg-white overflow-y-auto">
+          <div class="px-6 py-3 border-b border-zinc-200 flex items-center gap-2 text-xs text-zinc-500">
+            <a class="hover:text-zinc-900 cursor-pointer">笔记</a>
+            <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            <span class="text-zinc-700">RAG 在 1M token 以上仍优于长上下文</span>
+          </div>
+
+          <div class="px-6 py-5 grid grid-cols-3 gap-5">
+            <div class="col-span-2 min-w-0">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
+                  <button class="px-2.5 py-1 text-xs rounded-md text-zinc-600 hover:bg-white">
+                    <i data-lucide="sticky-note" class="w-3 h-3 inline-block"></i> 笔记
+                  </button>
+                  <button class="tab-pill active px-2.5 py-1 text-xs font-medium rounded-md">
+                    <i data-lucide="flask-conical" class="w-3 h-3 inline-block"></i> 假设
+                  </button>
+                </div>
+                <span class="status-node status-suspended" style="font-size: 11px; padding: 3px 10px;">hypothesisStatus: suspended</span>
+              </div>
+
+              <h1 class="text-lg font-semibold text-zinc-900 leading-snug mb-3">RAG 在 1M token 以上场景仍优于长上下文</h1>
+
+              <div class="text-sm text-zinc-700 leading-relaxed space-y-2">
+                <p>基于已读 8 篇论文，形成初步判断：</p>
+                <p><b class="font-semibold">假设：</b>retrieval 的精确度不随上下文长度线性退化，因此即使长上下文模型支持 1M+ token，RAG 在事实型 QA + 长尾领域仍占优。</p>
+                <p><b class="font-semibold">证据 1：</b>Lewis 2020 在 NaturalQuestions 上 RAG-Token 达到 56.8 EM，比 BART-large 高 12.4 点。</p>
+                <p><b class="font-semibold">最新评估（V6d）：</b>Paper-A 在 2M token 测试中检索精度降至 73%（contradicts）；Paper-B 在 1.5M token 仍保持 91%（supports）—— 证据双向，Agent 推荐 suspended。</p>
+              </div>
+
+              <!-- 待审提议区（V6d Proposal） -->
+              <div class="mt-5 pt-4 border-t border-zinc-200">
+                <div class="flex items-center gap-2 mb-3">
+                  <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider">待审提议</div>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">1 条</span>
+                </div>
+
+                <div class="card p-4 border-indigo-200" style="background: #fafbff;">
+                  <div class="flex items-center gap-2 mb-2 flex-wrap">
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200 font-mono font-bold">hypothesis-review</span>
+                    <span class="text-[10px] text-zinc-500">来自 <b>文献综述包</b></span>
+                    <span class="text-[10px] text-zinc-400 ml-auto">2 分钟前</span>
+                  </div>
+                  <div class="text-sm text-zinc-700 leading-relaxed mb-2">
+                    <b class="text-zinc-900">Reasoning：</b>EvidenceSet 新增 3 篇论文。Paper-A 实验显示 RAG 在 2M token 检索精度下降至 73%，倾向 <span class="text-rose-700 font-semibold">contradicts</span>；Paper-B 在 1.5M token 仍保持 91%，倾向 <span class="text-emerald-700 font-semibold">supports</span>；Paper-C 未直接测试该范围，neutral。建议把 hypothesisStatus 改为 <b class="text-amber-700">suspended</b>（证据双向，需更多数据）。
+                  </div>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <button class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> 采纳</button>
+                    <button class="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-zinc-700 text-xs hover:bg-zinc-50"><i data-lucide="pen" class="w-3 h-3 inline-block"></i> 修改</button>
+                    <button class="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-zinc-700 text-xs hover:bg-zinc-50"><i data-lucide="x" class="w-3 h-3 inline-block"></i> 拒绝</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="space-y-3">
+              <div class="card p-4">
+                <div class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">挂载在</div>
+                <a class="block hover:text-indigo-700 cursor-pointer">
+                  <div class="flex items-center gap-2 mb-0.5">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-zinc-600"></i>
+                    <div class="text-sm font-medium text-zinc-900">EvidenceSet · RAG-vs-LongContext</div>
+                  </div>
+                  <div class="text-[11px] text-zinc-500">含 8 篇论文 · 本周 +3 篇</div>
+                </a>
+              </div>
+
+              <div class="card p-4" style="border-color: #fde68a; background: #fffbeb;">
+                <div class="flex items-center gap-2 mb-2">
+                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700"></i>
+                  <div class="text-xs font-semibold text-amber-900">V6d 自动告警</div>
+                </div>
+                <div class="text-[11px] text-amber-800 leading-relaxed">
+                  EvidenceSet 本周新增 3 篇论文，Agent 已评估倾向并产出 hypothesis-review Proposal（左侧"待审提议"区）。
+                </div>
+              </div>
+
+              <div class="card p-4">
+                <div class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">元信息</div>
+                <div class="space-y-1.5 text-[11px]">
+                  <div class="flex justify-between"><span class="text-zinc-500">创建</span><span class="text-zinc-700 tabular-nums">2026-05-08</span></div>
+                  <div class="flex justify-between"><span class="text-zinc-500">kind</span><span class="text-zinc-700 font-mono">hypothesis</span></div>
+                  <div class="flex justify-between"><span class="text-zinc-500">status</span><span class="status-node status-suspended" style="font-size: 10px; padding: 1px 6px;">suspended</span></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P3 Paper 详情（含"待审提议"区） ====== -->
+    <section id="p3" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-mod mt-1">改造</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P3 · Paper 详情（关联对象 + 待审提议区）</h3>
+            <p class="text-sm text-zinc-400">关联对象 tab（EvidenceRef / Note / 引用关系）+ 详情页内联"待审提议"区（§一-A 主入口）。删除 Paper 时关联引用自动标"源已移除"。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V2</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V2a</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V2b</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · 论文详情</div>
+        </div>
+        <aside class="bg-zinc-50/60 border-r border-zinc-200 p-2">
+          <div class="sb-item"><i data-lucide="search" class="w-4 h-4"></i><span>搜索</span></div>
+          <div class="sb-item active"><i data-lucide="scroll-text" class="w-4 h-4"></i><span>文献库</span></div>
+          <div class="sb-item"><i data-lucide="notebook-text" class="w-4 h-4"></i><span>笔记</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="folder-cog" class="w-4 h-4"></i><span>配置</span><span class="sb-new-tag">新</span></div>
+        </aside>
+
+        <main class="bg-white overflow-y-auto">
+          <div class="px-6 py-5">
+            <div class="mb-5">
+              <div class="flex items-center gap-2 mb-2 text-[11px] text-zinc-500">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium"><i data-lucide="external-link" class="w-3 h-3"></i>arXiv:2005.11401</span>
+                <span class="tabular-nums">2020-05-22 · NeurIPS 2020</span>
+              </div>
+              <h1 class="text-lg font-semibold text-zinc-900 mb-1.5 leading-snug">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</h1>
+              <div class="text-xs text-zinc-500 mb-2">P. Lewis, E. Perez, A. Piktus, F. Petroni, ... (Facebook AI)</div>
+              <p class="text-xs text-zinc-600 leading-relaxed line-clamp-2">We introduce RAG models, where the parametric memory is a pre-trained seq2seq model and the non-parametric memory is a dense vector index of Wikipedia...</p>
+            </div>
+
+            <!-- 待审提议区 (V2b §一-A 主入口) -->
+            <div class="mb-5 rounded-xl p-4" style="background: #fafbff; border: 1px solid #c7d2fe;">
+              <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <div class="text-xs font-bold text-indigo-700 uppercase tracking-wider">待审提议</div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold">3 条</span>
+                <span class="text-[10px] text-zinc-500 ml-auto">来自文献综述包</span>
+              </div>
+
+              <div class="space-y-2">
+                <div class="card p-3">
+                  <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200 font-mono font-bold">citation-relation</span>
+                    <span class="text-[10px] text-zinc-500">→ Paper-FiD-2020 · method-ref</span>
+                  </div>
+                  <div class="text-xs text-zinc-700 mb-2"><b>Reasoning：</b>基于综述第 3 段，识别 Lewis 2020 supports FiD-2020 的方法继承关系</div>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <button class="px-2.5 py-1 rounded-md bg-indigo-600 text-white text-[11px] font-semibold inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> 采纳</button>
+                    <button class="px-2.5 py-1 rounded-md bg-white border border-zinc-200 text-zinc-700 text-[11px]"><i data-lucide="pen" class="w-3 h-3 inline-block"></i> 修改</button>
+                    <button class="px-2.5 py-1 rounded-md bg-white border border-zinc-200 text-zinc-700 text-[11px]"><i data-lucide="x" class="w-3 h-3 inline-block"></i> 拒绝</button>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-2 text-[10px] text-zinc-500 inline-flex items-center gap-1"><i data-lucide="info" class="w-2.5 h-2.5"></i> 兜底入口在"⋯"菜单 · 不占主操作位置</div>
+            </div>
+
+            <div class="flex items-center gap-1 mb-4 bg-zinc-100 rounded-lg p-1 w-fit">
+              <button class="tab-pill active px-3 py-1 text-xs font-medium rounded-md">
+                <i data-lucide="link-2" class="w-3 h-3 inline-block"></i> 证据条目 5
+              </button>
+              <button class="px-3 py-1 text-xs text-zinc-600 rounded-md hover:bg-white">
+                <i data-lucide="sticky-note" class="w-3 h-3 inline-block"></i> 笔记 3
+              </button>
+              <button class="px-3 py-1 text-xs text-zinc-600 rounded-md hover:bg-white">
+                <i data-lucide="git-fork" class="w-3 h-3 inline-block"></i> 引用关系 2
+              </button>
+            </div>
+
+            <div class="space-y-2">
+              <div class="card p-3 hover:bg-zinc-50/60 transition cursor-pointer">
+                <div class="flex items-start gap-2">
+                  <i data-lucide="link-2" class="w-3.5 h-3.5 text-zinc-500 mt-0.5"></i>
+                  <div class="flex-1">
+                    <div class="text-xs text-zinc-500 mb-1">在 <span class="text-indigo-700 font-medium">综述 · RAG 技术综述</span> 第 2 段第 3 句被引用</div>
+                    <div class="text-sm text-zinc-700 italic leading-relaxed">"...RAG 通过将参数化记忆和非参数化的密集向量索引相结合，在 Natural Questions 上取得了 56.8 EM..."</div>
+                  </div>
+                  <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+                </div>
+              </div>
+              <div class="text-center py-2 text-[11px] text-zinc-400">+ 还有 4 条引用</div>
+            </div>
+
+            <div class="mt-3 callout">
+              <i data-lucide="info" class="w-3 h-3"></i>
+              删除 Paper 时引用处自动标"源已移除"（P2 协议）
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P4 证据链查看器 ====== -->
+    <section id="p4" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-new mt-1">新增</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P4 · 证据链查看器（综述句子 → 原文段落）</h3>
+            <p class="text-sm text-zinc-400">综述阅读模式：每个引用标记可点击，inline 弹出溯源卡片显示原 Paper 段落 + 在 Paper 中查看完整上下文。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V1</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · 综述：RAG 技术综述</div>
+        </div>
+        <aside class="bg-zinc-50/60 border-r border-zinc-200 p-2">
+          <div class="sb-item active"><i data-lucide="message-square" class="w-4 h-4"></i><span class="truncate">RAG 综述</span></div>
+          <div class="sb-item"><i data-lucide="scroll-text" class="w-4 h-4"></i><span>文献库</span></div>
+          <div class="sb-item"><i data-lucide="notebook-text" class="w-4 h-4"></i><span>笔记</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="folder-cog" class="w-4 h-4"></i><span>配置</span><span class="sb-new-tag">新</span></div>
+        </aside>
+
+        <main class="bg-white overflow-y-auto">
+          <div class="px-8 py-6 max-w-3xl">
+            <h1 class="text-xl font-semibold text-zinc-900 mb-2 leading-snug">检索增强生成（RAG）技术综述</h1>
+            <div class="text-xs text-zinc-500 mb-5">由 Agent 生成 · 14 篇论文 · 3,420 字</div>
+
+            <article class="text-sm text-zinc-800 leading-relaxed space-y-3">
+              <h3 class="text-base font-semibold text-zinc-900 mt-4 mb-2">2. 端到端 RAG 训练方法</h3>
+              <p>RAG 的核心创新在于将检索过程纳入梯度反传链路。<span class="bg-indigo-50 text-indigo-700 px-1 rounded cursor-pointer hover:bg-indigo-100 font-medium border border-indigo-200">[Lewis 2020]</span> 首次提出端到端训练框架，将参数化记忆（生成器）与非参数化记忆（检索器 + 索引）联合优化。在 Natural Questions 数据集上 RAG-Token 取得 56.8 EM 准确率，相比纯参数化的 BART-large 提升 12.4 个点。</p>
+
+              <!-- 溯源弹窗 -->
+              <div class="my-4 card p-0 border-indigo-200" style="border-width: 1px;">
+                <div class="flex items-center justify-between px-4 py-2 border-b border-zinc-200 bg-zinc-50">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="link-2" class="w-3.5 h-3.5 text-zinc-600"></i>
+                    <span class="text-xs font-semibold text-zinc-700">证据溯源</span>
+                    <span class="text-[10px] text-zinc-500">EvidenceRef</span>
+                  </div>
+                  <button class="text-zinc-400 hover:text-zinc-600"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <div class="p-4">
+                  <div class="text-[11px] text-zinc-500 mb-2">来源 · <span class="text-zinc-700 font-medium">Paper · arXiv:2005.11401 · Lewis et al. 2020</span> · 第 3 节第 2 段</div>
+                  <blockquote class="border-l-2 border-zinc-300 pl-3 py-1 italic text-sm text-zinc-700 leading-relaxed">
+                    "Our RAG models, fine-tuned end-to-end, achieve state-of-the-art results on multiple knowledge-intensive NLP tasks. Specifically, on Natural Questions, RAG-Token reaches 56.8 EM, outperforming our BART baseline by 12.4 points..."
+                  </blockquote>
+                  <div class="mt-3 flex items-center gap-2">
+                    <button class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium">
+                      <i data-lucide="file-text" class="w-3 h-3 inline-block"></i> 在 Paper 中查看完整上下文
+                    </button>
+                    <button class="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-zinc-700 text-xs hover:bg-zinc-50">
+                      <i data-lucide="plus" class="w-3 h-3 inline-block"></i> 在此段加笔记
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <p>然而，<span class="bg-indigo-50 text-indigo-700 px-1 rounded cursor-pointer hover:bg-indigo-100 font-medium border border-indigo-200">[Izacard 2022]</span> 后续证明，在开放生成任务上 RAG 反而比纯参数化模型表现稍差（BLEU 低 3 个点），<span class="bg-amber-50 text-amber-700 px-1 rounded cursor-pointer hover:bg-amber-100 font-medium border border-amber-200">[Asai 2024 · 反驳]</span> 提出 Self-RAG 通过自适应检索机制部分缓解了这个问题。</p>
+            </article>
+
+            <div class="mt-6 callout">
+              <i data-lucide="info" class="w-3 h-3"></i>
+              <span>indigo = 支持型引用 · amber = 反驳型引用（对应 CitationRelation type）</span>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P5 Proposal 决策卡片（新增核心原型） ====== -->
+    <section id="p5" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700" style="border-color: #6366f1;">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-key mt-1"><i data-lucide="sparkles" class="w-3 h-3"></i> 新设计</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P5 · Proposal 决策卡片（单张大图）</h3>
+            <p class="text-sm text-zinc-400">承载 §零 "Agent 主导，用户决策" 哲学的核心交互卡片。来自综述包的 citation-relation Proposal：reasoning + payload + 五档决策动作 + dismissPolicy 三档粒度。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">V6f</code> · 0.2 <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">§一-A</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window single">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · Paper-RAG-Survey-2024 · 待审提议</div>
+        </div>
+        <main class="bg-white p-8 overflow-y-auto">
+          <div class="max-w-3xl mx-auto">
+
+            <!-- 上下文面包屑 -->
+            <div class="flex items-center gap-2 mb-6 text-xs text-zinc-500">
+              <a class="hover:text-zinc-900 cursor-pointer">文献库</a>
+              <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              <a class="hover:text-zinc-900 cursor-pointer">Paper · arXiv:2024.12345</a>
+              <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              <span class="text-zinc-700">待审提议</span>
+            </div>
+
+            <h2 class="text-lg font-bold text-zinc-900 mb-1">待审提议</h2>
+            <p class="text-xs text-zinc-500 mb-6">Paper-RAG-Survey-2024 · <b>3 条待审</b>，当前查看第 1 条</p>
+
+            <!-- 大 Proposal 卡片 -->
+            <article class="rounded-2xl border-2 border-indigo-200 bg-white shadow-lg shadow-indigo-100/40 overflow-hidden">
+
+              <!-- 卡片头部：来源 + kind + 时间 -->
+              <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 to-white border-b border-indigo-100">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white border border-indigo-200 text-indigo-700 text-xs font-semibold">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                    文献综述包
+                  </span>
+                  <span class="text-[10px] px-2 py-0.5 rounded bg-violet-100 text-violet-800 border border-violet-200 font-mono font-bold">citation-relation</span>
+                  <span class="text-xs text-zinc-500">挂在 <code class="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-700 text-[11px]">Paper-RAG-Survey-2024</code></span>
+                  <span class="text-xs text-zinc-400 ml-auto tabular-nums">2 分钟前</span>
+                </div>
+              </div>
+
+              <!-- 卡片主体 -->
+              <div class="p-6">
+                <!-- Reasoning -->
+                <div class="mb-5">
+                  <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i data-lucide="brain" class="w-3.5 h-3.5 text-indigo-600"></i>
+                    Reasoning · Agent 给出的理由
+                  </div>
+                  <div class="bg-zinc-50 border-l-3 border-indigo-400 p-4 rounded-r-lg" style="border-left-width: 3px;">
+                    <p class="text-sm text-zinc-700 leading-relaxed">
+                      基于综述第 3 段第 2 句"<i>Lewis 2020 首次提出端到端 RAG 训练框架，FiD-2020 在其基础上引入 fusion-in-decoder 架构...</i>"，识别 <b class="text-zinc-900">Paper-RAG-Survey-2024 method-ref Paper-FiD-2020</b> 的方法继承关系。两篇论文都使用相似的双塔检索 + 生成 pipeline，FiD-2020 是 RAG-Survey-2024 综述章节中的引用之一。
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Payload 预览 -->
+                <div class="mb-6">
+                  <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i data-lucide="package" class="w-3.5 h-3.5 text-indigo-600"></i>
+                    Payload · 关系三元组
+                  </div>
+                  <div class="bg-white border border-zinc-200 rounded-lg p-4 font-mono text-xs">
+                    <div class="flex items-center gap-3 flex-wrap">
+                      <div class="flex flex-col items-start gap-1">
+                        <span class="text-[10px] text-zinc-500">from</span>
+                        <code class="text-violet-700 bg-violet-50 px-2 py-1 rounded">Paper-RAG-Survey-2024</code>
+                      </div>
+                      <i data-lucide="arrow-right" class="w-4 h-4 text-zinc-400 mt-3"></i>
+                      <div class="flex flex-col items-start gap-1">
+                        <span class="text-[10px] text-zinc-500">type</span>
+                        <code class="text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">method-ref</code>
+                      </div>
+                      <i data-lucide="arrow-right" class="w-4 h-4 text-zinc-400 mt-3"></i>
+                      <div class="flex flex-col items-start gap-1">
+                        <span class="text-[10px] text-zinc-500">to</span>
+                        <code class="text-violet-700 bg-violet-50 px-2 py-1 rounded">Paper-FiD-2020</code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 五档决策动作 -->
+                <div class="mb-5">
+                  <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3">决策动作 · 五档</div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <button class="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold inline-flex items-center gap-2 shadow-sm">
+                      <i data-lucide="check" class="w-4 h-4"></i> 采纳
+                    </button>
+                    <button class="px-4 py-2.5 rounded-lg bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-50 text-sm font-medium inline-flex items-center gap-2">
+                      <i data-lucide="pen" class="w-4 h-4"></i> 修改
+                    </button>
+                    <button class="px-4 py-2.5 rounded-lg bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-50 text-sm font-medium inline-flex items-center gap-2">
+                      <i data-lucide="x" class="w-4 h-4"></i> 拒绝
+                    </button>
+                    <span class="text-zinc-300 mx-1">|</span>
+                    <button class="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 text-sm font-medium inline-flex items-center gap-2">
+                      <i data-lucide="eye-off" class="w-4 h-4"></i> 仅本对象不再提示
+                    </button>
+                    <button class="px-4 py-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 hover:bg-rose-100 text-sm font-medium inline-flex items-center gap-2">
+                      <i data-lucide="ban" class="w-4 h-4"></i> 不再提示这类
+                    </button>
+                  </div>
+                </div>
+
+                <!-- dismissPolicy 粒度示意（嵌入） -->
+                <div class="bg-zinc-50 rounded-lg border border-zinc-200 p-4">
+                  <div class="text-xs font-bold text-zinc-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+                    dismissPolicy · 拒绝时的影响范围
+                  </div>
+                  <div class="grid grid-cols-3 gap-2 text-xs">
+                    <div class="bg-white border border-zinc-200 rounded p-3">
+                      <div class="font-bold text-zinc-900 mb-1">once</div>
+                      <div class="text-[10px] text-zinc-500 mb-2">拒绝按钮默认</div>
+                      <div class="flex items-center gap-1 text-[10px] text-zinc-600">
+                        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+                        <span>仅本条</span>
+                      </div>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-200 rounded p-3">
+                      <div class="font-bold text-amber-900 mb-1">scoped</div>
+                      <div class="text-[10px] text-amber-700 mb-2">仅本对象不再提示</div>
+                      <div class="flex items-center gap-1 text-[10px] text-amber-800">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span>该 Paper 内同 kind</span>
+                      </div>
+                    </div>
+                    <div class="bg-rose-50 border border-rose-200 rounded p-3">
+                      <div class="font-bold text-rose-900 mb-1">silence-this-kind</div>
+                      <div class="text-[10px] text-rose-700 mb-2">不再提示这类</div>
+                      <div class="flex items-center gap-1 text-[10px] text-rose-800">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span>全工作区同 sourceCapability + kind</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 卡片底部：埋点信号说明 -->
+              <div class="px-6 py-3 bg-zinc-50 border-t border-zinc-200 text-[10px] text-zinc-500 leading-relaxed">
+                <i data-lucide="info" class="w-3 h-3 inline-block"></i>
+                <span class="ml-1">决策动作走 0.3 §三-A 自进化埋点"用户反馈"通道 · 按 sourceCapability × kind 分组统计采纳率 · 与产品行为埋点物理隔离</span>
+              </div>
+            </article>
+
+            <!-- 哲学说明 -->
+            <div class="mt-6 insight insight-violet">
+              <b>体现 §零 哲学：</b><br>
+              <span class="text-sm">Agent 替代"有标准答案"的工作（识别引用关系）→ 用户保留"没有标准答案"的工作（判断该关系是否真的存在 / 是否值得归档）。每张 Proposal 必须含 reasoning（不允许裸候选）；五档决策让用户拥有"接受 / 容忍 / 静默"的全谱选择。</span>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P6 配置页 ====== -->
+    <section id="p6" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-new mt-1">新增</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P6 · 左侧"配置"页（Skill + 能力包二板块）</h3>
+            <p class="text-sm text-zinc-400">左侧 sidebar 新增"配置"一级入口（与"文献库"平级）。上半 Skill 板块（按来源过滤），下半能力包板块（已安装 2 包 + 安装入口）。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">CP2</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">CP4</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · 配置</div>
+        </div>
+        <aside class="bg-zinc-50/60 border-r border-zinc-200 p-2">
+          <div class="sb-item"><i data-lucide="search" class="w-4 h-4"></i><span>搜索</span></div>
+          <div class="sb-item"><i data-lucide="scroll-text" class="w-4 h-4"></i><span>文献库</span></div>
+          <div class="sb-item"><i data-lucide="notebook-text" class="w-4 h-4"></i><span>笔记</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item active"><i data-lucide="folder-cog" class="w-4 h-4"></i><span>配置</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="archive" class="w-4 h-4"></i><span>已归档</span></div>
+        </aside>
+
+        <main class="bg-white overflow-y-auto">
+          <div class="px-6 py-5">
+            <div class="mb-5 pb-4 border-b border-zinc-200">
+              <h1 class="text-lg font-semibold text-zinc-900 flex items-center gap-2">
+                <i data-lucide="folder-cog" class="w-4 h-4 text-zinc-600"></i>
+                配置 · Agent 能力管理
+              </h1>
+              <p class="text-xs text-zinc-500 mt-1">管理 Agent 的 Skill 和能力包。系统层凭据（Provider / Zotero / MCP）在 Settings 中配置。</p>
+            </div>
+
+            <!-- Skill 板块 -->
+            <section class="mb-6">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-zinc-900 flex items-center gap-2">
+                  <i data-lucide="puzzle" class="w-4 h-4 text-zinc-600"></i>
+                  Skill 板块
+                  <span class="text-xs font-normal text-zinc-500">· 20 个可用</span>
+                </h2>
+                <div class="flex items-center gap-1 bg-zinc-100 rounded-lg p-1">
+                  <button class="tab-pill active px-2.5 py-1 text-[11px] font-medium rounded-md">全部 20</button>
+                  <button class="tab-pill px-2.5 py-1 text-[11px] rounded-md text-zinc-600">系统内置 12</button>
+                  <button class="tab-pill px-2.5 py-1 text-[11px] rounded-md text-zinc-600">来自能力包 8</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div class="card p-3">
+                  <div class="flex items-start gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 mb-0.5">
+                        <div class="text-sm font-medium text-zinc-900 truncate">检索计划生成</div>
+                        <span class="text-[9px] text-zinc-500">· 来自检索包</span>
+                      </div>
+                      <div class="text-[11px] text-zinc-500 line-clamp-2">将用户意图转为多源检索计划：关键词、时间范围、学科领域</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked class="sr-only peer">
+                      <div class="w-7 h-3.5 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600 transition"></div>
+                      <div class="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition peer-checked:translate-x-3.5"></div>
+                    </label>
+                  </div>
+                </div>
+                <div class="card p-3">
+                  <div class="flex items-start gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <i data-lucide="link-2" class="w-3.5 h-3.5 text-zinc-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 mb-0.5">
+                        <div class="text-sm font-medium text-zinc-900 truncate">引用追溯</div>
+                        <span class="text-[9px] text-zinc-500">· 来自综述包</span>
+                      </div>
+                      <div class="text-[11px] text-zinc-500 line-clamp-2">把综述句子绑定到原 Paper 段落，生成 EvidenceRef</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked class="sr-only peer">
+                      <div class="w-7 h-3.5 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600 transition"></div>
+                      <div class="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition peer-checked:translate-x-3.5"></div>
+                    </label>
+                  </div>
+                </div>
+                <div class="card p-3">
+                  <div class="flex items-start gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <i data-lucide="terminal" class="w-3.5 h-3.5 text-zinc-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 mb-0.5">
+                        <div class="text-sm font-medium text-zinc-900 truncate">代码执行</div>
+                        <span class="text-[9px] text-zinc-500">· 系统内置</span>
+                      </div>
+                      <div class="text-[11px] text-zinc-500 line-clamp-2">在沙箱中执行 Python / Shell 代码</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked class="sr-only peer">
+                      <div class="w-7 h-3.5 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600 transition"></div>
+                      <div class="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition peer-checked:translate-x-3.5"></div>
+                    </label>
+                  </div>
+                </div>
+                <div class="card p-3">
+                  <div class="flex items-start gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <i data-lucide="book-marked" class="w-3.5 h-3.5 text-zinc-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-1.5 mb-0.5">
+                        <div class="text-sm font-medium text-zinc-900 truncate">Zotero 入库</div>
+                        <span class="text-[9px] text-zinc-500">· 来自检索包</span>
+                      </div>
+                      <div class="text-[11px] text-zinc-500 line-clamp-2">把检索结果一键导入 Zotero</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked class="sr-only peer">
+                      <div class="w-7 h-3.5 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600 transition"></div>
+                      <div class="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition peer-checked:translate-x-3.5"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="text-center mt-2 text-[11px] text-zinc-400">+ 还有 16 个 Skill</div>
+            </section>
+
+            <!-- 能力包板块 -->
+            <section class="border-t border-zinc-200 pt-5">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-zinc-900 flex items-center gap-2">
+                  <i data-lucide="package-2" class="w-4 h-4 text-zinc-600"></i>
+                  能力包板块
+                  <span class="text-xs font-normal text-zinc-500">· 2 个已安装</span>
+                </h2>
+                <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-zinc-200 text-zinc-700 text-xs font-medium hover:bg-zinc-50">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> 安装新包
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div class="card p-3 cursor-pointer">
+                  <div class="flex items-start gap-2 mb-2">
+                    <div class="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <i data-lucide="search" class="w-4 h-4 text-zinc-700"></i>
+                    </div>
+                    <div class="flex-1">
+                      <div class="font-medium text-zinc-900 text-sm">文献检索包</div>
+                      <div class="text-[10px] text-zinc-500">v1.0.0 · 内置</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked class="sr-only peer">
+                      <div class="w-7 h-3.5 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600"></div>
+                      <div class="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition peer-checked:translate-x-3.5"></div>
+                    </label>
+                  </div>
+                  <div class="text-[11px] text-zinc-600 leading-relaxed mb-2">arXiv / Semantic Scholar / IACR / OpenReview 多源检索 + Zotero 入库</div>
+                  <div class="text-[10px] text-zinc-500 inline-flex items-center gap-1">
+                    <i data-lucide="layout-panel-left" class="w-3 h-3"></i>UI 框架：对话主 + 右侧产物
+                  </div>
+                </div>
+                <div class="card p-3 cursor-pointer">
+                  <div class="flex items-start gap-2 mb-2">
+                    <div class="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                      <i data-lucide="file-text" class="w-4 h-4 text-zinc-700"></i>
+                    </div>
+                    <div class="flex-1">
+                      <div class="font-medium text-zinc-900 text-sm">文献综述包</div>
+                      <div class="text-[10px] text-zinc-500">v1.0.0 · 内置 · 本体已完成</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked class="sr-only peer">
+                      <div class="w-7 h-3.5 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600"></div>
+                      <div class="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition peer-checked:translate-x-3.5"></div>
+                    </label>
+                  </div>
+                  <div class="text-[11px] text-zinc-600 leading-relaxed mb-2">综述编排 + 引用追溯 + 段落溯源面板</div>
+                  <div class="text-[10px] text-zinc-500 inline-flex items-center gap-1">
+                    <i data-lucide="layout-panel-left" class="w-3 h-3"></i>UI 框架：对话主 + 右侧产物
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 callout">
+                <i data-lucide="library" class="w-3 h-3"></i>
+                <span>0.3 主程序内置 1 个 UI 框架 · 2 个首发包都使用它 · 0.4+ 框架库扩展后能力包可选择</span>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P7 能力包详情 ====== -->
+    <section id="p7" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-mod mt-1">改造</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P7 · 能力包详情（文献综述包）</h3>
+            <p class="text-sm text-zinc-400">单个能力包完整详情：四要素（场景 Agent / Skill / MCP / UI 框架）+ 包内偏好 + 卸载 + 新增"产出 Proposal"段。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">CP1</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">CP2</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="asci-window">
+        <div class="asci-titlebar">
+          <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+          <div class="ml-3 text-[11px] text-zinc-500">ASCI · 配置 / 文献综述包</div>
+        </div>
+        <aside class="bg-zinc-50/60 border-r border-zinc-200 p-2">
+          <div class="sb-item active"><i data-lucide="folder-cog" class="w-4 h-4"></i><span>配置</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="scroll-text" class="w-4 h-4"></i><span>文献库</span></div>
+          <div class="sb-item"><i data-lucide="notebook-text" class="w-4 h-4"></i><span>笔记</span><span class="sb-new-tag">新</span></div>
+        </aside>
+
+        <main class="bg-white overflow-y-auto">
+          <div class="px-6 py-3 border-b border-zinc-200 flex items-center gap-2 text-xs text-zinc-500">
+            <a class="hover:text-zinc-900 cursor-pointer">配置</a>
+            <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            <a class="hover:text-zinc-900 cursor-pointer">能力包</a>
+            <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            <span class="text-zinc-700">文献综述包</span>
+          </div>
+
+          <div class="px-6 py-5">
+            <!-- 包元信息 -->
+            <div class="flex items-start gap-4 mb-5 pb-4 border-b border-zinc-200">
+              <div class="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="file-text" class="w-6 h-6 text-zinc-700"></i>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <h1 class="text-base font-semibold text-zinc-900">文献综述包</h1>
+                  <span class="badge badge-new">已启用</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 mb-1">v1.0.0 · 内置 · 能力本体已在 0.1 / 0.2 完成</div>
+                <div class="text-xs text-zinc-600">科研综述任务的对话行为：综述目标澄清、引用追溯解释、修改反馈</div>
+              </div>
+              <div class="flex flex-col gap-2 items-end">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked class="sr-only peer">
+                  <div class="w-8 h-4 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600"></div>
+                  <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+                </label>
+                <button class="text-[11px] text-zinc-500 hover:text-zinc-700">卸载</button>
+              </div>
+            </div>
+
+            <!-- 四要素 -->
+            <div class="mb-5">
+              <div class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3">四要素</div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <div class="card p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-6 h-6 rounded-md bg-zinc-100 flex items-center justify-center"><i data-lucide="bot" class="w-3.5 h-3.5 text-zinc-600"></i></div>
+                    <div>
+                      <div class="text-xs font-semibold text-zinc-900">场景 Agent 设定</div>
+                      <div class="text-[10px] text-zinc-500">系统提示词 + 对话行为</div>
+                    </div>
+                  </div>
+                  <div class="bg-zinc-50 rounded p-2 text-[10px] text-zinc-600 leading-relaxed font-mono">
+                    You are a scientific reviewer.<br>
+                    Guide user through review structure.<br>
+                    For each claim, trace to evidence.<br>
+                    <span class="text-zinc-400">... 共 142 行</span>
+                  </div>
+                </div>
+                <div class="card p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-6 h-6 rounded-md bg-zinc-100 flex items-center justify-center"><i data-lucide="puzzle" class="w-3.5 h-3.5 text-zinc-600"></i></div>
+                    <div>
+                      <div class="text-xs font-semibold text-zinc-900">Skill 引用</div>
+                      <div class="text-[10px] text-zinc-500">2 个</div>
+                    </div>
+                  </div>
+                  <div class="space-y-1">
+                    <a class="flex items-center justify-between bg-zinc-50 rounded px-2 py-1 hover:bg-zinc-100 cursor-pointer text-[11px]">
+                      <span class="text-zinc-700">综述编排</span>
+                      <i data-lucide="external-link" class="w-3 h-3 text-zinc-400"></i>
+                    </a>
+                    <a class="flex items-center justify-between bg-zinc-50 rounded px-2 py-1 hover:bg-zinc-100 cursor-pointer text-[11px]">
+                      <span class="text-zinc-700">引用追溯</span>
+                      <i data-lucide="external-link" class="w-3 h-3 text-zinc-400"></i>
+                    </a>
+                  </div>
+                </div>
+                <div class="card p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-6 h-6 rounded-md bg-zinc-100 flex items-center justify-center"><i data-lucide="server-cog" class="w-3.5 h-3.5 text-zinc-600"></i></div>
+                    <div>
+                      <div class="text-xs font-semibold text-zinc-900">MCP 引用</div>
+                      <div class="text-[10px] text-zinc-500">消费系统层</div>
+                    </div>
+                  </div>
+                  <div class="text-[11px] text-zinc-600 space-y-1">
+                    <div class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-zinc-400"></span>arXiv / Semantic Scholar（共享自检索包）</div>
+                    <div class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-zinc-400"></span>Zotero（系统层凭据）</div>
+                  </div>
+                </div>
+                <div class="card p-3" style="border-color: #c7d2fe;">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center"><i data-lucide="layout-panel-left" class="w-3.5 h-3.5 text-indigo-600"></i></div>
+                    <div>
+                      <div class="text-xs font-semibold text-zinc-900">UI 框架</div>
+                      <div class="text-[10px] text-zinc-500">选择 + 渲染配置</div>
+                    </div>
+                  </div>
+                  <div class="bg-zinc-50 rounded p-2 mb-2">
+                    <div class="text-[10px] text-zinc-500 mb-1">已选择</div>
+                    <div class="text-[11px] font-medium text-zinc-900 inline-flex items-center gap-1">
+                      <i data-lucide="check" class="w-3 h-3 text-indigo-600"></i>对话主 + 右侧产物
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 产出 Proposal 段（新增） -->
+            <div class="border-t border-zinc-200 pt-4 mb-5">
+              <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="zap" class="w-3.5 h-3.5 text-violet-600"></i>
+                <div class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">产出 Proposal</div>
+                <span class="badge badge-key">capabilities.proposals[]</span>
+              </div>
+              <div class="bg-violet-50/40 border border-violet-200 rounded-lg p-3">
+                <div class="text-[11px] text-zinc-600 mb-2 leading-relaxed">该能力包通过 0.2 §三-3 A3 契约声明产出以下 Proposal kind：</div>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 text-[11px]">
+                    <code class="bg-white border border-violet-200 px-1.5 py-0.5 rounded text-violet-700 font-mono font-bold">citation-relation</code>
+                    <span class="text-zinc-500">触发点：综述生成完成</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px]">
+                    <code class="bg-white border border-violet-200 px-1.5 py-0.5 rounded text-violet-700 font-mono font-bold">hypothesis-promote</code>
+                    <span class="text-zinc-500">触发点：综述生成 / 用户写 Note 含断言</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px]">
+                    <code class="bg-white border border-violet-200 px-1.5 py-0.5 rounded text-violet-700 font-mono font-bold">hypothesis-review</code>
+                    <span class="text-zinc-500">触发点：EvidenceSet 新增 Paper</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 包内偏好 -->
+            <div class="border-t border-zinc-200 pt-4">
+              <div class="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3">包内偏好</div>
+              <div class="card p-3 grid grid-cols-2 gap-3">
+                <div>
+                  <div class="text-[11px] text-zinc-500 mb-1">默认模型</div>
+                  <select class="w-full px-2 py-1 text-xs bg-zinc-50 border border-zinc-200 rounded">
+                    <option>Claude Sonnet 4.6（推荐）</option>
+                    <option>GPT-4o</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="text-[11px] text-zinc-500 mb-1">最大轮数</div>
+                  <input class="w-full px-2 py-1 text-xs bg-zinc-50 border border-zinc-200 rounded" value="30" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P8 Settings 9 tab ====== -->
+    <section id="p8" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-mod mt-1">改造</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P8 · Settings 新 9 tab 结构</h3>
+            <p class="text-sm text-zinc-400">MCP 独立成 tab，数据采集新增 tab（PostHog + 自进化合规 toggle）；Skill / 能力包下沉到左侧"配置"页。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">CP3</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">T3</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">AE2</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card overflow-hidden" style="display: grid; grid-template-columns: 200px 1fr; min-height: 660px;">
+        <aside class="bg-zinc-50 p-2.5 border-r border-zinc-200 overflow-y-auto">
+          <div class="px-2 py-1 text-[10px] font-semibold text-zinc-400 tracking-wider uppercase mb-1">Account</div>
+          <div class="sb-item"><i data-lucide="user" class="w-4 h-4"></i><span>个人资料</span></div>
+          <div class="sb-item"><i data-lucide="book-marked" class="w-4 h-4"></i><span>Zotero</span></div>
+
+          <div class="px-2 py-1 mt-3 text-[10px] font-semibold text-zinc-400 tracking-wider uppercase mb-1">App</div>
+          <div class="sb-item"><i data-lucide="settings" class="w-4 h-4"></i><span>通用</span></div>
+          <div class="sb-item"><i data-lucide="cpu" class="w-4 h-4"></i><span>模型</span></div>
+          <div class="sb-item"><i data-lucide="server-cog" class="w-4 h-4"></i><span>MCP</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item active"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>数据采集</span><span class="sb-new-tag">新</span></div>
+          <div class="sb-item"><i data-lucide="wifi" class="w-4 h-4"></i><span>代理</span></div>
+          <div class="sb-item"><i data-lucide="keyboard" class="w-4 h-4"></i><span>快捷键</span></div>
+          <div class="sb-item"><i data-lucide="archive" class="w-4 h-4"></i><span>已归档</span></div>
+          <div class="sb-item"><i data-lucide="info" class="w-4 h-4"></i><span>关于</span></div>
+
+          <div class="mt-4 mx-2 pt-3 border-t border-zinc-200 text-[10px] text-zinc-500 leading-relaxed">
+            <div class="font-semibold mb-1">变化说明</div>
+            <div>· 旧"配置"tab 拆解</div>
+            <div>· MCP 独立 · 数据采集新增</div>
+            <div>· Skill / 能力包 → 左侧"配置"页</div>
+          </div>
+        </aside>
+
+        <main class="overflow-y-auto bg-white">
+          <div class="px-6 py-5">
+            <h2 class="text-lg font-semibold text-zinc-900 flex items-center gap-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-zinc-600"></i>
+              数据采集
+            </h2>
+            <p class="text-xs text-zinc-500 mt-1">合规底线：欧盟用户默认关闭，主动开启即视为 opt-in；非欧盟用户默认开启，可随时关闭。</p>
+
+            <div class="mt-5 space-y-3">
+              <!-- PostHog -->
+              <div class="card p-4">
+                <div class="flex items-start gap-3 mb-3">
+                  <div class="w-9 h-9 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="line-chart" class="w-4 h-4 text-zinc-600"></i>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <div class="font-medium text-zinc-900 text-sm">产品行为埋点（PostHog）</div>
+                      <span class="text-[10px] text-zinc-500">T1-T4</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-500 mt-1">功能使用率、用户路径、留存。崩溃自动上报 Sentry（堆栈脱敏）。</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" class="sr-only peer">
+                    <div class="w-8 h-4 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600"></div>
+                    <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+                  </label>
+                </div>
+                <div class="bg-zinc-50 rounded px-3 py-2 text-[10px] text-zinc-600">
+                  <i data-lucide="globe" class="w-3 h-3 inline-block"></i>
+                  当前检测到：<span class="font-medium text-zinc-800">欧盟 IP（DE）</span> · 默认关闭，开启即 opt-in
+                </div>
+              </div>
+
+              <!-- 自进化 -->
+              <div class="card p-4">
+                <div class="flex items-start gap-3 mb-3">
+                  <div class="w-9 h-9 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="brain-circuit" class="w-4 h-4 text-zinc-600"></i>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <div class="font-medium text-zinc-900 text-sm">Agent 自进化数据采集</div>
+                      <span class="text-[10px] text-zinc-500">AE1-AE5</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-500 mt-1">独立通道上报 6 类结构化信号，让 Agent 越用越强（0.4+ 微调）。</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" class="sr-only peer">
+                    <div class="w-8 h-4 bg-zinc-200 rounded-full peer peer-checked:bg-indigo-600"></div>
+                    <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition peer-checked:translate-x-4"></div>
+                  </label>
+                </div>
+
+                <!-- 6 类信号 -->
+                <div class="bg-zinc-50 rounded-lg p-3 mb-2">
+                  <div class="text-[10px] font-semibold text-zinc-600 mb-2">采集 6 类结构化信号</div>
+                  <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+                    <div class="px-2 py-1 bg-white rounded text-zinc-700 text-center border border-zinc-200">任务结构</div>
+                    <div class="px-2 py-1 bg-white rounded text-zinc-700 text-center border border-zinc-200">工具使用</div>
+                    <div class="px-2 py-1 bg-violet-50 rounded text-violet-700 text-center border border-violet-200 font-semibold">用户反馈</div>
+                    <div class="px-2 py-1 bg-white rounded text-zinc-700 text-center border border-zinc-200">模型选型</div>
+                    <div class="px-2 py-1 bg-white rounded text-zinc-700 text-center border border-zinc-200">错误异常</div>
+                    <div class="px-2 py-1 bg-white rounded text-zinc-700 text-center border border-zinc-200">工作区结构</div>
+                  </div>
+                </div>
+
+                <!-- 红线 -->
+                <div class="rounded-lg p-2.5" style="background: #fffbeb; border: 1px solid #fde68a;">
+                  <div class="flex items-start gap-2">
+                    <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-700 mt-0.5 flex-shrink-0"></i>
+                    <div class="text-[10px] text-amber-800 leading-relaxed">
+                      <span class="font-semibold">绝不采集：</span>论文内容 · PDF · 笔记原文 · 对话原文 · API Key · 邮箱 · 用户名 · 文件路径
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-2 callout">
+                  <i data-lucide="clock" class="w-3 h-3"></i>
+                  <span>0.4 二发：本周已上传事件查看 + 一键清空 + 首次任务流引导弹窗</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ====== P9 登录 + 数据所有权 ====== -->
+    <section id="p9" class="prototype-stage">
+      <div class="bg-zinc-800/60 rounded-xl p-5 mb-5 border border-zinc-700">
+        <div class="flex items-start gap-3">
+          <span class="badge badge-new mt-1">新增</span>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-white mb-1">P9 · 账户登录 + 数据所有权</h3>
+            <p class="text-sm text-zinc-400">左：登录页（ORCID / Google / Email，GitHub 灰）。右：登录后"你的数据"卡片，含一键导出 / 删除。</p>
+            <div class="mt-2 text-[11px] text-zinc-500">
+              关联审计：<code class="bg-zinc-700/60 px-1 rounded text-zinc-300">U1</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">U2</code> <code class="bg-zinc-700/60 px-1 rounded text-zinc-300">DO1-DO3</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-4">
+        <!-- 登录页 -->
+        <div class="asci-window single">
+          <div class="asci-titlebar">
+            <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+            <div class="ml-3 text-[11px] text-zinc-500">ASCI · 登录</div>
+          </div>
+          <main class="p-8 flex flex-col justify-center bg-white">
+            <div class="max-w-sm mx-auto w-full">
+              <div class="text-center mb-6">
+                <div class="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-3">
+                  <i data-lucide="atom" class="w-6 h-6 text-white"></i>
+                </div>
+                <h1 class="text-lg font-semibold text-zinc-900">登录 ASCI</h1>
+                <p class="text-xs text-zinc-500 mt-1">深度科研 Agent 桌面应用</p>
+              </div>
+
+              <div class="space-y-2 mb-4">
+                <button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50/30 transition text-sm font-medium text-zinc-800">
+                  <i data-lucide="badge-check" class="w-4 h-4 text-indigo-600"></i>
+                  使用 ORCID 登录
+                  <span class="text-[9px] text-zinc-500 ml-auto">科研标配</span>
+                </button>
+                <button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition text-sm font-medium text-zinc-800">
+                  <i data-lucide="chrome" class="w-4 h-4 text-zinc-600"></i>
+                  使用 Google 登录
+                </button>
+                <button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-sm font-medium text-zinc-400 cursor-not-allowed">
+                  <i data-lucide="github" class="w-4 h-4"></i>
+                  使用 GitHub 登录
+                  <span class="text-[9px] text-zinc-400 ml-auto">0.4 视反馈</span>
+                </button>
+              </div>
+
+              <div class="relative my-4">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-zinc-200"></div></div>
+                <div class="relative flex justify-center text-[11px]"><span class="px-3 bg-white text-zinc-400">或</span></div>
+              </div>
+
+              <div class="space-y-2">
+                <input class="w-full px-3 py-2 rounded-lg bg-white border border-zinc-200 text-sm focus:border-indigo-400 outline-none" placeholder="邮箱地址" />
+                <input class="w-full px-3 py-2 rounded-lg bg-white border border-zinc-200 text-sm focus:border-indigo-400 outline-none" placeholder="密码" type="password" />
+                <button class="w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition">登录</button>
+                <div class="text-center text-[11px] text-zinc-500">
+                  没有账号？<a class="text-indigo-600 hover:underline cursor-pointer">注册</a>
+                </div>
+              </div>
+
+              <div class="mt-5 text-center text-[10px] text-zinc-400 leading-relaxed">
+                登录即同意 <a class="underline">用户协议</a> 和 <a class="underline">隐私政策</a><br>
+                数据存储于 <span class="text-zinc-600 font-medium">欧盟节点</span>（GDPR 合规）
+              </div>
+            </div>
+          </main>
+        </div>
+
+        <!-- 数据所有权 -->
+        <div class="asci-window single">
+          <div class="asci-titlebar">
+            <span class="traffic-light"></span><span class="traffic-light"></span><span class="traffic-light"></span>
+            <div class="ml-3 text-[11px] text-zinc-500">ASCI · 设置 · 个人资料</div>
+          </div>
+          <main class="bg-white overflow-y-auto px-6 py-5">
+            <h2 class="text-sm font-semibold text-zinc-900 mb-4 flex items-center gap-2">
+              <i data-lucide="archive" class="w-4 h-4 text-zinc-600"></i>
+              你的数据
+            </h2>
+
+            <div class="card p-4 mb-3">
+              <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="folder" class="w-3.5 h-3.5 text-zinc-600"></i>
+                <div class="text-xs font-semibold text-zinc-800">数据存在哪里</div>
+                <span class="badge badge-new" style="margin-left: auto;">本地优先</span>
+              </div>
+              <div class="bg-zinc-50 rounded-lg p-3 mb-2">
+                <div class="font-mono text-[11px] text-zinc-700 mb-2 flex items-center gap-1.5">
+                  <i data-lucide="home" class="w-3 h-3 text-zinc-500"></i>
+                  ~/.asci/
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                  <div class="bg-white border border-zinc-200 rounded p-2">
+                    <div class="text-base font-semibold text-zinc-900 tabular-nums">128</div>
+                    <div class="text-[10px] text-zinc-500">论文</div>
+                  </div>
+                  <div class="bg-white border border-zinc-200 rounded p-2">
+                    <div class="text-base font-semibold text-zinc-900 tabular-nums">24</div>
+                    <div class="text-[10px] text-zinc-500">笔记</div>
+                  </div>
+                  <div class="bg-white border border-zinc-200 rounded p-2">
+                    <div class="text-base font-semibold text-zinc-900 tabular-nums">7</div>
+                    <div class="text-[10px] text-zinc-500">证据集</div>
+                  </div>
+                </div>
+              </div>
+              <div class="text-[10px] text-zinc-500 leading-relaxed">
+                所有研究对象存储在本地。导出格式符合开放标准（O1），ajv 校验通过——可被外部工具直接对接。
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <button class="w-full flex items-center gap-3 p-3 card hover:bg-zinc-50 transition">
+                <div class="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="download" class="w-4 h-4 text-zinc-600"></i>
+                </div>
+                <div class="flex-1 text-left">
+                  <div class="text-sm font-medium text-zinc-900">一键导出全部数据</div>
+                  <div class="text-[10px] text-zinc-500">JSON 包符合 O1 开放标准</div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-400"></i>
+              </button>
+              <button class="w-full flex items-center gap-3 p-3 card hover:bg-zinc-50 transition" style="border-color: #fde68a;">
+                <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-amber-700"></i>
+                </div>
+                <div class="flex-1 text-left">
+                  <div class="text-sm font-medium text-amber-800">删除账户 + 清除服务端数据</div>
+                  <div class="text-[10px] text-amber-700/80">GDPR Art. 17 · 本地数据可保留继续离线使用</div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-amber-500"></i>
+              </button>
+            </div>
+
+            <div class="mt-4 callout">
+              <i data-lucide="megaphone" class="w-3 h-3"></i>
+              <span>DO4 落地页文案："本地优先 · 数据可携带 · 你的研究永远是你的"</span>
+            </div>
+          </main>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</section>
+
+<!-- ============== Footer ============== -->
+<footer class="footer-bg">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center">
+          <i data-lucide="atom" class="w-4 h-4 text-white"></i>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-white">ASCI</div>
+          <div class="text-[11px] text-zinc-500">Agent-based Scientific Collaboration Interface</div>
+        </div>
+      </div>
+      <div class="flex flex-col md:items-end gap-1 text-[11px] text-zinc-500">
+        <div class="tabular-nums">最后更新 2026-05-14</div>
+        <div>权威源 · <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400">docs/milestones/{0.2,0.3}/north-star.md</code></div>
+        <div>0.4 候选 · <code class="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400">docs/milestones/0.4/design-inputs/default-page.md</code></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Mermaid 初始化
+  if (window.mermaid) {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      themeVariables: {
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontSize: '13px',
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 16,
+      }
+    });
+  }
+
+  // 原型 tab 切换
+  document.querySelectorAll('.proto-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const id = tab.dataset.prototype;
+      document.querySelectorAll('.proto-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.prototype-stage').forEach(s => s.classList.remove('active'));
+      const stage = document.getElementById(id);
+      if (stage) stage.classList.add('active');
+      if (window.lucide) lucide.createIcons();
+      tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  });
+
+  // Lucide icons
+  if (window.lucide) lucide.createIcons();
+
+  // hash 跳转支持指定原型（如 #demo-p5）
+  if (location.hash.startsWith('#demo-')) {
+    const protoId = location.hash.replace('#demo-', '');
+    const tab = document.querySelector(`.proto-tab[data-prototype="${protoId}"]`);
+    if (tab) tab.click();
+  }
+</script>
+
+</body>
+</html>

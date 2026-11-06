@@ -1,0 +1,91 @@
+{
+  "settings": "设置",
+  "language": "语言",
+  "general": "通用",
+  "save": "保存",
+  "cancel": "取消",
+  "close": "关闭",
+  "confirm": "确认",
+  "send": "发送",
+  "collapse": "收起",
+  "expand": "展开",
+  "copy": "复制",
+  "copied": "已复制",
+  "debugCopy": "复制本轮摘要（已脱敏）",
+  "debugCopied": "摘要已复制",
+  "zoomIn": "放大",
+  "zoomOut": "缩小",
+  "resetZoom": "重置缩放",
+  "untitled": "(无标题)",
+  "userAvatar": "用户头像",
+  "loading": "加载中…",
+  "relativeTime": {
+    "now": "刚刚",
+    "minute": "{{count}} 分",
+    "hour": "{{count}} 时",
+    "day": "{{count}} 天",
+    "week": "{{count}} 周",
+    "month": "{{count}} 月",
+    "year": "{{count}} 年"
+  },
+  "user": "用户",
+  "spinner": {
+    "loading": "加载中"
+  },
+  "actions": {
+    "attach": "添加附件",
+    "attachLabel": "附件"
+  },
+  "image": {
+    "save": "保存图片"
+  },
+  "modelSelector": {
+    "noModelsCta": "暂无可用模型，前往设置",
+    "selectModel": "选择模型",
+    "searchPlaceholder": "搜索模型、ID 或渠道…",
+    "noResults": "未找到模型",
+    "manageChannels": "管理渠道与模型",
+    "menuLabel": "选择模型",
+    "hint": "仅作用于当前会话",
+    "tooltipDescription": "为当前会话选择模型",
+    "tooltipHint": "点击选择 · 仅当前会话",
+    "navigate": "切换",
+    "confirm": "确认",
+    "searchLabel": "搜索模型或渠道",
+    "chatChannel": "聊天渠道",
+    "unverified": "渠道类型来自配置，其他能力与价格尚未核实。",
+    "imageChannels": "生图工具渠道：{{channels}}。可在设置中管理。"
+  },
+  "modelFallback": {
+    "aliasInactive": "子 Agent「{{agentName}}」需要的 {{family}} 模型未启用，已改用 {{model}}。",
+    "noClaudeActivated": "当前渠道未启用任何 Claude 模型，请在「模型提供方」中启用后重试。",
+    "summary": "部分辅助任务所需的 {{family}} 模型未启用，{{count}} 个任务将使用 {{model}}。"
+  },
+  "imageReferenceCount": "{{count}} 张参考图",
+  "imageActualDimensions": "实际尺寸：{{width}} × {{height}} 像素",
+  "imageEditDimensionsNotice": "仅靠文字要求不能保证保持原图尺寸或其他像素不变。",
+  "imageBillingNotice": "生图和编辑可能计费，失败请求也可能产生费用。实际费用请核对中转账单；Tinker 尚无此渠道的可信报价。",
+  "imageVersion": {
+    "label": "版本 {{id}}",
+    "from": "基于 {{id}}",
+    "edit": "基于此图修改",
+    "compare": "对比版本",
+    "source": "来源版本",
+    "current": "当前版本",
+    "compareNote": "图片按各自原始比例展示，不代表像素精确对齐。",
+    "missing": "图片文件不可用，请检查本地文件或选择其他版本后再修改。",
+    "unavailableId": "需要当前会话中的稳定图片版本。",
+    "parentMissing": "来源版本记录不可用。",
+    "selected": "正在修改版本 {{id}}",
+    "selectedNote": "描述修改内容后发送；选择图片不会自动生成。",
+    "remove": "移除图片引用"
+  },
+  "sendRecovery": {
+    "title": "请求未完成",
+    "notice": "本次请求可能已经产生费用，再次发送前请核对服务商账单。恢复草稿只回填内容，不会重新发送。",
+    "view": "查看未完成的输入",
+    "restore": "恢复草稿",
+    "occupied": "输入框已有内容或引用，可继续编辑；恢复不会覆盖当前内容。",
+    "attachmentFailed": "附件准备失败，草稿已保留，尚未向模型发送请求。"
+  }
+}

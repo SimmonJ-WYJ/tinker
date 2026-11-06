@@ -1,0 +1,357 @@
+{
+  "minimap": {
+    "title": "消息导航",
+    "searchPlaceholder": "搜索消息...",
+    "noMatches": "未找到匹配消息",
+    "emptyMessage": "(空消息)"
+  },
+  "sidePanel": {
+    "sessionFiles": "会话文件",
+    "filesTooltip": "当前会话的专属文件，仅本次对话的 Agent 可以访问",
+    "uploadTooltip": "上传文件到会话",
+    "openInFinder": "在 Finder 中打开",
+    "dragOverlay": "拖放到此处，上传到会话",
+    "noWorkspace": "请选择项目",
+    "uploadFailed": "文件上传失败",
+    "addedFile_one": "已添加 {{count}} 个文件",
+    "addedFile_other": "已添加 {{count}} 个文件"
+  },
+  "sessionPapers": {
+    "title": "本次检索",
+    "tooltip": "本会话 Agent 检到的论文。点击卡片查看详情，或加入 Zotero 文献库管理。",
+    "live": {
+      "searching": "正在检索（{{done}}/{{total}}）",
+      "organizing": "正在整理候选",
+      "enrichProgress": "正在补全摘要（{{enriched}}/{{total}}）",
+      "enrichComplete": "摘要补全完成（{{enriched}}/{{total}}）",
+      "rawCountHint": "~{{count}} 篇",
+      "scoreProgress": "正在评分（{{scored}}/{{total}}）",
+      "scoreComplete": "评分完成（{{scored}}/{{total}}）",
+      "reporting": "正在为 {{count}} 篇候选生成 {{sections}} 节检索报告…"
+    },
+    "authoritativeHint": "此处为最终入库去重后的论文数。若 Agent 在对话中报数与此不一致，请以此为准（Agent 的数字可能是去重前的源 API 统计）。",
+    "addedToZotero": "已加入",
+    "addedToZoteroTooltip": "已加入 Zotero",
+    "addToZotero": "加入 Zotero",
+    "link": "链接",
+    "refresh": "刷新",
+    "expand": "展开大窗口",
+    "loading": "加载中…",
+    "empty": "暂无检索结果",
+    "emptyHint": "Agent 检索后会自动汇集到这里。\n若 Agent 在对话中报告“未命中”，此处也会保持空白——以 Agent 的明示为准。",
+    "papersCount": "· {{count}} 篇",
+    "sortLabel": "排序",
+    "sortRelevanceDesc": "相关度 ↓",
+    "sortRelevanceAsc": "相关度 ↑",
+    "sortCitationsDesc": "引用量 ↓",
+    "sortCitationsAsc": "引用量 ↑",
+    "sortYearDesc": "年份 ↓",
+    "sortYearAsc": "年份 ↑",
+    "sortImpactDesc": "影响因子 ↓",
+    "sortImpactAsc": "影响因子 ↑",
+    "sortSourceDesc": "来源 Z–A",
+    "sortSourceAsc": "来源 A–Z",
+    "sortJcrDesc": "JCR Q1 优先",
+    "sortJcrAsc": "JCR Q4 优先",
+    "sortVenueTierDesc": "期刊等级 ↓",
+    "sortVenueTierAsc": "期刊等级 ↑",
+    "citedBy": "引用 {{count}}",
+    "impactFactor": "IF {{value}}",
+    "emptyAfterFilter": "当前筛选条件下没有匹配的论文",
+    "emptyAfterFilterHint": "尝试放宽年份范围，或清空部分筛选项。",
+    "abstractUnavailable": "摘要不可获取",
+    "scoreBadge": {
+      "tooltip": "评分依据：{{dimensions}}",
+      "noData": "暂无评分",
+      "dimCitations": "引用量",
+      "dimRecency": "近期度",
+      "dimCitationVelocity": "引用速度",
+      "dimVenue": "期刊/会议",
+      "dimKeyword": "关键词匹配",
+      "partialHint": "仅基于 {{used}}/{{total}} 个维度——部分数据源缺少引用量或期刊信息"
+    },
+    "score": {
+      "shortLabel": "评分",
+      "final": "综合 {{score}}",
+      "relevance": "相关性 {{score}}(主)",
+      "quality": "质量 {{score}}(次)",
+      "dataConfidence": "置信度 {{value}}",
+      "dimSemantic": "语义相关",
+      "dimMethod": "方法匹配",
+      "dimVenue": "期刊质量",
+      "dimPubStatus": "出版状态",
+      "dimRecency": "时效性",
+      "dimInfluence": "影响力",
+      "dimRepro": "可复现",
+      "nullMark": "—",
+      "reasonHighSemantic": "语义高度相关",
+      "reasonHighMethod": "方法匹配度高",
+      "reasonReweighted": "缺数据项已重分配权重：{{fields}}",
+      "reasonJoiner": "；",
+      "pubStatus": {
+        "preprint_only": "纯预印本",
+        "preprint_with_doi": "预印本（有 DOI）",
+        "accepted_pending_publication": "已接收待出版",
+        "published_workshop": "发表于 workshop",
+        "published_conference": "已正式发表（会议）",
+        "published_journal": "已正式发表（期刊）",
+        "published_repository": "已发布（仓库）",
+        "unknown": "出版状态未知"
+      }
+    },
+    "publishedYearTooltip": "此论文的发表年份",
+    "stats": {
+      "title": "概览",
+      "simpleBadge": "共检到 {{count}} 篇",
+      "yearLabel": "年份",
+      "sourceLabel": "来源",
+      "relevanceLabel": "相关度",
+      "relevancePlaceholder": "暂无相关度数据",
+      "relevanceLow": "低",
+      "relevanceHigh": "高",
+      "yearUnknown": "{{count}} 篇年份未知",
+      "clickToFilter": "点击筛选",
+      "clickToClear": "点击清除筛选"
+    },
+    "filter": {
+      "button": "筛选",
+      "buttonActive_one": "筛选（{{count}} 项）",
+      "buttonActive_other": "筛选（{{count}} 项）",
+      "title": "筛选检索结果",
+      "sectionOverview": "分布概览",
+      "sectionMore": "更多条件",
+      "sourceArxiv": "arXiv",
+      "sourcePubmed": "PubMed",
+      "sourceOpenalex": "OpenAlex",
+      "sourceSemanticscholar": "Semantic Scholar",
+      "sourceCrossref": "Crossref",
+      "sourceDblp": "DBLP",
+      "sourceIacr": "IACR",
+      "sourceBiorxiv": "bioRxiv/medRxiv",
+      "sourceEuropepmc": "EuropePMC",
+      "sourceCore": "CORE",
+      "sourceIeee": "IEEE/ACM",
+      "sourceWeb": "网页",
+      "sourceJournal": "OPENSCI 期刊",
+      "sourceOther": "其他",
+      "citations": "引用量",
+      "citationsAny": "不限",
+      "citationsMin10": "≥ 10",
+      "citationsMin50": "≥ 50",
+      "citationsMin100": "≥ 100",
+      "citationsMin500": "≥ 500",
+      "score": "综合评分",
+      "scoreAny": "不限",
+      "scoreMin50": "≥ 50",
+      "scoreMin65": "≥ 65",
+      "scoreMin80": "≥ 80",
+      "jcrPartition": "JCR 分区",
+      "jcrQ1": "Q1",
+      "jcrQ2": "Q2",
+      "jcrQ3": "Q3",
+      "jcrQ4": "Q4",
+      "impactFactor": "影响因子",
+      "ifAny": "不限",
+      "ifMin2": "≥ 2",
+      "ifMin5": "≥ 5",
+      "ifMin10": "≥ 10",
+      "venueTier": "期刊/会议等级",
+      "venueTierTop": "顶级",
+      "venueTierStrong": "优秀",
+      "venueTierNormal": "普通",
+      "venueTierWeak": "较弱",
+      "sortAsc": "按{{label}}升序排列",
+      "sortDesc": "按{{label}}降序排列",
+      "abstractOnly": "仅显示有摘要",
+      "reset": "重置"
+    },
+    "selection": {
+      "rowCheckboxLabel": "选中此论文",
+      "selectAllTooltip": "全选可加入的论文",
+      "clearTooltip": "清除选择",
+      "selectedCount": "已选 {{count}} 篇",
+      "addToZotero": "加入 Zotero（{{count}} 篇）",
+      "noWorkspace": "请先选择项目"
+    },
+    "overview": {
+      "trigger": "整体概览",
+      "title": "{{count}} 篇分布概览",
+      "yearLabel": "年份",
+      "sourceLabel": "来源",
+      "relevanceLabel": "相关度",
+      "lowLabel": "低",
+      "highLabel": "高",
+      "relevanceThresholdAll": "全部",
+      "relevanceThresholdMin": "≥ {{value}}",
+      "relevanceUnavailable": "暂无相关度数据",
+      "brushEmpty": "未选择",
+      "brushSingle": "{{year}}年 · {{count}} 条",
+      "brushRange": "{{start}} – {{end}} · 共 {{count}} 条 · {{span}} 年",
+      "brushClear": "清除选择"
+    },
+    "more": {
+      "trigger": "更多",
+      "refresh": "刷新",
+      "openInNewWindow": "在新窗口打开"
+    },
+    "multiSelect": "多选",
+    "density": {
+      "tooltip": "显示密度",
+      "compact": "密集",
+      "normal": "标准"
+    },
+    "bulk": {
+      "selectedSummary": "已选 {{selected}} / {{total}}",
+      "addToZotero": "加入 Zotero",
+      "exit": "取消",
+      "selectAll": "全选",
+      "clearAll": "清空选择",
+      "findResearchGap": "找研究空白",
+      "findingResearchGap": "分析中…"
+    },
+    "researchGapPrompt": {
+      "intro": "对我在检索结果里勾选的这 {{count}} 篇论文做研究空白对照分析——铺一张对照表，标出没人填的维度组合与互相矛盾的结论，每格可溯源，范围仅限这几篇：",
+      "introNoList": "对我勾选的论文做研究空白对照分析——铺对照表，标出没人填的维度组合与互相矛盾的结论；范围仅限所选。"
+    }
+  },
+  "skillMention": {
+    "empty": "无匹配 Skill"
+  },
+  "mcpMention": {
+    "empty": "无匹配 MCP 服务"
+  },
+  "citation": {
+    "returnButton": {
+      "label": "↩ 返回 [{{n}}] 之前的阅读位置",
+      "ariaLabel": "返回引用前的阅读位置"
+    },
+    "badge": {
+      "ariaLabel": "引用 {{n}}，点击跳转到参考文献列表对应条目"
+    },
+    "tooltip": {
+      "quoteLabel": "引用原文",
+      "clickToJump": "点击跳转到 §7 References 对应条目",
+      "clickToOpenSource": "点击在右侧打开来源"
+    },
+    "jumpFailed": {
+      "noContext": "[{{n}}] 无法跳转：未找到引用上下文",
+      "notFoundTitle": "本文档 §7 References 中未找到 [{{n}}]",
+      "notFoundDescription": "可能因为 §7 还未生成完整，或综述结构非标准"
+    },
+    "unverified": {
+      "label": "未核验",
+      "tooltip": "该数据未绑定引用来源，请视为未核验"
+    }
+  },
+  "doiChip": {
+    "tooltip": "查看文献详情",
+    "lookupFallback": "未找到该文献的元数据，已在浏览器中打开"
+  },
+  "rewind": {
+    "tooltip": "回退到此处",
+    "confirmTitle": "确认回退",
+    "confirmDescription": "回退将截断该消息之后的所有对话，并恢复文件到该时刻的状态。此操作不可撤销，确定要回退吗？",
+    "confirmCancel": "取消",
+    "confirmAction": "回退",
+    "successFull": "已回退到此处",
+    "successFiles": "{{count}} 个文件已恢复",
+    "successNoFileChange": "文件无变化",
+    "warningFilesOnly": "已回退对话",
+    "warningFilesDescription": "文件恢复不可用：{{reason}}"
+  },
+  "fork": {
+    "tooltip": "从此处分叉",
+    "success": "已创建分叉会话",
+    "failed": "分叉会话失败"
+  },
+  "feedback": {
+    "thumbsUp": {
+      "tooltip": "回答不错"
+    },
+    "thumbsDown": {
+      "tooltip": "回答不行"
+    },
+    "saveFailed": "反馈未能保存，请重试"
+  },
+  "addToEvidenceSet": {
+    "tooltip": "加入证据集",
+    "popoverTitle": "加入证据集",
+    "loading": "加载中…",
+    "emptyList": "暂无证据集 — 新建一个开始",
+    "emptyNoReview": "暂无可保存的证据集 — 本次会话还没产出综述",
+    "emptyNoEvidence": "这条回答没有引用相关论文，暂无可加入证据集的内容",
+    "createNew": "新建证据集",
+    "saveAsSetPlaceholder": "为这个证据集起个名…",
+    "saveAsSetButton": "新建",
+    "renameButton": "重命名",
+    "savedHint": "已保存到证据集列表，可继续修改名称",
+    "savedToast": "已保存「{{name}}」",
+    "renamedToast": "已重命名为「{{name}}」",
+    "saveError": "保存失败，请稍后再试",
+    "openSetDetail": "打开证据集详情",
+    "addedToast": "已将问答加入「{{name}}」",
+    "alreadyExistsToast": "已在「{{name}}」中",
+    "openSetAction": "打开",
+    "unnamedSet": "（未命名集合）"
+  },
+  "rightPanel": {
+    "tabs": {
+      "sessionFiles": "会话文件",
+      "sessionPapers": "检索论文",
+      "filePreview": "文件预览",
+      "paperDetail": "论文详情",
+      "paperRecord": "论文记录",
+      "researchGap": "研究空白",
+      "quoteChat": "引用对话"
+    },
+    "textSelection": {
+      "askInSidebar": "在侧边栏提问",
+      "addToChat": "添加到对话"
+    },
+    "quoteChat": {
+      "noQuote": "未选择引用",
+      "selectedText": "选中的文本：",
+      "askAbout": "针对此文本提问：",
+      "placeholder": "在此输入你的问题...",
+      "shortcut": "Cmd/Ctrl + Enter 发送",
+      "send": "发送",
+      "sending": "发送中..."
+    },
+    "addTab": {
+      "restoreFiles": "添加会话文件",
+      "restorePapers": "添加检索论文"
+    },
+    "tabSearch": {
+      "trigger": "搜索标签",
+      "placeholder": "搜索打开的标签…",
+      "empty": "没有匹配的标签"
+    },
+    "context": {
+      "close": "关闭",
+      "closeOthers": "关闭其他",
+      "closeRight": "关闭右侧标签"
+    },
+    "scrollLeft": "向左滚动标签",
+    "scrollRight": "向右滚动标签",
+    "maximize": "全屏",
+    "restore": "还原",
+    "emptyState": "右栏暂无打开内容"
+  },
+  "artifactCard": {
+    "open": "打开方式",
+    "openInApp": "在应用内打开",
+    "openWithSystem": "用系统应用打开",
+    "revealInFolder": "在文件夹中显示",
+    "type": {
+      "website": "网页",
+      "markdown": "文档 · MD",
+      "pdf": "PDF",
+      "document": "文档",
+      "image": "图片",
+      "data": "数据",
+      "file": "文件"
+    }
+  },
+  "messageMoreActions": "更多消息操作",
+  "imageRetryReview": "上一轮生图请求可能已经计费。消息已放回输入框，请先查看已有图片和账单，再决定是否重新发送。"
+}

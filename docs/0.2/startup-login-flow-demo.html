@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>首次下载后 · 启动与登录流程</title>
+<style>
+  :root{
+    --text:#1f1f1d; --soft:#6f6f69; --faint:#9a9a93;
+    --hair:#ececea; --panel:#fff; --side:#fafafa;
+    --btn-bg:#f1f0ee; --radius:9px;
+    --primary:#232321; --accent:#3f6fb5; --accent-soft:#e8eef7;
+    --zotero:#cc2936; --ring:#378ADD; --ok:#2f7d32;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#eceae7;color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  svg{display:block;}
+  .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+
+  .top{height:54px;display:flex;align-items:center;gap:14px;padding:0 20px;background:#fff;border-bottom:1px solid var(--hair);position:sticky;top:0;z-index:10;}
+  .top b{font-size:15px;}
+  .top .sp{flex:1;}
+  .top button{font:inherit;font-size:13px;border:1px solid var(--hair);background:#fff;border-radius:8px;padding:7px 13px;cursor:pointer;}
+  .top button:hover{background:#f5f5f3;}
+  .top button.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  .layout{display:flex;gap:24px;max-width:1140px;margin:0 auto;padding:24px 20px 60px;align-items:flex-start;}
+
+  /* 左侧步骤流水线 */
+  .steps{width:330px;flex:none;}
+  .step{display:flex;gap:12px;cursor:pointer;border-radius:12px;padding:10px 12px;border:1px solid transparent;}
+  .step:hover{background:#f3f2f0;}
+  .step.active{background:#fff;border-color:var(--hair);box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .step .num{width:26px;height:26px;border-radius:50%;background:#e2e1dd;color:#6a6a63;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none;}
+  .step.active .num{background:var(--primary);color:#fff;}
+  .step.done .num{background:#dceadd;color:var(--ok);}
+  .step .body h4{margin:0 0 2px;font-size:13.5px;}
+  .step .body p{margin:0;font-size:12px;color:var(--soft);}
+  .step .gate{display:inline-block;margin-top:4px;font-size:10.5px;padding:1px 7px;border-radius:6px;background:var(--accent-soft);color:#1f5fa6;}
+  .step .gate.none{background:#efeee9;color:var(--faint);}
+  .conn{height:10px;width:1px;background:var(--hair);margin-left:24px;}
+
+  /* 右侧屏幕 */
+  .screenwrap{flex:1;min-width:0;position:sticky;top:78px;}
+  .frame{background:#fff;border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08);height:560px;display:flex;flex-direction:column;}
+  .titlebar{height:34px;display:flex;align-items:center;gap:7px;padding:0 12px;border-bottom:1px solid var(--hair);background:#fafafa;}
+  .titlebar i{width:11px;height:11px;border-radius:50%;}
+  .tb-r{background:#ff5f57;}.tb-y{background:#febc2e;}.tb-g{background:#28c840;}
+  .screen{flex:1;position:relative;overflow:hidden;}
+  .center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;}
+
+  .logo{width:54px;height:54px;border-radius:14px;background:#232321;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .spinner{width:26px;height:26px;border:3px solid #e6e6e2;border-top-color:#9a9a93;border-radius:50%;margin:14px auto 0;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .muted{color:var(--soft);font-size:13.5px;margin-top:10px;}
+
+  .card{width:330px;background:#fff;border:1px solid var(--hair);border-radius:16px;box-shadow:0 10px 34px rgba(0,0,0,.10);padding:26px 24px;}
+  .card h2{margin:0 0 6px;font-size:19px;}
+  .card p{margin:0 0 18px;color:var(--soft);font-size:13px;line-height:1.5;}
+  .full{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:10px;border:0;background:var(--primary);color:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+  .ghost{display:block;width:100%;margin-top:10px;background:none;border:none;color:var(--faint);font:inherit;font-size:13px;cursor:pointer;}
+
+  /* mini app shell */
+  .shell{position:absolute;inset:0;display:flex;}
+  .sb{width:150px;background:var(--side);border-right:1px solid var(--hair);padding:12px 10px;font-size:12px;}
+  .sb .p{font-weight:600;margin-bottom:10px;}
+  .sb .n{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;color:#3a3a37;position:relative;}
+  .sb .n.spot{background:#fff;box-shadow:0 0 0 3px var(--ring);z-index:5;}
+  .main{flex:1;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:13px;}
+  .dim{position:absolute;inset:0;background:rgba(20,20,18,.45);}
+  .tip{position:absolute;left:170px;top:120px;width:210px;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:13px;z-index:6;}
+  .tip .k{font-size:10.5px;color:var(--accent);font-weight:600;}
+  .tip h4{margin:3px 0 5px;font-size:13.5px;}
+  .tip p{margin:0;font-size:12px;color:var(--soft);}
+
+  .caption{margin-top:14px;background:#fff;border:1px solid var(--hair);border-radius:12px;padding:14px 16px;}
+  .caption h3{margin:0 0 6px;font-size:14px;}
+  .caption p{margin:0;color:var(--soft);font-size:13px;line-height:1.55;}
+  .caption code{background:#f1f0ee;border-radius:4px;padding:1px 5px;font-size:12px;}
+
+  .note{max-width:1140px;margin:0 auto;padding:0 20px 50px;color:var(--soft);font-size:12.5px;line-height:1.6;}
+  .note b{color:var(--text);}
+  .badge-paper{background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;}
+</style>
+</head>
+<body>
+  <div class="top">
+    <b>首次下载后 · 启动与登录流程</b>
+    <span class="sp"></span>
+    <button id="prev">← 上一步</button>
+    <button class="primary" id="next">下一步 →</button>
+    <button id="replay">↺ 重播</button>
+  </div>
+
+  <div class="layout">
+    <!-- 左：步骤流水线 -->
+    <div class="steps" id="stepList"></div>
+
+    <!-- 右：屏幕 + 说明 -->
+    <div class="screenwrap">
+      <div class="frame">
+        <div class="titlebar"><i class="tb-r"></i><i class="tb-y"></i><i class="tb-g"></i></div>
+        <div class="screen" id="screen"></div>
+      </div>
+      <div class="caption" id="caption"></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>要点：</b>登录由渲染根 <code>App.tsx</code> 的 <code>LOGIN_ENABLED</code> 控制，默认 true（<code>vite define: ASCI_SKIP_LOGIN !== '1'</code>）→ <b>打包下载版强制登录</b>；
+    打包版 <code>app.isPackaged</code> 为真 → 无 dev bypass，必须真实登录。登录是进入应用内容前的<b>唯一硬门槛</b>，位于 <code>RouteGuard</code>、<code>AppShell</code> 之前；onboarding 在 AppShell 之内，<b>登录成功后才出现</b>。
+  </div>
+
+<script>
+  const STEPS = [
+    { n:'1', title:'下载安装 → 启动', gate:null,
+      cap:['启动应用','用户双击打开下载安装的 App。主进程开始初始化。'],
+      screen:'boot' },
+    { n:'2', title:'主进程 boot', gate:null,
+      cap:['main/index.ts','创建主窗口、加载已构建的界面；初始化 AuthService、注册 auth IPC、尝试 getCurrentUser() 恢复登录态。打包版无 dev bypass。'],
+      screen:'boot' },
+    { n:'3', title:'AuthSplash · 检查登录态', gate:'RouteGuard',
+      cap:['RouteGuard：checking','useInitAuth() 调 getCurrentUser()。状态 uninitialized/checking 时显示 AuthSplash（转圈）。'],
+      screen:'splash' },
+    { n:'4', title:'登录页（首次：无 token）', gate:'RouteGuard',
+      cap:['RouteGuard：unauthenticated → LoginPage','首次用户无 token → 未登录 → 显示登录页。这就是「登录加入的位置」——在主界面之前。'],
+      screen:'login' },
+    { n:'5', title:'OPENSCI 授权中', gate:'RouteGuard',
+      cap:['oauth-pending 子态','点「使用 OPENSCI 登录」→ 打开浏览器 OIDC 授权 → asci:// deeplink 回调。期间显示授权中 + 取消。'],
+      screen:'pending' },
+    { n:'6', title:'登录成功 → 主界面', gate:'RouteGuard',
+      cap:['RouteGuard：authenticated → AppShell','拿到 token → 状态 authenticated → 渲染 AppShell（应用主界面）。'],
+      screen:'app' },
+    { n:'7', title:'首次：onboarding 引导', gate:null,
+      cap:['AppShell 内 · SpotlightOverlay','若是首次安装，onboarding spotlight 此时才开始（配置模型 → 连 Zotero → 新建任务）。登录之后，不在登录之前。'],
+      screen:'onboard' },
+  ];
+  let i = 0;
+  const $ = s=>document.querySelector(s);
+
+  // 左侧步骤列表
+  const list = $('#stepList');
+  STEPS.forEach((s,idx)=>{
+    const el = document.createElement('div');
+    el.className='step'; el.dataset.i=idx;
+    el.innerHTML = `<div class="num">${s.n}</div><div class="body"><h4>${s.title}</h4>
+      ${s.gate?`<span class="gate">${s.gate}</span>`:`<span class="gate none">无门控</span>`}</div>`;
+    el.onclick=()=>go(idx);
+    list.appendChild(el);
+    if(idx<STEPS.length-1){ const c=document.createElement('div'); c.className='conn'; list.appendChild(c); }
+  });
+
+  function screenHTML(kind){
+    if(kind==='boot') return `<div class="center"><div><div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div><div class="muted">正在启动…</div><div class="spinner"></div></div></div>`;
+    if(kind==='splash') return `<div class="center"><div><div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div><div style="font-weight:600">ASCI</div><div class="spinner"></div><div class="muted">检查登录状态…</div></div></div>`;
+    if(kind==='login') return `<div class="center"><div class="card">
+        <div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div>
+        <h2>欢迎使用 ASCI</h2><p>登录以同步你的项目与文献库。数据默认存于本地。</p>
+        <button class="full">使用 OPENSCI 登录</button><button class="ghost">取消</button></div></div>`;
+    if(kind==='pending') return `<div class="center"><div class="card">
+        <div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div>
+        <h2>欢迎使用 ASCI</h2><div class="spinner"></div><div class="muted">正在打开 OPENSCI 完成授权…</div>
+        <button class="ghost" style="margin-top:16px">取消</button></div></div>`;
+    if(kind==='app') return shell(false);
+    if(kind==='onboard') return shell(true);
+    return '';
+  }
+  function shell(withOnboard){
+    return `<div class="shell">
+      <div class="sb">
+        <div class="p">生物学</div>
+        <div class="n">🔍 Search</div>
+        <div class="n ${withOnboard?'spot':''}">⚙ Configure</div>
+        <div class="n">📚 Library</div>
+        <div class="n">＋ New task</div>
+      </div>
+      <div class="main">${withOnboard?'':'<span style="color:#9a9a93">应用主界面</span>'}</div>
+      ${withOnboard?`<div class="dim"></div>
+        <div class="tip"><div class="k">1 / 3</div><h4>配置模型</h4><p>连接你的 LLM 渠道，开始任务的第一步。</p></div>`:''}
+    </div>`;
+  }
+
+  function render(){
+    document.querySelectorAll('.step').forEach((el,idx)=>{
+      el.classList.toggle('active', idx===i);
+      el.classList.toggle('done', idx<i);
+    });
+    const s = STEPS[i];
+    $('#screen').innerHTML = screenHTML(s.screen);
+    $('#caption').innerHTML = `<h3>${s.title}</h3><p>${s.cap[1]}</p>`;
+    $('#prev').disabled = i===0;
+    $('#next').disabled = i===STEPS.length-1;
+  }
+  function go(n){ i=Math.max(0,Math.min(STEPS.length-1,n)); render(); }
+  $('#prev').onclick=()=>go(i-1);
+  $('#next').onclick=()=>go(i+1);
+  $('#replay').onclick=()=>go(0);
+  render();
+</script>
+</body>
+</html>

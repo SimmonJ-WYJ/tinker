@@ -1,0 +1,208 @@
+{
+  "agent": {
+    "toast": {
+      "zoteroLaunchFailed": {
+        "title": "启动 Zotero 失败",
+        "description": "请检查 Zotero 是否已安装"
+      },
+      "appendDuringStreaming": {
+        "title": "Agent 运行中暂不支持追加发送附件",
+        "description": "请等待完成后再发送附件，或先撤除附件仅发送文本"
+      },
+      "appendFailed": {
+        "title": "追加消息失败"
+      }
+    },
+    "planMode": {
+      "title": "Agent 正在规划中...",
+      "subtitle": "完成后将请求你的审批"
+    },
+    "emptyState": {
+      "welcomeTitle": "欢迎使用 Tinker Agent",
+      "welcomeBody": "请先选择一个 Agent 供应商，配置完成后即可开始与 Agent 对话。",
+      "noModelTitle": "暂无可用模型",
+      "noModelBody": "当前渠道未配置可用模型，前往设置完成配置后即可开始对话。"
+    },
+    "exitPlanBanner": {
+      "title": "Agent 计划待审批",
+      "subtitle": "Agent 已完成计划，请选择如何继续",
+      "permissionsHeader": "计划需要的权限：",
+      "feedbackPlaceholder": "输入修改意见...",
+      "keyboardHint": "点击选择 · ↑↓ Enter 确认 · 1-4 快速选择",
+      "options": {
+        "autoApprove": {
+          "label": "批准并自动执行",
+          "description": "自动批准所有后续操作"
+        },
+        "approveManual": {
+          "label": "批准，手动审批编辑",
+          "description": "后续文件修改需要逐一确认"
+        },
+        "reject": {
+          "label": "拒绝计划",
+          "description": "直接拒绝，Agent 不会执行计划"
+        },
+        "feedback": {
+          "label": "提供修改意见",
+          "description": "告诉 Agent 需要调整什么"
+        }
+      }
+    },
+    "askUserBanner": {
+      "title": "Tinker Agent 需要你的输入",
+      "tabLabel": "{{idx}}-{{kind}}：{{name}}",
+      "kindSingle": "单选",
+      "kindMulti": "多选",
+      "questionLabel": "问题 {{idx}}",
+      "questionHeader": "{{idx}}-{{kind}}{{suffix}}",
+      "headerSuffix": "：{{header}}",
+      "keyboardHint": "↑↓ 选择 · Enter {{next}}",
+      "next": "下一个",
+      "confirmKey": "确认",
+      "confirm": "确认",
+      "other": "其他...",
+      "otherPlaceholder": "输入自定义答案..."
+    },
+    "taskProgress": {
+      "title": "任务进度",
+      "unnamedTask": "未命名任务",
+      "taskIdFallback": "任务 #{{id}}",
+      "expandAll": "展开全部 {{count}} 项"
+    },
+    "toolActivity": {
+      "generateImage": "生成图片",
+      "collapseLabel": "收起工具活动",
+      "expandLabel": "展开全部 {{count}} 项工具活动",
+      "errorBadge": "错误"
+    },
+    "contentBlock": {
+      "prompt": "提示词",
+      "toolUsesCount": "{{count}} 次工具调用",
+      "toolUsesCount_other": "{{count}} 次工具调用",
+      "childTools": "{{count}} 项工具调用",
+      "childTools_other": "{{count}} 项工具调用",
+      "tokensCount": "{{formattedCount}} tokens"
+    },
+    "litReviewDirections": {
+      "title": "选择综述方向",
+      "subtitle": "lit-review · 第 1 轮",
+      "rerollLabel": "换一组方向",
+      "customLabel": "自定义方向",
+      "comprehensiveLabel": "全面综述（覆盖全部论文）",
+      "comprehensiveDescription": "不收敛到单一方向，对证据集中的全部论文做全景式综述",
+      "customTitle": "自定义综述方向",
+      "customPlaceholder": "描述你希望综述采用的方向……",
+      "cancel": "取消",
+      "submitCustom": "采用此方向"
+    },
+    "searchPlanConfirm": {
+      "title": "确认检索方案",
+      "subtitle": "lit-search · 执行前确认",
+      "field": {
+        "researchQuestion": "研究问题",
+        "keywords": "关键词",
+        "sources": "检索源",
+        "methodTerms": "方法词",
+        "objectTerms": "对象词",
+        "timeRange": "时间范围",
+        "targetCount": "目标数量"
+      },
+      "action": {
+        "confirm": "按此方案检索",
+        "adjust": "我来调整",
+        "cancel": "取消"
+      },
+      "adjustTitle": "调整检索方案",
+      "adjustPlaceholder": "用一句话描述要改什么，例如：只搜 arxiv、加上 2020 年后、去掉关键词 X……",
+      "adjustSubmit": "提交调整"
+    },
+    "contextBadge": {
+      "input": "输入",
+      "output": "输出",
+      "cacheWrite": "缓存写入",
+      "cacheRead": "缓存读取",
+      "context": "上下文",
+      "used": "占用",
+      "inProgress": "对话进行中",
+      "manualCompact": "手动压缩"
+    },
+    "sdkMessage": {
+      "contextCompacted": "上下文已压缩",
+      "compacting": "正在压缩...",
+      "compactingContext": "正在压缩上下文...",
+      "unknownError": "未知错误",
+      "abortedByUser": "已被用户中断"
+    },
+    "messages": {
+      "retryTitle": "重试失败 ({{current}}/{{max}})",
+      "retryCountdown": "重试倒计时 {{countdown}}秒 ({{current}}/{{max}})",
+      "retrying": "重试中 ({{current}}/{{max}})",
+      "attemptHistory": "尝试历史：",
+      "countdownWait": "等待 {{seconds}} 秒后开始第 {{n}} 次尝试",
+      "attempting": "正在进行第 {{n}} 次尝试...",
+      "attemptDetail": "第 {{n}} 次 ({{time}}) - {{reason}}",
+      "envRuntime": "运行时：{{value}}",
+      "envPlatform": "平台：{{value}}",
+      "envModel": "模型：{{value}}",
+      "envWorkspace": "项目：{{value}}",
+      "showStderr": "显示 stderr 输出",
+      "showStack": "显示堆栈跟踪",
+      "actionCompact": "压缩上下文",
+      "actionRetry": "重试",
+      "actionRetryNewSession": "在新会话中重试",
+      "statDuration": "耗时：{{value}}",
+      "statInput": "输入：{{value}}",
+      "statOutput": "输出：{{value}}",
+      "statCacheWrite": "缓存写入：{{value}}",
+      "statCacheRead": "缓存读取：{{value}}",
+      "agentRunning": "Agent 运行中 {{elapsed}}",
+      "thinking": "思考",
+      "thinkingStreaming": "思考中...",
+      "thinkingWithDuration": "思考 · {{duration}}s",
+      "executedSteps": "已执行 {{count}} 步"
+    },
+    "sessionPapers": {
+      "hiddenCount": "−{{count}}",
+      "hiddenDetail": "{{count}} 篇论文因缺少 URL 链接未展示",
+      "hiddenDetail_other": "{{count}} 篇论文因缺少 URL 链接未展示",
+      "doiFragment": "(DOI 片段)",
+      "unidentified": "(未识别)"
+    },
+    "toolResult": {
+      "collapse": "收起",
+      "fullContent": "完整内容",
+      "previewLines": "预览 {{count}} 行",
+      "showAll": "显示全部 ({{chars}} 字符，{{lines}} 行)",
+      "wroteFileLabel": "已写入",
+      "editedFileLabel": "已编辑",
+      "openWithSystem": "用系统应用打开",
+      "revealInFolder": "在文件夹中显示",
+      "editSuccess": "编辑成功",
+      "matches": "{{matches}} 个匹配，{{files}} 个文件",
+      "filesCount": "{{count}} 个文件",
+      "filesCount_other": "{{count}} 个文件",
+      "searchResults": "{{count}} 条结果",
+      "searchResults_other": "{{count}} 条结果"
+    },
+    "attachedDirs": {
+      "reference": "引用"
+    },
+    "citationGraph": {
+      "edgeReferences": "引用",
+      "edgeCitedBy": "被引"
+    },
+    "languageLock": {
+      "lockedTo": "回复语言锁定：{{language}}",
+      "lang_en": "英文",
+      "lang_zh": "中文",
+      "driftWarning": "输出语言疑似漂移",
+      "driftTooltip": "检测到 {{ratio}}% 字符不属于本轮目标语言。模型可能未严格遵循语言锁。"
+    },
+    "process": {
+      "checking": "正在检索与核对来源",
+      "records": "查看执行记录",
+      "actions": "{{count}} 项操作",
+      "working": "正在执行任务"
+    }
+  }
+}

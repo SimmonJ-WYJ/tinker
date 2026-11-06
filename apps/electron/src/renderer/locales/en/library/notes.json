@@ -1,0 +1,91 @@
+{
+  "notes": {
+    "heading": "Notes",
+    "prototypeBadge": "Prototype",
+    "prototypeHint": "Mock data, lost on refresh",
+    "hint": "Select any text above to summon the \"Add note\" button",
+    "selection": {
+      "button": "Save as evidence set",
+      "placeholder": "Write something about this evidence…",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "list": {
+      "empty": "No notes yet — select text above to start",
+      "clickHint": "Click to open details"
+    },
+    "detail": {
+      "titleNote": "Evidence details",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "contentPlaceholder": "Edit evidence content…",
+      "deleteConfirm": {
+        "title": "Delete this evidence?",
+        "description": "This cannot be undone. Any references to this evidence will be marked as \"source removed\".",
+        "confirm": "Delete",
+        "cancel": "Cancel"
+      }
+    },
+    "view": {
+      "title": "All evidence sets",
+      "subtitle": "Aggregated across papers, newest first",
+      "searchPlaceholder": "Search evidence set content, quote, paper title…",
+      "emptySelect": "Select an evidence set on the left to view details",
+      "emptyAll": "No evidence sets in this workspace yet",
+      "emptyFiltered": "No evidence sets match the filter",
+      "unlinkedNote": "(unlinked note)",
+      "conversationSource": "{{session}} · {{question}}",
+      "list": {
+        "countLabel": "{{count}} sets",
+        "meta": "{{notes}} notes · {{papers}} papers"
+      },
+      "filter": {
+        "label": "Filter by tag",
+        "all": "All"
+      },
+      "detail": {
+        "title": "Evidence set details",
+        "fromPaper": "From {{title}}",
+        "openReview": "Open review",
+        "openConversation": "Open conversation",
+        "conversationDeletedSession": "(session deleted)",
+        "noteSection": "NOTE",
+        "sourceReviewSection": "SOURCE REVIEW",
+        "evidenceItemsSection": "EVIDENCE ITEMS",
+        "noEvidenceItems": "No evidence items yet",
+        "sourceRemoved": "(source removed)",
+        "sourceRemovedOriginalId": "ID {{id}}",
+        "sourceRemovedAt": "removed {{time}}",
+        "citeCount": "{{count}} cites",
+        "expandGroup": "Expand",
+        "collapseGroup": "Collapse"
+      },
+      "preview": {
+        "back": "Back",
+        "collapse": "Collapse preview",
+        "expand": "Expand preview",
+        "empty": "Click an evidence item on the left to preview its source",
+        "noPdf": "No PDF attached",
+        "noReviewBody": "Review body not found",
+        "conversationDeletedSession": "(session deleted)",
+        "conversationSubtitle": "Saved at {{time}}",
+        "conversationSubtitleNoTime": "Conversation snapshot",
+        "conversationSessionMissing": "Underlying session was deleted — showing snapshot only",
+        "conversationQuestion": "QUESTION",
+        "conversationAnswer": "ANSWER"
+      }
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "toast": {
+      "created": "Evidence set created",
+      "noWorkspace": "Select or open a workspace first — evidence is scoped to a workspace"
+    }
+  }
+}

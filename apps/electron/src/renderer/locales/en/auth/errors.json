@@ -1,0 +1,16 @@
+{
+  "invalid-credentials": "Invalid email or password",
+  "email-not-verified": "Please verify your email before signing in",
+  "email-already-exists": "An account with this email already exists",
+  "weak-password": "Password is too weak. Use at least 8 characters with letters and numbers",
+  "invalid-token": "This link is invalid or has already been used",
+  "token-expired": "This link has expired. Please request a new one",
+  "rate-limited": "Too many attempts. Please wait a moment and try again",
+  "network-error": "Network error. Please check your connection and try again",
+  "oauth-cancelled": "Sign in was cancelled",
+  "oauth-state-mismatch": "Authentication failed: security check failed. Please try again",
+  "oauth-provider-error": "The sign-in provider encountered an error. Please try again",
+  "unknown": "An unexpected error occurred. Please try again",
+  "session-expired": "Your session has expired. Please sign in again",
+  "oauth-config-missing": "Create auth-google.json in ~/.asci-dev/ (development) or ~/.asci/ (production) with your Google Desktop OAuth clientId. See docs/google-login-setup.md."
+}

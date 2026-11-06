@@ -1,0 +1,69 @@
+{
+  "$id": "https://opensci.io/asci/schema/objects/review.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/Review",
+  "definitions": {
+    "Review": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "visibility": {
+          "$ref": "#/definitions/ObjectVisibility"
+        },
+        "title": {
+          "type": "string"
+        },
+        "intent": {
+          "type": "string"
+        },
+        "sourceCapability": {
+          "type": "string"
+        },
+        "sourceEvidenceSetId": {
+          "$ref": "#/definitions/ObjectId"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "agentSessionId": {
+          "type": "string"
+        },
+        "bodyPath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "createdAt",
+        "id",
+        "intent",
+        "sourceCapability",
+        "title",
+        "updatedAt",
+        "visibility"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectId": {
+      "type": "string"
+    },
+    "Timestamp": {
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "type": "string",
+      "enum": [
+        "visible",
+        "archived",
+        "deleted"
+      ]
+    }
+  }
+}

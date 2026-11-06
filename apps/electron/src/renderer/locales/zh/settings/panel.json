@@ -1,0 +1,20 @@
+{
+  "panel": {
+    "tabs": {
+      "profile": "个人资料",
+      "general": "通用",
+      "channels": "模型与渠道",
+      "zotero": "Zotero",
+      "proxy": "网络代理",
+      "mcp": "MCP 服务器",
+      "dataCollection": "数据采集",
+      "shortcuts": "快捷键",
+      "archived": "已归档",
+      "about": "关于"
+    },
+    "title": "设置"
+  },
+  "dialog": {
+    "title": "设置"
+  }
+}

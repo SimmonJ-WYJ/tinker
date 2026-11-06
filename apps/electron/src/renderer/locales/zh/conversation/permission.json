@@ -1,0 +1,99 @@
+{
+  "permissionMode": {
+    "acceptEditsLabel": "智能审批",
+    "acceptEditsDescription": "低风险自动放行",
+    "bypassLabel": "完全自动",
+    "bypassDescription": "所有操作自动允许",
+    "planLabel": "计划模式",
+    "planDescription": "仅规划不执行",
+    "changePermissions": "切换权限模式",
+    "menuLabel": "权限模式",
+    "hint": "仅作用于当前会话",
+    "tooltipDescription": "控制 Agent 如何处理工具调用的审批",
+    "tooltipHint": "点击选择 · 仅作用于当前会话"
+  },
+  "reasoningEffort": {
+    "label": "推理深度",
+    "menuLabel": "推理深度",
+    "tooltipDescription": "控制 Agent 每次回复投入的思考量——越深越聪明，但越慢",
+    "tooltipHint": "点击选择 · 仅作用于当前会话",
+    "hint": "仅作用于当前会话",
+    "low": "轻度",
+    "lowDesc": "响应最快，思考最少",
+    "medium": "中度",
+    "mediumDesc": "速度与深度均衡",
+    "high": "深度",
+    "highDesc": "面向难题的深度推理",
+    "max": "极致",
+    "maxDesc": "最大深度，速度最慢"
+  },
+  "permission": {
+    "title": "需要确认",
+    "titleDangerous": "危险操作需要确认",
+    "allow": "允许",
+    "deny": "拒绝",
+    "alwaysAllow": "本次会话总是允许",
+    "needConfirm": "需要确认",
+    "dangerousNeedConfirm": "危险操作需要确认",
+    "keyboardHintEnter": "Enter 允许",
+    "alwaysAllowSession": "本次会话总是允许"
+  },
+  "choiceCard": {
+    "keyboardHint": {
+      "confirm": "确认",
+      "dismiss": "取消",
+      "dismissTerminate": "终止",
+      "select": "直选",
+      "navigate": "切换"
+    },
+    "counter": "{{current}}/{{total}}",
+    "dangerous": {
+      "confirmTitle": "永久允许 {{tool}}？",
+      "confirmBody": "之后该工具将不再请求权限。",
+      "confirmYes": "确认",
+      "confirmNo": "取消"
+    }
+  },
+  "askUser": {
+    "title": "Tinker Agent 需要你的输入",
+    "confirm": "提交",
+    "next": "下一步",
+    "previous": "上一步",
+    "multiSelect": "多选",
+    "singleSelect": "单选",
+    "customOption": "其他...",
+    "customPlaceholder": "输入自定义答案...",
+    "questionFallback": "问题 {{index}}"
+  },
+  "exitPlan": {
+    "title": "Agent 计划待审批",
+    "subtitle": "Agent 已完成计划，请选择如何继续",
+    "allowedPromptsLabel": "计划需要的权限：",
+    "feedbackPlaceholder": "输入修改意见...",
+    "feedbackSend": "发送",
+    "options": {
+      "approveAuto": {
+        "label": "批准并自动执行",
+        "description": "自动批准所有后续操作"
+      },
+      "approveEdit": {
+        "label": "批准，手动审批编辑",
+        "description": "后续文件修改需要逐一确认"
+      },
+      "deny": {
+        "label": "拒绝计划",
+        "description": "直接拒绝，Agent 不会执行计划"
+      },
+      "feedback": {
+        "label": "提供修改意见",
+        "description": "告诉 Agent 需要调整什么"
+      }
+    }
+  },
+  "taskMode": {
+    "label": "任务模式",
+    "coding": "Coding",
+    "search": "通用 Agent",
+    "locked": "首次发送后，会话模式不可更改"
+  }
+}

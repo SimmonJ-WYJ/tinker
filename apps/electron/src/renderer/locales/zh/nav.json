@@ -1,0 +1,169 @@
+{
+  "shell": {
+    "splitterTooltip": "拖动调整面板宽度",
+    "openPanel": "展开文档面板",
+    "closePanel": "收起文档面板"
+  },
+  "tabs": {
+    "scrollLeft": "向左滚动标签",
+    "scrollRight": "向右滚动标签",
+    "closeTab": "关闭标签"
+  },
+  "sidebar": {
+    "collapse": "收起侧边栏",
+    "expand": "展开侧边栏",
+    "newTask": "新建会话",
+    "search": "搜索",
+    "configure": "配置",
+    "library": "文献库",
+    "notes": "证据集",
+    "connectZotero": "连接 Zotero",
+    "workspace": "工作区",
+    "emptySessions": "暂无会话，点击上方「新建会话」开始",
+    "settings": "设置",
+    "settingsWithUpdate": "设置 · 有可用更新",
+    "deleteConversation": {
+      "title": "确认删除对话",
+      "description": "删除后将无法恢复，确定要删除这个对话吗？"
+    },
+    "toast": {
+      "archived": "已归档",
+      "unarchived": "已取消归档"
+    },
+    "projects": "项目",
+    "recent": "最近对话"
+  },
+  "attachedDirs": {
+    "header": "附加目录（Agent 可以读取并操作此外部文件夹）",
+    "empty": "空文件夹",
+    "menu": {
+      "showInFolder": "在文件夹中显示",
+      "openFile": "打开文件",
+      "rename": "重命名",
+      "moveTo": "移动到...",
+      "delete": "删除"
+    }
+  },
+  "projectFiles": {
+    "title": "项目文件",
+    "tooltip": "跨会话的项目文件。属于整个科研项目，所有会话都可以引用。",
+    "uploadTooltip": "上传文件到项目",
+    "openInFinderTooltip": "在 Finder 中打开",
+    "expandLabel": "展开项目文件",
+    "collapseLabel": "折叠项目文件",
+    "dragOverlay": "拖放到此处，上传到项目",
+    "deleteDialog": {
+      "title": "确认删除",
+      "description": "确定要删除 <strong>{{name}}</strong> 吗？此操作不可撤销。"
+    },
+    "toast": {
+      "added_one": "已添加 {{count}} 个文件",
+      "added_other": "已添加 {{count}} 个文件",
+      "uploadFailed": "文件上传失败",
+      "deleted": "已删除 {{name}}",
+      "deleteFailed": "删除失败",
+      "duplicateName": "同名文件已存在",
+      "renameFailed": "重命名失败",
+      "moved": "已移动 {{name}}",
+      "moveFailed": "移动失败"
+    }
+  },
+  "searchDialog": {
+    "title": "搜索会话",
+    "placeholder": "搜索会话...",
+    "hint": "输入关键词搜索会话标题和消息内容",
+    "noResults": "未找到匹配结果",
+    "groupTitleMatch": "标题匹配",
+    "groupContentMatch": "消息内容匹配",
+    "footer": {
+      "select": "选择",
+      "open": "打开",
+      "close": "关闭"
+    }
+  },
+  "common": {
+    "cancel": "取消",
+    "delete": "删除"
+  },
+  "updateBadge": {
+    "withVersion": "v{{version}} 可更新",
+    "generic": "新版本可更新",
+    "short": "更新",
+    "tooltip": "v{{version}} 可更新"
+  },
+  "projectSwitcher": {
+    "switchAria": "切换科研项目",
+    "noneSelected": "未选择项目",
+    "empty": "暂无科研项目",
+    "createPlaceholder": "项目名称...",
+    "createNew": "新建项目",
+    "manage": "管理项目...",
+    "createFailed": "创建失败"
+  },
+  "sessionItem": {
+    "rename": "重命名",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "deleteSession": "删除会话"
+  },
+  "preview": {
+    "newWindow": "另开窗口",
+    "expand": "放大预览",
+    "close": "关闭预览"
+  },
+  "agentHeader": {
+    "editTitle": "编辑标题",
+    "openFilePanel": "打开文件面板",
+    "openSessionFolder": "打开会话文件夹"
+  },
+  "fileBrowser": {
+    "loadFailed": "加载失败",
+    "duplicateName": "同名文件已存在",
+    "renameFailed": "重命名失败",
+    "emptyTitle": "暂无文件",
+    "emptyHint": "拖拽文件到此处，或点击上方上传",
+    "emptyChildren": "空文件夹",
+    "openInFinderTooltip": "在 Finder 中打开",
+    "reference": "引用",
+    "referenceSelected": "引用选中 ({{count}})",
+    "moveSelected": "移动选中 ({{count}})",
+    "deleteSelected": "删除选中 ({{count}})",
+    "deleteDialog": {
+      "title": "确认删除",
+      "descriptionMulti": "确定要删除选中的 <strong>{{count}}</strong> 个项目吗？",
+      "descriptionSingle": "确定要删除 <strong>{{name}}</strong> 吗？",
+      "directorySuffix": "（包含所有子文件）",
+      "warning": "此操作不可撤销。",
+      "cancel": "取消",
+      "confirm": "删除"
+    }
+  },
+  "projectManage": {
+    "title": "管理科研项目",
+    "description": "重命名、删除或拖拽排序。默认项目无法删除；切换和新建请使用标题栏入口。",
+    "renameTooltip": "重命名",
+    "deleteTooltip": "删除",
+    "renameFailed": "重命名失败",
+    "deleteConfirm": {
+      "title": "确认删除科研项目",
+      "description": "删除后项目配置将被移除，但本地目录文件会保留。确定要删除吗？",
+      "cancel": "取消",
+      "confirm": "删除"
+    }
+  },
+  "projectTree": {
+    "expand": "展开 {{name}}",
+    "empty": "项目中暂无对话",
+    "search": "搜索项目对话",
+    "sessions": "对话",
+    "open": "项目设置",
+    "description": "集中管理这个项目中的对话和工作",
+    "noResults": "没有匹配的对话",
+    "choose": "选择项目"
+  },
+  "navigation": {
+    "back": "后退",
+    "forward": "前进",
+    "sidebar": "侧边导航"
+  }
+}

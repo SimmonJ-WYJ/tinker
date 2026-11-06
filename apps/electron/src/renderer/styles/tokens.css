@@ -1,0 +1,143 @@
+/* ===== 实现层：CSS 变量真相源（亮/暗双主题 + 语义状态色 + diff/search-hit）===== */
+/* B-3+ 业务侧硬编码 palette 通过这里出口；新增 token 时同步 design.md（B-7） */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --primary: 0 0% 9%;                   /* 中性近黑 — 主按钮 / Link / Active */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 38%;               /* 成功（green-600 阶） */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;                /* 警告但非错误（amber-500 阶） */
+    --warning-foreground: 0 0% 100%;
+    --info: 217 91% 60%;                  /* 通用提示蓝（连接引导 tag 等复用场景） */
+    --info-foreground: 0 0% 100%;
+    --stop-hover-bg: hsla(0, 80%, 60%, 0.12);
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --dialog: 0 0% 100%;
+    --dialog-foreground: 0 0% 3.9%;
+    --content-area: 0 0% 100%;            /* 主内容区域背景 */
+    /* 保留给专用高对比 Tooltip：深色半透明背景 + 白色文字 */
+    --tooltip: 0 0% 15%;
+    --tooltip-foreground: 0 0% 98%;
+    --tooltip-muted: 0 0% 75%;
+    /* 代码块背景 */
+    --code-bg: 210 13% 12%;                   /* #1e2228 */
+    /* 虚线边框色（新会话按钮、搜索按钮） */
+    --dashed-border: 0 0% 9% / 0.35;
+    --dashed-border-hover: 0 0% 9% / 0.50;
+    /* diff 配色（edit-result.tsx / write-result.tsx 复用；HSL 等价于 Tailwind v3 green/red palette） */
+    --diff-add-bg: 142 71% 45% / 0.1;      /* bg-green-500/10 */
+    --diff-add-fg: 142 76% 73% / 0.6;      /* text-green-400/60 */
+    --diff-add-text: 142 77% 73%;          /* text-green-300 */
+    --diff-del-bg: 0 84% 60% / 0.1;        /* bg-red-500/10 */
+    --diff-del-fg: 0 91% 71% / 0.6;        /* text-red-400/60 */
+    --diff-del-text: 0 94% 82%;            /* text-red-300 */
+    /* grep / 搜索命中高亮 */
+    --search-hit-bg: 53 98% 65% / 0.3;     /* bg-yellow-300/30 */
+    --search-hit-fg: 54 97% 77%;           /* text-yellow-200 */
+    /* Choice UI 危险等级配色（ChoiceCardShell / ChoiceCard / PermissionModeSelector / KeyboardHintFooter 复用） */
+    --choice-safe-border: 142 71% 45% / 0.4;       /* emerald-500/40 等价 */
+    --choice-dangerous-border: 38 92% 50% / 0.7;   /* amber-500/70 等价 */
+    --choice-dangerous-fg: 32 95% 44%;             /* amber-600 — 亮色标题 */
+    --choice-dangerous-prefix: 38 92% 50%;         /* amber-500 — 焦点前缀竖条 */
+    /* 相关度梯度（RelevanceBadge / SessionPapersStatsBar RELEVANCE_COLORS；low→high） */
+    --relevance-0: 0 84% 60% / 0.6;                /* red-400/60 — low */
+    --relevance-1: 28 92% 56% / 0.6;               /* orange-400/60 */
+    --relevance-2: 38 92% 50% / 0.6;               /* amber-400/60 — mid */
+    --relevance-3: 158 64% 52% / 0.6;              /* emerald-400/60 */
+    --relevance-4: 142 71% 45% / 0.6;              /* green-500/60 — high */
+    /* tool-result-renderer 代码/终端容器配色（bash/edit/grep/read/write 共用，区别于 --code-bg 用于 Shiki/tiptap pre 内层） */
+    --code-container-bg: 240 6% 10%;               /* zinc-900 — 容器外层 */
+    --code-container-fg: 240 5% 96%;               /* zinc-100 — 主要前景文字 */
+    --code-container-muted: 240 5% 65%;            /* zinc-500 — 行号 / 计数 / 命令回显 */
+    --code-container-emphasis: 240 5% 84%;         /* zinc-300 — 文件名加亮 */
+    --code-container-text: 240 5% 91%;             /* zinc-200 — 代码正文 */
+    --code-container-subheader: 240 4% 16% / 0.5;  /* zinc-800/50 — grep 文件分组头 */
+    --code-container-row-hover: 240 4% 16% / 0.3;  /* zinc-800/30 — grep match 行 hover */
+  }
+
+  .dark {
+    --background: 0 0% 7%;                /* 统一背景色 zinc-900 */
+    --foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --primary: 0 0% 98%;                  /* 中性近白 — 深色下主按钮 */
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 0 0% 40%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 55% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 65% 45%;               /* 成功（深色下略提亮） */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;                /* 警告（深色下略提亮） */
+    --warning-foreground: 0 0% 100%;
+    --info: 217 91% 65%;                  /* 通用提示蓝（深色主题下略提亮） */
+    --info-foreground: 0 0% 100%;
+    --stop-hover-bg: hsl(0, 40%, 18%);
+    --card: 0 0% 7%;                      /* 卡片背景 = 背景色 */
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;                   /* 弹出层 = 背景色 */
+    --popover-foreground: 0 0% 98%;
+    --dialog: 0 0% 12%;                   /* 设置弹窗：比背景更亮，悬浮感 */
+    --dialog-foreground: 0 0% 98%;
+    --content-area: 0 0% 7%;              /* 主内容区域背景 zinc-900 */
+    /* 保留给专用高对比 Tooltip：深色半透明背景 + 白色文字 */
+    --tooltip: 0 0% 20%;
+    --tooltip-foreground: 0 0% 98%;
+    --tooltip-muted: 0 0% 70%;
+    /* 代码块背景 */
+    --code-bg: 210 13% 12%;                   /* #1e2228 */
+    /* 虚线边框色（新会话按钮、搜索按钮） */
+    --dashed-border: 0 0% 98% / 0.25;
+    --dashed-border-hover: 0 0% 98% / 0.40;
+    /* diff / search-hit：暗色下与亮色同值，确保 diff 配色稳定；后续 B-3 视觉验证如对比度不足再单独调 */
+    --diff-add-bg: 142 71% 45% / 0.1;
+    --diff-add-fg: 142 76% 73% / 0.6;
+    --diff-add-text: 142 77% 73%;
+    --diff-del-bg: 0 84% 60% / 0.1;
+    --diff-del-fg: 0 91% 71% / 0.6;
+    --diff-del-text: 0 94% 82%;
+    --search-hit-bg: 53 98% 65% / 0.3;
+    --search-hit-fg: 54 97% 77%;
+    /* Choice UI 危险等级配色：border/prefix 亮暗共用，fg 在深色下提亮到 amber-400 */
+    --choice-safe-border: 142 71% 45% / 0.4;
+    --choice-dangerous-border: 38 92% 50% / 0.7;
+    --choice-dangerous-fg: 43 96% 56%;             /* amber-400 — 深色标题（亮色为 amber-600） */
+    --choice-dangerous-prefix: 38 92% 50%;
+    /* 相关度梯度：light/dark 同值，后续 visual review 如对比度不足再调 */
+    --relevance-0: 0 84% 60% / 0.6;
+    --relevance-1: 28 92% 56% / 0.6;
+    --relevance-2: 38 92% 50% / 0.6;
+    --relevance-3: 158 64% 52% / 0.6;
+    --relevance-4: 142 71% 45% / 0.6;
+    /* code-container：仅 bg 在深色下切换为 zinc-950（更深一档强化"沉入"感），其余 token 亮暗共用 */
+    --code-container-bg: 240 9% 4%;                /* zinc-950 — 深色容器外层 */
+    --code-container-fg: 240 5% 96%;
+    --code-container-muted: 240 5% 65%;
+    --code-container-emphasis: 240 5% 84%;
+    --code-container-text: 240 5% 91%;
+    --code-container-subheader: 240 4% 16% / 0.5;
+    --code-container-row-hover: 240 4% 16% / 0.3;
+  }
+}

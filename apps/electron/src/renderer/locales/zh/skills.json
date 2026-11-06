@@ -1,0 +1,80 @@
+{
+  "categories": {
+    "all": "所有",
+    "allLabel": "所有 Skills",
+    "default": "默认",
+    "custom": "自定义",
+    "general": "通用",
+    "biology": "生物",
+    "chemistry": "化学",
+    "medicine": "医学",
+    "machineLearning": "机器学习",
+    "dataScience": "数据科学",
+    "physics": "物理",
+    "mathematics": "数学",
+    "geospatial": "地理空间",
+    "labPlatform": "实验平台"
+  },
+  "view": {
+    "more": "更多",
+    "skillCount": "{{count}} 个",
+    "totalEnabled": "{{enabled}}/{{total}} 已启用",
+    "searchAll": "搜索所有 Skill...",
+    "searchInScope": "在「{{scope}}」中搜索...",
+    "clearSearch": "清除搜索",
+    "heading": "Skill",
+    "description": "管理 Agent 可用的能力片段。可单独启用/禁用；标注来源与被哪些能力包引用。",
+    "loadError": "Skill 列表加载失败",
+    "noWorkspace": "暂无活动工作区，无法加载 Skill。",
+    "toggleError": "切换失败，已恢复原状态",
+    "usedBy": "被使用：",
+    "lockedByPack": "由能力包提供，默认启用、不可单独禁用",
+    "expand": "展开全部",
+    "collapse": "收起",
+    "statusLabel": "状态",
+    "sourceLabel": "来源",
+    "resultUnit": "个",
+    "resultStateAll": "未筛选",
+    "resultStateFiltered": "已筛选",
+    "sourceFilter": {
+      "all": "全部来源",
+      "builtin": "系统内置",
+      "fromPack": "来自能力包"
+    },
+    "sourceBadge": {
+      "builtin": "系统内置",
+      "fromPack": "来自能力包"
+    },
+    "filter": {
+      "all": "全部状态",
+      "enabled": "启用",
+      "disabled": "禁用"
+    },
+    "results": {
+      "showing": "显示 {{count}} 个",
+      "inScope": "于「{{scope}}」",
+      "searchInAll": "在全部分类中搜索",
+      "clearFilters": "清除过滤"
+    },
+    "empty": {
+      "filtered": "没有匹配的 Skill，调整搜索或过滤条件",
+      "category": "该分类暂无 Skill"
+    },
+    "row": {
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "updateAvailable": "可更新",
+      "source": "来源：{{name}}",
+      "syncFromSource": "从源项目同步更新",
+      "openFolder": "打开文件夹",
+      "delete": "删除"
+    }
+  },
+  "header": {
+    "batch": "批量操作：",
+    "enableN": "启用 {{count}} 个",
+    "disableN": "禁用 {{count}} 个",
+    "enableTooltip": "将启用 {{count}} 个 Skill",
+    "disableTooltip": "将禁用 {{count}} 个 Skill"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "platform": "darwin-arm64",
+  "schema": 1,
+  "artifacts": [
+    {
+      "name": "onnxruntime-node",
+      "version": "1.24.3",
+      "url": "https://registry.npmjs.org/onnxruntime-node/-/onnxruntime-node-1.24.3.tgz",
+      "integrity": "sha512-JH7+czbc8ALA819vlTgcV+Q214/+VjGeBHDjX81+ZCD0PCVCIFGFNtT0V4sXG/1JXypKPgScQcB3ij/hk3YnTg==",
+      "format": "tgz"
+    },
+    {
+      "name": "onnxruntime-common",
+      "version": "1.24.3",
+      "url": "https://registry.npmjs.org/onnxruntime-common/-/onnxruntime-common-1.24.3.tgz",
+      "integrity": "sha512-GeuPZO6U/LBJXvwdaqHbuUmoXiEdeCjWi/EG7Y1HNnDwJYuk6WUbNXpF6luSUY8yASul3cmUlLGrCCL1ZgVXqA==",
+      "format": "tgz"
+    },
+    {
+      "name": "sherpa-onnx-node",
+      "version": "1.12.39",
+      "url": "https://registry.npmjs.org/sherpa-onnx-node/-/sherpa-onnx-node-1.12.39.tgz",
+      "integrity": "sha512-hB1tSfN4Jy3ol8xQNmX8lOMHCkIEQ9elKYujubKdNXaUXyPwloplXyFOskFtbNJFPELWnYEdnXWz1NDBhCMQxg==",
+      "format": "tgz"
+    },
+    {
+      "name": "sherpa-onnx-darwin-arm64",
+      "version": "1.12.39",
+      "url": "https://registry.npmjs.org/sherpa-onnx-darwin-arm64/-/sherpa-onnx-darwin-arm64-1.12.39.tgz",
+      "integrity": "sha512-LAYlWP810wVXiA9QQT3zFLa9+ndv9htNwYn4mVZV5cY/4hN/qU3VJho5HSO+mOxc7kgXsU5lncWLtVXy0rjYnA==",
+      "format": "tgz"
+    },
+    {
+      "name": "ffmpeg",
+      "version": "b6.1.1",
+      "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz",
+      "integrity": "sha512-e3M/PpfkCDAxp73oHmLYAgr7VMPJYSBfiw0uJ0Bn21DjJmz2ll0+C4ziIRO34wTH4n2NOdpy8BuLBCO0rj6Zig==",
+      "format": "gz"
+    }
+  ]
+}

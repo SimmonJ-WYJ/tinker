@@ -1,0 +1,136 @@
+{
+  "evidenceSetDetail": {
+    "title": "证据集详情",
+    "untitled": "（未命名集合）",
+    "loading": "加载中...",
+    "currentPaperBadge": "当前论文",
+    "joinedAt": "加入于 {{time}}前",
+    "joinedRecently": "刚刚加入",
+    "persisted": {
+      "yes": "已保存",
+      "no": "临时"
+    },
+    "counts": {
+      "papers": "{{count}} 篇",
+      "evidenceRefs": "{{count}} 证据",
+      "notes": "{{count}} 笔记"
+    },
+    "tabs": {
+      "setNotes": "集合笔记",
+      "setNotesHint": "关于整个集合的综述思路、假设、待办；单篇论文的笔记请到论文详情页写",
+      "memberNotes": "成员论文笔记",
+      "papers": "论文成员"
+    },
+    "search": {
+      "notesPlaceholder": "搜索笔记内容...",
+      "papersPlaceholder": "搜索论文..."
+    },
+    "actions": {
+      "newSetNote": "新建集合笔记",
+      "newSetNoteTooltip": "新建集合笔记 ({{shortcut}})",
+      "addMorePapers": "加入更多论文",
+      "removePaper": "移除",
+      "openPaper": "打开论文",
+      "viewAllInSheet": "在抽屉中查看全部",
+      "edit": "编辑",
+      "delete": "删除",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "empty": {
+      "setNotes": "还没有集合笔记",
+      "setNotesExample": "例：本集合用于支撑 0.3 综述 H1 假设，聚焦 N400 + LPP 路径",
+      "memberNotes": "集合内论文上还没有笔记",
+      "papers": "集合内还没有论文",
+      "note": "暂无笔记",
+      "searchNoMatch": "没有匹配的结果",
+      "setNotFound": "该证据集已不存在"
+    },
+    "removePaperConfirm": {
+      "title": "从集合中移除该论文?",
+      "description": "论文本身和挂在论文上的笔记保留，只是不再属于该集合。",
+      "confirm": "移除",
+      "cancel": "取消"
+    },
+    "deleteParagraphConfirm": {
+      "title": "删除这段说明？",
+      "description": "删除后无法恢复。论文本身仍保留在证据集里。",
+      "confirm": "删除",
+      "cancel": "取消"
+    },
+    "create": {
+      "title": "新建集合笔记",
+      "bodyPlaceholder": "记录关于这一批论文整体的思路、假设、待办...",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "addPapers": {
+      "title": "加入更多论文",
+      "helper": "粘贴论文 key，多个 key 用逗号或换行分隔",
+      "placeholder": "PAPER_KEY_A, PAPER_KEY_B",
+      "confirm": "加入"
+    },
+    "toast": {
+      "noteCreated": "集合笔记已创建",
+      "editFailed": "保存失败，请稍后重试",
+      "noPdf": "未附加 PDF"
+    },
+    "badge": {
+      "moreLabel": "另外 {{count}} 个证据集"
+    },
+    "notesView": {
+      "groupBy": {
+        "label": "分组方式",
+        "time": "按时间",
+        "set": "按集合"
+      },
+      "unassigned": "散页（未挂集合的笔记）",
+      "groupHeader": "{{name}} · {{notesCount}} 笔记 · {{papersCount}} 篇"
+    },
+    "members": {
+      "notesSection": "笔记",
+      "evidenceSection": "证据",
+      "addNote": "补笔记",
+      "addEvidence": "补证据",
+      "addNotePlaceholder": "写一条笔记…（无需划词，直接记录你的想法）",
+      "saveNote": "保存笔记",
+      "cancel": "取消",
+      "deleteNote": "删除笔记",
+      "removeEvidence": "从本集移除",
+      "addTag": "标签",
+      "removeTag": "移除标签",
+      "emptyNotes": "暂无笔记",
+      "emptyEvidence": "暂无证据",
+      "jumpToPaper": "跳到原文",
+      "jumpToReview": "跳到综述",
+      "sourceKind": {
+        "paper": "论文来源",
+        "review": "综述来源",
+        "conversation": "对话来源"
+      }
+    },
+    "addEvidenceDialog": {
+      "title": "补充证据",
+      "subtitle": "从已有材料里引用一条，保留可溯源链路",
+      "segPaper": "论文",
+      "segReview": "综述",
+      "segConversation": "历史对话",
+      "cite": "引用",
+      "inSet": "已添加",
+      "viewConversation": "查看对话",
+      "cancel": "取消",
+      "searchPlaceholder": "搜索…",
+      "searchSessionsPlaceholder": "搜索会话…",
+      "searchTurnsPlaceholder": "搜索问答…",
+      "emptyPapers": "本工作区暂无已链接 Zotero 的论文",
+      "emptyReviews": "暂无综述",
+      "emptySessions": "本工作区暂无历史会话",
+      "emptyTurns": "该会话暂无可加入的问答",
+      "hasPdf": "PDF",
+      "noPdf": "无 PDF",
+      "added": "已加入证据集",
+      "alreadyIn": "已在本集中",
+      "addFailed": "添加失败，请重试"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "connecting": "正在连接服务商...",
+  "waitingBrowser": "请在浏览器中完成登录",
+  "success": "登录成功",
+  "cancelled": "登录已取消",
+  "error": "登录失败"
+}

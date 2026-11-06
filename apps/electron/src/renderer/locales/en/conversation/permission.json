@@ -1,0 +1,99 @@
+{
+  "permissionMode": {
+    "acceptEditsLabel": "Smart approval",
+    "acceptEditsDescription": "Only high-risk actions require confirmation",
+    "bypassLabel": "Full auto",
+    "bypassDescription": "Auto-approve all actions",
+    "planLabel": "Plan mode",
+    "planDescription": "Generate plans without execution",
+    "changePermissions": "Change permissions",
+    "menuLabel": "Permission mode",
+    "hint": "Applies to this session",
+    "tooltipDescription": "How the Agent handles tool-call approvals",
+    "tooltipHint": "Click to choose · this session only"
+  },
+  "reasoningEffort": {
+    "label": "Reasoning effort",
+    "menuLabel": "Reasoning effort",
+    "tooltipDescription": "How much thinking the Agent invests per reply — deeper means smarter but slower",
+    "tooltipHint": "Click to choose · this session only",
+    "hint": "Applies to this session",
+    "low": "Light",
+    "lowDesc": "Fastest replies, minimal thinking",
+    "medium": "Balanced",
+    "mediumDesc": "Balanced speed and depth",
+    "high": "Deep",
+    "highDesc": "Deeper reasoning for hard problems",
+    "max": "Max",
+    "maxDesc": "Maximum depth, slowest"
+  },
+  "permission": {
+    "title": "Confirmation required",
+    "titleDangerous": "Dangerous action — confirmation required",
+    "allow": "Allow",
+    "deny": "Deny",
+    "alwaysAllow": "Always allow for this session",
+    "needConfirm": "Confirmation needed",
+    "dangerousNeedConfirm": "Dangerous action — confirmation needed",
+    "keyboardHintEnter": "Enter to allow",
+    "alwaysAllowSession": "Always allow this session"
+  },
+  "choiceCard": {
+    "keyboardHint": {
+      "confirm": "confirm",
+      "dismiss": "dismiss",
+      "dismissTerminate": "terminate",
+      "select": "select",
+      "navigate": "navigate"
+    },
+    "counter": "{{current}}/{{total}}",
+    "dangerous": {
+      "confirmTitle": "Always allow {{tool}}?",
+      "confirmBody": "This tool will no longer request permission.",
+      "confirmYes": "Confirm",
+      "confirmNo": "Cancel"
+    }
+  },
+  "askUser": {
+    "title": "Tinker Agent needs your input",
+    "confirm": "Submit",
+    "next": "Next",
+    "previous": "Previous",
+    "multiSelect": "multi-select",
+    "singleSelect": "single-select",
+    "customOption": "Other...",
+    "customPlaceholder": "Enter a custom answer...",
+    "questionFallback": "Question {{index}}"
+  },
+  "exitPlan": {
+    "title": "Agent plan pending approval",
+    "subtitle": "Agent has finished the plan — choose how to proceed",
+    "allowedPromptsLabel": "Permissions needed by this plan:",
+    "feedbackPlaceholder": "Enter your feedback...",
+    "feedbackSend": "Send",
+    "options": {
+      "approveAuto": {
+        "label": "Approve and run automatically",
+        "description": "Auto-approve all subsequent actions"
+      },
+      "approveEdit": {
+        "label": "Approve, review edits manually",
+        "description": "Subsequent file edits require per-action confirmation"
+      },
+      "deny": {
+        "label": "Reject plan",
+        "description": "Reject outright — Agent will not run the plan"
+      },
+      "feedback": {
+        "label": "Provide feedback",
+        "description": "Tell the Agent what needs to change"
+      }
+    }
+  },
+  "taskMode": {
+    "label": "Task mode",
+    "coding": "Coding",
+    "search": "Agent",
+    "locked": "Mode is fixed after the first message"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Local data belongs to a different account",
+  "description": "The local data in ~/.asci/ was previously attributed to another account ({{uid}}). How would you like to proceed?",
+  "options": {
+    "continueLoggedIn": "Continue signed in — keep local data as-is (may be inaccessible)",
+    "exportAndClear": "Export local data and start fresh with this account",
+    "cancel": "Cancel — sign out"
+  },
+  "confirm": "Confirm",
+  "exportNotImplemented": "Export not yet implemented. Please contact support.",
+  "continueHint": "Your local data will remain on disk but may not be linked to this account."
+}

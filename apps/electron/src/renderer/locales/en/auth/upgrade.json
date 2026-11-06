@@ -1,0 +1,11 @@
+{
+  "title": "Your local data will be linked to this account",
+  "papers_one": "{{count}} paper",
+  "papers_other": "{{count}} papers",
+  "notes_one": "{{count}} note",
+  "notes_other": "{{count}} notes",
+  "evidenceSets_one": "{{count}} evidence set",
+  "evidenceSets_other": "{{count}} evidence sets",
+  "attributeLabel": "Link my local data to this account",
+  "attributeHint": "You can unlink it later in account settings"
+}

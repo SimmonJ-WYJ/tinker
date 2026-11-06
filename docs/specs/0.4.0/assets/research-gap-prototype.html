@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>研究空白 · 高保真原型（贴合 ASCI 设计系统）</title>
+<style>
+  /* ===== 真实 token（docs/design.md / tokens.css，HSL 分量） ===== */
+  :root {
+    --background: 0 0% 100%; --foreground: 0 0% 3.9%;
+    --muted: 0 0% 96.1%; --muted-foreground: 0 0% 45.1%;
+    --border: 0 0% 89.8%; --input: 0 0% 89.8%;
+    --primary: 0 0% 9%; --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%; --secondary-foreground: 0 0% 9%;
+    --accent: 0 0% 96.1%; --accent-foreground: 0 0% 9%;
+    --card: 0 0% 100%; --card-foreground: 0 0% 3.9%; --popover: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%; --success: 142 71% 38%;
+    --warning: 38 92% 50%; --warning-foreground: 0 0% 100%;
+    --info: 217 91% 60%;
+    --shadow-minimal: 0 1px 2px 0 rgb(0 0 0 / .03), 0 1px 3px 0 rgb(0 0 0 / .06);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .08), 0 2px 4px -2px rgb(0 0 0 / .06);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / .08), 0 8px 10px -6px rgb(0 0 0 / .04);
+  }
+  .dark {
+    --background: 0 0% 7%; --foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%; --muted-foreground: 0 0% 63.9%;
+    --border: 0 0% 14.9%; --input: 0 0% 14.9%;
+    --primary: 0 0% 98%; --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%; --secondary-foreground: 0 0% 98%;
+    --accent: 0 0% 40%; --accent-foreground: 0 0% 98%;
+    --card: 0 0% 7%; --card-foreground: 0 0% 98%; --popover: 0 0% 7%;
+    --destructive: 0 55% 45%; --success: 142 65% 45%;
+    --warning: 38 92% 55%; --info: 217 91% 65%; --shadow-minimal: none;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.5; color: hsl(var(--foreground)); -webkit-font-smoothing: antialiased; }
+  .shell-bg { background: linear-gradient(135deg, hsl(var(--background)), hsl(var(--muted))); }
+  .hidden { display: none !important; }
+
+  /* demo 条 */
+  .demo-bar { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; background: hsl(var(--muted)); border-bottom: 1px solid hsl(var(--border)); font-size: 12px; color: hsl(var(--muted-foreground)); }
+  .demo-bar .dlabel { font-weight: 600; color: hsl(var(--foreground) / .6); }
+  .demo-bar .stage-tabs { display: flex; gap: 4px; }
+  .demo-bar .stage-tabs button { border: 1px solid hsl(var(--border)); background: hsl(var(--background)); color: hsl(var(--muted-foreground)); height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .demo-bar .stage-tabs button.active { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
+  .demo-bar .spacer { flex: 1; }
+  .demo-bar .tbtn { width: 28px; height: 26px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); border-radius: 6px; cursor: pointer; color: hsl(var(--muted-foreground)); }
+
+  .shell { display: flex; height: calc(100vh - 40px); overflow: hidden; }
+
+  /* 左侧栏 */
+  .sidebar-wrap { padding: 8px 0 8px 8px; flex: none; }
+  .sidebar { width: 252px; height: 100%; background: hsl(var(--background) / .95); backdrop-filter: blur(20px); border-radius: 16px; box-shadow: var(--shadow-xl); display: flex; flex-direction: column; overflow: hidden; }
+  .dark .sidebar { border: 1px solid hsl(var(--border) / .4); }
+  .sb-top { display: flex; gap: 4px; padding: 12px 12px 8px; }
+  .sb-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: hsl(var(--foreground) / .45); cursor: pointer; }
+  .sb-icon:hover { background: hsl(var(--foreground) / .04); }
+  .sb-icon.new { margin-left: auto; border: 1px dashed hsl(var(--foreground) / .3); }
+  .sb-label { font-size: 11px; font-weight: 500; color: hsl(var(--foreground) / .4); padding: 8px 16px 4px; }
+  .sb-list { flex: 1; overflow-y: auto; padding: 0 8px; }
+  .sb-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: hsl(var(--foreground) / .6); cursor: pointer; margin-bottom: 2px; }
+  .sb-item:hover { background: hsl(var(--primary) / .05); color: hsl(var(--foreground)); }
+  .sb-item.active { background: hsl(var(--primary) / .1); color: hsl(var(--foreground)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); }
+  .sb-item .ic { width: 18px; text-align: center; flex: none; opacity: .8; }
+  .sb-item .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb-bottom { padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid hsl(var(--border) / .5); }
+  .avatar { width: 28px; height: 28px; border-radius: 10px; background: hsl(var(--secondary)); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+
+  /* 主区 / 对话 */
+  .main { flex: 1; min-width: 0; padding: 8px; display: flex; flex-direction: column; }
+  .main-card { flex: 1; background: hsl(var(--card)); border-radius: 12px; box-shadow: var(--shadow-minimal); border: 1px solid hsl(var(--border) / .6); display: flex; flex-direction: column; overflow: hidden; }
+  .dark .main-card { border-color: hsl(var(--border) / .3); box-shadow: none; }
+  .chat-scroll { flex: 1; overflow-y: auto; padding: 20px 22px; }
+  .chatset { display: none; flex-direction: column; gap: 16px; }
+  .chatset.active { display: flex; }
+  .m-row { display: flex; gap: 10px; max-width: 94%; }
+  .m-row.user { align-self: flex-end; flex-direction: row-reverse; }
+  .m-avatar { width: 26px; height: 26px; border-radius: 8px; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .m-avatar.ai { background: hsl(var(--primary) / .1); color: hsl(var(--foreground)); }
+  .m-avatar.user { background: hsl(var(--secondary)); }
+  .m-bubble { font-size: 14px; }
+  .m-row.user .m-bubble { background: hsl(var(--secondary)); border-radius: 12px; padding: 9px 13px; }
+  .m-row.ai .m-bubble { padding-top: 2px; }
+  .m-bubble b { font-weight: 600; }
+  .m-bubble .pin { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: hsl(var(--info)); }
+  .dark .m-bubble .pin { color: hsl(217 91% 70%); }
+
+  /* 对话里·抽取进行态 */
+  .run-card { border: 1px solid hsl(var(--border) / .6); border-radius: 10px; padding: 10px 12px; margin-top: 2px; }
+  .run-row { display: flex; align-items: center; gap: 9px; font-size: 13px; padding: 3px 0; color: hsl(var(--foreground) / .8); }
+  .run-row .d { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; flex: none; }
+  .run-row .d.done { background: hsl(var(--success) / .15); color: hsl(var(--success)); }
+  .run-row .d.run { background: hsl(var(--primary) / .12); color: hsl(var(--foreground)); animation: spin 1s linear infinite; }
+  .run-row .d.wait { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .run-prog { height: 5px; border-radius: 999px; background: hsl(var(--muted)); overflow: hidden; margin-top: 9px; }
+  .run-prog > i { display: block; height: 100%; width: 0%; background: hsl(var(--primary)); transition: width .15s linear; }
+  /* 对话里·完成折叠 */
+  .exec-fold { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: hsl(var(--muted-foreground)); border: 1px solid hsl(var(--border) / .6); border-radius: 8px; padding: 6px 11px; cursor: pointer; }
+
+  .chat-input { border-top: 1px solid hsl(var(--border) / .5); padding: 12px 16px; display: flex; gap: 8px; }
+  .input { height: 40px; border-radius: 8px; border: 1px solid hsl(var(--input)); background: transparent; padding: 0 12px; font-size: 14px; color: hsl(var(--foreground)); flex: 1; }
+  .input::placeholder { color: hsl(var(--muted-foreground)); }
+
+  /* 右侧面板 */
+  .rightpanel { width: 50%; min-width: 520px; padding: 8px 8px 8px 0; flex: none; display: flex; }
+  .rp-card { flex: 1; background: hsl(var(--card)); border-radius: 12px; box-shadow: var(--shadow-minimal); border: 1px solid hsl(var(--border) / .6); display: flex; flex-direction: column; overflow: hidden; }
+  .dark .rp-card { border-color: hsl(var(--border) / .3); box-shadow: none; }
+  .tabbar { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; background: hsl(var(--muted) / .5); border-bottom: 1px solid hsl(var(--border) / .6); }
+  .tab { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 8px 8px 0 0; font-size: 13px; color: hsl(var(--foreground) / .55); cursor: pointer; white-space: nowrap; position: relative; top: 1px; }
+  .tab.active { background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border) / .6); border-bottom-color: hsl(var(--card)); font-weight: 500; }
+  .tab .x { opacity: .4; margin-left: 2px; }
+  .tab .ic { opacity: .7; }
+
+  /* 组件 */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 0; cursor: pointer; white-space: nowrap; transition: background .12s; }
+  .btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+  .btn-primary:hover { background: hsl(var(--primary) / .9); }
+  .btn-ghost { background: transparent; color: hsl(var(--foreground)); }
+  .btn-ghost:hover { background: hsl(var(--accent)); }
+  .btn-sm { height: 32px; padding: 0 11px; font-size: 13px; }
+  .btn-icon { width: 30px; height: 30px; padding: 0; border-radius: 7px; background: transparent; color: hsl(var(--foreground) / .55); }
+  .btn-icon:hover { background: hsl(var(--accent)); }
+  .btn-icon.on { background: hsl(var(--primary) / .1); color: hsl(var(--foreground)); }
+  .btn .ic { font-size: 13px; opacity: .85; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+  .badge-secondary { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
+  .badge-warning { background: hsl(var(--warning) / .14); color: hsl(var(--warning)); }
+  .badge-destructive { background: hsl(var(--destructive) / .12); color: hsl(var(--destructive)); }
+  .badge-success { background: hsl(var(--success) / .14); color: hsl(var(--success)); }
+  .dark .badge-warning { color: hsl(38 92% 62%); }
+
+  /* 阶段容器 */
+  .stage { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .stage.active { display: flex; }
+  /* 这一步该干嘛（明确操作引导） */
+  .step-hint { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-bottom: 1px solid hsl(var(--border) / .6); font-size: 13px; }
+  .step-hint .sn { width: 20px; height: 20px; border-radius: 50%; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none; }
+  .step-hint .st { font-weight: 600; }
+  .step-hint .sc { color: hsl(var(--muted-foreground)); }
+  .step-hint .scope { margin-left: auto; }
+
+  /* ① 提议列 */
+  .col-editor { padding: 16px; overflow-y: auto; }
+  .chip-col { display: inline-flex; align-items: center; gap: 7px; background: hsl(var(--muted)); border: 1px solid hsl(var(--border) / .6); border-radius: 999px; padding: 6px 12px; margin: 0 6px 8px 0; font-size: 13px; }
+  .chip-col.aiprop { border-style: dashed; }
+  .chip-col .aim { font-size: 10px; font-weight: 700; color: hsl(var(--muted-foreground)); }
+  .chip-col .x { cursor: pointer; color: hsl(var(--muted-foreground)); }
+  .chip-col .x:hover { color: hsl(var(--destructive)); }
+  .tiny { font-size: 12px; color: hsl(var(--muted-foreground)); margin: 4px 0 0; }
+
+  /* ② 抽取中（右侧极简） */
+  .extracting { flex: 1; display: grid; place-items: center; text-align: center; color: hsl(var(--muted-foreground)); padding: 40px; }
+  .extracting .big { font-size: 15px; font-weight: 600; color: hsl(var(--foreground)); margin-bottom: 6px; }
+
+  /* ③ 工具条（精简） */
+  .toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid hsl(var(--border) / .6); }
+  .toolbar .legend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: hsl(var(--muted-foreground)); }
+  .toolbar .sw { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* 列管理（M2） */
+  .col-panel { padding: 12px 16px; border-bottom: 1px solid hsl(var(--border) / .6); background: hsl(var(--muted) / .35); }
+  .col-panel .cp-title { font-size: 12px; color: hsl(var(--muted-foreground)); margin-bottom: 8px; }
+  .refill-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed hsl(var(--border)); }
+  .refill-bar .rf-note { font-size: 12px; color: hsl(var(--warning)); }
+  .dark .refill-bar .rf-note { color: hsl(38 92% 62%); }
+
+  .view-body { flex: 1; display: grid; grid-template-columns: 1fr 312px; min-height: 0; }
+  .table-wrap { overflow: auto; border-right: 1px solid hsl(var(--border) / .6); }
+  table.matrix { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+  table.matrix th, table.matrix td { border-bottom: 1px solid hsl(var(--border) / .6); border-right: 1px solid hsl(var(--border) / .6); padding: 8px 11px; text-align: left; vertical-align: top; transition: background .12s, box-shadow .12s; }
+  table.matrix thead th { position: sticky; top: 0; z-index: 2; background: hsl(var(--muted) / .7); font-weight: 600; white-space: nowrap; }
+  table.matrix thead th .cmeta { display: block; font-weight: 400; color: hsl(var(--muted-foreground)); font-size: 10px; margin-top: 2px; }
+  table.matrix thead th.sparse .cmeta { color: hsl(var(--warning)); }
+  .dark table.matrix thead th.sparse .cmeta { color: hsl(38 92% 62%); }
+  table.matrix tbody th { position: sticky; left: 0; z-index: 1; background: hsl(var(--card)); font-weight: 600; max-width: 140px; }
+  table.matrix tbody th small { display: block; color: hsl(var(--muted-foreground)); font-weight: 400; font-size: 10px; }
+  .cell { cursor: pointer; position: relative; }
+  .cell:hover { background: hsl(var(--accent)); }
+  .cell .src { position: absolute; top: 3px; right: 4px; font-size: 9px; color: hsl(var(--muted-foreground)); opacity: 0; }
+  .cell:hover .src { opacity: 1; }
+  .cell-empty { background: repeating-linear-gradient(45deg, transparent, transparent 5px, hsl(var(--muted) / .7) 5px, hsl(var(--muted) / .7) 10px); }
+  .cell-conflict { box-shadow: inset 0 0 0 2px hsl(var(--destructive) / .65); }
+  .hl-row-g > * { background: hsl(var(--warning) / .10) !important; }
+  .hl-row-c > * { background: hsl(var(--destructive) / .08) !important; }
+  .hlc-g { box-shadow: inset 0 0 0 2px hsl(var(--warning) / .6); }
+  .hlc-c { box-shadow: inset 0 0 0 2px hsl(var(--destructive) / .6); }
+
+  /* 洞察卡（精简：默认标题+meta+按钮，hover 出细节） */
+  .insights { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .ig-title { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: hsl(var(--muted-foreground)); margin-top: 2px; }
+  .icard { border: 1px solid hsl(var(--border) / .6); border-radius: 10px; padding: 10px 11px; background: hsl(var(--card)); cursor: pointer; transition: box-shadow .12s, background .12s; }
+  .icard.gap { border-left: 3px solid hsl(var(--warning)); }
+  .icard.conflict { border-left: 3px solid hsl(var(--destructive)); }
+  .icard.lit { box-shadow: 0 0 0 2px hsl(var(--foreground) / .18); }
+  .icard.picked { background: hsl(var(--warning) / .07); border-color: hsl(var(--warning) / .5); }
+  .icard .it { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .icard .meta { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 3px; }
+  .icard .detail { display: none; margin-top: 7px; padding-top: 7px; border-top: 1px solid hsl(var(--border) / .5); }
+  .icard:hover .detail, .icard.lit .detail { display: block; }
+  .icard .detail .id { color: hsl(var(--muted-foreground)); font-size: 12px; line-height: 1.45; margin-bottom: 6px; }
+  .icard .detail .id b { color: hsl(var(--foreground)); }
+  .icard .detail .is { font-size: 11px; color: hsl(var(--muted-foreground)); }
+  .icard .detail .is a { color: hsl(var(--foreground)); }
+  .icard .row-act { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .mbtn { border: 1px solid hsl(var(--border)); background: transparent; color: hsl(var(--foreground) / .8); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .mbtn.pick { border-color: hsl(var(--warning) / .6); color: hsl(var(--warning)); }
+  .mbtn.on { background: hsl(var(--warning)); border-color: hsl(var(--warning)); color: hsl(var(--warning-foreground)); }
+  .dark .mbtn.pick { color: hsl(38 92% 62%); }
+
+  /* footer（合并可信底线 + 操作） */
+  .footer { border-top: 1px solid hsl(var(--border) / .6); }
+  .footer .trust-line { padding: 7px 16px; font-size: 11px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .4); }
+  .footer .act { display: flex; align-items: center; gap: 10px; padding: 10px 16px; }
+  .footer .act .info { flex: 1; font-size: 13px; color: hsl(var(--muted-foreground)); }
+  .footer .act .info b { color: hsl(var(--foreground)); }
+
+  /* ④ */
+  .sink-list { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .pop { position: fixed; z-index: 100; width: 290px; background: hsl(var(--popover)); border: 1px solid hsl(var(--border)); border-radius: 10px; box-shadow: var(--shadow-md); padding: 12px; display: none; }
+  .pop.show { display: block; }
+  .pop .pp { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
+  .pop .pq { font-size: 12px; color: hsl(var(--muted-foreground)); border-left: 2px solid hsl(var(--border)); padding-left: 8px; margin-bottom: 8px; line-height: 1.45; }
+  .pop .pl { font-size: 11px; color: hsl(var(--muted-foreground)); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--foreground) / .15); border-radius: 999px; }
+</style>
+</head>
+<body class="shell-bg">
+
+<div class="demo-bar">
+  <span class="dlabel">▶ 原型演示</span>
+  <span>流程可顺走，也可点这跳看：</span>
+  <div class="stage-tabs">
+    <button data-stage="s2">①提议列</button>
+    <button data-stage="s3">②抽取中</button>
+    <button data-stage="s4" class="active">③完成</button>
+    <button data-stage="s5">④沉淀</button>
+  </div>
+  <span class="spacer"></span>
+  <span>非产品 UI · ASCI 真实 token</span>
+  <button class="tbtn" onclick="document.body.classList.toggle('dark')" title="切换亮/暗">◐</button>
+</div>
+
+<div class="shell">
+  <!-- 左侧栏 -->
+  <div class="sidebar-wrap"><div class="sidebar">
+    <div class="sb-top"><div class="sb-icon" title="搜索">⌕</div><div class="sb-icon" title="文献库">▤</div><div class="sb-icon new" title="新会话">＋</div></div>
+    <div class="sb-label">工作区</div>
+    <div class="sb-list">
+      <div class="sb-item active"><span class="ic">◷</span><span class="tx">小样本图像分类 · 研究空白</span></div>
+      <div class="sb-item"><span class="ic">▦</span><span class="tx">对比学习综述</span></div>
+      <div class="sb-item"><span class="ic">⌕</span><span class="tx">扩散模型加速检索</span></div>
+      <div class="sb-item"><span class="ic">▤</span><span class="tx">少样本 NER 文献精读</span></div>
+    </div>
+    <div class="sb-bottom"><div class="avatar">研</div><div style="font-size:13px;color:hsl(var(--foreground) / .7)">研究者</div><div class="sb-icon" style="margin-left:auto">⚙</div></div>
+  </div></div>
+
+  <!-- 主区：对话流（随阶段切换） -->
+  <div class="main"><div class="main-card">
+    <div class="chat-scroll">
+      <!-- ① 对话 -->
+      <div class="chatset" id="chat-s2">
+        <div class="m-row user"><div class="m-avatar user">我</div><div class="m-bubble">把我刚选的 18 篇"小样本图像分类"论文，看看哪些方向还没人做过。</div></div>
+        <div class="m-row ai"><div class="m-avatar ai">A</div><div class="m-bubble">读完了这 18 篇。我提议按右边几个维度做对照表，<b>你确认或改一下</b>，我就开始填表。范围只限这 18 篇。<span class="pin">→ 右侧确认对照维度</span></div></div>
+      </div>
+      <!-- ② 对话：抽取进行态 -->
+      <div class="chatset" id="chat-s3">
+        <div class="m-row user"><div class="m-avatar user">我</div><div class="m-bubble">就用这些维度，开始吧。</div></div>
+        <div class="m-row ai"><div class="m-avatar ai">A</div><div class="m-bubble" style="flex:1">好，正在逐篇抽取填表，用你自己的 key 跑。
+          <div class="run-card">
+            <div class="run-row"><span class="d done">✓</span>读取 18 篇全文</div>
+            <div class="run-row"><span class="d done">✓</span>确认 6 个对照维度</div>
+            <div class="run-row"><span class="d run">◌</span>逐篇抽取填表 · <span class="ex-count">0 / 18 篇</span></div>
+            <div class="run-row"><span class="d wait">·</span>标注空白与冲突</div>
+            <div class="run-prog"><i></i></div>
+          </div>
+        </div></div>
+      </div>
+      <!-- ③④ 对话：完成 -->
+      <div class="chatset" id="chat-s4">
+        <div class="m-row user"><div class="m-avatar user">我</div><div class="m-bubble">就用这些维度，开始吧。</div></div>
+        <div class="m-row ai"><div class="m-avatar ai">A</div><div class="m-bubble"><span class="exec-fold" onclick="this.nextElementSibling?.classList.toggle('hidden')">✓ 已执行 4 步 ▸</span></div></div>
+        <div class="m-row ai"><div class="m-avatar ai">A</div><div class="m-bubble">对照表好了 →。我标了 <b>3 处组合空白、2 处结论冲突</b>，每条能点回原文。<b>哪个值得做你来挑</b>——我不替你判断创不创新。<span class="pin">→ 右侧挑出值得做的空白</span></div></div>
+        <div id="sinkMsgSlot"></div>
+      </div>
+    </div>
+    <div class="chat-input"><input class="input" placeholder="继续追问，例如：把『数据增强』也加进维度" /><button class="btn btn-primary">发送</button></div>
+  </div></div>
+
+  <!-- 右侧：研究空白视图 -->
+  <div class="rightpanel"><div class="rp-card">
+    <div class="tabbar">
+      <div class="tab"><span class="ic">▤</span>会话文献</div>
+      <div class="tab"><span class="ic">▦</span>会话文件</div>
+      <div class="tab active"><span class="ic">◫</span>研究空白<span class="x">×</span></div>
+    </div>
+
+    <!-- ① 提议列 -->
+    <div class="stage" id="s2">
+      <div class="step-hint"><span class="sn">1</span><span class="st">确认对照维度</span><span class="sc">删掉没用的、加你关心的，然后填表</span><span class="badge badge-secondary scope">基于 18 篇</span></div>
+      <div class="col-editor">
+        <div id="propCols">
+          <span class="chip-col aiprop"><span class="aim">AI</span>数据集<span class="x" onclick="this.parentElement.remove()">×</span></span>
+          <span class="chip-col aiprop"><span class="aim">AI</span>骨干模型<span class="x" onclick="this.parentElement.remove()">×</span></span>
+          <span class="chip-col aiprop"><span class="aim">AI</span>是否用预训练<span class="x" onclick="this.parentElement.remove()">×</span></span>
+          <span class="chip-col aiprop"><span class="aim">AI</span>few-shot 设置<span class="x" onclick="this.parentElement.remove()">×</span></span>
+          <span class="chip-col aiprop"><span class="aim">AI</span>元学习/度量学习<span class="x" onclick="this.parentElement.remove()">×</span></span>
+          <span class="chip-col aiprop"><span class="aim">AI</span>评测指标<span class="x" onclick="this.parentElement.remove()">×</span></span>
+          <span class="chip-col" style="border-style:dashed;color:hsl(var(--muted-foreground));cursor:pointer">＋ 添加</span>
+        </div>
+        <p class="tiny">建议留 4–6 个最关心的维度——越聚焦，"组合空白"越有意义。</p>
+        <div style="margin-top:18px"><button class="btn btn-primary" onclick="goStage('s3')">用这些列填表 →</button></div>
+      </div>
+    </div>
+
+    <!-- ② 抽取中（右侧极简，进度在左对话流） -->
+    <div class="stage" id="s3">
+      <div class="step-hint"><span class="sn">2</span><span class="st">AI 正在抽取填表</span><span class="sc">完成后一次性出整表</span></div>
+      <div class="extracting"><div><div class="big">抽取进行中…</div><div style="max-width:300px;margin:0 auto">进度看左侧对话，约几十秒。完成后这里出现完整对照表。</div></div></div>
+    </div>
+
+    <!-- ③ 完成 -->
+    <div class="stage active" id="s4">
+      <div class="step-hint"><span class="sn">3</span><span class="st">挑出值得做的空白</span><span class="sc">点卡片在表上定位，勾"值得做"</span><span class="badge badge-secondary scope">基于 18 篇</span></div>
+      <div class="toolbar">
+        <button class="btn btn-icon" id="colBtn" onclick="toggleColPanel()" title="管理列">▦</button>
+        <button class="btn btn-icon" title="更多（排序/筛选）">⋯</button>
+        <span style="flex:1"></span>
+        <span class="legend"><span class="sw" style="background:hsl(var(--warning) / .3)"></span>空白</span>
+        <span class="legend"><span class="sw" style="box-shadow:inset 0 0 0 2px hsl(var(--destructive) / .65)"></span>冲突</span>
+        <span class="legend"><span class="sw cell-empty" style="border:1px solid hsl(var(--border))"></span>未涉及</span>
+      </div>
+      <div class="col-panel hidden" id="colPanel">
+        <div class="cp-title">对照维度 — 删/加维度后需重新填表生效</div>
+        <div id="manageCols">
+          <span class="chip-col">数据集<span class="x" onclick="removeManageCol(this)">×</span></span>
+          <span class="chip-col">骨干模型<span class="x" onclick="removeManageCol(this)">×</span></span>
+          <span class="chip-col">是否用预训练<span class="x" onclick="removeManageCol(this)">×</span></span>
+          <span class="chip-col">few-shot 设置<span class="x" onclick="removeManageCol(this)">×</span></span>
+          <span class="chip-col">评测指标<span class="x" onclick="removeManageCol(this)">×</span></span>
+          <span class="chip-col" style="border-style:dashed;color:hsl(var(--muted-foreground));cursor:pointer">＋ 添加</span>
+        </div>
+        <div class="refill-bar hidden" id="refillBar"><span class="rf-note">⟳ 列已改动，表尚未更新</span><span style="flex:1"></span><button class="btn btn-primary btn-sm" onclick="goStage('s3')">重新填表</button></div>
+      </div>
+      <div class="view-body">
+        <div class="table-wrap">
+          <table class="matrix">
+            <thead><tr><th>论文</th><th>数据集</th><th>骨干模型</th><th>是否用预训练</th><th class="sparse">few-shot<span class="cmeta">仅 6/18 篇明确</span></th><th>评测指标</th></tr></thead>
+            <tbody>
+              <tr data-paper="wang">
+                <th>Wang 2023<small>CVPR</small></th>
+                <td class="cell" onclick="pop(event,'Wang 2023','“We evaluate on miniImageNet…”','§4.1')">miniImageNet<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Wang 2023','ResNet-12 backbone','§3.2')">ResNet-12<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Wang 2023','trained from scratch','§3.2')">否<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Wang 2023','5-way 1/5-shot','§4.1')">5w 1/5-shot<span class="src">↗</span></td>
+                <td class="cell cell-conflict" onclick="pop(event,'Wang 2023','67.2% — 与 Liu 2023 同设置结论相反','§4.2')">Acc 67.2%<span class="src">↗</span></td>
+              </tr>
+              <tr data-paper="liu">
+                <th>Liu 2023<small>NeurIPS</small></th>
+                <td class="cell" onclick="pop(event,'Liu 2023','miniImageNet &amp; tiered','§5')">miniImageNet<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Liu 2023','ViT-S backbone','§4')">ViT-S<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Liu 2023','ImageNet-21k pretrained','§4')">是<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Liu 2023','5-way 1-shot','§5')">5w 1-shot<span class="src">↗</span></td>
+                <td class="cell cell-conflict" onclick="pop(event,'Liu 2023','预训练显著更优 — 与 Wang 矛盾','§5.3')">Acc 81.5%<span class="src">↗</span></td>
+              </tr>
+              <tr data-paper="chen">
+                <th>Chen 2022<small>ICML</small></th>
+                <td class="cell" onclick="pop(event,'Chen 2022','CUB-200','§4')">CUB-200<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Chen 2022','ResNet-12','§3')">ResNet-12<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Chen 2022','from scratch','§3')">否<span class="src">↗</span></td>
+                <td class="cell cell-empty"></td>
+                <td class="cell" onclick="pop(event,'Chen 2022','74.1%','§4')">Acc 74.1%<span class="src">↗</span></td>
+              </tr>
+              <tr data-paper="park">
+                <th>Park 2024<small>ICLR</small></th>
+                <td class="cell" onclick="pop(event,'Park 2024','tieredImageNet','§5')">tieredImageNet<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Park 2024','ViT-S','§4')">ViT-S<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Park 2024','from scratch','§4')">否<span class="src">↗</span></td>
+                <td class="cell cell-empty"></td>
+                <td class="cell" onclick="pop(event,'Park 2024','F1 + acc','§5')">F1 / Acc<span class="src">↗</span></td>
+              </tr>
+              <tr data-paper="gupta">
+                <th>Gupta 2024<small>arXiv</small></th>
+                <td class="cell" onclick="pop(event,'Gupta 2024','miniImageNet','§3')">miniImageNet<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Gupta 2024','ResNet-12','§3')">ResNet-12<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Gupta 2024','ImageNet pretrained','§3')">是<span class="src">↗</span></td>
+                <td class="cell" onclick="pop(event,'Gupta 2024','5-way 5-shot','§3')">5w 5-shot<span class="src">↗</span></td>
+                <td class="cell cell-empty"></td>
+              </tr>
+              <tr><th colspan="6" style="text-align:center;font-weight:400;color:hsl(var(--muted-foreground));background:hsl(var(--card))">…… 其余 13 篇</th></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="insights">
+          <div class="ig-title">组合空白 · 3</div>
+          <div class="icard gap" data-id="g1" data-kind="gap" data-title="ViT + 不用预训练 + miniImageNet" data-rows="wang,liu,park,gupta" data-cols="1,2,3" onclick="linkHL(this)">
+            <div class="it">ViT + 不用预训练 + miniImageNet</div>
+            <div class="meta">涉及 11 篇 · 悬停看依据</div>
+            <div class="detail"><div class="id">用 ViT 的都依赖预训练；不用预训练的都是 ResNet。<b>这个组合无一篇覆盖</b>。</div><div class="is">依据：Wang/Liu/Park/Gupta 等 · <a href="#" onclick="event.stopPropagation()">查看支撑</a></div></div>
+            <div class="row-act"><button class="mbtn pick" onclick="togglePick(event,this)">＋ 标为值得做</button></div>
+          </div>
+          <div class="icard gap" data-id="g2" data-kind="gap" data-title="CUB-200 上的预训练效果" data-rows="chen" data-cols="1,3" onclick="linkHL(this)">
+            <div class="it">CUB-200 上的预训练效果</div>
+            <div class="meta">涉及 3 篇 · 悬停看依据</div>
+            <div class="detail"><div class="id">细粒度 CUB-200 只有 from-scratch 结果，<b>没人测过预训练增益</b>。</div><div class="is">依据：Chen 2022 等 · <a href="#" onclick="event.stopPropagation()">查看支撑</a></div></div>
+            <div class="row-act"><button class="mbtn pick" onclick="togglePick(event,this)">＋ 标为值得做</button></div>
+          </div>
+          <div class="icard gap" data-id="g3" data-kind="gap" data-title="few-shot 设置普遍缺失" data-rows="chen,park" data-cols="4" onclick="linkHL(this)">
+            <div class="it">few-shot 设置普遍缺失</div>
+            <div class="meta">仅 6/18 篇明确 · 悬停看依据</div>
+            <div class="detail"><div class="id">横向比较可比性弱，<b>一处可补的报告规范空白</b>。</div><div class="is">依据：列覆盖统计 · <a href="#" onclick="event.stopPropagation()">查看缺失</a></div></div>
+            <div class="row-act"><button class="mbtn pick" onclick="togglePick(event,this)">＋ 标为值得做</button></div>
+          </div>
+          <div class="ig-title" style="margin-top:6px">结论冲突 · 2</div>
+          <div class="icard conflict" data-id="c1" data-kind="conflict" data-title="预训练是否有用结论打架" data-rows="wang,liu" data-cols="3,5" onclick="linkHL(this)">
+            <div class="it">预训练是否有用，结论打架</div>
+            <div class="meta">Wang ↔ Liu · 悬停看依据</div>
+            <div class="detail"><div class="id"><b>Wang</b>（from-scratch 也到 SOTA）与 <b>Liu</b>（预训练显著更优）在相近设置下相反。</div><div class="is">依据：Wang §4.2 ↔ Liu §5.3 · <a href="#" onclick="event.stopPropagation()">并排对比</a></div></div>
+            <div class="row-act"><button class="mbtn" onclick="togglePick(event,this)">＋ 收入证据集</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="trust-line">⚠ 仅在所选 18 篇内成立，不代表"全世界没人做过"；是否值得做由你判断。</div>
+        <div class="act"><span class="info"><b id="pickInfo">已选 0 项</b></span><button class="btn btn-primary" onclick="goStage('s5')">去沉淀 →</button></div>
+      </div>
+    </div>
+
+    <!-- ④ 沉淀 -->
+    <div class="stage" id="s5">
+      <div class="step-hint"><span class="sn">4</span><span class="st">沉淀进证据集</span><span class="sc" id="pickSub">已勾选 0 项</span></div>
+      <div class="sink-list" id="pickList"></div>
+      <div class="footer"><div class="act" id="sinkBar">
+        <span class="info">存入：<b>小样本图像分类</b><br><span style="font-size:11px">表存为 1 条结构笔记，每个选中项各 1 条溯源条目</span></span>
+        <button class="btn btn-ghost btn-sm">换证据集</button>
+        <button class="btn btn-primary" onclick="doSink()">存入证据集 ↘</button>
+      </div></div>
+    </div>
+  </div></div>
+</div>
+
+<div class="pop" id="pop"><div class="pp" id="pp"></div><div class="pq" id="pq"></div><div class="pl" id="pl"></div><div style="margin-top:9px"><button class="mbtn">↗ 跳到原文锚点</button></div></div>
+
+<script>
+  const demoTabs = document.querySelectorAll('.stage-tabs button');
+  let progTimer = null;
+  function goStage(id) {
+    clearInterval(progTimer);
+    demoTabs.forEach(b => b.classList.toggle('active', b.dataset.stage === id));
+    document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    // 对话流随阶段切换
+    const chatId = (id === 's5') ? 'chat-s4' : 'chat-' + id;
+    document.querySelectorAll('.chatset').forEach(c => c.classList.toggle('active', c.id === chatId));
+    hidePop(); clearHL();
+    if (id === 's3') runProgress();
+    if (id === 's5') renderPicked();
+  }
+  demoTabs.forEach(b => b.onclick = () => goStage(b.dataset.stage));
+
+  function runProgress() {
+    const fill = document.querySelector('#chat-s3 .run-prog > i');
+    const label = document.querySelector('#chat-s3 .ex-count');
+    let n = 0; if (fill) fill.style.width = '0%';
+    progTimer = setInterval(() => {
+      n++;
+      if (label) label.textContent = n + ' / 18 篇';
+      if (fill) fill.style.width = Math.round(n / 18 * 100) + '%';
+      if (n >= 18) { clearInterval(progTimer); setTimeout(() => goStage('s4'), 550); }
+    }, 160);
+  }
+
+  const picked = new Map();
+  function togglePick(ev, btn) {
+    ev.stopPropagation();
+    const card = btn.closest('.icard'); const id = card.dataset.id;
+    const conflict = card.dataset.kind === 'conflict';
+    if (picked.has(id)) { picked.delete(id); btn.classList.remove('on'); btn.textContent = conflict ? '＋ 收入证据集' : '＋ 标为值得做'; card.classList.remove('picked'); }
+    else { picked.set(id, { title: card.dataset.title, kind: card.dataset.kind }); btn.classList.add('on'); btn.textContent = '✓ 已选'; card.classList.add('picked'); }
+    document.getElementById('pickInfo').textContent = '已选 ' + picked.size + ' 项';
+  }
+  function renderPicked() {
+    const list = document.getElementById('pickList');
+    document.getElementById('pickSub').textContent = '已勾选 ' + picked.size + ' 项';
+    if (picked.size === 0) { list.innerHTML = '<div style="text-align:center;color:hsl(var(--muted-foreground));padding:40px;font-size:13px">还没勾选。回上一步，点空白卡里的"标为值得做"。</div>'; return; }
+    list.innerHTML = '';
+    picked.forEach(v => {
+      const conflict = v.kind === 'conflict';
+      const d = document.createElement('div');
+      d.className = 'icard ' + (conflict ? 'conflict' : 'gap picked'); d.style.cursor = 'default';
+      d.innerHTML = '<div class="it">✓ ' + v.title + ' <span class="badge ' + (conflict ? 'badge-destructive' : 'badge-warning') + '">' + (conflict ? '收入证据集' : '值得做') + '</span></div>';
+      list.appendChild(d);
+    });
+  }
+  let sunk = false;
+  function doSink() {
+    if (sunk) return; sunk = true;
+    document.getElementById('sinkBar').innerHTML = '<span class="info"><b style="color:hsl(var(--success))">✓ 已沉淀到「小样本图像分类」</b><br><span style="font-size:11px">表存为 1 条结构笔记 · ' + picked.size + ' 个条目已写入，可在证据集读回</span></span><span class="badge badge-success">完成</span>';
+    document.getElementById('sinkMsgSlot').innerHTML = '<div class="m-row ai"><div class="m-avatar ai">A</div><div class="m-bubble">✓ 已把对照表和你选的 <b>' + picked.size + ' 项</b>沉淀进证据集「小样本图像分类」。</div></div>';
+  }
+
+  let activeCard = null;
+  function clearHL() {
+    document.querySelectorAll('.hl-row-g,.hl-row-c').forEach(e => e.classList.remove('hl-row-g', 'hl-row-c'));
+    document.querySelectorAll('.hlc-g,.hlc-c').forEach(e => e.classList.remove('hlc-g', 'hlc-c'));
+    document.querySelectorAll('.icard.lit').forEach(e => e.classList.remove('lit')); activeCard = null;
+  }
+  function linkHL(card) {
+    const was = activeCard === card; clearHL(); if (was) return;
+    activeCard = card; card.classList.add('lit');
+    const conflict = card.dataset.kind === 'conflict';
+    const table = document.querySelector('#s4 table.matrix');
+    (card.dataset.rows || '').split(',').filter(Boolean).forEach(p => { const tr = table.querySelector('tr[data-paper="' + p + '"]'); if (tr) tr.classList.add(conflict ? 'hl-row-c' : 'hl-row-g'); });
+    (card.dataset.cols || '').split(',').filter(Boolean).map(Number).forEach(c => { table.querySelectorAll('tbody tr[data-paper], thead tr').forEach(tr => { const cell = tr.children[c]; if (cell) cell.classList.add(conflict ? 'hlc-c' : 'hlc-g'); }); });
+  }
+
+  function toggleColPanel() { const p = document.getElementById('colPanel'); p.classList.toggle('hidden'); document.getElementById('colBtn').classList.toggle('on', !p.classList.contains('hidden')); }
+  function removeManageCol(x) { x.parentElement.remove(); document.getElementById('refillBar').classList.remove('hidden'); }
+
+  function pop(event, paper, quote, loc) {
+    event.stopPropagation();
+    const p = document.getElementById('pop');
+    document.getElementById('pp').textContent = paper; document.getElementById('pq').textContent = quote; document.getElementById('pl').textContent = '出处：' + loc;
+    p.style.left = Math.min(event.clientX + 12, window.innerWidth - 302) + 'px';
+    p.style.top = Math.min(event.clientY + 12, window.innerHeight - 180) + 'px';
+    p.classList.add('show');
+  }
+  function hidePop() { document.getElementById('pop').classList.remove('show'); }
+  document.addEventListener('click', e => { if (!e.target.closest('.cell') && !e.target.closest('.pop')) hidePop(); });
+
+  // 初始：③完成态，对话流同步
+  goStage('s4');
+</script>
+</body>
+</html>

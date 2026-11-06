@@ -1,0 +1,13 @@
+# CODEOWNERS — OPENSCI-Labs/ASCI-Alpha
+#
+# Each line: pattern + one or more @handles. **Last matching rule wins**，
+# 所以宽泛的默认放前面，具体规则覆盖放后面。
+# Handles 必须具有 Write 权限（通过 org team 或 collaborator），
+# 否则自动请求 review 不会触发。
+#
+# 当前为初始化版本：全量路径指向 @liningftp，团队扩大后再细分
+# （packages/shared、packages/core、packages/ui、apps/electron/src/main、
+# apps/electron/src/renderer 等子模块）。
+
+# ─── 默认 owner：架构与协调 ───
+*                                               @liningftp

@@ -1,0 +1,66 @@
+{
+  "global": {
+    "crashed": "Something went wrong",
+    "reload": "Reload"
+  },
+  "preview": {
+    "failed": "Preview failed",
+    "unknown": "Unknown error",
+    "retry": "Retry",
+    "openExternal": "Open in new window"
+  },
+  "common": {
+    "unknown": "Unknown error"
+  },
+  "channelTest": {
+    "success": "Connection successful",
+    "channelNotFound": "Channel not found",
+    "unknownError": "Unknown error",
+    "connectionTestFailed": "Connection test failed: {{message}}",
+    "invalidApiKey": "Invalid API Key",
+    "invalidApiKeyWithDetail": "Invalid API Key: {{detail}}",
+    "endpointNotFound": "Endpoint not found (404): please verify the Base URL points to a valid Anthropic-compatible endpoint",
+    "apiKeyNonAscii": "Character {{pos}} of the API Key is non-ASCII (U+{{code}}); please check that no CJK or special characters were accidentally pasted",
+    "moonshotOpenAIEndpoint": "The current Base URL is a Moonshot OpenAI-compatible endpoint (/v1); a successful curl /v1/models only proves the OpenAI-style interface works. ASCI Agent currently requires an Anthropic Messages-compatible endpoint. Switch the provider to Moonshot Anthropic and use Base URL: https://api.moonshot.cn/anthropic.",
+    "kimiCodeAuth": "Kimi Code authentication failed: api.kimi.com/coding and api.moonshot.cn/v1 are separate account systems whose API keys are not interchangeable. If you have a Moonshot Open Platform key, do not point it at the Kimi Code endpoint; to use Kimi Code, create a key in the Kimi Code console.",
+    "responseDetail": "Raw response: {{detail}}",
+    "providerPattern": {
+      "loginFail": "Login failed",
+      "carryXApiKey": "please carry the API secret key in the 'X-Api-Key' header of the request",
+      "authenticationError": "Authentication failed",
+      "invalidApiKey": "Invalid API Key",
+      "incorrectApiKey": "Incorrect API Key",
+      "invalidBearerToken": "Invalid bearer token",
+      "rateLimit": "Rate limit exceeded",
+      "insufficientQuota": "Insufficient quota",
+      "permissionDenied": "Permission denied",
+      "modelNotFound": "Model not found"
+    },
+    "customModelRequired": "Add and enable a model ID before testing this relay.",
+    "customInvalidUrl": "Enter a valid HTTP(S) Base URL without credentials, query or fragment.",
+    "customRequestFailed": "Model request failed (HTTP {{status}}). Check the model ID, API key, balance and Base URL.",
+    "customInvalidResponse": "The relay returned an unexpected response. Check the selected API protocol.",
+    "customBridgeFailed": "Unable to start the local OpenAI bridge. Check the relay configuration and try again.",
+    "imageChatUnsupported": "Select a chat provider for conversation. Image providers are used by the image generation tool."
+  },
+  "mcpTest": {
+    "success": "Connection successful",
+    "failed": "Connection failed"
+  },
+  "agentRewind": {
+    "failedTitle": "Rewind failed",
+    "blockedForkPreFork": "Cannot rewind to this point",
+    "blockedForkPreForkDetail": "This message was copied from the source session before this fork was created. Rewind in the source session, or fork again from here instead.",
+    "blockedPostRecovery": "Cannot rewind to this point",
+    "blockedPostRecoveryDetail": "The original session this message belongs to has been replaced after a recovery. Rewinding past this point would lose context."
+  },
+  "agentOrchestrator": {
+    "rateLimited": "The language model channel is rate limited (HTTP 429). Wait a moment, then retry manually. Check existing outputs first to avoid duplicate charges.",
+    "emptyResponse": "The language model returned no reply or tool call. The provider may have charged for this request. Check existing outputs before manually retrying; Tinker has not replayed image generation.",
+    "incompleteResponse": "The response ended without a completion status. Check existing outputs before manually retrying to avoid duplicate charges.",
+    "pdfDocumentBlockRefused": "The current channel (provider={{provider}}) does not accept PDF document content blocks and returned HTTP {{statusCode}}. Disable the \"Supports PDF document block\" toggle in Settings → Channels (it is off by default) or switch to DeepSeek / Anthropic to continue."
+  },
+  "dataExport": {
+    "validationFailed": "Export validation failed: an object in {{dataFile}} (id: {{objectId}}) does not conform to the O1 schema. No file was written. Please report this issue."
+  }
+}
