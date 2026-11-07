@@ -80,7 +80,7 @@
     }
   },
   "projectSwitcher": {
-    "defaultName": "默认科研项目"
+    "defaultName": "默认项目"
   },
   "scrollLatest": {
     "generating": "正在生成 · 跳到最新内容",

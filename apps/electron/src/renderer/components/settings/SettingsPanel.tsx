@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 /**
  * SettingsPanel - 设置面板
  *
@@ -76,7 +77,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
   const items = React.useMemo<TabItem[]>(
     () => [
       { id: 'profile', label: t('panel.tabs.profile'), icon: <UserCircle size={16} /> },
-      { id: 'zotero', label: t('panel.tabs.zotero'), icon: <BookMarked size={16} /> },
+      ...(RESEARCH_UI_ENABLED ? [{ id: 'zotero' as const, label: t('panel.tabs.zotero'), icon: <BookMarked size={16} /> }] : []),
       { id: 'general', label: t('panel.tabs.general'), icon: <Settings size={16} /> },
       { id: 'shortcuts', label: t('panel.tabs.shortcuts'), icon: <Keyboard size={16} /> },
       { id: 'proxy', label: t('panel.tabs.proxy'), icon: <Globe size={16} /> },
@@ -92,7 +93,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
   // 当前 tab 标题；找不到则兜底为面板标题
   const activeTabLabel = React.useMemo(() => {
     const hit = items.find((item) => item.id === renderTab)
-    return hit ? hit.label : t('panel.title')
+    return hit ? hit.label : renderTab === 'zotero' ? t('panel.tabs.zotero') : t('panel.title')
   }, [items, renderTab, t])
 
   const handleTabClick = (id: SettingsTab): void => {
@@ -129,10 +130,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
                 variant="ghost"
                 size="row"
                 onClick={() => handleTabClick(tab.id)}
+                aria-current={renderTab === tab.id ? 'page' : undefined}
                 className={cn(
                   'rounded-md min-w-0',
                   renderTab === tab.id
-                    ? 'bg-muted text-foreground font-medium'
+                    ? tab.id === 'channels'
+                      ? 'settings-channel-nav font-medium'
+                      : 'bg-muted text-foreground font-medium'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                 )}
               >
@@ -145,7 +149,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
         </div>
 
         {/* 右侧内容区域 - 浅灰背景，与卡片白色形成层级区分 */}
-        <ScrollArea className="flex-1 bg-muted/30">
+        <ScrollArea className={cn("min-w-0 flex-1", renderTab !== 'channels' && 'bg-muted/30')}>
           <div className="px-6 py-4">
             {renderTabContent(renderTab)}
           </div>

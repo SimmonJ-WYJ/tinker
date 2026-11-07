@@ -1,6 +1,6 @@
 {
   "agent": {
-    "noWorkspace": "Please select or create a research project first",
+    "noWorkspace": "Please select or create a project first",
     "mcp": {
       "section": "MCP servers (global)",
       "description": "Visible to all workspaces",

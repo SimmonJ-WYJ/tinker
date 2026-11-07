@@ -46,7 +46,7 @@
   },
   "projectFiles": {
     "title": "Project files",
-    "tooltip": "Cross-session project files. Belong to the entire research project; all conversations can reference them.",
+    "tooltip": "Cross-session project files. Belong to the entire project; all conversations can reference them.",
     "uploadTooltip": "Upload file to project",
     "openInFinderTooltip": "Open in Finder",
     "expandLabel": "Expand project files",
@@ -92,9 +92,9 @@
     "tooltip": "v{{version}} update available"
   },
   "projectSwitcher": {
-    "switchAria": "Switch research project",
+    "switchAria": "Switch project",
     "noneSelected": "No project selected",
-    "empty": "No research projects yet",
+    "empty": "No projects yet",
     "createPlaceholder": "Project name...",
     "createNew": "New project",
     "manage": "Manage projects...",
@@ -139,13 +139,13 @@
     }
   },
   "projectManage": {
-    "title": "Manage research projects",
+    "title": "Manage projects",
     "description": "Rename, delete, or reorder by drag. The default project cannot be deleted; use the title bar to switch or create projects.",
     "renameTooltip": "Rename",
     "deleteTooltip": "Delete",
     "renameFailed": "Failed to rename",
     "deleteConfirm": {
-      "title": "Delete this research project?",
+      "title": "Delete this project?",
       "description": "Project configuration will be removed, but local directory files are kept. Are you sure?",
       "cancel": "Cancel",
       "confirm": "Delete"

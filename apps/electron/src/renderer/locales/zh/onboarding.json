@@ -92,8 +92,8 @@
       "prompt": "检索 大模型 + 蛋白结构预测 相关论文"
     },
     "analyzePdf": {
-      "label": "分析这篇 PDF 的结论",
-      "prompt": "帮我分析这篇 PDF 的核心结论"
+      "label": "读懂文档",
+      "prompt": "请阅读我提供的文档，总结重点，并区分原文事实和你的推断。"
     },
     "importZotero": {
       "label": "导入 Zotero 集合",
@@ -102,6 +102,18 @@
     "generateReview": {
       "label": "生成主题综述",
       "prompt": "生成关于「主题」的文献综述"
+    },
+    "organizeFiles": {
+      "label": "整理资料",
+      "prompt": "帮我整理我提供的文件，先概括内容并列出需要我补充的信息。"
+    },
+    "createImage": {
+      "label": "构思图片",
+      "prompt": "帮我完善一张图片的创作要求，先确认用途、主体和风格，暂时不要生图。"
+    },
+    "planTask": {
+      "label": "拆解任务",
+      "prompt": "帮我把接下来描述的任务拆成可执行步骤，并指出需要先确认的条件。"
     }
   },
   "welcome": {
@@ -111,7 +123,7 @@
     "greetingAfternoon": "下午好",
     "greetingEvening": "晚上好",
     "salutation": "{{name}}，{{greeting}}",
-    "tagline": "欢迎体验 Tinker Alpha，与你的科研智能体一起开始工作。"
+    "tagline": "欢迎体验 Tinker，和智能体一起把想法变成成果。"
   },
   "tips": {
     "macShortcutNew": "按 ⌘N 快速创建新对话",
@@ -134,15 +146,15 @@
     "winShortcutStop": "按 Ctrl+. 中断 AI 响应",
     "winShortcutClose": "按 Ctrl+W 关闭当前标签页",
     "winShortcutZoom": "按 Ctrl++ / Ctrl+- 可以放大或缩小界面，Ctrl+0 重置",
-    "tipAgentFile": "输入 @ 可以引用工作区文件、Skill、MCP 或 Zotero 文献",
+    "tipAgentFile": "输入 @ 可以引用项目文件，输入 # 可以选择工具。",
     "tipAttachment": "支持拖拽 PDF / Office 文件到输入框直接上传附件",
     "tipShortcutsCustom": "在设置 → 快捷键中可以自定义所有快捷键",
-    "taskSearch": "试试「帮我检索关于 XX 主题近三年的高引用论文」让 Agent 自动搜索 arXiv / PubMed",
-    "taskReview": "试试「围绕 XX 方向写一份结构化文献综述初稿」让 Agent 按 IMRaD 组织论述",
-    "taskCompare": "上传两篇 PDF 后问「对比这两种方法的核心差异与适用场景」",
-    "taskSummarize": "把 PDF 拖进来，问「总结这篇论文的研究问题、方法和结论」",
-    "taskZotero": "连接 Zotero 后，@ 可以直接引用文库条目，Agent 会带着全文上下文回答",
-    "taskOutline": "试试「为 XX 课题生成一份实验设计与时间线初稿」"
+    "taskSearch": "试试「帮我查找并比较这几个方案，标明信息来源」",
+    "taskReview": "试试「把这些资料整理成一份结构清楚的说明」",
+    "taskCompare": "上传两份文件后问「对比它们的差异和适用场景」",
+    "taskSummarize": "把文档拖进来，问「总结重点，并列出待确认的问题」",
+    "taskZotero": "在项目中整理文件，下次对话可以继续引用。",
+    "taskOutline": "试试「把这个目标拆成可执行步骤和时间安排」"
   },
   "home": {
     "title": "今天，你想创造什么？",

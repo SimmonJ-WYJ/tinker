@@ -1,0 +1,111 @@
+{
+  "channels": {
+    "section": {
+      "title": "渠道配置",
+      "description": "管理 AI 供应商连接与可用模型。"
+    },
+    "addButton": "添加配置",
+    "loading": "加载中...",
+    "empty": "暂无模型配置",
+    "row": {
+      "enabled": "已启用",
+      "disabled": "已停用",
+      "modelsCount": "{{enabled}} / {{total}} 个模型已启用",
+      "noModelsWarning": "未启用任何模型 · 对话框不可见",
+      "toggleDisabledNoModels": "请先启用至少一个模型",
+      "deleteTitle": "删除",
+      "deleteAria": "删除 {{name}}",
+      "toggleAria": "{{action}} {{name}}",
+      "toggleEnable": "启用",
+      "toggleDisable": "禁用",
+      "editAria": "编辑 {{name}}",
+      "imageCapability": "图片生成",
+      "chatCapability": "语言对话"
+    },
+    "deleteConfirm": "确定删除渠道「{{name}}」？此操作不可恢复。"
+  },
+  "channelForm": {
+    "title": {
+      "edit": "编辑模型配置",
+      "create": "添加模型配置"
+    },
+    "autoSave": {
+      "saving": "保存中",
+      "saved": "已保存",
+      "error": "保存失败"
+    },
+    "modelFallback": {
+      "switched": "已切换激活模型为「{{name}}」",
+      "cleared": "当前激活模型已被停用，请重新选择"
+    },
+    "create": "创建",
+    "save": "保存",
+    "createTooltip": {
+      "noName": "请先填写配置名称",
+      "noKey": "请先填写 API Key",
+      "noEnabledModel": "请至少启用一个模型",
+      "testNotPassed": "请先通过测试连接",
+      "invalidUrl": "请填写有效的 HTTP(S) Base URL"
+    },
+    "section": {
+      "basicInfo": "基本信息",
+      "models": "模型",
+      "modelsDescription": "{{enabled}} / {{total}} 个模型已启用",
+      "miscSettings": "高级设置"
+    },
+    "fields": {
+      "name": "配置名称",
+      "namePlaceholder": "例如：My Anthropic",
+      "providerLabel": "供应商类型",
+      "providerPlaceholder": "选择供应商",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com",
+      "previewUrl": "预览：{{url}}",
+      "apiKey": "API Key",
+      "apiKeyEditPlaceholder": "留空则不更新",
+      "apiKeyCreatePlaceholder": "输入 API Key",
+      "apiKeyMismatchAnthropic": "这看起来不是 Anthropic 的 API Key（应以 sk-ant- 开头），请检查供应商类型是否选对",
+      "testConnection": "测试连接",
+      "testRequestFailed": "测试请求失败",
+      "enableLabel": "启用此配置",
+      "enableDescription": "启用后，已勾选模型会出现在模型选择器中",
+      "supportsPdfDocumentBlockLabel": "支持 PDF document block",
+      "supportsPdfDocumentBlockDescription": "启用后 Tinker 允许 Read 工具直接读 PDF 并由 SDK 注入为 document 内容块。Moonshot Anthropic 兼容端点（含 Kimi 内置渠道）当前会对该 block 返回 HTTP 500，默认关闭；自托管反代或自行验证过的渠道可手动开启。",
+      "customAnthropic": "自定义中转站 · Anthropic",
+      "customOpenai": "自定义中转站 · OpenAI",
+      "customImage": "自定义中转 · 生图（测试会生成一张图片）",
+      "imageProtocol": "生图接口协议",
+      "imagePriority": "复杂生图任务",
+      "imageStandard": "普通优先级",
+      "imagePreferred": "优先使用此渠道",
+      "imageReferences": "支持的参考图数量（渠道声明）",
+      "back": "返回渠道列表",
+      "showKey": "显示 API Key",
+      "hideKey": "隐藏 API Key",
+      "imageRelay": "自定义中转站",
+      "testImage": "生成测试图片 · 可能计费",
+      "imageTestNotice": "保存配置不会测试连接或生成图片。可选的生图测试会发起一次真实请求，成功或失败均可能计费，请核对渠道账单。"
+    },
+    "models": {
+      "emptyHint": "先获取模型，或手动添加一个模型 ID。",
+      "fetch": "刷新清单",
+      "fetchTooltipNeed": "请先填写 Base URL 和 API Key",
+      "fetchSummary": "已获取 {{count}} 个模型",
+      "fetchSummaryDetailed": "已获取 {{count}} 个模型，新增 {{added}} 个，总计 {{total}} 个",
+      "fetchRequestFailed": "拉取模型请求失败",
+      "noEnabledWarning": "至少启用一个模型才能创建配置",
+      "requiredWarning": "请先获取或手动添加至少一个模型",
+      "lockedNeedTest": "先通过连接测试才能加载模型列表",
+      "deleteTitle": "删除",
+      "deleteAria": "删除 {{name}}",
+      "customSection": "添加自定义模型",
+      "customSectionHint": "供应商清单未收录的模型（如新发布、灰度、私有模型）可在此填模型 ID 手动添加",
+      "customSectionCollapse": "收起",
+      "modelIdPlaceholder": "模型 ID（如 claude-opus-4-6）",
+      "modelNamePlaceholder": "显示名称（可选）",
+      "addButton": "添加",
+      "addNeedId": "请先输入模型 ID",
+      "addLooksLikeApiKey": "看起来像 API Key，不是模型 ID。请回到上方 \"API Key\" 字段填写"
+    }
+  }
+}

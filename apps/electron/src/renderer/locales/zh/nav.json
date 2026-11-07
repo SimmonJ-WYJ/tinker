@@ -46,7 +46,7 @@
   },
   "projectFiles": {
     "title": "项目文件",
-    "tooltip": "跨会话的项目文件。属于整个科研项目，所有会话都可以引用。",
+    "tooltip": "跨会话的项目文件。属于整个项目，所有会话都可以引用。",
     "uploadTooltip": "上传文件到项目",
     "openInFinderTooltip": "在 Finder 中打开",
     "expandLabel": "展开项目文件",
@@ -92,9 +92,9 @@
     "tooltip": "v{{version}} 可更新"
   },
   "projectSwitcher": {
-    "switchAria": "切换科研项目",
+    "switchAria": "切换项目",
     "noneSelected": "未选择项目",
-    "empty": "暂无科研项目",
+    "empty": "暂无项目",
     "createPlaceholder": "项目名称...",
     "createNew": "新建项目",
     "manage": "管理项目...",
@@ -139,13 +139,13 @@
     }
   },
   "projectManage": {
-    "title": "管理科研项目",
+    "title": "管理项目",
     "description": "重命名、删除或拖拽排序。默认项目无法删除；切换和新建请使用标题栏入口。",
     "renameTooltip": "重命名",
     "deleteTooltip": "删除",
     "renameFailed": "重命名失败",
     "deleteConfirm": {
-      "title": "确认删除科研项目",
+      "title": "确认删除项目",
       "description": "删除后项目配置将被移除，但本地目录文件会保留。确定要删除吗？",
       "cancel": "取消",
       "confirm": "删除"

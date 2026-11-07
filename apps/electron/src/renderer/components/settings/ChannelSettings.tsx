@@ -1,22 +1,15 @@
-/**
- * ChannelSettings - 渠道配置页
- *
- * 单 section 设计：每行一个渠道 + 两个 Switch（启用 / Agent 可用）。
- * "Agent 可见性" 是渠道的属性，不再单独开 section。
- */
-
 import * as React from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { Plus, Trash2, Zap, ChevronRight, AlertTriangle, ImageIcon, MessageSquare } from 'lucide-react'
+import { Plus, Trash2, Zap, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { PROVIDER_LABELS } from '@asci/shared'
 import type { Channel } from '@asci/shared'
-import { getChannelLogo } from '@/lib/model-logo'
+import { ChannelProviderMark } from './ChannelProviderMark'
 import { pickDefaultModelOnCreate } from '@/lib/channel-defaults'
 import { agentChannelIdAtom, agentModelIdAtom, agentChannelIdsAtom } from '@/atoms/agent-atoms'
 import { channelsAtom } from '@/atoms/channels-atoms'
-import { SettingsSection, SettingsCard, SettingsEmpty } from './primitives'
+import { SettingsSectionHeader, SettingsCard, SettingsEmpty } from './primitives'
 import { ChannelForm } from './ChannelForm'
 import { useT } from '@/hooks/useT'
 
@@ -194,44 +187,52 @@ export function ChannelSettings(): React.ReactElement {
 
   // 列表视图
   return (
-    <div className="space-y-8">
-      <SettingsSection
+    <div className="space-y-5">
+      <SettingsSectionHeader
         title={t('channels.section.title')}
         description={t('channels.section.description')}
         action={
-          <Button size="sm" onClick={() => setViewMode('create')} data-spotlight-target="add-channel">
+          <Button className="settings-channel-primary" size="sm" onClick={() => setViewMode('create')} data-spotlight-target="add-channel">
             <Plus size={16} />
             <span>{t('channels.addButton')}</span>
           </Button>
         }
-      >
-        {loading ? (
-          <SettingsCard>
-            <SettingsEmpty>{t('channels.loading')}</SettingsEmpty>
-          </SettingsCard>
-        ) : channels.length === 0 ? (
-          <SettingsCard>
+      />
+      {loading || channels.length === 0 ? (
+        <SettingsCard>
+          {loading ? <SettingsEmpty>{t('channels.loading')}</SettingsEmpty> : (
             <SettingsEmpty icon={<Zap data-first-run-empty-icon size={20} strokeWidth={2} />}>
               {t('channels.empty')}
             </SettingsEmpty>
-          </SettingsCard>
-        ) : (
-          <SettingsCard>
-            {channels.map((channel) => (
-              <ChannelRow
-                key={channel.id}
-                channel={channel}
-                onEdit={() => {
-                  setEditingChannel(channel)
-                  setViewMode('edit')
-                }}
-                onDelete={() => handleDelete(channel)}
-                onToggle={() => handleToggle(channel)}
-              />
-            ))}
-          </SettingsCard>
-        )}
-      </SettingsSection>
+          )}
+        </SettingsCard>
+      ) : (
+        [false, true].map((isImage) => {
+          const group = channels.filter((channel) => (channel.provider === 'custom-image') === isImage)
+          if (!group.length) return null
+          const label = t(isImage ? 'channels.row.imageCapability' : 'channels.row.chatCapability')
+          const headingId = isImage ? 'image-channel-heading' : 'chat-channel-heading'
+          return (
+            <section key={headingId} aria-labelledby={headingId} className="space-y-2.5">
+              <h4 id={headingId} className="text-sm font-semibold">{label}</h4>
+              <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
+                {group.map((channel) => (
+                  <ChannelRow
+                    key={channel.id}
+                    channel={channel}
+                    onEdit={() => {
+                      setEditingChannel(channel)
+                      setViewMode('edit')
+                    }}
+                    onDelete={() => handleDelete(channel)}
+                    onToggle={() => handleToggle(channel)}
+                  />
+                ))}
+              </ul>
+            </section>
+          )
+        })
+      )}
     </div>
   )
 }
@@ -265,61 +266,47 @@ function ChannelRow({
     .join(' · ')
 
   return (
-    <div className="group flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-muted/40 focus-within:bg-muted/40">
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label={t('channels.row.editAria', { name: channel.name })}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <img src={getChannelLogo(channel.baseUrl)} alt="" className="h-8 w-8 shrink-0 rounded-lg" />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="truncate text-sm font-medium text-foreground">{channel.name}</span>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-sm text-muted-foreground">
-                {channel.provider === 'custom-image' ? <ImageIcon size={12} aria-hidden="true" /> : <MessageSquare size={12} aria-hidden="true" />}
-                {t(channel.provider === 'custom-image' ? 'channels.row.imageCapability' : 'channels.row.chatCapability')}
-              </span>
+    <li className="group flex items-center gap-1 pr-3 transition-colors hover:bg-muted/45 focus-within:bg-muted/45 sm:gap-2 sm:pr-4">
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={t('channels.row.editAria', { name: channel.name })}
+        className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4"
+      >
+        <ChannelProviderMark provider={channel.provider} imageProtocol={channel.capabilities?.imageProtocol} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-foreground" title={channel.name}>{channel.name}</div>
+          <div className="mt-0.5 truncate text-xs leading-5 text-muted-foreground" title={description}>{description}</div>
+          {hasNoEnabledModels && (
+            <div className="flex items-center gap-1 text-xs text-warning">
+              <AlertTriangle size={12} className="shrink-0" aria-hidden="true" />
+              <span>{t('channels.row.noModelsWarning')}</span>
             </div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</div>
-            {enabledCount === 0 && (
-              <div className="mt-1 flex items-center gap-1 text-xs text-warning">
-                <AlertTriangle size={12} className="shrink-0" aria-hidden="true" />
-                <span>{t('channels.row.noModelsWarning')}</span>
-              </div>
-            )}
-          </div>
-          <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-        </button>
-        <div
-          className="flex items-center gap-3"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          {/* 删除：红底警示按钮，仅在行 hover/focus 时显示 */}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onDelete}
-            className="size-auto bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 hover:text-destructive opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [&_svg]:size-3.5"
-            title={t('channels.row.deleteTitle')}
-            aria-label={t('channels.row.deleteAria', { name: channel.name })}
-          >
-            <Trash2 size={14} />
-          </Button>
-
-          {/* 启用开关：开 = 渠道在 Agent 模型选择器中可见；0 模型时禁止开启 */}
-          <Switch
-            checked={hasNoEnabledModels ? false : channel.enabled}
-            disabled={hasNoEnabledModels}
-            onCheckedChange={hasNoEnabledModels ? undefined : onToggle}
-            title={hasNoEnabledModels ? t('channels.row.toggleDisabledNoModels') : undefined}
-            aria-label={t('channels.row.toggleAria', {
-              action: channel.enabled ? t('channels.row.toggleDisable') : t('channels.row.toggleEnable'),
-              name: channel.name,
-            })}
-          />
+          )}
         </div>
-    </div>
+        <ChevronRight size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+      </button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onDelete}
+        className="text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 [&_svg]:size-3.5"
+        title={t('channels.row.deleteTitle')}
+        aria-label={t('channels.row.deleteAria', { name: channel.name })}
+      >
+        <Trash2 size={14} />
+      </Button>
+      <Switch
+        className="settings-channel-switch"
+        checked={!hasNoEnabledModels && channel.enabled}
+        disabled={hasNoEnabledModels}
+        onCheckedChange={onToggle}
+        title={hasNoEnabledModels ? t('channels.row.toggleDisabledNoModels') : undefined}
+        aria-label={t('channels.row.toggleAria', {
+          action: channel.enabled ? t('channels.row.toggleDisable') : t('channels.row.toggleEnable'),
+          name: channel.name,
+        })}
+      />
+    </li>
   )
 }

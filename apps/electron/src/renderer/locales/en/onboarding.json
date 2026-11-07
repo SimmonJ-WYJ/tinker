@@ -92,8 +92,8 @@
       "prompt": "Search papers on LLMs + protein structure prediction"
     },
     "analyzePdf": {
-      "label": "Analyze this PDF's conclusions",
-      "prompt": "Help me analyze the key conclusions of this PDF"
+      "label": "Understand a document",
+      "prompt": "Read the document I provide, summarize the key points, and distinguish source facts from your inferences."
     },
     "importZotero": {
       "label": "Import Zotero collection",
@@ -102,6 +102,18 @@
     "generateReview": {
       "label": "Generate a topic review",
       "prompt": "Generate a literature review on \"topic\""
+    },
+    "organizeFiles": {
+      "label": "Organize files",
+      "prompt": "Help me organize the files I provide. Start by summarizing their contents and identifying missing information."
+    },
+    "createImage": {
+      "label": "Plan an image",
+      "prompt": "Help me develop an image brief. First confirm its purpose, subject and style; do not generate an image yet."
+    },
+    "planTask": {
+      "label": "Plan a task",
+      "prompt": "Break the task I describe next into actionable steps and identify what needs to be confirmed first."
     }
   },
   "welcome": {
@@ -111,7 +123,7 @@
     "greetingAfternoon": "Good afternoon",
     "greetingEvening": "Good evening",
     "salutation": "{{name}}, {{greeting}}",
-    "tagline": "Welcome to Tinker Alpha — start working with your research agent."
+    "tagline": "Welcome to Tinker. Turn ideas into results with your agent."
   },
   "tips": {
     "macShortcutNew": "Press ⌘N to start a new conversation",
@@ -134,15 +146,15 @@
     "winShortcutStop": "Press Ctrl+. to interrupt the AI response",
     "winShortcutClose": "Press Ctrl+W to close the current tab",
     "winShortcutZoom": "Press Ctrl++ / Ctrl+- to zoom the UI, Ctrl+0 to reset",
-    "tipAgentFile": "Type @ to reference workspace files, Skills, MCP, or Zotero items",
+    "tipAgentFile": "Type @ to reference project files, or # to choose a tool.",
     "tipAttachment": "Drag PDF / Office files onto the input to upload as attachments",
     "tipShortcutsCustom": "Customize all shortcuts under Settings → Shortcuts",
-    "taskSearch": "Try \"find recent highly-cited papers on XX\" — the Agent searches arXiv / PubMed for you",
-    "taskReview": "Try \"draft a structured literature review on XX\" — the Agent organizes by IMRaD",
-    "taskCompare": "Upload two PDFs and ask \"compare these two methods and their applicable scenarios\"",
-    "taskSummarize": "Drop a PDF in and ask \"summarize the research question, methods, and conclusions\"",
-    "taskZotero": "After connecting Zotero, @ can reference library items so the Agent answers with full context",
-    "taskOutline": "Try \"draft an experiment design and timeline for XX\""
+    "taskSearch": "Try \"compare these options and include your sources\"",
+    "taskReview": "Try \"turn these materials into a clearly structured explanation\"",
+    "taskCompare": "Upload two files and ask \"compare their differences and use cases\"",
+    "taskSummarize": "Drop in a document and ask \"summarize the key points and open questions\"",
+    "taskZotero": "Organize files in a project to reference them in later conversations.",
+    "taskOutline": "Try \"break this goal into actionable steps and a schedule\""
   },
   "home": {
     "title": "What will you create today?",

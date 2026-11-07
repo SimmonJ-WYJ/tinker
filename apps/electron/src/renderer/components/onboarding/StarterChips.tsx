@@ -11,22 +11,22 @@ interface StarterChipDescriptor {
   icon: string  // emoji
   /** i18n 完整 key（label / prompt） */
   labelKey:
-    | 'starterChips.searchProtein.label'
+    | 'starterChips.organizeFiles.label'
     | 'starterChips.analyzePdf.label'
-    | 'starterChips.importZotero.label'
-    | 'starterChips.generateReview.label'
+    | 'starterChips.createImage.label'
+    | 'starterChips.planTask.label'
   promptKey:
-    | 'starterChips.searchProtein.prompt'
+    | 'starterChips.organizeFiles.prompt'
     | 'starterChips.analyzePdf.prompt'
-    | 'starterChips.importZotero.prompt'
-    | 'starterChips.generateReview.prompt'
+    | 'starterChips.createImage.prompt'
+    | 'starterChips.planTask.prompt'
 }
 
 const STARTER_CHIPS: ReadonlyArray<StarterChipDescriptor> = [
-  { icon: '🔎', labelKey: 'starterChips.searchProtein.label', promptKey: 'starterChips.searchProtein.prompt' },
+  { icon: '🔎', labelKey: 'starterChips.organizeFiles.label', promptKey: 'starterChips.organizeFiles.prompt' },
   { icon: '📄', labelKey: 'starterChips.analyzePdf.label', promptKey: 'starterChips.analyzePdf.prompt' },
-  { icon: '📚', labelKey: 'starterChips.importZotero.label', promptKey: 'starterChips.importZotero.prompt' },
-  { icon: '✍', labelKey: 'starterChips.generateReview.label', promptKey: 'starterChips.generateReview.prompt' },
+  { icon: '📚', labelKey: 'starterChips.createImage.label', promptKey: 'starterChips.createImage.prompt' },
+  { icon: '✍', labelKey: 'starterChips.planTask.label', promptKey: 'starterChips.planTask.prompt' },
 ]
 
 export interface StarterChipsProps {

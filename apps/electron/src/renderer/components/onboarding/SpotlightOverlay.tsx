@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 /**
  * SpotlightOverlay — 多阶段蒙版引导（V2）
  *
@@ -92,12 +93,19 @@ export function SpotlightOverlay(): React.ReactElement | null {
   // LibraryView 会直接渲染三栏，「启动 Zotero」按钮不存在 → spotlight 会卡死。
   // 此时视为本 substage 已完成，自动跳到下一步。
   React.useEffect(() => {
-    if (step === 'connect-zotero' && subStage === 1 && zoteroPingStatus.running) {
+    if (RESEARCH_UI_ENABLED && step === 'connect-zotero' && subStage === 1 && zoteroPingStatus.running) {
       window.electronAPI.skipOnboardingSpotlightSubStage().catch(console.error)
     }
   }, [step, subStage, zoteroPingStatus.running])
 
-  const visible = step !== undefined && shouldShowInCurrentView(step, subStage, settingsOpen, activeView)
+  // 通用首用流程跳过旧科研子阶段；只推进引导位置，不改用户连接配置。
+  React.useEffect(() => {
+    if (!RESEARCH_UI_ENABLED && step === 'connect-zotero') {
+      void window.electronAPI.advanceOnboardingSpotlight({ from: step, fromSubStage: subStage }).catch(console.error)
+    }
+  }, [step, subStage])
+
+  const visible = step !== undefined && (RESEARCH_UI_ENABLED || step !== 'connect-zotero') && shouldShowInCurrentView(step, subStage, settingsOpen, activeView)
   const isStarterChipsStage = step === 'new-task' && subStage === 1
 
   // 计算 rect — 监听 step / subStage / settingsOpen / activeView / window resize

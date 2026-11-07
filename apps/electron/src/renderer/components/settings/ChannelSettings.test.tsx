@@ -5,7 +5,7 @@
  */
 
 import { afterEach, describe, expect, mock, test } from 'bun:test'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { setAppLanguage } from '@/lib/i18n'
 import { ChannelSettings } from './ChannelSettings.tsx'
 
@@ -24,10 +24,10 @@ describe('ChannelSettings 首次空态', () => {
     const { container } = render(<ChannelSettings />)
 
     await waitFor(() => {
-      expect(screen.getByText('模型配置')).toBeInTheDocument()
+      expect(screen.getByText('渠道配置')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('管理 AI 供应商连接，配置 API Key 和可用模型。')).toBeInTheDocument()
+    expect(screen.getByText('管理 AI 供应商连接与可用模型。')).toBeInTheDocument()
     expect(screen.getByText('暂无模型配置')).toBeInTheDocument()
     expect(screen.queryByText('Anthropic')).not.toBeInTheDocument()
     expect(screen.queryByText('DeepSeek')).not.toBeInTheDocument()
@@ -47,13 +47,37 @@ test('自定义渠道列表使用中文协议名称', async () => {
   await waitFor(() => expect(screen.getByText(/自定义中转站 · OpenAI/)).toBeInTheDocument())
 })
 
-test('渠道编辑入口不包含开关，图片能力与协议说明分开', async () => {
+test('按用途分组；启停渠道不会进入编辑，点击渠道可编辑并返回', async () => {
   await setAppLanguage('en')
-  window.electronAPI = { listChannels: mock(async () => [{ id: 'images', name: 'Image Relay', provider: 'custom-image', baseUrl: 'https://relay.test', apiKey: '', models: [{ id: 'image', name: 'image', enabled: true }], enabled: true, createdAt: 0, updatedAt: 0 }]) } as unknown as Window['electronAPI']
+  const base = { baseUrl: 'https://relay.test', apiKey: '', models: [{ id: 'm', name: 'm', enabled: true }], enabled: true, createdAt: 0, updatedAt: 0 }
+  let channels = [
+    { ...base, id: 'images', name: 'Image Relay', provider: 'custom-image' },
+    { ...base, id: 'chat', name: 'Chat Relay', provider: 'custom-openai' },
+  ]
+  const updateChannel = mock(async (id: string, patch: { enabled: boolean }) => {
+    channels = channels.map((channel) => channel.id === id ? { ...channel, ...patch } : channel)
+  })
+  window.electronAPI = {
+    listChannels: mock(async () => channels),
+    updateChannel,
+    updateSettings: mock(async () => ({})),
+    decryptApiKey: mock(async () => 'fixture-key'),
+  } as unknown as Window['electronAPI']
+
   render(<ChannelSettings />)
-  const edit = await screen.findByRole('button', { name: 'Edit Image Relay' })
-  expect(edit.querySelector('[role="switch"]')).toBeNull()
-  expect(screen.getByRole('switch', { name: 'Disable Image Relay' })).toBeInTheDocument()
-  expect(screen.getByText('Image generation', { exact: true })).toBeInTheDocument()
+  const images = await screen.findByRole('region', { name: 'Image generation' })
+  const chat = screen.getByRole('region', { name: 'Chat' })
+  expect(within(chat).getByRole('button', { name: 'Edit Chat Relay' })).toBeInTheDocument()
+  expect(within(images).getByRole('button', { name: 'Edit Image Relay' }).querySelector('[role="switch"]')).toBeNull()
+  fireEvent.click(within(images).getByRole('switch', { name: 'Disable Image Relay' }))
+  expect(await within(images).findByRole('switch', { name: 'Enable Image Relay' })).not.toBeChecked()
+  expect(updateChannel).toHaveBeenCalledWith('images', { enabled: false })
+  expect(screen.queryByText('Edit model provider')).toBeNull()
   expect(screen.queryByText(/test generates one image/)).toBeNull()
+
+  fireEvent.click(within(images).getByRole('button', { name: 'Edit Image Relay' }))
+  expect(screen.getByText('Edit model provider')).toBeInTheDocument()
+  await screen.findByDisplayValue('fixture-key')
+  fireEvent.click(screen.getByRole('button', { name: 'Back to providers' }))
+  expect(await screen.findByRole('button', { name: 'Edit Image Relay' })).toBeInTheDocument()
 })

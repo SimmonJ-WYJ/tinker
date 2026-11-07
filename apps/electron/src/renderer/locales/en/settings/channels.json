@@ -1,0 +1,111 @@
+{
+  "channels": {
+    "section": {
+      "title": "Channel configuration",
+      "description": "Manage provider connections and available models."
+    },
+    "addButton": "Add provider",
+    "loading": "Loading...",
+    "empty": "No model providers",
+    "row": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "modelsCount": "{{enabled}} / {{total}} models enabled",
+      "noModelsWarning": "No enabled models · won't appear in the picker",
+      "toggleDisabledNoModels": "Enable at least one model first",
+      "deleteTitle": "Delete",
+      "deleteAria": "Delete {{name}}",
+      "toggleAria": "{{action}} {{name}}",
+      "toggleEnable": "Enable",
+      "toggleDisable": "Disable",
+      "editAria": "Edit {{name}}",
+      "imageCapability": "Image generation",
+      "chatCapability": "Chat"
+    },
+    "deleteConfirm": "Delete provider \"{{name}}\"? This action cannot be undone."
+  },
+  "channelForm": {
+    "title": {
+      "edit": "Edit model provider",
+      "create": "Add model provider"
+    },
+    "autoSave": {
+      "saving": "Saving",
+      "saved": "Saved",
+      "error": "Save failed"
+    },
+    "modelFallback": {
+      "switched": "Active model switched to \"{{name}}\"",
+      "cleared": "The active model was disabled; please pick another one"
+    },
+    "create": "Create",
+    "save": "Save",
+    "createTooltip": {
+      "noName": "Please fill in the configuration name",
+      "noKey": "Please fill in the API key",
+      "noEnabledModel": "Please enable at least one model",
+      "testNotPassed": "Pass the connection test first",
+      "invalidUrl": "Enter a valid HTTP(S) Base URL"
+    },
+    "section": {
+      "basicInfo": "Basic information",
+      "models": "Models",
+      "modelsDescription": "{{enabled}} / {{total}} models enabled",
+      "miscSettings": "Misc settings"
+    },
+    "fields": {
+      "name": "Configuration name",
+      "namePlaceholder": "e.g. My Anthropic",
+      "providerLabel": "Provider type",
+      "providerPlaceholder": "Select provider",
+      "baseUrl": "Base URL",
+      "baseUrlPlaceholder": "https://api.example.com",
+      "previewUrl": "Preview: {{url}}",
+      "apiKey": "API Key",
+      "apiKeyEditPlaceholder": "Leave empty to keep the existing key",
+      "apiKeyCreatePlaceholder": "Enter API key",
+      "apiKeyMismatchAnthropic": "This doesn't look like an Anthropic API key (should start with sk-ant-). Check if the provider type is correct",
+      "testConnection": "Test connection",
+      "testRequestFailed": "Test request failed",
+      "enableLabel": "Enable this configuration",
+      "enableDescription": "When enabled, ticked models appear in the model picker",
+      "supportsPdfDocumentBlockLabel": "Supports PDF document block",
+      "supportsPdfDocumentBlockDescription": "When enabled, Tinker lets the Read tool open PDF files and the SDK injects them as document content blocks. The Moonshot Anthropic-compatible endpoint (including the built-in Kimi channel) currently returns HTTP 500 for these blocks, so this toggle is off by default. Enable only for self-hosted reverse proxies or channels you have verified.",
+      "customAnthropic": "Custom relay · Anthropic",
+      "customOpenai": "Custom relay · OpenAI",
+      "customImage": "Custom relay · Image generation (test generates one image)",
+      "imageProtocol": "Image API protocol",
+      "imagePriority": "Complex image tasks",
+      "imageStandard": "Standard priority",
+      "imagePreferred": "Prefer this channel",
+      "imageReferences": "Supported reference images (channel declaration)",
+      "back": "Back to providers",
+      "showKey": "Show API key",
+      "hideKey": "Hide API key",
+      "imageRelay": "Custom relay",
+      "testImage": "Generate test image · paid",
+      "imageTestNotice": "Saving does not test the connection or generate an image. The optional image test makes one real request and may incur charges, including on failure. Check your provider billing."
+    },
+    "models": {
+      "emptyHint": "Fetch models first, or add a model ID manually.",
+      "fetch": "Refresh",
+      "fetchTooltipNeed": "Please fill in Base URL and API Key first",
+      "fetchSummary": "Fetched {{count}} models",
+      "fetchSummaryDetailed": "Fetched {{count}} models — {{added}} new, total {{total}}",
+      "fetchRequestFailed": "Failed to fetch models",
+      "noEnabledWarning": "Enable at least one model to create the provider",
+      "requiredWarning": "Add or fetch at least one model first",
+      "lockedNeedTest": "Pass the connection test first to load models",
+      "deleteTitle": "Delete",
+      "deleteAria": "Delete {{name}}",
+      "customSection": "Add a custom model",
+      "customSectionHint": "For models not in the provider's list (e.g. newly released, beta, or private models) — enter the model ID below",
+      "customSectionCollapse": "Collapse",
+      "modelIdPlaceholder": "Model ID (e.g. claude-opus-4-6)",
+      "modelNamePlaceholder": "Display name (optional)",
+      "addButton": "Add",
+      "addNeedId": "Please enter a model ID first",
+      "addLooksLikeApiKey": "Looks like an API Key, not a model ID. Use the \"API Key\" field above instead"
+    }
+  }
+}
