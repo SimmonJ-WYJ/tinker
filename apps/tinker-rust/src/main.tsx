@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useT } from './i18n.ts'
+import { HistoryPanel } from './HistoryPanel.tsx'
 import type { TextKey } from './i18n.ts'
 import './style.css'
 import { decodeSnapshot } from './desktop-contract.ts'
@@ -71,6 +72,7 @@ function App(): React.ReactElement {
         {health?.recoveryRequired && <div className="notice error" role="alert"><p>{t('recoveryNotice')}</p><button disabled={busy} onClick={() => void act('recover')}>{t('recover')}</button></div>}
         <p className="footnote">{t(!health ? 'storageUnknown' : health.storageKind === 'file' ? 'fileStorage' : 'memory')}</p>
         {health && <p className="footnote">{t('architecture')}: {health.architecture} · IPC v{health.protocolVersion}</p>}
+        <HistoryPanel t={t} invoke={invoke} />
       </section>
     </main>
   </div>
