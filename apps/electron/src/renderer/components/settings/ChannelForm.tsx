@@ -1,4 +1,5 @@
 import { ChannelModels } from './ChannelModels'
+import { ChannelProviderMark, getChannelProtocolLabel } from './ChannelProviderMark'
 /**
  * ChannelForm - 模型配置编辑表单
  *
@@ -13,6 +14,7 @@ import { ChannelModels } from './ChannelModels'
 import * as React from 'react'
 import {
   ArrowLeft,
+  ChevronRight,
   AlertTriangle,
   Eye,
   EyeOff,
@@ -50,8 +52,6 @@ import {
 } from '@/atoms/agent-atoms'
 import { channelsAtom } from '@/atoms/channels-atoms'
 import {
-  SettingsSection,
-  SettingsCard,
   SettingsInput,
   SettingsSelect,
   SettingsToggle,
@@ -155,6 +155,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
   const [imageMaxReferences,setImageMaxReferences] = React.useState(channel?.capabilities?.imageMaxReferences ?? 4)
   const isCustom = provider.startsWith('custom-')
   const [showApiKey, setShowApiKey] = React.useState(false)
+  const apiKeyId = React.useId()
   const [models, setModels] = React.useState<ChannelModel[]>(channel?.models ?? [])
   const [enabled, setEnabled] = React.useState(channel?.enabled ?? true)
   // 是否支持 PDF document content block（覆盖 provider 默认能力，见 #74）
@@ -169,7 +170,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
   /** 提示用户填错（如把 API Key 误填到模型 ID 框） */
   const [addModelError, setAddModelError] = React.useState<string | null>(null)
   /** 手动添加自定义模型区：默认折叠，仅在用户主动点入口时展开（低频场景） */
-  const [showCustomInput, setShowCustomInput] = React.useState(channel?.provider.startsWith('custom-') ?? false)
+  const [showCustomInput, setShowCustomInput] = React.useState(Boolean(channel?.provider.startsWith('custom-') && !channel.models.length))
 
   // UI 状态
   const [saving, setSaving] = React.useState(false)
@@ -617,20 +618,23 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
           ? t('channelForm.createTooltip.testNotPassed')
           : null
 
+  const protocolLabel = getChannelProtocolLabel(provider, imageProtocol) ?? PROVIDER_LABELS[provider]
+
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full">
       {/* 标题栏 - sticky 吸顶，确保新建模式的「创建」按钮始终可见 */}
-      <div className="sticky top-0 z-10 -mx-6 -mt-4 px-6 py-3 bg-muted/30 backdrop-blur-md border-b border-border/50 flex items-center gap-3">
+      <div className="sticky top-0 z-10 -mx-6 -mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/70 bg-muted/45 px-6 py-2.5 backdrop-blur-md">
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8 focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('channelForm.fields.back')}
+          disabled={saving}
           onClick={() => { isEdit ? onSaved() : onCancel() }}
         >
           <ArrowLeft size={18} className="!size-[18px]" />
         </Button>
-        <h3 className="text-lg font-medium text-foreground flex-1">
+        <h3 className="min-w-28 flex-1 text-sm font-semibold text-foreground">
           {isEdit ? t('channelForm.title.edit') : t('channelForm.title.create')}
         </h3>
         {/* 编辑模式：auto-save 状态指示 + 创建按钮（与新建共用同一 missing 守门，未满足时灰显） */}
@@ -638,9 +642,9 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
           <>
             {submitMissing && <span className="max-w-48 text-xs text-muted-foreground" role="status">{submitMissing}</span>}
             <span className={cn(
-              'flex min-w-[76px] items-center justify-end gap-1.5 text-xs',
+              'flex items-center justify-end gap-1.5 text-xs',
               autoSaveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
-              autoSaveStatus === 'idle' && 'invisible',
+              autoSaveStatus === 'idle' && 'hidden',
             )}>
               {autoSaveStatus === 'saving' && <Loader2 size={12} className="animate-spin" />}
               {autoSaveStatus === 'saved' && <Check size={12} className="text-success" />}
@@ -655,8 +659,8 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
             </span>
             <Button
               size="sm"
+              className="settings-channel-primary"
               onClick={async () => {
-                if (provider !== 'custom-image') { onSaved(); return }
                 if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
                 setSaving(true)
                 try {
@@ -674,12 +678,13 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
         {!isEdit && (
           <>
             {submitMissing && (
-              <span className="whitespace-nowrap text-xs text-warning">
+              <span className="max-w-48 text-xs text-warning">
                 {submitMissing}
               </span>
             )}
             <Button
               size="sm"
+              className="settings-channel-primary"
               onClick={handleCreate}
               disabled={saving || submitMissing !== null}
               title={submitMissing ?? undefined}
@@ -691,10 +696,18 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
         )}
       </div>
 
-      {/* 基本信息卡片 */}
-      <SettingsSection title={t('channelForm.section.basicInfo')}>
-        <SettingsCard divided={false}>
+      {isEdit && (
+        <div className="flex items-center gap-3 border-b border-border/70 py-3.5">
+          <ChannelProviderMark provider={provider} imageProtocol={imageProtocol} />
+          <div className="min-w-0 truncate text-lg font-semibold" title={name}>{name || channel?.name}</div>
+          <span className="min-w-0 truncate rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{protocolLabel}</span>
+        </div>
+      )}
+      <section aria-label={t('channelForm.section.basicInfo')} className="space-y-3.5 py-4">
+        <h4 className="text-sm font-semibold">{t('channelForm.section.basicInfo')}</h4>
+        <div className="grid gap-3.5 min-[900px]:grid-cols-2">
           <SettingsInput
+            className="min-w-0 p-0"
             label={t('channelForm.fields.name')}
             value={name}
             onChange={setName}
@@ -702,56 +715,47 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
             required={!isEdit}
           />
           <SettingsSelect
+            className="min-w-0 p-0"
             label={t('channelForm.fields.providerLabel')}
             value={provider}
             onValueChange={handleProviderChange}
             options={PROVIDER_SELECT_OPTIONS.map(option => ({ ...option, label: option.value === 'custom-image' ? t('channelForm.fields.customImage') : option.value === 'custom-anthropic' ? t('channelForm.fields.customAnthropic') : option.value === 'custom-openai' ? t('channelForm.fields.customOpenai') : option.label }))}
             placeholder={t('channelForm.fields.providerPlaceholder')}
           />
-          {provider === 'custom-image' && <>
-            <SettingsSelect label={t('channelForm.fields.imageProtocol')} value={imageProtocol} onValueChange={value=>setImageProtocol(value as ImageProtocol)} options={[
-              {value:'openai-images',label:'OpenAI Images'},
-              {value:'gemini-content',label:'Gemini · generateContent'},
-              {value:'gemini-interactions',label:'Gemini · Interactions'},
-            ]} />
-            <SettingsSelect label={t('channelForm.fields.imagePriority')} value={String(imageQualityPriority)} onValueChange={value=>setImageQualityPriority(Number(value))} options={[
-              {value:'0',label:t('channelForm.fields.imageStandard')}, {value:'10',label:t('channelForm.fields.imagePreferred')},
-            ]} />
-            <SettingsSelect label={t('channelForm.fields.imageReferences')} value={String(imageMaxReferences)} onValueChange={value=>setImageMaxReferences(Number(value))} options={[0,1,2,3,4].map(value=>({value:String(value),label:String(value)}))} />
-          </>}
-          <SettingsInput
-            label={t('channelForm.fields.baseUrl')}
-            value={baseUrl}
-            onChange={setBaseUrl}
-            placeholder={t('channelForm.fields.baseUrlPlaceholder')}
-            description={baseUrl.trim() ? t('channelForm.fields.previewUrl', { url: provider === 'custom-image' && imageProtocol !== 'openai-images' ? `${safeGeminiPreview(baseUrl)}/${imageProtocol === 'gemini-interactions' ? 'interactions' : `models/${probeModelId}:generateContent`}` : buildPreviewUrl(baseUrl, provider) }) : undefined}
-            required
+        </div>
+        <SettingsInput
+          className="p-0"
+          label={t('channelForm.fields.baseUrl')}
+          value={baseUrl}
+          onChange={setBaseUrl}
+          placeholder={t('channelForm.fields.baseUrlPlaceholder')}
+          description={baseUrl.trim() ? t('channelForm.fields.previewUrl', { url: provider === 'custom-image' && imageProtocol !== 'openai-images' ? `${safeGeminiPreview(baseUrl)}/${imageProtocol === 'gemini-interactions' ? 'interactions' : `models/${probeModelId}:generateContent`}` : buildPreviewUrl(baseUrl, provider) }) : undefined}
+          descriptionAfterInput
+          required
+        />
+        {provider === 'custom-image' && (
+          <SettingsSelect
+            className="p-0"
+            label={t('channelForm.fields.imageProtocol')}
+            value={imageProtocol}
+            onValueChange={(value) => setImageProtocol(value as ImageProtocol)}
+            options={[
+              { value: 'openai-images', label: 'OpenAI Images' },
+              { value: 'gemini-content', label: 'Gemini · generateContent' },
+              { value: 'gemini-interactions', label: 'Gemini · Interactions' },
+            ]}
           />
-          {/* API Key —— 自动测连接 effect 在凭证变化后 1.5s debounce 跑；这里保留"测试连接"按钮供用户立即重测 */}
-          <div className="px-4 py-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-foreground">
-                {t('channelForm.fields.apiKey')}
-                {!isEdit && <span aria-hidden="true" className="ml-0.5 text-destructive">*</span>}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => { void handleTest() }}
-                disabled={testing || !apiKey.trim() || !baseUrl.trim()}
-                className="h-7 text-xs"
-              >
-                {testing ? (
-                  <Loader2 size={12} className="animate-spin !size-3" />
-                ) : (
-                  <Zap size={12} className="!size-3" />
-                )}
-                <span>{t(provider === 'custom-image' ? 'channelForm.fields.testImage' : 'channelForm.fields.testConnection')}</span>
-              </Button>
-            </div>
-            <div className="relative">
+        )}
+        {/* API Key —— 自动测连接 effect 在凭证变化后 1.5s debounce 跑；这里保留"测试连接"按钮供用户立即重测 */}
+        <div className="space-y-2">
+          <label htmlFor={apiKeyId} className="block text-sm font-medium text-foreground">
+            {t('channelForm.fields.apiKey')}
+            {!isEdit && <span aria-hidden="true" className="ml-0.5 text-destructive">*</span>}
+          </label>
+          <div className="flex flex-wrap items-center gap-2.5 min-[761px]:flex-nowrap">
+            <div className="relative min-w-0 flex-1 max-[760px]:basis-full">
               <Input
+                id={apiKeyId}
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -770,28 +774,42 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
                 {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
               </Button>
             </div>
-            {provider === 'custom-image' && <p className="text-sm text-muted-foreground">{t('channelForm.fields.imageTestNotice')}</p>}
-            {/* Provider 与 Key 前缀不匹配 —— 仅对 Anthropic（sk-ant- 是唯一稳定特征） */}
-            {provider === 'anthropic' && apiKey.trim().length >= 20 && !apiKey.startsWith('sk-ant-') && (
-              <p className="flex items-start gap-1.5 text-xs text-warning">
-                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
-                <span>{t('channelForm.fields.apiKeyMismatchAnthropic')}</span>
-              </p>
-            )}
-            {testResult && (
-              <div role="status" aria-live="polite" className={cn(
-                'flex items-start gap-1.5 rounded-md bg-muted/50 p-2 text-xs',
-                testResult.success ? 'text-success' : 'text-destructive'
-              )}>
-                {testResult.success ? <CheckCircle2 size={12} className="mt-0.5 flex-shrink-0" /> : <XCircle size={12} className="mt-0.5 flex-shrink-0" />}
-                <span>{testResult.message}</span>
-              </div>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => { void handleTest() }}
+              disabled={testing || !apiKey.trim() || !baseUrl.trim()}
+              className="h-9 border border-border/80 bg-background text-xs hover:bg-muted max-[760px]:w-full"
+            >
+              {testing ? (
+                <Loader2 size={12} className="animate-spin !size-3" />
+              ) : (
+                <Zap size={12} className="!size-3" />
+              )}
+              <span>{t(provider === 'custom-image' ? 'channelForm.fields.testImage' : 'channelForm.fields.testConnection')}</span>
+            </Button>
           </div>
-        </SettingsCard>
-      </SettingsSection>
-      <section aria-label={t('channelForm.section.models')}>
-        <SettingsCard divided={false}>
+          {provider === 'custom-image' && <p className="text-sm text-muted-foreground">{t('channelForm.fields.imageTestNotice')}</p>}
+          {/* Provider 与 Key 前缀不匹配 —— 仅对 Anthropic（sk-ant- 是唯一稳定特征） */}
+          {provider === 'anthropic' && apiKey.trim().length >= 20 && !apiKey.startsWith('sk-ant-') && (
+            <p className="flex items-start gap-1.5 text-xs text-warning">
+              <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+              <span>{t('channelForm.fields.apiKeyMismatchAnthropic')}</span>
+            </p>
+          )}
+          {testResult && (
+            <div role="status" aria-live="polite" className={cn(
+              'flex items-start gap-1.5 py-0.5 text-xs',
+              testResult.success ? 'text-success' : 'text-destructive'
+            )}>
+              {testResult.success ? <CheckCircle2 size={12} className="mt-0.5 flex-shrink-0" /> : <XCircle size={12} className="mt-0.5 flex-shrink-0" />}
+              <span>{testResult.message}</span>
+            </div>
+          )}
+        </div>
+      </section>
+      <section aria-label={t('channelForm.section.models')} className="border-y border-border/70 py-4">
           <ChannelModels
             models={models}
             isCustom={isCustom}
@@ -814,21 +832,28 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
             setNewModelName={setNewModelName}
             handleAddModel={handleAddModel}
           />
-
-        </SettingsCard>
       </section>
-
-      {/* 其他设置 —— 渠道能力 / 高级开关；与 Basic Info 物理分卡，降低主流程视觉权重 */}
-      {provider !== 'custom-image' && <SettingsSection title={t('channelForm.section.miscSettings')}>
-        <SettingsCard>
-          <SettingsToggle
-            label={t('channelForm.fields.supportsPdfDocumentBlockLabel')}
-            description={t('channelForm.fields.supportsPdfDocumentBlockDescription')}
-            checked={supportsPdfDocumentBlock}
-            onCheckedChange={setSupportsPdfDocumentBlock}
-          />
-        </SettingsCard>
-      </SettingsSection>}
+      <details className="group mt-3 rounded-lg border border-border/70">
+        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2.5 text-xs font-medium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight size={14} className="text-muted-foreground group-open:rotate-90" aria-hidden="true" />
+          {t('channelForm.section.miscSettings')}
+        </summary>
+        <div className="border-t border-border/70">
+          {provider === 'custom-image' ? <>
+            <SettingsSelect label={t('channelForm.fields.imagePriority')} value={String(imageQualityPriority)} onValueChange={value=>setImageQualityPriority(Number(value))} options={[
+              {value:'0',label:t('channelForm.fields.imageStandard')}, {value:'10',label:t('channelForm.fields.imagePreferred')},
+            ]} />
+            <SettingsSelect label={t('channelForm.fields.imageReferences')} value={String(imageMaxReferences)} onValueChange={value=>setImageMaxReferences(Number(value))} options={[0,1,2,3,4].map(value=>({value:String(value),label:String(value)}))} />
+          </> : (
+            <SettingsToggle
+              label={t('channelForm.fields.supportsPdfDocumentBlockLabel')}
+              description={t('channelForm.fields.supportsPdfDocumentBlockDescription')}
+              checked={supportsPdfDocumentBlock}
+              onCheckedChange={setSupportsPdfDocumentBlock}
+            />
+          )}
+        </div>
+      </details>
     </div>
   )
 }

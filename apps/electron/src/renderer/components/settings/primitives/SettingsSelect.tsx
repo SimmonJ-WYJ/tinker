@@ -23,6 +23,7 @@ interface SelectOption {
 }
 
 interface SettingsSelectProps {
+  className?: string
   /** 标签文本 */
   label: string
   /** 描述文本（可选） */
@@ -41,6 +42,7 @@ interface SettingsSelectProps {
 
 export function SettingsSelect({
   label,
+  className,
   description,
   value,
   onValueChange,
@@ -48,16 +50,17 @@ export function SettingsSelect({
   placeholder,
   disabled,
 }: SettingsSelectProps): React.ReactElement {
+  const id = React.useId()
   return (
-    <div className="px-4 py-3 space-y-2">
+    <div className={cn('px-4 py-3 space-y-2', className)}>
       <div>
-        <div className={LABEL_CLASS}>{label}</div>
+        <label htmlFor={id} className={LABEL_CLASS}>{label}</label>
         {description && (
           <div className={cn(DESCRIPTION_CLASS, 'mt-0.5')}>{description}</div>
         )}
       </div>
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className="w-full">
+        <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

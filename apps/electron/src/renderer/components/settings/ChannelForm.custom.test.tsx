@@ -17,6 +17,7 @@ test('自定义渠道在测试前可填写模型，模型测试失败仍保留�
   const channel: Channel = { id: 'test', name: 'Relay', provider: 'custom-openai', baseUrl: 'https://relay.test/v1', apiKey: '', models: [{ id: 'private', name: 'Private', enabled: true }], enabled: true, createdAt: 0, updatedAt: 0 }
   render(<ChannelForm channel={channel} onSaved={() => {}} onCancel={() => {}} />)
   expect(screen.getByText('Private').closest('[aria-disabled="true"]')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Add a custom model' }))
   expect(screen.getByPlaceholderText('Model ID (e.g. claude-opus-4-6)')).toBeInTheDocument()
   await waitFor(() => expect((screen.getByPlaceholderText('Leave empty to keep the existing key') as HTMLInputElement).value).toBe('key'))
   fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
@@ -79,4 +80,32 @@ test('图片渠道未付费验证也能保存编辑，保存会等待持久化�
  await waitFor(()=>expect(saved).toHaveBeenCalled())
  expect(probe).not.toHaveBeenCalled()
  expect(screen.getByText(/Saving does not test/)).toBeInTheDocument()
+})
+
+test('已通过连接测试的文字渠道立即点保存会提交最新名称，再退出编辑', async () => {
+  await setAppLanguage('en')
+  let finishUpdate!: () => void
+  const writing = new Promise<void>(resolve => { finishUpdate = resolve })
+  const update = mock(async () => { await writing })
+  const saved = mock(() => {})
+  window.electronAPI = {
+    decryptApiKey: mock(async () => 'fixture-key'),
+    testChannelDirect: mock(async () => ({ success: true, message: 'Connection successful' })),
+    updateChannel: update,
+    listChannels: mock(async () => []),
+  } as unknown as Window['electronAPI']
+  const channel: Channel = { id: 'chat-save', name: 'Original', provider: 'custom-openai', baseUrl: 'https://relay.test', apiKey: '', models: [{ id: 'model', name: 'Model', enabled: true }], enabled: true, createdAt: 0, updatedAt: 0 }
+  render(<ChannelForm channel={channel} onSaved={saved} onCancel={() => {}} />)
+  await screen.findByDisplayValue('fixture-key')
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Test connection' })) })
+  expect(screen.getByText('Connection successful')).toBeInTheDocument()
+  fireEvent.change(screen.getByDisplayValue('Original'), { target: { value: 'Latest name' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  try {
+    expect(update).toHaveBeenCalledWith('chat-save', expect.objectContaining({ name: 'Latest name' }))
+    expect(saved).not.toHaveBeenCalled()
+  } finally {
+    await act(async () => { finishUpdate() })
+  }
+  expect(saved).toHaveBeenCalledTimes(1)
 })

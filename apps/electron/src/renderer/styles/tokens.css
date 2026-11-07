@@ -24,6 +24,7 @@
     --warning-foreground: 0 0% 100%;
     --info: 217 91% 60%;                  /* 通用提示蓝（连接引导 tag 等复用场景） */
     --info-foreground: 0 0% 100%;
+    --channel-control: 218 100% 44%;
     --stop-hover-bg: hsla(0, 80%, 60%, 0.12);
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
@@ -141,3 +142,16 @@
     --code-container-row-hover: 240 4% 16% / 0.3;
   }
 }
+
+/* 渠道设置单独使用蓝色，避免改变其他设置项。 */
+button.settings-channel-primary {
+  background-color: hsl(var(--channel-control));
+  color: hsl(var(--info-foreground));
+}
+.settings-channel-primary:not(:disabled):hover { background-color: hsl(var(--channel-control) / .88); }
+.settings-channel-primary:focus-visible,
+.settings-channel-switch:focus-visible { outline: 2px solid hsl(var(--info)); outline-offset: 2px; }
+button.settings-channel-switch[data-state='checked'] { background-color: hsl(var(--channel-control)); }
+button.settings-channel-switch[data-state='checked'] > span { background-color: hsl(var(--info-foreground)); }
+.settings-channel-nav,
+.settings-channel-nav:hover { background-color: hsl(var(--info) / .15); color: hsl(var(--foreground)); }

@@ -57,7 +57,6 @@ import type { AgentSessionMeta } from '@asci/shared'
 import { useCleanupSessionState } from '@/hooks/useCleanupSessionState'
 import { useSyncActiveTabSideEffects } from '@/hooks/useSyncActiveTabSideEffects'
 import { useT } from '@/hooks/useT'
-import { TinkerLogo } from '@/components/auth/TinkerLogo'
 import { ProjectSwitcher } from '@/components/agent/ProjectSwitcher'
 import { AgentSessionItem } from '@/components/agent/AgentSessionItem'
 import { AccountMenu } from '@/components/auth/AccountMenu'
@@ -466,14 +465,10 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
     )
   }
 
-  // 展开态：确认稿的品牌、平铺 Projects 和 Recent；原会话操作保持不变。
+  // 展开态：侧栏直接从新建和搜索入口开始。
   return (
     <div className="home-sidebar relative h-full flex flex-col transition-[width] duration-300"
       style={{ width: width ?? 248, flexShrink: 0 }}>
-      <div className="home-sidebar__brand titlebar-drag-region">
-        <TinkerLogo kind="horizontal" className="home-sidebar__wordmark" />
-
-      </div>
       <div className="home-sidebar__menu">
         <SidebarMenuItem icon={<SquarePen size={18} strokeWidth={1.5} />} label={t('sidebar.newTask')}
           active={activeView === 'conversations' && !!activeTabId && draftSessionIds.has(activeTabId)}

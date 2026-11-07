@@ -130,10 +130,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
                 variant="ghost"
                 size="row"
                 onClick={() => handleTabClick(tab.id)}
+                aria-current={renderTab === tab.id ? 'page' : undefined}
                 className={cn(
                   'rounded-md min-w-0',
                   renderTab === tab.id
-                    ? 'bg-muted text-foreground font-medium'
+                    ? tab.id === 'channels'
+                      ? 'settings-channel-nav font-medium'
+                      : 'bg-muted text-foreground font-medium'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                 )}
               >
@@ -146,7 +149,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
         </div>
 
         {/* 右侧内容区域 - 浅灰背景，与卡片白色形成层级区分 */}
-        <ScrollArea className="flex-1 bg-muted/30">
+        <ScrollArea className={cn("min-w-0 flex-1", renderTab !== 'channels' && 'bg-muted/30')}>
           <div className="px-6 py-4">
             {renderTabContent(renderTab)}
           </div>

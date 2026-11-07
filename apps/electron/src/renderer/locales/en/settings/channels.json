@@ -1,8 +1,8 @@
 {
   "channels": {
     "section": {
-      "title": "Model providers",
-      "description": "Manage AI provider connections, configure API keys and available models."
+      "title": "Channel configuration",
+      "description": "Manage provider connections and available models."
     },
     "addButton": "Add provider",
     "loading": "Loading...",

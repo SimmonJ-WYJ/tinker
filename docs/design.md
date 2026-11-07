@@ -78,6 +78,7 @@
 | `--warning-foreground` | `0 0% 100%` | `0 0% 100%` | warning 前景文字 |
 | `--info` | `217 91% 60%` | `217 91% 65%` | 中性提示（引导 tag、连接提示、进行中） |
 | `--info-foreground` | `0 0% 100%` | `0 0% 100%` | info 前景文字 |
+| `--channel-control` | `218 100% 44%` | `218 100% 44%` | 模型与渠道页的添加、保存按钮和已启用开关 |
 | `--stop-hover-bg` | `hsla(0, 80%, 60%, 0.12)` | `hsl(0, 40%, 18%)` | "Stop" 按钮 hover 背景（与 destructive 一致的红，更低饱和） |
 
 **专用语义出口**（`tool-result-renderers` / `ChoiceCard` 等业务场景共用，B-3 / [#303](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/303) / [#304](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/304) / [#309](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/309) 落地）：

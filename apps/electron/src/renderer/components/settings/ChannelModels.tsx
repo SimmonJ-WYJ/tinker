@@ -38,7 +38,7 @@ const lockTooltip = modelsEditable ? undefined : t('channelForm.models.lockedNee
 return (
   <div
     className={cn(
-      'px-4 py-3 space-y-2 transition-opacity',
+      'space-y-2.5 transition-opacity',
       !modelsEditable && 'opacity-50 pointer-events-none select-none',
     )}
     aria-disabled={!modelsEditable}
@@ -46,7 +46,7 @@ return (
   >
     <div className="flex items-center justify-between">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-foreground">{t('channelForm.section.models')}</div>
+        <div className="text-sm font-semibold text-foreground">{t('channelForm.section.models')}</div>
         <div className="mt-0.5 text-xs text-muted-foreground">
           {models.length > 0
             ? t('channelForm.section.modelsDescription', { enabled: enabledModelCount, total: models.length })
@@ -62,7 +62,7 @@ return (
         onClick={handleFetchModels}
         disabled={fetchingModels || !modelsEditable || !baseUrl.trim() || !apiKey.trim()}
         title={lockTooltip}
-        className="h-7 text-xs"
+        className="h-8 border border-border/80 bg-background text-xs hover:bg-muted"
       >
         {fetchingModels ? (
           <Loader2 size={14} className="animate-spin !size-3.5" />
@@ -97,8 +97,8 @@ return (
     )}
 
     {models.length > 0 && (
-      <ScrollArea className={models.length > 8 ? 'h-[320px] -mx-1' : '-mx-1'}>
-        <div className="divide-y divide-border/40 rounded-md border border-border/40">
+      <ScrollArea className={models.length > 8 ? 'h-[320px]' : undefined}>
+        <div className="divide-y divide-border/70 overflow-hidden rounded-lg border border-border/80">
           {models.map((model) => (
             <div
               key={model.id}
@@ -111,6 +111,7 @@ return (
                 )}
               </div>
               <Switch
+                className="settings-channel-switch"
                 checked={model.enabled}
                 onCheckedChange={() => handleToggleModel(model.id)}
                 disabled={!modelsEditable}

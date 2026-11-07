@@ -1,8 +1,8 @@
 {
   "channels": {
     "section": {
-      "title": "模型配置",
-      "description": "管理 AI 供应商连接，配置 API Key 和可用模型。"
+      "title": "渠道配置",
+      "description": "管理 AI 供应商连接与可用模型。"
     },
     "addButton": "添加配置",
     "loading": "加载中...",
@@ -51,7 +51,7 @@
       "basicInfo": "基本信息",
       "models": "模型",
       "modelsDescription": "{{enabled}} / {{total}} 个模型已启用",
-      "miscSettings": "其他设置"
+      "miscSettings": "高级设置"
     },
     "fields": {
       "name": "配置名称",

@@ -7,10 +7,6 @@
 .workspace-shell__main { padding: 16px 12px 16px 0; }
 .workspace-main-panel { border: 1px solid hsl(var(--border)); box-shadow: none; border-radius: 18px; }
 .home-sidebar { background: transparent; }
-.home-sidebar__brand { display: flex; align-items: center; gap: 9px; height: 30px; margin: 52px 20px 0 24px; flex-shrink: 0; font-size: 22px; }
-.home-sidebar__logo { width: 30px; height: 30px; flex-shrink: 0; }
-.home-sidebar__collapse { margin-left: auto; opacity: 0; }
-.home-sidebar__brand:hover .home-sidebar__collapse, .home-sidebar__collapse:focus-visible { opacity: 1; }
 .home-sidebar__menu { display: flex; flex-direction: column; gap: 3px; padding: 0 12px; margin-top: 20px; flex-shrink: 0; }
 .home-sidebar__menu > button { height: 36px; padding: 0 12px; gap: 10px; font-size: 14px; font-weight: 400; }
 .home-sidebar .home-sidebar__nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; }
@@ -65,7 +61,6 @@
 .home-local-note { margin-top: auto; padding: 48px 24px 20px; display: flex; align-items: center; justify-content: center; gap: 10px; text-align: center; font-size: 12px; line-height: 1.45; color: hsl(var(--muted-foreground)); flex-shrink: 0; }
 .home-local-note svg { width: 18px; height: 18px; flex-shrink: 0; }
 @media (max-height: 800px) {
-  .home-sidebar__brand { margin-top: 52px; }
   .home-sidebar__menu { margin-top: 24px; }
   .home-projects { margin-top: 16px; }
   .home-projects__list { max-height: 154px; }
@@ -186,9 +181,8 @@
 .coding-project-row[aria-hidden="true"] { visibility: hidden; }
 .coding-project-row[aria-hidden="false"] { visibility: visible; }
 
-/* Compact sidebar: 28px rows, 2px gaps; child text aligns with project names. */
-.home-sidebar__brand { margin: 48px 20px 0 24px; }
-.home-sidebar__menu { margin-top: 24px; gap: 4px; }
+/* 项目子行与项目名称对齐。 */
+.home-sidebar__menu { margin-top: 12px; gap: 4px; }
 .home-sidebar__menu > button { height: 34px; gap: 10px; }
 .home-projects { margin: 16px 12px 0; }
 .home-projects__heading { height: 28px; padding: 0 6px 0 12px; }
@@ -227,12 +221,10 @@
 .workspace-shell__sidebar[data-collapsed='true'] .workspace-shell__sidebar-inner { transform: translateX(-248px); }
 .workspace-shell__main { padding: 0 12px 12px 0; }
 .workspace-shell__body:has(.workspace-shell__sidebar[data-collapsed='true']) .workspace-shell__main { padding-left: 12px; }
-.workspace-shell .home-sidebar__brand { margin-top: 20px; }
 .workspace-drawer-overlay { position: fixed; inset: 0; z-index: 120; background: hsl(var(--foreground) / .16); animation: drawer-overlay-in 180ms ease-out; }
 .workspace-drawer { position: fixed; top: 0; bottom: 0; left: 0; width: 248px; z-index: 121; display: flex; flex-direction: column; background: hsl(var(--muted)); box-shadow: 8px 0 40px hsl(var(--foreground) / .09); outline: none; animation: workspace-drawer-in 240ms cubic-bezier(.2,.8,.2,1); }
 .workspace-drawer__toolbar { height: 52px; flex-shrink: 0; display: flex; align-items: center; padding-left: 108px; }
 .workspace-drawer__body { flex: 1; min-height: 0; }
-.workspace-drawer .home-sidebar__brand { margin-top: 20px; }
 @keyframes workspace-drawer-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes drawer-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 1100px) { .workspace-shell__main { padding-left: 12px; } .workspace-toolbar__title { flex: 1; } }
@@ -276,5 +268,3 @@
 .home-sidebar__account .sidebar-account-trigger > span { font-size: 14px; }
 
 /* Tinker 横标按确认稿原始比例显示，最小宽度 140px。 */
-.home-sidebar__brand { min-height: 37px; }
-.home-sidebar__wordmark { width: 140px; height: auto; }
