@@ -23,7 +23,6 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
-import { ScrollMinimap } from '@/components/ai-elements/scroll-minimap'
 import type { MinimapItem } from '@/components/ai-elements/scroll-minimap'
 import { useSmoothStream } from '@asci/ui'
 import { CopyButton } from '@/components/common/CopyButton'
@@ -866,7 +865,6 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
           </div>
         </div>
       )}
-      <ScrollMinimap items={minimapItems} />
       <ConversationScrollButton key={sessionId} generating={streaming || !!streamState?.isCompacting} orbState={retrying ? 'connecting' : taskMode === 'search' ? 'searching' : 'working'} />
     </Conversation>
   )

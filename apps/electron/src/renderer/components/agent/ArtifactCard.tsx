@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useOpenInRightPanel } from '@/hooks/useOpenInRightPanel'
 import { extOf, deliverableTypeKey, extractTitleFromMarkdown, type DeliverableTypeKey } from '@/lib/deliverable-path'
+import { useGeneratedImageReference } from './generated-image-references'
 
 /** 可读取文本以提取标题的类型（其余类型直接用文件名） */
 const TEXT_TYPES: ReadonlySet<DeliverableTypeKey> = new Set(['markdown', 'website', 'data'])
@@ -50,6 +51,8 @@ interface ArtifactCardProps {
 export function ArtifactCard({ path, displayTitle, description, className }: ArtifactCardProps): React.ReactElement {
   const { t } = useT('conversation')
   const openInRightPanel = useOpenInRightPanel()
+  const openGeneratedImage = useGeneratedImageReference(path)
+  const imageTriggerRef = React.useRef<HTMLButtonElement>(null)
 
   const filename = React.useMemo(() => path.split('/').pop() ?? path, [path])
   const ext = React.useMemo(() => extOf(filename), [filename])
@@ -81,6 +84,10 @@ export function ArtifactCard({ path, displayTitle, description, className }: Art
   const title = displayTitle || docTitle || filename
 
   const openInApp = (): void => {
+    if (openGeneratedImage) {
+      openGeneratedImage(imageTriggerRef.current ?? undefined)
+      return
+    }
     openInRightPanel({ kind: 'file', path, ext, size: 0 })
   }
   const openWithSystem = (): void => {
@@ -102,6 +109,7 @@ export function ArtifactCard({ path, displayTitle, description, className }: Art
       </div>
       <div className="min-w-0 flex-1">
         <button
+          ref={imageTriggerRef}
           type="button"
           onClick={openInApp}
           title={title}
@@ -132,14 +140,14 @@ export function ArtifactCard({ path, displayTitle, description, className }: Art
             <PanelRight className="!size-3.5 text-muted-foreground" />
             {t('artifactCard.openInApp')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={openWithSystem} className="gap-2 text-sm cursor-pointer">
+          {!openGeneratedImage && <DropdownMenuItem onSelect={openWithSystem} className="gap-2 text-sm cursor-pointer">
             <ExternalLink className="!size-3.5 text-muted-foreground" />
             {t('artifactCard.openWithSystem')}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={revealInFolder} className="gap-2 text-sm cursor-pointer">
+          </DropdownMenuItem>}
+          {!openGeneratedImage && <DropdownMenuItem onSelect={revealInFolder} className="gap-2 text-sm cursor-pointer">
             <FolderOpen className="!size-3.5 text-muted-foreground" />
             {t('artifactCard.revealInFolder')}
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

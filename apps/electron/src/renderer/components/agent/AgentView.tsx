@@ -2,7 +2,7 @@ import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { captureSendDraft, sendRecoveryDraftsAtom, forgetSendDraftAtom } from '@/atoms/send-recovery-atoms'
 import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
 import { ImageEditReference } from './ImageEditReference'
-import { latestTurnAttemptedImage } from './image-retry-policy.ts'
+import { latestTurnAttemptedImage, latestUserImageEditReferenceId } from './image-retry-policy.ts'
 import { BinaryBackdrop } from '../welcome/BinaryBackdrop'
 /**
  * AgentView — Agent 模式主视图容器
@@ -1097,6 +1097,12 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     // 乐观更新：SDKMessage 格式的用户消息（Phase 4）
     const tempUserSDKMsg: SDKMessage = {
       type: 'user',
+      ...(selectedImage && { imageEditReference: {
+        imageId: selectedImage.imageId,
+        localPath: selectedImage.generatedImage.localPath,
+        filename: selectedImage.generatedImage.filename,
+        mediaType: selectedImage.generatedImage.mediaType,
+      } }),
       message: {
         content: [{ type: 'text', text: finalMessage }],
       },
@@ -1332,13 +1338,13 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       sessionId,
       taskMode: store.get(taskModesAtom)[sessionId] ?? 'search',
       userMessage: lastUserMsg.content,
-      imageEditReferenceId: selectedImage?.imageId,
+      imageEditReferenceId: latestUserImageEditReferenceId(persistedSDKMessages),
       channelId: agentChannelId,
       modelId: agentModelId || undefined,
       workspaceId: currentWorkspaceId || undefined,
       startedAt: streamStartedAt,
     }).catch(console.error)
-  }, [messages, persistedSDKMessages, selectedImage, sessionId, agentChannelId, agentModelId, currentWorkspaceId, streaming, setAgentStreamErrors, setStreamingStates, tConversation])
+  }, [messages, persistedSDKMessages, sessionId, agentChannelId, agentModelId, currentWorkspaceId, streaming, setAgentStreamErrors, setStreamingStates, tConversation])
 
   /** 在新会话中重试：创建新会话 + 切换 tab + 发送引用旧会话的提示词 */
   const handleRetryInNewSession = React.useCallback(async (): Promise<void> => {

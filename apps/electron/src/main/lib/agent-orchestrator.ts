@@ -30,7 +30,7 @@ import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { app } from 'electron'
-import type { AgentSendInput, AgentMessage, AgentProviderAdapter, TypedError, RetryAttempt, SDKMessage, SDKAssistantMessage, AgentStreamPayload, RewindSessionResult, ThinkingConfig, ObjectId } from '@asci/shared'
+import type { AgentSendInput, AgentMessage, AgentProviderAdapter, TypedError, RetryAttempt, SDKMessage, SDKAssistantMessage, AgentStreamPayload, RewindSessionResult, ThinkingConfig, ObjectId, UserImageEditReference } from '@asci/shared'
 import { SAFE_TOOLS, DEFAULT_CLAUDE_MODEL_ID, DEFAULT_AGENT_MAX_TURNS, DEFAULT_AGENT_EFFORT, isModelEnabledInChannel, pickFallbackModel, inferModelContextWindow, AGENT_IPC_CHANNELS, TELEMETRY_EVENTS, toConversationType, nowMs } from '@asci/shared'
 import { telemetryService } from './telemetry/telemetry-service.ts'
 import { SelfEvolutionCollector } from './telemetry/self-evolution-hooks.ts'
@@ -407,9 +407,10 @@ export class AgentOrchestrator {
     }
 
     // 明确图片引用在调用语言模型前校验，避免文件已删除时产生无效付费请求。
+    let imageEditReference: UserImageEditReference | undefined
     if (input.imageEditReferenceId !== undefined) {
       try {
-        validateImageEditSelection(getConversationAttachmentsDir(sessionId), input.imageEditReferenceId)
+        imageEditReference = validateImageEditSelection(getConversationAttachmentsDir(sessionId), input.imageEditReferenceId)
       } catch {
         callbacks.onError(t('common.imageVersion.missing'))
         callbacks.onComplete([], { startedAt: input.startedAt })
@@ -494,6 +495,7 @@ export class AgentOrchestrator {
     // 5. 持久化用户消息（SDKMessage 格式）
     const userSDKMsg: SDKMessage = {
       type: 'user',
+      ...(imageEditReference && { imageEditReference }),
       message: {
         content: [{ type: 'text', text: userMessage }],
       },

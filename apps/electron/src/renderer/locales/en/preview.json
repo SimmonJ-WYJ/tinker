@@ -81,7 +81,12 @@
   "image": {
     "loadFailed": "Failed to load image",
     "lightboxAlt": "Image preview",
-    "lightboxAria": "Preview image: {{alt}}"
+    "lightboxAria": "Preview image: {{alt}}",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitToWindow": "Fit to window",
+    "controls": "Image controls",
+    "zoomLevel": "Zoom {{percent}}%"
   },
   "fileBrowser": {
     "emptyFolder": "Empty folder"
