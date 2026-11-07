@@ -1,6 +1,11 @@
-# ASCI Design System
+# Tinker Design Guide
 
-> **真相源**：本文档是 ASCI 视觉规则的真相源；token 数值的真相源是 [`apps/electron/src/renderer/styles/tokens.css`](../apps/electron/src/renderer/styles/tokens.css)（`:root` 与 `.dark` 两块，由 [ADR-003](./adr/ADR-003-ui-design-system-layering.md) B-2 / [#303](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/303) 从 `globals.css` 拆出）。实现层另含 `base.css` / `components.css` / `utilities.css` / `theme-overrides.css`，注入层 `globals.css` 通过 `@import` 串联——见 §十一。任何 token 改动需先回到本文档对齐，再落实现。
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../apps/electron/resources/tinker-logos/Tinker-horizontal-white.svg">
+  <img src="../apps/electron/resources/tinker-logos/Tinker-horizontal-color.svg" alt="Tinker 横版标志" width="180">
+</picture>
+
+> **真相源**：本文档定义 Tinker 的品牌与界面视觉规范。界面 token 的数值以 [`apps/electron/src/renderer/styles/tokens.css`](../apps/electron/src/renderer/styles/tokens.css)（`:root` 与 `.dark` 两块，由 [ADR-003](./adr/ADR-003-ui-design-system-layering.md) B-2 / [#303](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/303) 从 `globals.css` 拆出）为准。实现层另含 `base.css` / `components.css` / `utilities.css` / `theme-overrides.css`，注入层 `globals.css` 通过 `@import` 串联——见 §十一。任何 token 改动需先回到本文档对齐，再落实现。
 
 ---
 
@@ -8,7 +13,7 @@
 
 | 维度 | 内容 |
 |------|------|
-| **作用** | 视觉系统的"宪法"：定义色彩 / 排版 / 间距 / 形态 / 组件层级 / 反模式；让 Agent 写 UI 时凭一份文档就能正确使用 token |
+| **作用** | 定义品牌标识 / 色彩 / 排版 / 间距 / 形态 / 组件层级 / 反模式；让 Agent 写 UI 时凭一份文档就能正确使用 token |
 | **受众** | 前端工程师、Agent（ui-designer / claude）、Reviewer、设计师 |
 | **不在范围** | 业务流程、IPC 通道、文案 i18n（详见 [`CLAUDE.md §7.4`](../CLAUDE.md) 与 [`docs/architecture.md`](./architecture.md)）|
 | **关联文档** | [`CLAUDE.md §2`](../CLAUDE.md)（UI 总则）、[`ADR-003`](./adr/ADR-003-ui-design-system-layering.md)（分层方案）|
@@ -17,11 +22,27 @@
 
 ## 二、五条设计原则
 
-1. **色彩克制 · 形态统一 · 信息收敛** — 90% 的界面用中性灰系（HSL `0 0% *` 阶梯），强调色仅在 Active / Primary / Link 出现，警示色仅在 destructive / warning 出现。
+1. **中性界面** — 界面以中性灰阶为基础。品牌蓝用于 Logo，渠道操作色和状态色分别按各自的语义使用（见 §3.3–§3.4）。
 2. **卡片 + 阴影替代边框** — 区块边界优先用 `settings-card`（背景 + 阴影），不用 `border` 描边。深色主题下卡片可降为细边框（`border-border/30`）。
 3. **token 优先于硬编码** — 业务代码禁止 `bg-red-500 / text-blue-400` 类调色板 className；必须走语义 token（`bg-destructive / text-primary`）。例外：diff / 搜索高亮 / ChoiceCard 危险等级 / `tool-result-renderer` 代码容器等真有专属语义的场景走专用 token（已实装 `--diff-* / --search-hit-* / --choice-* / --code-container-*`，见 §3.4）。
 4. **亮 / 暗双主题** — 仅维护 `:root`（亮）与 `.dark`（暗）两套 token。其他主题（ocean / forest / slate）已在 2026-05 清理；切主题靠 body class，不靠运行时主题对象。
 5. **组件优先于 inline 重写** — 已存在的 `components/ui/*`（shadcn 17 件）与 `components/settings/primitives/*`（13 件 + `SettingsUIConstants.ts`）是默认入口；新增 inline className 前先检查是否能复用 primitive。
+
+---
+
+## 品牌标识
+
+- 产品名统一写作 **Tinker**，首字母大写。应用名称、产品文案和设计文档沿用这一写法。
+- 使用当前的 **Tinker VI v4-A**。保留图形模块的相对位置、比例和字标字距。横版包含字标，显示宽度至少 140 px。
+- 登录页使用横版。新会话欢迎页使用独立图形，启动遮罩使用白色图形。左侧导航从会话操作开始，省去 Logo 区块。
+- 应用图标使用带暖白底的图标资产。16 / 24 px 使用 Micro 版本，macOS 菜单栏使用单色模板。
+
+| 版本 | 浅色背景 | 深色或反色背景 |
+|---|---|---|
+| 横版标志 | [黑蓝横版](../apps/electron/resources/tinker-logos/Tinker-horizontal-color.svg) | [白色横版](../apps/electron/resources/tinker-logos/Tinker-horizontal-white.svg) |
+| 独立图形 | [黑蓝图形](../apps/electron/resources/tinker-logos/Tinker-symbol-color.svg) | [白色图形](../apps/electron/resources/tinker-logos/Tinker-symbol-white.svg) |
+
+[应用图标](../apps/electron/resources/tinker-logos/Tinker-app-icon.svg) · [Micro 应用图标](../apps/electron/resources/tinker-logos/Tinker-app-icon-micro.svg) · [桌面 Logo 组件](../apps/electron/src/renderer/components/auth/TinkerLogo.tsx)
 
 ---
 
@@ -51,7 +72,18 @@
 | `--ring` | `0 0% 3.9%` | `0 0% 83.1%` | 聚焦环（中性，与主色同色相） |
 | `--content-area` | `0 0% 100%` | `0 0% 7%` | 主内容区域背景（与 `--background` 同色，预留以备未来双色分离） |
 
-### 3.3 主色与强调
+### 3.3 品牌色与界面强调
+
+| 品牌资产色 | HEX | 用途 |
+|---|---|---|
+| 品牌黑 | `#111111` | 浅色版 Logo 的字标和主体图形 |
+| 品牌蓝 | `#163BFF` | 浅色版图形左下的蓝色模块和横版字标的 i 点 |
+| 反白 | `#FFFFFF` | 暗色或反色背景上的整枚 Logo |
+| 图标底色 | `#F8F6F1` | 应用图标的暖白底 |
+
+品牌用色以仓库中的资产和组件样式为准。 [SVG 源文件](../apps/electron/resources/tinker-logos) · [Logo 样式](../apps/electron/src/renderer/components/auth/tinker-logo.css)
+
+通用控件沿用亮色近黑、暗色近白的 `--primary`。模型与渠道页使用 `--channel-control` 作为添加、保存和启用操作的专用蓝色。提示和连接反馈使用 §3.4 的状态色。
 
 | Token | Light | Dark | 用途 |
 |---|---|---|---|
@@ -61,9 +93,8 @@
 | `--secondary-foreground` | `0 0% 9%` | `0 0% 98%` | 次级按钮前景 |
 | `--accent` | `0 0% 96.1%` | `0 0% 40%` | hover / 当前项强调 |
 | `--accent-foreground` | `0 0% 9%` | `0 0% 98%` | accent 配对前景 |
+| `--channel-control` | `218 100% 44%` | `218 100% 44%` | 模型与渠道页的添加、保存按钮和已启用开关 |
 
-> ASCI 的品牌色策略是**全程中性**：亮色用近黑（zinc-900 阶）做强调，暗色翻色为近白。**不引入** indigo / blue 等彩色作为 primary。色彩饱和度只出现在 §3.4 状态色（destructive / success / warning / info）与 §3.5 组件专用（专用高对比 tooltip / dialog 阴影等），保持"色彩克制 · 形态统一 · 信息收敛"的整体路线。
->
 > 注：`.dark` 下 `--accent` 取 `0 0% 40%`（中等亮度灰），比 `--muted` 明显更亮，用于"hover 但不抢眼"。亮色下 accent ≈ muted，hover 视觉差异主要靠 `--muted-foreground` 切换。
 
 ### 3.4 状态色
@@ -78,7 +109,6 @@
 | `--warning-foreground` | `0 0% 100%` | `0 0% 100%` | warning 前景文字 |
 | `--info` | `217 91% 60%` | `217 91% 65%` | 中性提示（引导 tag、连接提示、进行中） |
 | `--info-foreground` | `0 0% 100%` | `0 0% 100%` | info 前景文字 |
-| `--channel-control` | `218 100% 44%` | `218 100% 44%` | 模型与渠道页的添加、保存按钮和已启用开关 |
 | `--stop-hover-bg` | `hsla(0, 80%, 60%, 0.12)` | `hsl(0, 40%, 18%)` | "Stop" 按钮 hover 背景（与 destructive 一致的红，更低饱和） |
 
 **专用语义出口**（`tool-result-renderers` / `ChoiceCard` 等业务场景共用，B-3 / [#303](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/303) / [#304](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/304) / [#309](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/309) 落地）：
@@ -184,7 +214,7 @@
 
 **硬约束**：
 
-- **禁衬线**：任何 `font-serif` className、`font-family: serif` inline / CSS 一律禁；衬线字体不进 ASCI UI。
+- **禁衬线**。Tinker 界面统一使用无衬线字体。业务界面禁用 `font-serif` 和 `font-family: serif`。
 - **禁等宽（一处例外）**：`font-mono` className、`font-family: monospace` 一律禁；**终端回显、diff、行号、grep 命中、inline code、文件路径**等位置统一走上述无衬线栈，容器仍可用 §3.4 `--code-container-*` 给底色 / 缩进 / 行号底纹，但**字体**不切等宽。
   - **例外**：markdown 代码块（`packages/ui/src/code-block/CodeBlock.tsx` 渲染的 `.code-block-wrapper pre.shiki`）保留等宽栈：
     ```
@@ -408,7 +438,7 @@ DIVIDER_CLASS               = 'border-border/50'
 
 ## 十、侧边栏与主布局
 
-ASCI 顶层结构为 `[LeftSidebar] [MainArea] [RightSidePanel]` 三段，外层包一层窗口外壳（`shell-bg`）。本节约定这层"应用骨架"的所有视觉与结构规则。
+Tinker 顶层结构为 `[LeftSidebar] [MainArea] [RightSidePanel]` 三段，外层包一层窗口外壳（`shell-bg`）。本节约定这层"应用骨架"的所有视觉与结构规则。
 
 ### 10.1 外壳（AppShell）
 
@@ -491,7 +521,7 @@ transition-colors titlebar-no-drag
 
 ### 10.8 "应用级"专用 token 表外值清单
 
-以下数值是 ASCI app shell 的签名设计，**仅** AppShell / LeftSidebar / RightSidePanel 三层可用，业务组件禁止借用：
+以下数值是 Tinker 应用外壳的专用设计值，**仅** AppShell / LeftSidebar / RightSidePanel 三层可用，业务组件禁止借用：
 
 | 类别 | 值 | 出现位置 |
 |---|---|---|
@@ -545,7 +575,6 @@ transition-colors titlebar-no-drag
 | ESLint 调色板拦截规则未上线 | 无法机器拦截新增硬编码；B-3/4/5 全合后做 | B-6 / [#296](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/296) |
 | dark toggle 未接通 | 当前 `.dark` 由 OS / 预览 iframe 单点驱动，无设置项；需 settings 字段 + IPC + atom + 设置页 UI + i18n 四联同步 | [#299](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/299) |
 | design.md ↔ tokens.css 漂移检测 | 无机器守门：本文档 §3.2-§3.5 表格与 `tokens.css :root` / `.dark` 块需 1:1 对齐，目前由人工 review | B-8 / [#298](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/298) `token-parity.test.ts` |
-| `--brand` token / 品牌色策略未定 | 当前 logo / 品牌标识隐式映射到 `foreground`，无显式 token；引入前需明确"哪些场景才允许使用品牌色面"避免蔓延到通用 UI | 待立 issue |
 
 ---
 
