@@ -212,6 +212,15 @@ export interface SDKAssistantMessage {
   _channelModelId?: string
 }
 
+/** 用户编辑时选中的确定版本；独立于 prompt 保存，供历史消息显示原图。 */
+export interface UserImageEditReference {
+  imageId: string
+  /** 经宿主校验的会话相对附件路径 */
+  localPath: string
+  filename: string
+  mediaType: string
+}
+
 /** SDK user 消息 */
 export interface SDKUserMessage {
   type: 'user'
@@ -226,6 +235,8 @@ export interface SDKUserMessage {
   isReplay?: boolean
   /** SDK 合成的消息（如 Skill 展开 prompt），非人类用户输入 */
   isSynthetic?: boolean
+  /** 可选以兼容旧消息；仅引用本轮选定的原图，不追随 latest。 */
+  imageEditReference?: UserImageEditReference
 }
 
 /** SDK result 消息（查询结束时返回） */

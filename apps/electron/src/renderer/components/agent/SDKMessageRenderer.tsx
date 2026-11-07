@@ -1,6 +1,8 @@
 import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 import { collectImageVersions } from './image-versions'
 import { GeneratedImage } from './GeneratedImage.tsx'
+import { SentImageReference } from './SentImageReference.tsx'
+import { GeneratedImageReferenceProvider } from './generated-image-references.tsx'
 /**
  * SDKMessageRenderer — 渲染 SDKMessage 对象
  *
@@ -667,6 +669,7 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
 
   return (
     <Message from="assistant">
+      <GeneratedImageReferenceProvider assistantMessages={turn.assistantMessages} allMessages={allMessages} sessionId={imageSessionId} basePath={basePath}>
       <MessageContent>
         {presentation.records.length > 0 && (
           <details className="mb-5 text-sm text-muted-foreground" data-agent-process="true">
@@ -810,6 +813,7 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
           </div>
         )}
       </MessageContent>
+      </GeneratedImageReferenceProvider>
       {/* 中断状态：独立成行放正文下方、操作栏上方，与可交互按钮分开（流式输出中隐藏） */}
       {!isStreaming && showStoppedBadge && (
         <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/70 select-none">
@@ -1498,6 +1502,7 @@ function UserInputMessage({ message }: { message: SDKUserMessage }): React.React
   return (
     <Message from="user">
       <MessageContent>
+        {message.imageEditReference && <SentImageReference reference={message.imageEditReference} />}
         {/* 图片缩略图 */}
         {imageFiles.length > 0 && (
           <div className="flex flex-wrap gap-2.5 mb-2">

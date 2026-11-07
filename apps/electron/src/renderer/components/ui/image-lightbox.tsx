@@ -1,112 +1,88 @@
-/**
- * ImageLightbox - 图片预览弹窗
- *
- * 类似 macOS Quick Look 的全屏图片预览效果：
- * - 点击图片打开，点击遮罩层或按 Esc 关闭
- * - 深色半透明背景 + 居中大图
- * - 支持下载按钮
- */
-
+/** 原图查看器：适应窗口、按实际像素缩放，沿用宿主保存回调，不改图片或版本数据。 */
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Download, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Download, X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/hooks/useT'
-
 interface ImageLightboxProps {
-  /** 图片 src（data URL 或普通 URL） */
   src: string | null
-  /** 图片 alt / 文件名 */
   alt?: string
-  /** 是否打开 */
   open: boolean
-  /** 关闭回调 */
   onOpenChange: (open: boolean) => void
-  /** 下载回调（可选） */
   onSave?: () => void
+  returnFocus?: () => void
 }
-
-export function ImageLightbox({
-  src,
-  alt,
-  open,
-  onOpenChange,
-  onSave,
-}: ImageLightboxProps): React.ReactElement | null {
+const MIN_SCALE = 0.05
+const MAX_SCALE = 8
+export function ImageLightbox({ src, alt, open, onOpenChange, onSave, returnFocus }: ImageLightboxProps): React.ReactElement | null {
   const { t } = useT('common')
   const { t: tPreview } = useT('preview')
+  const [natural, setNatural] = React.useState({ width: 0, height: 0 })
+  const [manualScale, setManualScale] = React.useState<number | null>(null)
+  const [failed, setFailed] = React.useState(false)
+  const opener = React.useRef<HTMLElement | null>(null)
+  const [viewport, setViewport] = React.useState(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  React.useEffect(() => {
+    setNatural({ width: 0, height: 0 }); setManualScale(null); setFailed(false)
+  }, [src])
+  React.useEffect(() => { setManualScale(null); setFailed(false) }, [open])
+  React.useEffect(() => {
+    if (!open) return
+    const resize = (): void => setViewport({ width: window.innerWidth, height: window.innerHeight })
+    resize(); window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [open])
+  const loaded = natural.width > 0 && natural.height > 0 && !failed
+  const fitScale = loaded ? Math.min(Math.max(1, viewport.width - 48) / natural.width, Math.max(1, viewport.height - 160) / natural.height, 1) : 1
+  const scale = manualScale ?? fitScale
+  const zoom = (factor: number): void => { if (loaded) setManualScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor))) }
   if (!src) return null
-
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        {/* 遮罩层 — 点击关闭 */}
-        <DialogPrimitive.Overlay
-          className={cn(
-            'fixed inset-0 z-[200] bg-black/80 titlebar-no-drag',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
-          )}
-        />
-        {/* 内容层 */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-background/95 titlebar-no-drag" />
         <DialogPrimitive.Content
-          className={cn(
-            'fixed inset-0 z-[200] flex items-center justify-center',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-            'duration-200'
-          )}
-          /* 点击背景区域（非图片）关闭 */
-          onClick={(e) => {
-            if (e.target === e.currentTarget) onOpenChange(false)
+          className="fixed inset-0 z-[200] flex min-w-0 flex-col gap-4 p-4 text-foreground outline-none sm:p-6"
+          onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }}
+          onCloseAutoFocus={event => {
+            if (returnFocus) { event.preventDefault(); returnFocus() }
+            else if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus() }
+          }}
+          onKeyDown={event => {
+            if (event.key === '+' || event.key === '=') { event.preventDefault(); zoom(1.25) }
+            if (event.key === '-') { event.preventDefault(); zoom(0.8) }
+            if (event.key === '0') { event.preventDefault(); setManualScale(null) }
           }}
         >
-          {/* 隐藏的标题（无障碍） */}
-          <DialogPrimitive.Title className="sr-only">
-            {alt || tPreview('image.lightboxAlt')}
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="sr-only">
-            {tPreview('image.lightboxAria', { alt: alt || tPreview('image.lightboxAlt') })}
-          </DialogPrimitive.Description>
-
-          {/* 大图 */}
-          <img
-            src={src}
-            alt={alt}
-            className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain shadow-2xl select-none"
-            draggable={false}
-          />
-
-          {/* 右上角关闭按钮 */}
-          <DialogPrimitive.Close
-            className={cn(
-              'absolute top-4 right-4 p-2 rounded-full',
-              'bg-black/50 text-white/80 backdrop-blur-sm',
-              'hover:bg-black/70 hover:text-white transition-colors',
-              'focus:outline-none'
-            )}
-          >
-            <X className="size-5" />
-          </DialogPrimitive.Close>
-
-          {/* 底部下载按钮（可选） */}
-          {onSave && (
-            <Button
-              type="button"
-              variant="overlay"
-              size="icon"
-              onClick={onSave}
-              className={cn(
-                'absolute bottom-6 right-6 h-auto w-auto p-2.5 rounded-full',
-                'text-white/80 hover:text-white [&_svg]:size-5',
-              )}
-              title={t('image.save')}
+          <div className="flex shrink-0 items-center justify-between gap-3">
+            <DialogPrimitive.Title className="min-w-0 truncate text-sm font-medium">{alt || tPreview('image.lightboxAlt')}</DialogPrimitive.Title>
+            <div className="flex shrink-0 items-center gap-2">
+              {onSave && <Button type="button" variant="ghost" size="icon" onClick={onSave} disabled={failed} aria-label={t('image.save')} title={t('image.save')}><Download className="size-5" aria-hidden="true" /></Button>}
+              <DialogPrimitive.Close asChild><Button type="button" variant="ghost" size="icon" aria-label={t('close')} title={t('close')}><X className="size-5" aria-hidden="true" /></Button></DialogPrimitive.Close>
+            </div>
+          </div>
+          <DialogPrimitive.Description className="sr-only">{tPreview('image.lightboxAria', { alt: alt || tPreview('image.lightboxAlt') })}</DialogPrimitive.Description>
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto" onClick={event => { if (event.target === event.currentTarget) onOpenChange(false) }}>
+            <div
+              className="flex min-h-full min-w-full items-center justify-center"
+              style={loaded ? { width: natural.width * scale, height: natural.height * scale } : undefined}
+              onClick={event => { if (event.target === event.currentTarget) onOpenChange(false) }}
             >
-              <Download className="size-5" />
-            </Button>
-          )}
+              {failed ? <p role="alert" className="text-sm text-muted-foreground">{tPreview('image.loadFailed')}</p> : <img
+                src={src} alt={alt || tPreview('image.lightboxAlt')} draggable={false}
+                className="block shrink-0 select-none object-contain"
+                style={loaded ? { width: natural.width * scale, height: natural.height * scale, maxWidth: 'none', maxHeight: 'none' } : { maxWidth: '100%', maxHeight: '100%' }}
+                onLoad={event => { const { naturalWidth: width, naturalHeight: height } = event.currentTarget; if (width > 0 && height > 0) setNatural({ width, height }) }}
+                onError={() => setFailed(true)}
+              />}
+            </div>
+          </div>
+          <div role="toolbar" aria-label={tPreview('image.controls')} className="flex shrink-0 items-center justify-center gap-2 self-center rounded-full border border-border/50 bg-background px-3 py-1 shadow-sm">
+            <Button type="button" variant="ghost" size="icon" disabled={!loaded || scale <= MIN_SCALE} onClick={() => zoom(0.8)} aria-label={tPreview('image.zoomOut')} title={tPreview('image.zoomOut')}><ZoomOut className="size-4" aria-hidden="true" /></Button>
+            <output className="min-w-[4ch] text-center text-sm tabular-nums" aria-live="polite" aria-label={tPreview('image.zoomLevel', { percent: Math.round(scale * 100) })}>{loaded ? `${Math.round(scale * 100)}%` : '—'}</output>
+            <Button type="button" variant="ghost" size="icon" disabled={!loaded || scale >= MAX_SCALE} onClick={() => zoom(1.25)} aria-label={tPreview('image.zoomIn')} title={tPreview('image.zoomIn')}><ZoomIn className="size-4" aria-hidden="true" /></Button>
+            <Button type="button" variant="ghost" size="icon" disabled={!loaded} onClick={() => setManualScale(null)} aria-label={tPreview('image.fitToWindow')} title={tPreview('image.fitToWindow')}><Maximize2 className="size-4" aria-hidden="true" /></Button>
+          </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

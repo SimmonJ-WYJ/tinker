@@ -81,7 +81,12 @@
   "image": {
     "loadFailed": "图片加载失败",
     "lightboxAlt": "图片预览",
-    "lightboxAria": "预览图片：{{alt}}"
+    "lightboxAria": "预览图片：{{alt}}",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fitToWindow": "适应窗口",
+    "controls": "图片操作",
+    "zoomLevel": "缩放 {{percent}}%"
   },
   "fileBrowser": {
     "emptyFolder": "空文件夹"

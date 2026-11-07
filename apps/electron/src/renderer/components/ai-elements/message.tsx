@@ -38,6 +38,7 @@ import { CodeBlock, MermaidBlock } from '@asci/ui'
 import { FilePathChip, isAbsoluteFilePath, isRelativeFilePath } from './file-path-chip'
 import { INLINE_CHIP_STYLE, INLINE_LABEL_CLASS } from './inline-label-style.ts'
 import { ArtifactCard } from '@/components/agent/ArtifactCard'
+import { useGeneratedImageReference } from '@/components/agent/generated-image-references'
 import { extractArtifactReference, resolveAgainstCwd } from '@/lib/deliverable-path'
 import { DoiChip } from './doi-chip'
 import { parseDoiExact, findDois, doiFromUrl, DOI_PROBE_RE } from '@/lib/doi.ts'
@@ -526,6 +527,7 @@ const MarkdownLink = React.memo(function MarkdownLink({
   children: linkChildren,
   ...linkProps
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>): React.ReactElement {
+  const openGeneratedImage = useGeneratedImageReference(href ?? '')
   // 综述引用 #asci-cite-... → 渲染为 CitationBadge（badge 自己处理 click 跳转）
   const linkText = childrenToText(linkChildren)
   const citation = parseCitationHref(href, linkText)
@@ -567,6 +569,10 @@ const MarkdownLink = React.memo(function MarkdownLink({
       href={href}
       onClick={(e) => {
         e.preventDefault()
+        if (openGeneratedImage) {
+          openGeneratedImage(e.currentTarget)
+          return
+        }
         if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
           window.electronAPI.openExternal(href)
         }
