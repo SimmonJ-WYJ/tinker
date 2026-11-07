@@ -1,0 +1,92 @@
+{
+  "platform": "Darwin",
+  "macOSVersion": "26.5.1",
+  "machine": "arm64",
+  "rustcVersion": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+  "binarySha256": "6e8597f05d8874609744bb4a0f31efb182168e5c16e4d49e1cca04623b4d4031",
+  "buildProfile": "release (caller-supplied binary)",
+  "pythonVersion": "3.9.6",
+  "fixtureBytes": 12423890,
+  "fixtureSha256": "e14549015d428a704ee39f91f250d8309d833d75e7351191a3b60dcb806e0a4d",
+  "messages": 10000,
+  "pageSize": 64,
+  "rows": [
+    {
+      "digest": "ec432f897948d008",
+      "elapsedMs": 13.974084,
+      "firstLine": 9937,
+      "incompleteTail": null,
+      "messages": 64,
+      "mode": "streaming",
+      "nextBeforeLine": 9937,
+      "maximumRssBytes": 2211840,
+      "trial": 1
+    },
+    {
+      "digest": "ec432f897948d008",
+      "elapsedMs": 14.912709,
+      "firstLine": 9937,
+      "incompleteTail": null,
+      "messages": 64,
+      "mode": "buffered",
+      "nextBeforeLine": 9937,
+      "maximumRssBytes": 14647296,
+      "trial": 1
+    },
+    {
+      "digest": "ec432f897948d008",
+      "elapsedMs": 15.005832999999999,
+      "firstLine": 9937,
+      "incompleteTail": null,
+      "messages": 64,
+      "mode": "buffered",
+      "nextBeforeLine": 9937,
+      "maximumRssBytes": 14647296,
+      "trial": 2
+    },
+    {
+      "digest": "ec432f897948d008",
+      "elapsedMs": 14.375041,
+      "firstLine": 9937,
+      "incompleteTail": null,
+      "messages": 64,
+      "mode": "streaming",
+      "nextBeforeLine": 9937,
+      "maximumRssBytes": 2228224,
+      "trial": 2
+    },
+    {
+      "digest": "ec432f897948d008",
+      "elapsedMs": 16.025083,
+      "firstLine": 9937,
+      "incompleteTail": null,
+      "messages": 64,
+      "mode": "streaming",
+      "nextBeforeLine": 9937,
+      "maximumRssBytes": 2195456,
+      "trial": 3
+    },
+    {
+      "digest": "ec432f897948d008",
+      "elapsedMs": 14.113959000000001,
+      "firstLine": 9937,
+      "incompleteTail": null,
+      "messages": 64,
+      "mode": "buffered",
+      "nextBeforeLine": 9937,
+      "maximumRssBytes": 14680064,
+      "trial": 3
+    }
+  ],
+  "median": {
+    "streaming": {
+      "maximumRssBytes": 2211840,
+      "elapsedMs": 14.375041
+    },
+    "buffered": {
+      "maximumRssBytes": 14647296,
+      "elapsedMs": 14.912709
+    }
+  },
+  "scope": "Same release Rust parser, whole-file buffer versus streaming. Not a measurement of Electron or Tauri application memory."
+}

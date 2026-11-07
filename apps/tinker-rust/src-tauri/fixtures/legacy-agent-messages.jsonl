@@ -1,0 +1,4 @@
+{"id":"fixture-user","role":"user","content":"  修改原图 🧠\n","createdAt":1700000000000}
+{"id":"fixture-assistant","role":"assistant","content":"Synthetic reply","createdAt":1700000000001,"model":"fixture-model"}
+{"id":"fixture-tool","role":"tool","content":"{\"ok\":true}","createdAt":1700000000002}
+{"id":"fixture-status","role":"status","content":"Interrupted fixture","createdAt":1700000000003,"fixtureExtra":{"unknownField":[1,true,null]}}
