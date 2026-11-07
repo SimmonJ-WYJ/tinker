@@ -37,7 +37,7 @@ import { SelfEvolutionCollector } from './telemetry/self-evolution-hooks.ts'
 import { getEffectiveCapabilities } from '@asci/core'
 import type { PermissionRequest, ASCIPermissionMode, AskUserRequest, ExitPlanModeRequest, HardRuleContext } from '@asci/shared'
 import type { ClaudeAgentQueryOptions } from './adapters/claude-agent-adapter'
-import { isPromptTooLongError, friendlyErrorMessage, mapSDKErrorToTypedError, extractErrorDetails } from './adapters/claude-agent-adapter'
+import { isPromptTooLongError, friendlyErrorMessage, mapSDKErrorToTypedError, extractErrorDetails, sanitizeProviderDiagnostic, normalizeProviderAuthenticationMessage } from './adapters/claude-agent-adapter'
 import { AgentEventBus } from './agent-event-bus'
 import { buildZoteroContextBlock } from './zotero-context-block'
 import { decryptApiKey, getChannelById } from './channel-manager'
@@ -986,6 +986,11 @@ export class AgentOrchestrator {
           )
         }
 
+        // 付费生成在所有模式下保持逐次授权；读取本会话已有图片不重复询问。
+        if (toolName === 'mcp__asci-image__generate_image' || toolName === 'mcp__asci-image__inspect_image' || toolName === 'mcp__asci-image__list_images') {
+          return acceptEditsCanUseTool(toolName, normalizedInput, options)
+        }
+
         // ── 普通工具的权限分派 ──
 
         switch (currentMode) {
@@ -1190,6 +1195,7 @@ export class AgentOrchestrator {
               createLookupShellGuard(userMessage, selectedTaskMode),
               permissionService.createPreToolUseHardRuleHookForSession(sessionId, {
                 shouldAsk: () => getPermissionMode() !== 'bypassPermissions',
+                confirmPaidImage: acceptEditsCanUseTool,
               }),
             ],
           }],
@@ -1323,9 +1329,7 @@ export class AgentOrchestrator {
         })(),
         onStderr: (data: string) => {
           stderrChunks.push(data)
-          console.error(`[Agent SDK stderr] ${data}`)
-          // issue #587 诊断：stderr 同步落盘（含 MCP server 子进程输出），事后可查
-          appendSessionStderr(sessionId, data)
+          // 分块可能切开凭据；本轮结束时聚合脱敏，再写日志和诊断文件。
         },
         onSessionId: (sdkSessionId: string) => {
           const sessionChanged = capturedSdkSessionId !== sdkSessionId
@@ -1616,8 +1620,8 @@ export class AgentOrchestrator {
                 } as unknown as SDKMessage
                 appendSDKMessages(sessionId, [errorSDKMsg])
                 console.log(`[Agent 编排] 已保存 TypedError 消息: ${typedError.code} - ${typedError.title}`)
-                console.log(`[Agent 编排] 错误详情: detailedMessage=${detailedMessage}`)
-                console.log(`[Agent 编排] 原始错误: originalError=${originalError}`)
+                console.log(`[Agent 编排] 错误详情: detailedMessage=${sanitizeProviderDiagnostic(detailedMessage, [apiKey, endpoint.apiKey])}`)
+                console.log(`[Agent 编排] 原始错误: originalError=${sanitizeProviderDiagnostic(originalError, [apiKey, endpoint.apiKey])}`)
 
                 // 如果之前有重试记录，发送 retry_failed
                 if (attempt > 1 && lastRetryableError) {
@@ -1967,9 +1971,10 @@ export class AgentOrchestrator {
                   baseOptions: resumeOptions,
                   adapter: this.adapter,
                 })
-                for await (const resumeMsg of resumeIterable) {
+                for await (const rawResumeMsg of resumeIterable) {
                   if (!this.activeSessions.has(sessionId)) break
 
+                  const resumeMsg = normalizeProviderAuthenticationMessage(rawResumeMsg)
                   // 跳过 replay 消息，仅累积新产生的消息
                   const resumeMsgRecord = resumeMsg as Record<string, unknown>
                   if ((resumeMsg.type === 'assistant' || resumeMsg.type === 'user') && !resumeMsgRecord.isReplay) {
@@ -1987,7 +1992,7 @@ export class AgentOrchestrator {
 
                 console.log(`[Agent 编排] Auto-resume 完成`)
               } catch (resumeError) {
-                console.error('[Agent 编排] Auto-resume 失败:', resumeError)
+                console.error('[Agent 编排] Auto-resume 失败:', sanitizeProviderDiagnostic(resumeError instanceof Error ? resumeError.message : String(resumeError), [apiKey, endpoint.apiKey]))
               }
             } else if (!resumePrompt) {
               console.log('[Agent 编排] 无可用的 resume 内容（inbox 和 summaries 均为空）')
@@ -2082,15 +2087,6 @@ export class AgentOrchestrator {
           break  // 成功完成，退出重试循环
 
         } catch (error) {
-          // 打印 stderr
-          const fullStderr = stderrChunks.join('').trim()
-          if (fullStderr) {
-            console.error(`[Agent 编排] 完整 stderr 输出 (${fullStderr.length} 字符):`)
-            console.error(fullStderr)
-          } else {
-            console.error(`[Agent 编排] stderr 为空`)
-          }
-
           // 用户主动中止
           if (!this.activeSessions.has(sessionId)) {
             const wasStoppedByUser = this.stoppedBySessions.delete(sessionId)
@@ -2106,6 +2102,7 @@ export class AgentOrchestrator {
           const stderrOutput = stderrChunks.join('').trim()
           const apiError = extractApiError(stderrOutput)
           const rawErrorMessage = error instanceof Error ? error.message : ''
+          const authenticationRejected = apiError?.statusCode === 401 || /\b401\b|authentication_error|unauthorized/i.test(`${stderrOutput} ${rawErrorMessage}`)
 
           // issue #74 安全网：5xx + 当前渠道不兼容 PDF document block → 抑制重试 + 友好提示
           const pdfBlockMisfire = isLikelyPdfDocumentBlockIncompatibility({
@@ -2133,7 +2130,7 @@ export class AgentOrchestrator {
           }
 
           // 判断是否可重试（issue #74 安全网：misfire 时禁重试 — transcript 内仍含 PDF block，再发必再 500）
-          if (!pdfBlockMisfire && isAutoRetryableCatchError(apiError, rawErrorMessage) && attempt <= MAX_AUTO_RETRIES) {
+          if (!authenticationRejected && !pdfBlockMisfire && isAutoRetryableCatchError(apiError, rawErrorMessage) && attempt <= MAX_AUTO_RETRIES) {
             lastRetryableError = apiError
               ? `API Error ${apiError.statusCode}: ${apiError.message}`
               : (error instanceof Error ? error.message : '未知错误')
@@ -2148,8 +2145,8 @@ export class AgentOrchestrator {
           }
 
           // 不可重试 — 走原有终止逻辑
-          const errorMessage = error instanceof Error ? error.message : '未知错误'
-          console.error(`[Agent 编排] 执行失败:`, error)
+          const errorMessage = authenticationRejected ? friendlyErrorMessage('HTTP 401') : error instanceof Error ? error.message : '未知错误'
+          console.error(`[Agent 编排] 执行失败:`, authenticationRejected ? {code: 'provider_authentication', provider: channel.provider, status: 401} : sanitizeProviderDiagnostic(error instanceof Error ? error.message : String(error), [apiKey, endpoint.apiKey]))
           // 自进化 error_event 信号（#427）：不可重试错误形态
           evoCollector?.emitError('agent_run', errorMessage, false)
 
@@ -2163,16 +2160,18 @@ export class AgentOrchestrator {
             }
           }
 
-          console.log(`[Agent 编排] stderr 输出: ${stderrOutput || '(空)'}`)
-          if (apiError) {
-            console.log(`[Agent 编排] API 错误: statusCode=${apiError.statusCode}, message=${apiError.message}`)
+          console.log(`[Agent 编排] stderr 输出: ${sanitizeProviderDiagnostic(stderrOutput, [apiKey, endpoint.apiKey]) || '(空)'}`)
+          if (apiError && !authenticationRejected) {
+            console.log(`[Agent 编排] API 错误: statusCode=${apiError.statusCode}, message=${sanitizeProviderDiagnostic(apiError.message, [apiKey, endpoint.apiKey])}`)
           }
 
           let userFacingError: string
-          if (pdfBlockMisfireUserMessage) {
+          if (authenticationRejected) {
+            userFacingError = friendlyErrorMessage('HTTP 401')
+          } else if (pdfBlockMisfireUserMessage) {
             userFacingError = pdfBlockMisfireUserMessage
           } else if (apiError) {
-            userFacingError = friendlyErrorMessage(`API 错误 (${apiError.statusCode}):\n${apiError.message}`)
+            userFacingError = friendlyErrorMessage(`API 错误 (${apiError.statusCode}):\n${sanitizeProviderDiagnostic(apiError.message, [apiKey, endpoint.apiKey])}`)
           } else {
             userFacingError = friendlyErrorMessage(errorMessage)
           }
@@ -2228,7 +2227,14 @@ export class AgentOrchestrator {
             console.log(`[Agent 编排] 保留 sdkSessionId (API 错误 ${apiError?.statusCode})`)
           }
 
-          throw error
+          // IPC rejection 也只能携带友好认证提示，不能重新暴露原错误。
+          throw authenticationRejected ? new Error(userFacingError) : error
+        } finally {
+          const safeDiagnostic = sanitizeProviderDiagnostic(stderrChunks.join(''), [apiKey, endpoint.apiKey])
+          if (safeDiagnostic) {
+            console.error(`[Agent SDK stderr] ${safeDiagnostic}`)
+            appendSessionStderr(sessionId, safeDiagnostic)
+          }
         }
       }
 

@@ -90,6 +90,8 @@ export interface CanUseToolOptions {
 
 interface PreToolUseHardRuleHookOptions {
   shouldAsk?: () => boolean
+  /** 在 SDK 自动/跳过模式之前完成付费授权，返回最终决定，避免重复确认。 */
+  confirmPaidImage?: (toolName: string, input: Record<string, unknown>, options: CanUseToolOptions) => Promise<PermissionResult>
 }
 
 /** 待处理的权限请求 */
@@ -145,12 +147,22 @@ export class AgentPermissionService {
     sessionId: string,
     hookOptions: PreToolUseHardRuleHookOptions = {},
   ): HookCallback {
-    return async (hookInput) => {
+    return async (hookInput, toolUseID, options) => {
       if (hookInput.hook_event_name !== 'PreToolUse' || !hookInput.tool_name) return {}
 
       const toolInput = hookInput.tool_input && typeof hookInput.tool_input === 'object' && !Array.isArray(hookInput.tool_input)
         ? hookInput.tool_input as Record<string, unknown>
         : {}
+      // 明确只处理宿主付费生图工具；任何失败都拒绝，不把授权失败降级为自动执行。
+      if (hookInput.tool_name === 'mcp__asci-image__generate_image' && hookOptions.confirmPaidImage) {
+        if (!toolUseID) return {hookSpecificOutput: {hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'Paid image call is missing its tool identity'}}
+        try {
+          const result = await hookOptions.confirmPaidImage(hookInput.tool_name, toolInput, {signal: options.signal, toolUseID})
+          return {hookSpecificOutput: {hookEventName: 'PreToolUse', permissionDecision: result.behavior, permissionDecisionReason: result.behavior === 'allow' ? 'User approved this paid image call' : 'Paid image call was not approved'}}
+        } catch {
+          return {hookSpecificOutput: {hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'Paid image approval failed'}}
+        }
+      }
       const ctx = this.getHardRuleContext(sessionId)
       const hardRule = evaluateHardRule(hookInput.tool_name, toolInput, ctx)
       if (hardRule.action === 'defer' || hardRule.action === 'allow') return {}

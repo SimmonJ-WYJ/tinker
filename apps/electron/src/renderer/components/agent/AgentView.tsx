@@ -1,6 +1,6 @@
 import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { captureSendDraft, sendRecoveryDraftsAtom, forgetSendDraftAtom } from '@/atoms/send-recovery-atoms'
-import { imageEditDraftsAtom, clearImageEditDraft } from '@/atoms/image-edit-atoms'
+import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
 import { ImageEditReference } from './ImageEditReference'
 import { latestTurnAttemptedImage } from './image-retry-policy.ts'
 import { BinaryBackdrop } from '../welcome/BinaryBackdrop'
@@ -983,25 +983,24 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     // 1. 如果有 pending 文件，先保存到 session 目录
     let fileReferences = ''
     if (pendingFiles.length > 0) {
-      const workspace = workspaces.find((w) => w.id === currentWorkspaceId)
-      if (workspace) {
-        const filesToSave = pendingFiles.map((f) => ({
-          filename: f.filename,
-          data: window.__pendingAgentFileData?.get(f.id) || '',
-        }))
-        try {
-          const saved = await window.electronAPI.saveFilesToAgentSession({
-            workspaceSlug: workspace.slug,
-            sessionId,
-            files: filesToSave,
-          })
-          const refs = saved.map((f) => `- ${f.filename}: ${f.targetPath}`).join('\n')
-          fileReferences += `<attached_files>\n${refs}\n</attached_files>\n\n`
-        } catch (error) {
-          console.error('[AgentView] 保存附件到 session 失败:', error)
-          setAgentStreamErrors(previous => new Map(previous).set(sessionId, tCommon('sendRecovery.attachmentFailed')))
-          return
-        }
+      try {
+        const workspace = workspaces.find((w) => w.id === currentWorkspaceId)
+        const filesToSave = pendingFiles.map((file) => {
+          const data = window.__pendingAgentFileData?.get(file.id)
+          if (data === undefined) throw new Error('Attachment data unavailable')
+          return { filename: file.filename, data }
+        })
+        const saved = await window.electronAPI.saveFilesToAgentSession({
+          workspaceSlug: workspace?.slug,
+          sessionId,
+          files: filesToSave,
+        })
+        const refs = saved.map((file) => `- ${file.filename}: ${file.targetPath}`).join('\n')
+        fileReferences += `<attached_files>\n${refs}\n</attached_files>\n\n`
+      } catch (error) {
+        console.error('[AgentView] 保存附件到 session 失败:', error)
+        setAgentStreamErrors(previous => new Map(previous).set(sessionId, tCommon('sendRecovery.attachmentFailed')))
+        return
       }
 
       // 清理
@@ -1190,11 +1189,10 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     setInputContent('')
     setInputHtmlContent('')
 
+    // 版本引用已绑定到 input 与恢复快照；发送后不再把它显示成下一条草稿。
+    if (selectedImage) setImageEditDrafts(previous => consumeImageEditDraft(previous, sessionId, selectedImage))
     window.electronAPI.sendAgentMessage(input).then(() => {
       if (!store.get(agentStreamErrorsAtom).has(sessionId)) store.set(forgetSendDraftAtom, {sessionId, draft: recoveryDraft})
-      if (selectedImage && !store.get(agentStreamErrorsAtom).has(sessionId)) {
-        setImageEditDrafts(previous => clearImageEditDraft(previous, sessionId, selectedImage.imageId))
-      }
     }).catch((error) => {
       console.error('[AgentView] 发送消息失败:', error)
       setAgentStreamErrors(previous => new Map(previous).set(sessionId, error instanceof Error ? error.message : String(error)))

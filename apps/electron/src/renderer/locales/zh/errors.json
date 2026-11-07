@@ -62,5 +62,10 @@
   },
   "dataExport": {
     "validationFailed": "导出校验失败：{{dataFile}} 内对象（id: {{objectId}}）不符合 O1 schema，未生成文件。请向我们反馈此问题。"
+  },
+  "agent": {
+    "providerAuthentication": "模型调用返回 401：所选渠道的认证被拒绝。请核对该渠道的地址、协议、密钥与模型访问权限；这不是 Tinker 账户登录错误。未自动重试。",
+    "providerAuthenticationTitle": "渠道认证失败",
+    "providerSettings": "模型与渠道"
   }
 }

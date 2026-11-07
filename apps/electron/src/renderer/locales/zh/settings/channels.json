@@ -99,13 +99,14 @@
       "deleteTitle": "删除",
       "deleteAria": "删除 {{name}}",
       "customSection": "添加自定义模型",
-      "customSectionHint": "供应商清单未收录的模型（如新发布、灰度、私有模型）可在此填模型 ID 手动添加",
+      "customSectionHint": "粘贴精确模型 ID，可用逗号或空格一次添加多个（最多 50 个）。",
       "customSectionCollapse": "收起",
       "modelIdPlaceholder": "模型 ID（如 claude-opus-4-6）",
       "modelNamePlaceholder": "显示名称（可选）",
       "addButton": "添加",
       "addNeedId": "请先输入模型 ID",
-      "addLooksLikeApiKey": "看起来像 API Key，不是模型 ID。请回到上方 \"API Key\" 字段填写"
+      "addLooksLikeApiKey": "看起来像 API Key，不是模型 ID。请回到上方 \"API Key\" 字段填写",
+      "invalidModelIds": "请填写有效的模型 ID，每次最多添加 50 个。"
     }
   }
 }

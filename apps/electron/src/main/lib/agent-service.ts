@@ -1,3 +1,6 @@
+import { saveSessionAttachments } from './agent-session-attachments.ts'
+import { getAgentSessionMeta } from './agent-session-manager.ts'
+import { getAgentWorkspace } from './agent-workspace-manager.ts'
 /**
  * Agent 服务层（IPC 薄层）
  *
@@ -29,7 +32,7 @@ import { ClaudeAgentAdapter } from './adapters/claude-agent-adapter'
 import { AgentEventBus } from './agent-event-bus'
 import { AgentOrchestrator } from './agent-orchestrator'
 import { createMessageStreamConverter } from './message-stream-converter.ts'
-import { getAgentSessionWorkspacePath, getWorkspaceFilesDir } from './config-paths'
+import { getAgentSessionWorkspacePath, getAgentDefaultSessionPath, getWorkspaceFilesDir } from './config-paths'
 import type { AuthService } from './auth-service.ts'
 
 // ===== 实例创建 =====
@@ -279,38 +282,12 @@ export async function queueAgentMessage(
  * 将 base64 编码的文件写入 session 的 cwd，供 Agent 通过 Read 工具读取。
  */
 export function saveFilesToAgentSession(input: AgentSaveFilesInput): AgentSavedFile[] {
-  const sessionDir = getAgentSessionWorkspacePath(input.workspaceSlug, input.sessionId)
-  const results: AgentSavedFile[] = []
-  const usedPaths = new Set<string>()
-
-  for (const file of input.files) {
-    let targetPath = join(sessionDir, file.filename)
-
-    // 防止同名文件覆盖
-    if (usedPaths.has(targetPath) || existsSync(targetPath)) {
-      const dotIdx = file.filename.lastIndexOf('.')
-      const baseName = dotIdx > 0 ? file.filename.slice(0, dotIdx) : file.filename
-      const ext = dotIdx > 0 ? file.filename.slice(dotIdx) : ''
-      let counter = 1
-      let candidate = join(sessionDir, `${baseName}-${counter}${ext}`)
-      while (usedPaths.has(candidate) || existsSync(candidate)) {
-        counter++
-        candidate = join(sessionDir, `${baseName}-${counter}${ext}`)
-      }
-      targetPath = candidate
-    }
-    usedPaths.add(targetPath)
-
-    mkdirSync(dirname(targetPath), { recursive: true })
-    const buffer = Buffer.from(file.data, 'base64')
-    writeFileSync(targetPath, buffer)
-
-    const actualFilename = targetPath.slice(sessionDir.length + 1)
-    results.push({ filename: actualFilename, targetPath })
-    console.log(`[Agent 服务] 文件已保存: ${targetPath} (${buffer.length} bytes)`)
-  }
-
-  return results
+  return saveSessionAttachments(input, {
+    getSession: getAgentSessionMeta,
+    getWorkspace: getAgentWorkspace,
+    getProjectPath: getAgentSessionWorkspacePath,
+    getDefaultPath: getAgentDefaultSessionPath,
+  })
 }
 
 /**

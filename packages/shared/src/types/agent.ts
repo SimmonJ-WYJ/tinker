@@ -1381,7 +1381,8 @@ export interface AgentPendingFile {
 
 /** Agent 文件保存到 session 的输入 */
 export interface AgentSaveFilesInput {
-  workspaceSlug: string
+  /** 兼容旧调用方；实际目录由后端会话归属决定，独立会话可省略。 */
+  workspaceSlug?: string
   sessionId: string
   files: Array<{ filename: string; data: string }>
 }

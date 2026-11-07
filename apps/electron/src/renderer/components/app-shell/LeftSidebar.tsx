@@ -273,10 +273,7 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
   /** 创建新 Agent 会话（若当前活动标签已是空草稿会话则直接复用，避免重复打开同名标签） */
   const handleNewAgentSession = async (): Promise<void> => {
     try {
-      const meta = await window.electronAPI.getOrCreateDraftAgentSession(
-        agentChannelId || undefined,
-        currentWorkspaceId || undefined,
-      )
+      const meta = await window.electronAPI.getOrCreateDraftAgentSession(agentChannelId || undefined, undefined)
       setAgentSessions((prev) => {
         if (prev.some((s) => s.id === meta.id)) return prev
         return [meta, ...prev]

@@ -1,3 +1,5 @@
+import { redactTextWithMatches } from '@asci/shared'
+import { t } from '../i18n-main'
 import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk'
 import { getResponseFailureMessage } from '../agent-response-failure.ts'
 import type { RuntimeProfile } from '@asci/shared'
@@ -203,12 +205,38 @@ export interface ClaudeAgentQueryOptions extends AgentQueryInput {
 const FRIENDLY_ERROR_MESSAGES: Array<{ pattern: RegExp; message: string }> = [
   {
     pattern: /not logged in|please run \/login/i,
-    message: '请检查是否选择了正确的 ASCI 供应渠道和模型',
+    message: '请检查是否选择了正确的 Tinker 供应渠道和模型',
   },
 ]
 
+/** 诊断必须在分块聚合后处理；认证段不保留原文，其他段复用凭据脱敏。 */
+export function sanitizeProviderDiagnostic(raw: string, knownSecrets: readonly string[] = []): string {
+  if (/\b401\b|authentication_error|unauthorized/i.test(raw)) return 'HTTP 401: model-provider authentication rejected'
+  let safe = raw
+  for (const secret of knownSecrets) if (secret) safe = safe.split(secret).join('[[REDACTED:credential]]')
+  return redactTextWithMatches(safe).value
+}
+
+/** 自动 resume 也必须在广播/持久化前归一化 SDK 认证错误。 */
+export function normalizeProviderAuthenticationMessage(message: SDKMessage): SDKMessage {
+  if (message.type !== 'assistant') return message
+  const assistant = message as import('@asci/shared').SDKAssistantMessage
+  if (!assistant.error) return message
+  const details = extractErrorDetails(assistant as unknown as Parameters<typeof extractErrorDetails>[0])
+  if (!/\b401\b|authentication_error|authentication_failed|unauthorized/i.test(`${assistant.error.errorType} ${assistant.error.message} ${details.detailedMessage} ${details.originalError}`)) return message
+  const safe = mapSDKErrorToTypedError('authentication_failed', 'HTTP 401', 'HTTP 401')
+  return {
+    type: 'assistant', uuid: assistant.uuid, isReplay: assistant.isReplay,
+    parent_tool_use_id: assistant.parent_tool_use_id,
+    message: { content: [{ type: 'text', text: safe.message }] },
+    error: { message: safe.message, errorType: safe.code },
+  }
+}
+
 /** 将 SDK 原始错误消息转换为用户友好的提示（无匹配则返回原文） */
 export function friendlyErrorMessage(raw: string): string {
+  if (/\b401\b|authentication_error|unauthorized/i.test(raw)) return t('errors.agent.providerAuthentication')
+
   const responseFailure = getResponseFailureMessage(raw)
   if (responseFailure) return responseFailure
   for (const { pattern, message } of FRIENDLY_ERROR_MESSAGES) {
@@ -244,6 +272,9 @@ export function mapSDKErrorToTypedError(
   detailedMessage: string,
   originalError: string,
 ): TypedError {
+  if (/\b401\b|authentication_error|unauthorized/i.test(`${errorCode} ${detailedMessage} ${originalError}`)) {
+    return {code: 'invalid_api_key', title: t('errors.agent.providerAuthenticationTitle'), message: t('errors.agent.providerAuthentication'), canRetry: false, actions: [{key: 's', label: t('errors.agent.providerSettings'), action: 'settings'}], originalError: 'HTTP 401: model-provider authentication rejected'}
+  }
   const errorMap: Record<string, { code: ErrorCode; title: string; message: string; canRetry: boolean }> = {
     'authentication_failed': {
       code: 'invalid_api_key',

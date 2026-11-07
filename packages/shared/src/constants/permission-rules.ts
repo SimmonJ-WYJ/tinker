@@ -13,6 +13,8 @@ export const SAFE_TOOLS: readonly string[] = [
   'WebSearch',       // 网络搜索
   'mcp__asci-web__search', // Host-owned anonymous public web read
   'mcp__asci-web__fetch',
+  'mcp__asci-image__list_images', // 仅列出本会话已有图片，不生图、不计费
+  'mcp__asci-image__inspect_image', // 宿主限制为当前会话本地图片读取
   'mcp__asci-project__verify_html', // Host-owned isolated project HTML checks
   'WebFetch',        // 网页获取
   'TodoRead',        // Todo 列表读取

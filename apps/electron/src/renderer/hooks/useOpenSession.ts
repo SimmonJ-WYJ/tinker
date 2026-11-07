@@ -44,6 +44,7 @@ export function useOpenSession(): OpenSessionFn {
         return next
       })
 
+      setCurrentAgentWorkspaceId(effectiveWorkspaceId ?? null)
       // 同步 workspaceId，确保与 TabBar 切换行为一致
       if (effectiveWorkspaceId) {
         setCurrentAgentWorkspaceId(effectiveWorkspaceId)

@@ -1,3 +1,4 @@
+import { addQuickModels, type ProviderDraft } from '@/lib/channel-drafts'
 import { ChannelModels } from './ChannelModels'
 import { ChannelProviderMark, getChannelProtocolLabel } from './ChannelProviderMark'
 /**
@@ -344,20 +345,30 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
    * Why: provider 决定了端点协议与模型 ID 命名空间，旧 models 不再适用；测试通过后由
    *      统一的"成功 → 拉取"effect 接管，避免静态/动态 provider 分支逻辑分裂。
    */
+  const providerDrafts = React.useRef(new Map<ProviderType, ProviderDraft>())
+
   const handleProviderChange = (newProvider: string): void => {
     const p = newProvider as ProviderType
+    if (p === provider) return
     userPickedProviderRef.current = true
+    providerDrafts.current.set(provider, {baseUrl, apiKey, models, supportsPdfDocumentBlock, imageProtocol, imageQualityPriority, imageMaxReferences, newModelId, newModelName})
+    const draft = providerDrafts.current.get(p)
+    requestId.current += 1
     setProvider(p)
-    setBaseUrl(PROVIDER_DEFAULT_URLS[p])
-    setSupportsPdfDocumentBlock(getDefaultCapabilities(p).supportsPdfDocumentBlock)
+    setBaseUrl(draft?.baseUrl ?? PROVIDER_DEFAULT_URLS[p])
+    setApiKey(draft?.apiKey ?? '')
+    setModels(draft?.models ?? [])
+    setSupportsPdfDocumentBlock(draft?.supportsPdfDocumentBlock ?? getDefaultCapabilities(p).supportsPdfDocumentBlock)
+    setImageProtocol(draft?.imageProtocol ?? 'openai-images')
+    setImageQualityPriority(draft?.imageQualityPriority ?? 0)
+    setImageMaxReferences(draft?.imageMaxReferences ?? 4)
+    setNewModelId(draft?.newModelId ?? '')
+    setNewModelName(draft?.newModelName ?? '')
     setTestResult(null)
+    setTestedIdentity('')
     setFetchResult(null)
-    setModels([])
     setShowCustomInput(p.startsWith('custom-'))
-    // 立即测试 —— 与 URL/Key 编辑的 debounce 路径不同，provider 切换是高确定性动作，无需等抖动
-    if (p !== 'custom-image' && apiKey.trim() && PROVIDER_DEFAULT_URLS[p].trim()) {
-      void handleTest(p, PROVIDER_DEFAULT_URLS[p], undefined)
-    }
+
   }
 
   /**
@@ -426,36 +437,15 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
   const handleAddModel = (): void => {
     if (!newModelId.trim()) return
 
-    const trimmedModelId = newModelId.trim()
-    // 防御性：API Key 误粘到模型 ID 框（sk- / Bearer 前缀 + 长度 ≥ 20）
-    if (/^(sk-|Bearer\s)/i.test(trimmedModelId) && trimmedModelId.length >= 20) {
-      setAddModelError(t('channelForm.models.addLooksLikeApiKey'))
-      return
-    }
-    setAddModelError(null)
-    const existingModel = models.find((m) => m.id === trimmedModelId)
-    if (existingModel) {
-      setModels((prev) =>
-        prev.map((m) =>
-          m.id === trimmedModelId
-            ? { ...m, name: newModelName.trim() || m.name, enabled: true }
-            : m,
-        ),
-      )
+    try {
+      const next = addQuickModels(models, newModelId, newModelName)
+      setModels(next)
+      setAddModelError(null)
       setNewModelId('')
       setNewModelName('')
-      return
+    } catch (error) {
+      setAddModelError(t(error instanceof Error && error.message === 'apiKey' ? 'channelForm.models.addLooksLikeApiKey' : 'channelForm.models.invalidModelIds'))
     }
-
-    const model: ChannelModel = {
-      id: trimmedModelId,
-      name: newModelName.trim() || trimmedModelId,
-      enabled: true,
-    }
-
-    setModels((prev) => [...prev, model])
-    setNewModelId('')
-    setNewModelName('')
   }
 
   /** 切换模型启用状态（点击可用模型 → 启用，点击已启用模型 → 禁用） */

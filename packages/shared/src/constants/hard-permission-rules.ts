@@ -233,6 +233,10 @@ export function evaluateHardRule(
   input: Record<string, unknown>,
   ctx: HardRuleContext,
 ): HardRuleDecision {
+  if (toolName === 'mcp__asci-image__generate_image') {
+    return decision('ask', 'image.ask.paid-generation', 'Image generation may incur a charge; confirm this call')
+  }
+
   if (toolName === 'Bash') {
     return evaluateBash(input.command, ctx)
   }

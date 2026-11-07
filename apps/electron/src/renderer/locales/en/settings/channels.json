@@ -99,13 +99,14 @@
       "deleteTitle": "Delete",
       "deleteAria": "Delete {{name}}",
       "customSection": "Add a custom model",
-      "customSectionHint": "For models not in the provider's list (e.g. newly released, beta, or private models) — enter the model ID below",
+      "customSectionHint": "Paste exact model IDs, separated by commas or spaces (up to 50 at a time).",
       "customSectionCollapse": "Collapse",
       "modelIdPlaceholder": "Model ID (e.g. claude-opus-4-6)",
       "modelNamePlaceholder": "Display name (optional)",
       "addButton": "Add",
       "addNeedId": "Please enter a model ID first",
-      "addLooksLikeApiKey": "Looks like an API Key, not a model ID. Use the \"API Key\" field above instead"
+      "addLooksLikeApiKey": "Looks like an API Key, not a model ID. Use the \"API Key\" field above instead",
+      "invalidModelIds": "Enter valid model IDs, up to 50 at a time."
     }
   }
 }

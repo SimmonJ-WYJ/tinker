@@ -27,6 +27,7 @@ export function useSyncActiveTabSideEffects(): SyncActiveTabSideEffects {
     (newActiveTab) => {
       if (!newActiveTab) {
         setCurrentAgentSessionId(null)
+        setCurrentAgentWorkspaceId(null)
         return
       }
 
@@ -42,6 +43,7 @@ export function useSyncActiveTabSideEffects(): SyncActiveTabSideEffects {
 
       // 同步 workspace
       const session = agentSessions.find((s) => s.id === newActiveTab.sessionId)
+      setCurrentAgentWorkspaceId(session?.workspaceId ?? newActiveTab.workspaceId ?? null)
       if (session?.workspaceId) {
         setCurrentAgentWorkspaceId(session.workspaceId)
         window.electronAPI.updateSettings({

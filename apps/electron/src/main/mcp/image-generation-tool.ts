@@ -3,6 +3,7 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import { createHash, randomUUID } from 'node:crypto'
 import { bindImageEditSelection } from './image-edit-selection.ts'
+import { buildImageRequestBody } from './image-request-body.ts'
 import { ImageRequestLedger } from './image-request-ledger.ts'
 import { basename, isAbsolute, join } from 'node:path'
 import { readImageReferences } from './image-reference.ts'
@@ -61,14 +62,11 @@ Prompt must preserve the user's language and all invariant constraints, includin
         const result = await requests.run(fingerprint, async () => {
         key = decryptApiKey(channel.id)
         const protocol = channel.capabilities?.imageProtocol ?? 'openai-images'
-        const form = new FormData()
-        form.set('model', choice.model); form.set('prompt', input.prompt); form.set('n', '1')
-        for (const reference of references) form.append('image[]', new Blob([reference.bytes as Uint8Array<ArrayBuffer>], { type: reference.mime }), reference.name)
         const gemini = protocol === 'openai-images' ? undefined : buildGeminiImageRequest(channel.baseUrl,key,choice.model,input.prompt,references.map(ref=>({mime:ref.mime,data:Buffer.from(ref.bytes).toString('base64')})),protocol)
         const response = await getFetchFn(await getEffectiveProxyUrl())(gemini?.url ?? `${normalizeOpenAIBaseUrl(channel.baseUrl)}/images/${references.length ? 'edits' : 'generations'}`, {
           method: 'POST', redirect: 'error', signal: AbortSignal.any([...(extra && typeof extra === 'object' && 'signal' in extra && extra.signal instanceof AbortSignal ? [extra.signal] : []), AbortSignal.timeout(180_000)]),
           headers: gemini?.headers ?? { ...(references.length ? {} : { 'Content-Type': 'application/json' }), Authorization: `Bearer ${key}` },
-          body: gemini?.body ?? (references.length ? form : JSON.stringify({ model: choice.model, prompt: input.prompt, n: 1 })),
+          body: buildImageRequestBody({ model: choice.model, prompt: input.prompt, references, geminiBody: gemini?.body }),
         })
         const reader = response.body?.getReader()
         if (!reader) throw new Error('Empty image response')

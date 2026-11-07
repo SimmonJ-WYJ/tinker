@@ -62,5 +62,10 @@
   },
   "dataExport": {
     "validationFailed": "Export validation failed: an object in {{dataFile}} (id: {{objectId}}) does not conform to the O1 schema. No file was written. Please report this issue."
+  },
+  "agent": {
+    "providerAuthentication": "The model call returned 401: authentication for the selected provider was rejected. Check its URL, protocol, key and model access. This is not a Tinker account sign-in error. No automatic retry was made.",
+    "providerAuthenticationTitle": "Provider authentication failed",
+    "providerSettings": "Models & providers"
   }
 }

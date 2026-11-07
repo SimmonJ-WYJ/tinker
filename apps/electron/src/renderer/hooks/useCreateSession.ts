@@ -8,7 +8,6 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import {
   agentSessionsAtom,
   agentChannelIdAtom,
-  currentAgentWorkspaceIdAtom,
 } from '@/atoms/agent-atoms'
 import { activeViewAtom } from '@/atoms/active-view'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
@@ -17,6 +16,8 @@ import { useOpenSession } from './useOpenSession'
 interface CreateSessionOptions {
   /** 标记为草稿会话（不在侧边栏显示，发送首条消息后自动取消） */
   draft?: boolean
+  /** 仅项目入口显式提供；普通新对话不继承最近选择的项目。 */
+  workspaceId?: string
 }
 
 interface CreateSessionActions {
@@ -31,14 +32,13 @@ export function useCreateSession(): CreateSessionActions {
 
   const setAgentSessions = useSetAtom(agentSessionsAtom)
   const agentChannelId = useAtomValue(agentChannelIdAtom)
-  const currentWorkspaceId = useAtomValue(currentAgentWorkspaceIdAtom)
 
   const createAgent = async (options?: CreateSessionOptions): Promise<string | undefined> => {
     try {
       const meta = await window.electronAPI.createAgentSession(
         undefined,
         agentChannelId || undefined,
-        currentWorkspaceId || undefined,
+        options?.workspaceId,
       )
       setAgentSessions((prev) => [meta, ...prev])
       openSession('agent', meta.id, meta.title, meta.workspaceId)

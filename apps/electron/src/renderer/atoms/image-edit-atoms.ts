@@ -9,3 +9,8 @@ export function clearImageEditDraft(drafts: Map<string,SelectedImageVersion>, se
  if(drafts.get(sessionId)?.imageId!==imageId) return drafts
  const next=new Map(drafts);next.delete(sessionId);return next
 }
+
+/** 发送时消费本次选择；失败时由独立恢复快照还原，不等待网络/模型完成。 */
+export function consumeImageEditDraft(drafts: Map<string,SelectedImageVersion>, sessionId: string, selected: SelectedImageVersion): Map<string,SelectedImageVersion> {
+ return drafts.get(sessionId) === selected ? clearImageEditDraft(drafts,sessionId,selected.imageId) : drafts
+}

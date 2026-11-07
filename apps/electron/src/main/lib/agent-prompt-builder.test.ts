@@ -115,14 +115,15 @@ test('expandPromptTemplates — 非法 status 仍按原逻辑报错（variant �
 
 
 
-test('buildSystemPrompt 包含 ASCI 科研 Agent Alpha 身份', async () => {
+test('buildSystemPrompt 使用 Tinker 通用 Agent 身份', async () => {
   const mod = await import(`./agent-prompt-builder.ts?cb=${Date.now()}-id`)
   const prompt = mod.buildSystemPrompt({
     sessionId: 'test-session',
     permissionMode: 'default',
     claudeAvailable: true,
   })
-  expect(prompt).toContain('ASCI Agent')
+  expect(prompt).toContain('Tinker Agent')
+  expect(prompt).not.toContain('I refer to myself as ASCI')
   expect(prompt).toContain('Alpha')
   expect(prompt).toContain('general-purpose assistant')
   expect(prompt).not.toContain('I am the ASCI research Agent')
@@ -360,7 +361,7 @@ test('buildSystemPrompt — 章节按新顺序呈现（身份 → 使命 → 三
   })
   const idxOf = (s: string) => prompt.indexOf(s)
 
-  const identityIdx = idxOf('# ASCI Agent · Alpha')
+  const identityIdx = idxOf('# Tinker Agent · Alpha')
   const missionIdx = idxOf('## Mission')
   const principlesIdx = idxOf('## Three Principles')
   const capabilitiesIdx = idxOf('## Capabilities and Boundaries')
@@ -639,7 +640,7 @@ test('buildSystemPrompt — § 0 位于身份段之后、Mission 之前', async 
     permissionMode: 'default',
     claudeAvailable: true,
   })
-  const identityIdx = prompt.indexOf('# ASCI Agent · Alpha')
+  const identityIdx = prompt.indexOf('# Tinker Agent · Alpha')
   const philoIdx = prompt.indexOf('## § 0 · Operating Philosophy')
   const missionIdx = prompt.indexOf('## Mission')
   expect(identityIdx).toBeGreaterThanOrEqual(0)
