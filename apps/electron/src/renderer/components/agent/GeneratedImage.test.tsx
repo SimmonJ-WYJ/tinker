@@ -17,7 +17,7 @@ test('actual loaded dimensions and billing limits are shown in both languages', 
  Object.defineProperty(image,'naturalWidth',{value:1254})
  Object.defineProperty(image,'naturalHeight',{value:1254})
  fireEvent.load(image)
- expect(screen.getByText(/1254 × 1254/)).toBeInTheDocument()
+ expect(screen.getByText('Actual dimensions: 1254 × 1254 px')).toBeInTheDocument()
  expect(screen.getByText(/Original dimensions.*not guaranteed/)).toBeInTheDocument()
  expect(screen.getByText(/Check your relay bill/)).toBeInTheDocument()
  await act(async () => { await setAppLanguage('zh') })
@@ -86,4 +86,41 @@ test('对比读取明确父版本，不使用另一张最近图片；父文件�
  expect(screen.getByRole('alert')).toHaveTextContent('unavailable')
  expect(read.mock.calls.some(([path])=>path.endsWith('parent.png'))).toBe(true)
  expect(read.mock.calls.some(([path])=>path.endsWith('latest.png'))).toBe(false)
+})
+
+test('image and billing details start collapsed and expand while actions stay available', async () => {
+ await setAppLanguage('en')
+ window.electronAPI={readAttachment:mock(async()=>'cG5n'),saveImageAs:mock(async()=>{})} as unknown as Window['electronAPI']
+ const result=JSON.stringify({imageId:'child-version',baseImageId:'missing-parent',model:'configured-image',channelName:'My channel',referenceCount:2,generatedImage:{localPath:'session-1/image.png',filename:'generated.png',mediaType:'image/png'}})
+ render(<GeneratedImage result={result} sessionId="session-1" />)
+ await screen.findByRole('img')
+ const summary=screen.getByText('Image and billing details')
+ const details=summary.closest('details')!
+ expect(details).not.toBeNull()
+ expect(details.open).toBe(false)
+ expect(details).toContainElement(screen.getByText(/configured-image · My channel · 2 reference images/))
+ expect(details).toContainElement(screen.getByText(/Original dimensions.*not guaranteed/))
+ expect(details).toContainElement(screen.getByText(/Check your relay bill/))
+ const parentWarning=screen.getByText(/source version.*unavailable/i)
+ expect(details).not.toContainElement(parentWarning)
+ expect(screen.getByRole('button',{name:'Edit from this image'})).toBeEnabled()
+ expect(screen.getByRole('button',{name:'Save'})).toBeEnabled()
+ expect(screen.getByRole('button',{name:'Compare versions'})).toBeDisabled()
+ fireEvent.click(summary)
+ expect(details.open).toBe(true)
+ await act(async()=>{await setAppLanguage('zh')})
+ expect(screen.getByText('图片与费用详情')).toBeInTheDocument()
+ expect(details.open).toBe(true)
+})
+
+test('missing file warning remains outside collapsed image details', async () => {
+ await setAppLanguage('en')
+ window.electronAPI={readAttachment:mock(async()=>{throw Error('missing')}),saveImageAs:mock(async()=>{})} as unknown as Window['electronAPI']
+ render(<GeneratedImage result={JSON.stringify({imageId:'image-1',generatedImage:{localPath:'session-1/image.png',filename:'generated.png',mediaType:'image/png'}})} />)
+ const warning=await screen.findByRole('alert')
+ const details=screen.getByText('Image and billing details').closest('details')!
+ expect(details.open).toBe(false)
+ expect(details).not.toContainElement(warning)
+ expect(screen.getByRole('button',{name:'Edit from this image'})).toBeDisabled()
+ expect(screen.getByRole('button',{name:'Save'})).toBeDisabled()
 })

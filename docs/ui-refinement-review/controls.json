@@ -1,0 +1,26 @@
+[
+  {
+    "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-7 w-7 agent-composer__icon-button",
+    "height": 30,
+    "text": "",
+    "width": 30
+  },
+  {
+    "class": "",
+    "height": 28,
+    "text": "Agent",
+    "width": 79.65625
+  },
+  {
+    "class": "",
+    "height": 28,
+    "text": "Coding",
+    "width": 28
+  },
+  {
+    "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-9 w-9 agent-composer__send rounded-full",
+    "height": 30,
+    "text": "",
+    "width": 30
+  }
+]

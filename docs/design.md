@@ -33,7 +33,7 @@
 ## 品牌标识
 
 - 产品名统一写作 **Tinker**，首字母大写。应用名称、产品文案和设计文档沿用这一写法。
-- 使用当前的 **Tinker VI v4-A**。保留图形模块的相对位置、比例和字标字距。横版包含字标，显示宽度至少 140 px。
+- 使用当前的 **Tinker VI v4-A**。保留图形模块的原始轮廓、比例和字标字距。三处接缝已校准：普通版最短轮廓距离为 18 个局部 SVG 单位，Micro 为 26，禁止再单独挤压某个接缝。横版包含字标，显示宽度至少 140 px。
 - 登录页使用横版。新会话欢迎页使用独立图形，启动遮罩使用白色图形。左侧导航从会话操作开始，省去 Logo 区块。
 - 应用图标使用带暖白底的图标资产。16 / 24 px 使用 Micro 版本，macOS 菜单栏使用单色模板。
 
@@ -184,13 +184,15 @@
 
 ## 四、排版
 
+正文保持 14px 以上。工作台辅助信息明确使用 12px/18px，包括分组标题、图片尺寸、模型与版本详情；导航子行采用 13px/20px。这些是有用途的层级，不是整体缩放。下表按当前 Tailwind 配置和实际 CSS 定义，不以工具类名称猜测尺寸。
+
 字号阶梯（沿用 Tailwind 默认 1rem = 16px）：
 
 | Tailwind | 像素 | 用途 |
 |---|---|---|
-| `text-[10px]` | 10 | section header（uppercase tracking-wider） |
-| `text-[11px]` | 11 | 时间戳、meta 信息（年份 / 作者数） |
-| `text-xs` | 12 | 二级 row label、卡片副文字 |
+| 设置页历史 section header | 10 | 存量样式，本轮不扩散到工作台 |
+| `--workspace-font-caption` | 12 | 工作台分组标题、图片元数据，行高 18–20px |
+| `text-xs` | 14 | 已被 tailwind.config.js 抬至 14px，不能用来表达 12px 辅助文字 |
 | `text-sm` | 14 | 默认正文、按钮文字、设置项 label |
 | `text-base` | 16 | 区块标题、卡片标题、文献标题 |
 | `text-lg+` | 18+ | 仅 onboarding / 空态文案；正常 UI 不用 |
@@ -436,104 +438,84 @@ DIVIDER_CLASS               = 'border-border/50'
 
 ---
 
-## 十、侧边栏与主布局
+## 十、桌面工作台的比例与细节
 
-Tinker 顶层结构为 `[LeftSidebar] [MainArea] [RightSidePanel]` 三段，外层包一层窗口外壳（`shell-bg`）。本节约定这层"应用骨架"的所有视觉与结构规则。
+本节取代旧的 280px 侧栏、50px 标题栏、强毛玻璃外壳等数值。参考来自用户提供的 Perplexity 截图，只借鉴层级、节奏与平衡；保留 Tinker 品牌、现有信息架构和系统无衬线字体。不宣称这些数值是 Perplexity 的内部 token。
 
-### 10.1 外壳（AppShell）
+### 10.1 测量方法
 
-| 维度 | 值 | 备注 |
-|---|---|---|
-| 容器 | `shell-bg h-screen w-screen flex overflow-hidden` | `.shell-bg` 提供 token-based 实色底（`--muted`），必须低于顶层卡片一档，避免卡片顶部与窗口底色撞色；禁止再加 `bg-zinc-*` / `bg-gradient-*` inline |
-| 段间隙 | `p-2`（8px） | 左 / 中 / 右三段各自带 8px 外边距，拼起来缝隙为 8px |
-| 拖动条 | `titlebar-drag-region` + `h-[50px]` 固定 | 顶部 50px 覆盖整宽，避开 macOS 红绿灯 |
-| 层级 | 三段统一 `z-[60]`；拖动条 `z-50` | Spotlight overlay 走更高层 |
+- 所有数值为 CSS px。截图的物理像素、设备 DPR 和应用缩放须分别记录，不能拿高分辨率截图尺寸直接改 CSS。
+- 验收使用同一视口、同一缩放、同一语言、同一内容状态。首页与首页比，会话与会话比。
+- 用 DOM `getBoundingClientRect()` 和 computed style 确认尺寸，再用截图检查视觉重心。不能只凭 className 宣称通过。
+- 字体、图标、行高、点击区和留白作为一组调整，不用全局 zoom 把粗糙细节一起缩小。
 
-### 10.2 LeftSidebar 外形
+### 10.2 颜色与表面
 
-| 维度 | 值 | 备注 |
-|---|---|---|
-| 默认宽 | 280px | `width = props.width ?? 280` |
-| 折叠宽 | 48px | 仅留图标列 |
-| 最小宽 | 180px | 拖动收窄下限 |
-| 容器 | `bg-background/95 backdrop-blur-xl rounded-2xl shadow-xl` | 透明背景 + 强毛玻璃；`rounded-2xl` 是**应用级**外壳唯一允许出现的 16px 圆角 |
-| 折叠/展开过渡 | `transition-[width] duration-300` | 与右侧面板拖拽过渡同步 |
+专用 token 位于 `styles/tokens.css`。`workspace-home.css` 只在工作台和抽屉内映射到背景、前景和分割语义，不改登录或全局品牌色。
 
-### 10.3 侧边栏菜单项（SidebarMenuItem）
+| Token | Light HSL | Dark HSL | 用途 |
+| --- | --- | --- | --- |
+| `--workspace-chrome` | `240 8% 93%` | `210 10% 9%` | 顶栏和侧栏的共同窗口底色 |
+| `--workspace-surface` | `0 0% 99%` | `210 9% 12%` | 阅读面板 |
+| `--workspace-ink` | `200 22% 20%` | `200 10% 90%` | 主要文字与图标 |
+| `--workspace-muted` | `202 9% 41%` | `210 8% 65%` | 辅助文字 |
+| `--workspace-line` | `210 8% 87%` | `210 8% 25%` | 输入与标签的弱分割 |
+| `--workspace-hover` | `210 9% 90%` | `210 8% 19%` | 悬停 |
+| `--workspace-selected` | `210 9% 87%` | `210 8% 23%` | 当前项 |
+| `--workspace-composer` | `0 0% 100%` | `210 8% 16%` | 输入表面 |
+| `--workspace-halo` | `210 8% 95%` | `210 8% 14%` | 首页输入框的柔和外圈 |
 
-| 维度 | 值 | 与基础 scale 的关系 |
-|---|---|---|
-| 圆角 | `rounded-[10px]` | **侧边栏专用**：介于 §6.1 `rounded-lg (8)` 与 `rounded-xl (12)` 之间，作为 LeftSidebar 内菜单项的签名半径；其他位置禁用 10px |
-| 行内距 | `px-3 py-2`（12 / 8 px） | 标准 |
-| 字号 | `text-[13px]` | **侧边栏专用**：介于 §4 `text-xs (12)` 与 `text-sm (14)` 之间，让导航字号比正文略密；其他位置走 §4 scale |
-| 图标 | `w-[18px] h-[18px]` + `gap-3` | 标准 |
-| 默认色 | `text-foreground/60` | 60% 不透明承担"非 active"语义 |
-| 默认背景 | 透明 | |
-| Hover | `hover:bg-primary/5 hover:text-foreground` | primary 5% 暗化做悬停 |
-| Active | `bg-primary/10 text-foreground shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]` | primary 10% 背景 + 极薄阴影 |
-| 过渡 | `transition-colors duration-100` | 100ms 短促 |
+主面板靠窗口与内容底色区分，不加明显描边或强阴影。输入框保留低对比分割和清楚的聚焦状态。品牌蓝只保留在 Logo 等有品牌语义的位置。
 
-### 10.4 侧边栏区块标签 / 空态
+### 10.3 骨架与几何 token
 
-| 元素 | className | 说明 |
-|---|---|---|
-| 工作区标签 ("工作区") | `text-[11px] font-medium text-foreground/40 select-none` | 11px / medium / 40% 灰；不大写、不 tracking-wider |
-| 会话空态 | `text-[11px] text-foreground/30 text-center` | 11px / 30% 灰，居中 |
+| Token/元素 | 目标值 | 实现规则 |
+| --- | --- | --- |
+| `--workspace-sidebar-width` | 256px | 顶栏控制区、侧栏和抽屉共享，禁止再写独立 inline 248/280px |
+| `--workspace-toolbar-height` | 52px | 窗口按钮 28px，图标 16px，间距 4px |
+| `--workspace-panel-radius` | 24px | 主内容面板专用，右/底外距 8px |
+| `--workspace-content-width` | 680px | 首页和会话输入表面的共同最大宽度 |
+| `--workspace-composer-radius` | 20px | 输入表面专用，首页外圈加 10px，外半径 30px |
+| 当前标签 | 高 34px，宽 120–240px | 顶栏容器弹性占据剩余空间，标题省略，不挤走菜单 |
+| 窄窗口 | ≤1100px | 使用现有覆盖式抽屉，不把侧栏压成窄字列 |
 
-> 注：侧边栏分组标题**不**走 §4 的 "section header"（10px uppercase tracking-wider，那是设置页区块样式）。侧边栏 11px medium 是另一套节奏。
+macOS 非全屏为系统红绿灯保留 108px 起点，全屏/其他平台恢复 16px。侧栏收起宽度为 0，顶部展开按钮仍可用。右侧面板比例、Splitter 和恢复行为沿用现有原子状态，不因视觉调整改变。
 
-### 10.5 侧边栏图标按钮（折叠 / 用户头像 / 新会话）
+### 10.4 侧栏的文字与对齐
 
-所有"图标 only" 按钮统一签名：
+| 元素 | 字号/行高 | 行高与间距 |
+| --- | --- | --- |
+| 一级导航 | 14/20px | 36px 点击行，2px 行间距 |
+| 项目名称 | 14/20px | 34px 点击行 |
+| 项目子会话、Recent | 13/20px | 32px 点击行，2px 行间距 |
+| 分组标题 | 12/20px | 28px 分组行 |
+| 底部账号 | 14/20px | 44px 点击行，头像 30px |
 
-```
-size-[36px] flex items-center justify-center rounded-[10px]
-text-foreground/40 hover:bg-foreground/[0.04] hover:text-foreground/60
-transition-colors titlebar-no-drag
-```
+一级图标左边界 24px、宽 18px、图标与文字间距 10px，文字基线为 52px。项目子会话从同一文字基线起排。Recent 无图标时从 24px 起排。选中使用单一弱底色，不叠加阴影；项目中当前会话已高亮时，不在 Recent 再绘制第二块底色。长名称截断，焦点时操作仍可达。
 
-- 折叠按钮：上述
-- 新会话（折叠态）：在上述基础上 + `border border-dashed border-[hsl(var(--dashed-border))] hover:border-[hsl(var(--dashed-border-hover))]` 表达"创建"语义
-- 用户头像：尺寸跟头像（28px），外层 `rounded-[10px]` + `hover:bg-foreground/5`
+### 10.5 首页与输入框
 
-### 10.6 MainArea / 右侧面板
+- 首页图形 40px，图形与标题间距 22px。标题 36/44px、400 字重、字距 -0.035em；窄窗使用 28/36px。保留系统无衬线字体，避免为仿参考截图而混入不匹配的衬线字体。
+- 首页输入框在标题后 32px，编辑区最小 72px，文字 15/24px，内距上 16px、左右 20px。底栏最小 40px，按钮 30px，图标 16px/1.5 线宽。
+- 会话编辑区最小 48px，文字 14/22px，内距 14px 18px 6px。正文和输入框各用同一条 680px 内容轴线，不让附件、按钮与正文左右漂移。
+- 首页与会话的附件、发送和停止按钮点击区统一 30px；附件 Plus 与发送箭头使用 16px、1.5 线宽，停止使用小实心方形。模式切换按钮高 28px，选中项按标签内容自然伸缩，中文“通用 Agent”不裁切；禁用与锁定状态保留。模型名称可以省略，不能压扁发送按钮。
+- 输入表面状态由真实拖拽与渠道/模型可用条件驱动：默认与聚焦之后应用禁用样式；拖拽以 info 语义色边界、浅背景与光晕覆盖聚焦及禁用外观。禁用时配置 CTA 仍可点击，不拦截整个表面的指针事件。
+- 编程建议在输入框之后排列；Tab 顺序应与视觉顺序一致。触发建议只回填草稿，不发送请求。
+- 低窗口高度和窄宽度分别处理，不把首页内容压到屏幕底部。光标、focus ring、输入提示和禁用状态都要可辨。
 
-| 维度 | 值 |
-|---|---|
-| MainArea 容器 | `min-w-0 p-2` — 8px 内边距承担与 sidebar 的视觉缝隙 |
-| MainArea 宽度 | `showRightPanel ? (1 - effectiveRatio) * 100% : 100%` |
-| RightSidePanel 容器 | `p-2 pl-0 titlebar-drag-region` — 左侧 padding=0 让 Splitter 贴边 |
-| RightSidePanel 宽度 | `effectiveRatio * 100%` |
-| 宽度过渡 | `width 300ms ease-in-out`（非拖拽中） |
-| Splitter | `absolute -left-1 w-1 z-10` — 骑在右面板左缘，宽 4px |
-| 最小宽 | `SIDE_PANEL_MIN_PX`（atoms/side-panel-layout） |
-| 最大比例 | `SIDE_PANEL_MAX_RATIO` |
+### 10.6 图片结果
 
-### 10.7 内容卡片节奏（MainArea / RightSidePanel 内部）
+图片为第一层，编辑/对比/保存为第二层，版本与模型信息为第三层。图片最大高 520px，宽度不超过内容列，预览半径 12px；按钮高 30px，文字 12/18px，图标 16px，间距 8px。
 
-| 元素 | className |
-|---|---|
-| 顶层卡片 | `rounded-xl bg-card shadow-minimal`（或 `settings-card` 复合） |
-| 卡片内 row | `px-4 py-3`（16 / 12 px，对齐 `SettingsUIConstants.ROW_CLASS`） |
-| 卡片内分隔 | `border-border/50`（对齐 `SettingsUIConstants.DIVIDER_CLASS`） |
-| 区块间距 | `space-y-6`（24px） |
-| 段内堆叠 | `space-y-3`（12px） |
+版本链、渠道、模型、参考图数和尺寸限制放入可用键盘展开的原生 `details/summary`。入口明确注明包含费用信息；计费与尺寸说明保留原文，不能为视觉简洁删除。实际尺寸仅从加载后的图片读取。文件缺失、父版本缺失继续外显，不能藏入收起的详情。长文件名与长模型名必须换行或省略，禁止撑破阅读列。
 
-### 10.8 "应用级"专用 token 表外值清单
+### 10.7 单一实现与验收
 
-以下数值是 Tinker 应用外壳的专用设计值，**仅** AppShell / LeftSidebar / RightSidePanel 三层可用，业务组件禁止借用：
-
-| 类别 | 值 | 出现位置 |
-|---|---|---|
-| 圆角 | `rounded-2xl`（16px） | LeftSidebar 外壳、（视需要）RightSidePanel 外壳 |
-| 圆角 | `rounded-[10px]` | 侧边栏菜单项、侧边栏图标按钮 |
-| 字号 | `text-[13px]` | 侧边栏菜单项文字 |
-| 字号 | `text-[11px]` | 侧边栏分组标题 / 空态 |
-| 间隙 | `p-2`（8px） | 三段 shell 段内 padding |
-| 高度 | `h-[50px]` / `h-[30px]` | macOS titlebar / sidebar titlebar 内嵌按钮行 |
-| 不透明度 | `bg-background/95` + `backdrop-blur-xl` | LeftSidebar / RightSidePanel 容器背景 |
-
-业务组件如果"觉得 8px / 12px 圆角不够好看"，应回头 grep `rounded-2xl`，确认自己不属于上面四层，再决定是否改用 `rounded-xl`（12px，§6.1 base scale）。
+- 颜色和几何只在 `tokens.css` 定义，组件和样式读取同名变量。
+- `workspace-home.css` 按窗口、导航、首页、输入、项目、窄窗分区。禁止在文件尾反复追加同一 selector 覆盖前面的数值。
+- 共用控件基于现有 React/Radix/Lucide；不新增仅为换外观的依赖。新文案同步 en/zh。
+- 至少核对浅/深主题、首页/会话、长标题、窄窗、侧栏展开/收起、输入聚焦、错误/缺图和减少动效。
+- 截图必须说明是实际应用还是组件预览；组件预览不能当作安装包已更新的证据。
 
 ---
 
@@ -573,7 +555,7 @@ transition-colors titlebar-no-drag
 |---|---|---|
 | 剩余业务组件 palette 硬编码 | B-3 / B-4（#304 / #310）已迁完 tool-result-renderers + settings/forms（约 51 处）；剩余约 74 处分布在 `AgentMessages` / `GraphPipeline` / `TabBarItem` / `InlinePreview` / `UpdateBadge` / `ContextUsageBadge` / `AgentSessionItem` 等（标签族 hex/透明度已由 §8.4 标签族规范收敛：Badge tone×variant、SettingsPill 并入、CitationBadge token 化、soft 统一 /10） | B-5 / [#295](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/295) |
 | ESLint 调色板拦截规则未上线 | 无法机器拦截新增硬编码；B-3/4/5 全合后做 | B-6 / [#296](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/296) |
-| dark toggle 未接通 | 当前 `.dark` 由 OS / 预览 iframe 单点驱动，无设置项；需 settings 字段 + IPC + atom + 设置页 UI + i18n 四联同步 | [#299](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/299) |
+| 主题验证 | 设置页已通过 `GeneralSettings`、`themeAtom/updateTheme` 接通主题；工作台专用 token 仍须在每次视觉修改后核对两套主题 | 本文 §10.7 |
 | design.md ↔ tokens.css 漂移检测 | 无机器守门：本文档 §3.2-§3.5 表格与 `tokens.css :root` / `.dark` 块需 1:1 对齐，目前由人工 review | B-8 / [#298](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/298) `token-parity.test.ts` |
 
 ---

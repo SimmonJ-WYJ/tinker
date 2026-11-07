@@ -1,0 +1,89 @@
+{
+  "dpr": 1,
+  "metrics": [
+    {
+      "class": "workspace-toolbar titlebar-drag-region",
+      "font": "14px",
+      "height": 52,
+      "line": "20px",
+      "radius": "0px",
+      "width": 1536,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "class": "workspace-tab relative flex h-full min-w-0 shrink items-center titlebar-no-drag",
+      "font": "13px",
+      "height": 34,
+      "line": "20px",
+      "radius": "10px",
+      "width": 201.609375,
+      "x": 256,
+      "y": 9
+    },
+    {
+      "class": "workspace-shell__sidebar",
+      "font": "14px",
+      "height": 908,
+      "line": "20px",
+      "radius": "0px",
+      "width": 256,
+      "x": 0,
+      "y": 52
+    },
+    {
+      "class": "workspace-main-panel h-full overflow-hidden flex flex-col",
+      "font": "14px",
+      "height": 900,
+      "line": "20px",
+      "radius": "24px",
+      "width": 1272,
+      "x": 256,
+      "y": 52
+    },
+    {
+      "class": "",
+      "font": "36px",
+      "height": 44,
+      "line": "44px",
+      "radius": "0px",
+      "width": 385.875,
+      "x": 699.0625,
+      "y": 364
+    },
+    {
+      "class": "home-composer",
+      "font": "14px",
+      "height": 140,
+      "line": "20px",
+      "radius": "30px",
+      "width": 700,
+      "x": 542,
+      "y": 440
+    },
+    {
+      "class": "agent-composer-surface",
+      "font": "14px",
+      "height": 120,
+      "line": "20px",
+      "radius": "20px",
+      "width": 680,
+      "x": 552,
+      "y": 450
+    },
+    {
+      "class": "tiptap ProseMirror prose dark:prose-invert max-w-none focus:outline-none min-h-[101px] w-full text-[15px] leading-[1.6] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_pre]:rounded-md [&_pre]:p-3 [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-sm [&_code]:text-foreground [&_pre_code]:bg-transparent [&_pre_code]:p-0 ProseMirror-focused",
+      "font": "15px",
+      "height": 72,
+      "line": "24px",
+      "radius": "0px",
+      "width": 678,
+      "x": 553,
+      "y": 451
+    }
+  ],
+  "viewport": [
+    1536,
+    960
+  ]
+}

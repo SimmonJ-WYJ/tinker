@@ -9,7 +9,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { FolderOpen, MoreHorizontal, Pencil } from 'lucide-react'
+import { FolderOpen, MoreHorizontal, Pencil, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import type { TabType, TabMinimapItem } from '@/atoms/tab-atoms'
@@ -127,7 +127,8 @@ export function TabBarItem({
   return (
     <div
       data-tab-id={id}
-      className="relative flex h-full min-w-0 shrink items-center titlebar-no-drag"
+      data-active={isActive}
+      className="workspace-tab relative flex h-full min-w-0 shrink items-center titlebar-no-drag"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -144,6 +145,7 @@ export function TabBarItem({
           onMouseDown={handleMouseDown}
           onPointerDown={onDragStart}
         >
+          <MessageSquare aria-hidden="true" strokeWidth={1.5} />
           {/* 标题：min-w-0 + truncate，由 CSS 处理省略 */}
           <span className={currentConversationLabelClassNames()}>{title}</span>
 
