@@ -68,9 +68,57 @@ pub enum HistoryError {
 }
 
 pub fn read_history(
-    mut reader: impl BufRead,
+    reader: impl BufRead,
     options: HistoryOptions,
 ) -> Result<HistoryPage, HistoryError> {
+    let page = scan_history(reader, options, |value| {
+        validate_legacy(&value)?;
+        serde_json::from_value(value).map_err(|_| ())
+    })?;
+    Ok(HistoryPage {
+        entries: page
+            .entries
+            .into_iter()
+            .map(|(line_number, message)| HistoryEntry {
+                line_number,
+                message,
+            })
+            .collect(),
+        next_before_line: page.next_before_line,
+        incomplete_tail: page.incomplete_tail,
+    })
+}
+
+/// 两种读取器使用同一校验，避免兼容路径放宽旧消息约束或复制大块未知元数据。
+pub(crate) fn validate_legacy(value: &Value) -> Result<(), ()> {
+    let valid = value["id"].as_str().is_some_and(|id| !id.is_empty())
+        && matches!(
+            value["role"].as_str(),
+            Some("user" | "assistant" | "tool" | "status")
+        )
+        && value["content"].is_string()
+        && value["createdAt"]
+            .as_u64()
+            .is_some_and(|timestamp| timestamp <= MAX_SAFE_TIMESTAMP);
+    if valid {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
+pub(crate) struct ScannedHistory<T> {
+    pub entries: Vec<(u64, T)>,
+    pub next_before_line: Option<u64>,
+    pub incomplete_tail: Option<u64>,
+}
+
+/// 有界扫描只负责源行、JSON 和页预算；调用方决定记录语义。
+pub(crate) fn scan_history<T>(
+    mut reader: impl BufRead,
+    options: HistoryOptions,
+    mut decode: impl FnMut(Value) -> Result<T, ()>,
+) -> Result<ScannedHistory<T>, HistoryError> {
     if !(1..=MAX_PAGE_MESSAGES).contains(&options.limit) || options.before_line == Some(0) {
         return Err(HistoryError::InvalidOptions);
     }
@@ -127,11 +175,8 @@ pub fn read_history(
             }
             Err(_) => return Err(HistoryError::Corrupt { line: line_number }),
         };
-        let message: LegacyMessage = serde_json::from_value(value)
-            .map_err(|_| HistoryError::InvalidMessage { line: line_number })?;
-        if message.id.is_empty() || message.created_at > MAX_SAFE_TIMESTAMP {
-            return Err(HistoryError::InvalidMessage { line: line_number });
-        }
+        let message =
+            decode(value).map_err(|_| HistoryError::InvalidMessage { line: line_number })?;
         while entries.len() == options.limit
             || retained_source_bytes + bytes.len() > MAX_PAGE_SOURCE_BYTES
         {
@@ -141,17 +186,11 @@ pub fn read_history(
             has_earlier = true;
         }
         retained_source_bytes += bytes.len();
-        entries.push_back((
-            HistoryEntry {
-                line_number,
-                message,
-            },
-            bytes.len(),
-        ));
+        entries.push_back(((line_number, message), bytes.len()));
     }
-    Ok(HistoryPage {
+    Ok(ScannedHistory {
         next_before_line: if has_earlier {
-            entries.front().map(|(entry, _)| entry.line_number)
+            entries.front().map(|((line, _), _)| *line)
         } else {
             None
         },

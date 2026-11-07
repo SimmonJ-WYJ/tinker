@@ -2,6 +2,8 @@
 use std::sync::Mutex;
 use tauri::Manager;
 use tinker_rust_foundation::{
+    history_commands::{self, HistoryState},
+    history_library::HISTORY_DIRECTORY,
     persistent_workspace::{AppError, PersistentWorkspace, Snapshot},
     session_store::StoreError,
 };
@@ -43,13 +45,20 @@ fn main() {
                 .map_err(|_| AppError::Storage(StoreError::Io))
                 .and_then(|path| PersistentWorkspace::open(path.join("session-store-v1")));
             app.manage(Mutex::new(workspace));
+            let history = app
+                .path()
+                .app_local_data_dir()
+                .map(|path| HistoryState::new(path.join(HISTORY_DIRECTORY)))
+                .unwrap_or_else(|_| HistoryState::unavailable());
+            app.manage(history);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             snapshot,
             save_draft,
             submit_draft,
-            recover_draft
+            recover_draft,
+            history_commands::read_session_history
         ])
         .run(tauri::generate_context!())
         .expect("Tinker Rust 启动失败");
