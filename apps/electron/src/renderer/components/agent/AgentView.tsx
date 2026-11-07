@@ -31,7 +31,6 @@ import { PermissionBanner } from './PermissionBanner'
 import { ProjectSwitcher } from './ProjectSwitcher'
 import { TaskModeSelector, useTaskMode, taskModesAtom, lockedTaskModesAtom, lockTaskModeAtom } from './TaskModeSelector'
 import { PermissionModeSelector } from './PermissionModeSelector'
-import { PlusIcon } from './composer-icons'
 import { useReasoningEffort } from '@/hooks/useReasoningEffort'
 import { AskUserBanner } from './AskUserBanner'
 import { ExitPlanModeBanner } from './ExitPlanModeBanner'
@@ -1501,13 +1500,6 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
         {/* 消息区域 */}
         {isHome ? <>
           <HomeWelcome />
-          {!inputContent && pendingFiles.length === 0 && !selectedImage && (
-            <HomeSuggestions mode={taskMode} onSelect={(prompt) => {
-              setInputContent(prompt)
-              setInputHtmlContent('')
-              requestAnimationFrame(() => document.querySelector<HTMLElement>('.ProseMirror')?.focus())
-            }} />
-          )}
         </> : agentError && messages.length === 0 && persistedSDKMessages.length === 0 && liveMessages.length === 0 ? <div className="flex-1" /> : <AgentMessages
           sessionId={sessionId}
           sessionModelId={agentModelId || undefined}
@@ -1558,11 +1550,10 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
           <div
             className={cn(
               'agent-composer-surface rounded-[17px] border-[0.5px] border-border bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring/20 transition-shadow duration-200',
-              (isPlanMode || isPermissionPlanMode) && !isDragOver && 'plan-mode-border',
-              // 无渠道/无模型：整框置灰，明确呈现「不可输入」的禁用态（配置 CTA 仍可点）
-              (!agentChannelId || !hasAvailableModel) && !isDragOver && 'bg-muted/50 cursor-not-allowed',
-              isDragOver && 'border-0 ring-2 ring-info ring-offset-2 ring-offset-background shadow-[0_0_20px_4px_rgba(96,165,250,0.35)] bg-info/[0.02]'
+              (isPlanMode || isPermissionPlanMode) && !isDragOver && 'plan-mode-border'
             )}
+            data-drag-over={isDragOver}
+            data-disabled={!agentChannelId || !hasAvailableModel}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -1642,11 +1633,11 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className={cn("ml-1 rounded-full text-foreground hover:text-foreground", isHome && "home-composer__icon-button")}
+                      className="agent-composer__icon-button rounded-full text-foreground hover:text-foreground"
                       aria-label={tConversation('input.attachTooltip')}
                       onClick={handleOpenFileDialog}
                     >
-                      {isHome ? <Plus aria-hidden="true" className="!size-[18px]" strokeWidth={1.5} /> : <PlusIcon className="!size-3" />}
+                      <Plus aria-hidden="true" className="!size-4" strokeWidth={1.5} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
@@ -1683,7 +1674,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                   <Button
                     type="button"
                     size="icon"
-                    className="size-8 rounded-full bg-foreground text-background hover:bg-foreground/90 [&_svg]:!size-[11px]"
+                    className="agent-composer__stop rounded-full bg-foreground text-background hover:bg-foreground/90 [&_svg]:!size-[11px]"
                     onClick={handleStop}
                   >
                     <Square className="size-[12px]" fill="currentColor" strokeWidth={0} />
@@ -1694,7 +1685,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                     variant="ghost"
                     size="icon"
                     className={cn(
-                      'size-8 rounded-full p-0 bg-foreground text-background hover:bg-foreground/85 [&_svg]:!size-[18px]',
+                      'agent-composer__send rounded-full p-0 bg-foreground text-background hover:bg-foreground/85 [&_svg]:!size-4',
                       !canSend && 'bg-foreground/15 cursor-not-allowed hover:bg-foreground/15',
                       // 圆底跟随 text 色：有输入变黑、默认浅灰（发送 icon 原色）
 
@@ -1703,7 +1694,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                     onClick={() => handleSend()}
                     disabled={!canSend}
                   >
-                    <ArrowUp strokeWidth={2} aria-hidden="true" />
+                    <ArrowUp strokeWidth={1.5} aria-hidden="true" />
                   </Button>
                 )}
               </div>
@@ -1725,6 +1716,13 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
           </div>}
         </div>
         )}
+        {isHome && !inputContent && pendingFiles.length === 0 && !selectedImage && (
+            <HomeSuggestions mode={taskMode} onSelect={(prompt) => {
+              setInputContent(prompt)
+              setInputHtmlContent('')
+              requestAnimationFrame(() => document.querySelector<HTMLElement>('.ProseMirror')?.focus())
+            }} />
+          )}
         {isHome && <HomeLocalNote />}
       </div>
     </AgentSessionProvider>

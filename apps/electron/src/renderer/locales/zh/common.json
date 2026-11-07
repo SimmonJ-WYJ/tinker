@@ -62,6 +62,8 @@
     "summary": "部分辅助任务所需的 {{family}} 模型未启用，{{count}} 个任务将使用 {{model}}。"
   },
   "imageReferenceCount": "{{count}} 张参考图",
+  "imageDetails": "图片与费用详情",
+  "imageDimensionsSummary": "{{width}} × {{height}} 像素",
   "imageActualDimensions": "实际尺寸：{{width}} × {{height}} 像素",
   "imageEditDimensionsNotice": "仅靠文字要求不能保证保持原图尺寸或其他像素不变。",
   "imageBillingNotice": "生图和编辑可能计费，失败请求也可能产生费用。实际费用请核对中转账单；Tinker 尚无此渠道的可信报价。",

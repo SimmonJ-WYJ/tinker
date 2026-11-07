@@ -3,6 +3,17 @@
 
 @layer base {
   :root {
+    /* 工作台表面：参考截图比例，保留 Tinker 品牌色。 */
+    --workspace-chrome: 240 8% 93%;
+    --workspace-surface: 0 0% 99%;
+    --workspace-ink: 200 22% 20%;
+    --workspace-muted: 202 9% 41%;
+    --workspace-line: 210 8% 87%;
+    --workspace-hover: 210 9% 90%;
+    --workspace-selected: 210 9% 87%;
+    --workspace-composer: 0 0% 100%;
+    --workspace-halo: 210 8% 95%;
+
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --muted: 0 0% 96.1%;
@@ -74,6 +85,16 @@
   }
 
   .dark {
+    --workspace-chrome: 210 10% 9%;
+    --workspace-surface: 210 9% 12%;
+    --workspace-ink: 200 10% 90%;
+    --workspace-muted: 210 8% 65%;
+    --workspace-line: 210 8% 25%;
+    --workspace-hover: 210 8% 19%;
+    --workspace-selected: 210 8% 23%;
+    --workspace-composer: 210 8% 16%;
+    --workspace-halo: 210 8% 14%;
+
     --background: 0 0% 7%;                /* 统一背景色 zinc-900 */
     --foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
@@ -155,3 +176,13 @@ button.settings-channel-switch[data-state='checked'] { background-color: hsl(var
 button.settings-channel-switch[data-state='checked'] > span { background-color: hsl(var(--info-foreground)); }
 .settings-channel-nav,
 .settings-channel-nav:hover { background-color: hsl(var(--info) / .15); color: hsl(var(--foreground)); }
+
+/* 工作台几何值只有一个入口；组件和设计指南引用同名变量。 */
+:root {
+  --workspace-sidebar-width: 256px;
+  --workspace-toolbar-height: 52px;
+  --workspace-content-width: 680px;
+  --workspace-panel-radius: 24px;
+  --workspace-composer-radius: 20px;
+  --workspace-font-caption: 12px;
+}

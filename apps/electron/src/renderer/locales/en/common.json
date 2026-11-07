@@ -62,6 +62,8 @@
     "summary": "{{count}} supporting tasks will use {{model}} because the requested {{family}} models are not enabled."
   },
   "imageReferenceCount": "{{count}} reference images",
+  "imageDetails": "Image and billing details",
+  "imageDimensionsSummary": "{{width}} × {{height}} px",
   "imageActualDimensions": "Actual dimensions: {{width}} × {{height}} px",
   "imageEditDimensionsNotice": "Original dimensions and unchanged pixels are not guaranteed by text instructions alone.",
   "imageBillingNotice": "Image generation and edits may incur charges, including failed requests. Check your relay bill for actual costs; Tinker has no verified quote for this channel.",

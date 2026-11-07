@@ -134,7 +134,7 @@ export function AppShell({ contextValue }: AppShellProps): React.ReactElement {
         <WorkspaceToolbar narrow={narrow} drawerOpen={drawerOpen} onDrawerToggle={() => setDrawerOpen(prev => !prev)} />
         <div className="workspace-shell__body flex flex-1 min-h-0 relative">
         {!narrow && <div className="workspace-shell__sidebar relative z-[60]" data-collapsed={collapsed} aria-hidden={collapsed}>
-          <div className="workspace-shell__sidebar-inner"><LeftSidebar width={248} forceExpanded /></div>
+          <div className="workspace-shell__sidebar-inner"><LeftSidebar forceExpanded /></div>
         </div>}
 
         {/* 主内容区域：flex-1 吃掉除 sidebar / 右栏之外的全部剩余宽度。
@@ -195,7 +195,7 @@ export function AppShell({ contextValue }: AppShellProps): React.ReactElement {
             onCloseAutoFocus={(event) => { event.preventDefault(); document.querySelector<HTMLElement>('[data-sidebar-toggle]')?.focus() }}>
             <Drawer.Title className="sr-only">{t('navigation.sidebar')}</Drawer.Title>
             <div className="workspace-drawer__toolbar titlebar-drag-region"><Drawer.Close asChild><Button variant="ghost" size="icon-sm" className="titlebar-no-drag" aria-label={t('sidebar.collapse')}><PanelLeft size={17} strokeWidth={1.5} /></Button></Drawer.Close></div>
-            <div className="workspace-drawer__body" onClick={(event) => { if ((event.target as HTMLElement).closest('.home-sidebar__menu button, .home-projects__session, .home-projects__item, .home-recent-session')) setDrawerOpen(false) }}><LeftSidebar width={248} forceExpanded /></div>
+            <div className="workspace-drawer__body" onClick={(event) => { if ((event.target as HTMLElement).closest('.home-sidebar__menu button, .home-projects__session, .home-projects__item, .home-recent-session')) setDrawerOpen(false) }}><LeftSidebar forceExpanded /></div>
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>}

@@ -465,7 +465,7 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
   // 展开态：侧栏直接从新建和搜索入口开始。
   return (
     <div className="home-sidebar relative h-full flex flex-col transition-[width] duration-300"
-      style={{ width: width ?? 248, flexShrink: 0 }}>
+      style={{ width: width ?? 'var(--workspace-sidebar-width)', flexShrink: 0 }}>
       <div className="home-sidebar__menu">
         <SidebarMenuItem icon={<SquarePen size={18} strokeWidth={1.5} />} label={t('sidebar.newTask')}
           active={activeView === 'conversations' && !!activeTabId && draftSessionIds.has(activeTabId)}
