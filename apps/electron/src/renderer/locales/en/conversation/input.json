@@ -80,7 +80,7 @@
     }
   },
   "projectSwitcher": {
-    "defaultName": "Default research project"
+    "defaultName": "Default project"
   },
   "scrollLatest": {
     "generating": "Response in progress · Jump to latest",

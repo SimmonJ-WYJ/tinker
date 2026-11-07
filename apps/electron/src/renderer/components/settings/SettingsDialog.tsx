@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 /**
  * SettingsDialog - 设置浮窗
  *
@@ -37,7 +38,10 @@ export function SettingsDialog(): React.ReactElement {
   React.useEffect(() => {
     if (open) {
       // 收敛旧 localStorage 残留的已删 tab（如 0.2 的 'agent'/'config'），避免渲染空白
-      if (tab === null) setTab(coerceSettingsTab(lastTab))
+      if (tab === null) {
+        const previousTab = coerceSettingsTab(lastTab)
+        setTab(!RESEARCH_UI_ENABLED && previousTab === 'zotero' ? 'mcp' : previousTab)
+      }
     } else {
       setTab(null)
     }

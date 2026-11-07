@@ -1,3 +1,4 @@
+import { t } from './i18n-main'
 /**
  * Agent 工作区管理器
  *
@@ -284,14 +285,14 @@ export function ensureDefaultWorkspace(): AgentWorkspace {
     const now = nowMs()
     defaultWs = {
       id: randomUUID(),
-      name: '默认科研项目',
+      name: t('common.workspaceDefaultName'),
       slug: 'default',
       createdAt: now,
       updatedAt: now,
     }
 
     getAgentWorkspacePath('default')
-    ensurePluginManifest('default', '默认科研项目')
+    ensurePluginManifest('default', defaultWs.name)
     copyDefaultSkills('default')
 
     index.workspaces.push(defaultWs)

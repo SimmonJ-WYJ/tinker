@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 /**
  * createAtMentionSuggestion — @ 触发的 TipTap Suggestion 工厂
  *
@@ -230,7 +231,7 @@ export function createAtMentionSuggestion(
    */
   const maybePreheatCollections = (refresh: () => void): void => {
     const level = getCurrentLevel(lastNavState)
-    if (level.kind !== 'root') return
+    if (!RESEARCH_UI_ENABLED || level.kind !== 'root') return
     const status = cfg.getStatus()
     if (!status.zoteroEnabled || !status.zoteroRunning) return
     if (collectionsCache !== null) {
@@ -265,11 +266,12 @@ export function createAtMentionSuggestion(
     const q = query.toLowerCase()
 
     if (level.kind === 'root') {
-      return [
+      const categories: AtMentionItem[] = [
         { kind: 'category', target: 'project-files', labelKey: 'atMention.category.projectFiles', icon: 'folder' },
         { kind: 'category', target: 'library-root', labelKey: 'atMention.category.library', icon: 'book' },
         { kind: 'category', target: 'evidence-set-list', labelKey: 'atMention.category.evidenceSet', icon: 'layers' },
       ]
+      return RESEARCH_UI_ENABLED ? categories : categories.filter(item => item.kind === 'category' && item.target === 'project-files')
     }
 
     if (level.kind === 'evidence-set-list') {

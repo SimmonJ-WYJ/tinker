@@ -87,5 +87,6 @@
     "restore": "Restore draft",
     "occupied": "The editor already has a draft or reference. You can keep editing; restoring will not replace it.",
     "attachmentFailed": "Attachments could not be prepared. Your draft is kept; no model request was sent."
-  }
+  },
+  "workspaceDefaultName": "Default project"
 }

@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 /**
  * McpSection - Agent 设置页内 MCP 服务器配置区
  *
@@ -58,7 +59,7 @@ export function McpSection({ workspaceSlug, capabilitiesVersion }: McpSectionPro
       ])
       setMcpConfig(config)
       // 仅取内建项；用户自定义已在 mcpConfig 内（避免双份显示）
-      setBuiltinServers(capabilities.mcpServers.filter((s) => s.isBuiltin))
+      setBuiltinServers(capabilities.mcpServers.filter((s) => s.isBuiltin && (RESEARCH_UI_ENABLED || !['zotero', 'paper-search'].includes(s.name))))
     } catch (error) {
       console.error('[Agent MCP] 加载配置失败:', error)
     } finally {

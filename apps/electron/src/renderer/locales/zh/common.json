@@ -87,5 +87,6 @@
     "restore": "恢复草稿",
     "occupied": "输入框已有内容或引用，可继续编辑；恢复不会覆盖当前内容。",
     "attachmentFailed": "附件准备失败，草稿已保留，尚未向模型发送请求。"
-  }
+  },
+  "workspaceDefaultName": "默认项目"
 }

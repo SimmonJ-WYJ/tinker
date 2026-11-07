@@ -1,6 +1,6 @@
 {
   "agent": {
-    "noWorkspace": "请先选择或创建一个科研项目",
+    "noWorkspace": "请先选择或创建一个项目",
     "mcp": {
       "section": "MCP 服务器（全局）",
       "description": "对所有工作区可见",

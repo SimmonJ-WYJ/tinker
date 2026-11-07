@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 import { collectImageVersions } from './image-versions'
 import { GeneratedImage } from './GeneratedImage.tsx'
 /**
@@ -862,7 +863,7 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
             )}
             </div>
             {textContent && <CopyButton content={textContent} />}
-            {textContent && lastUuid && (
+            {RESEARCH_UI_ENABLED && textContent && lastUuid && (
               <AddToEvidenceSetButton
                 messageUuid={lastUuid}
                 userMessageUuid={userMessageUuid}

@@ -1,3 +1,4 @@
+import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 /**
  * SettingsPanel - 设置面板
  *
@@ -76,7 +77,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
   const items = React.useMemo<TabItem[]>(
     () => [
       { id: 'profile', label: t('panel.tabs.profile'), icon: <UserCircle size={16} /> },
-      { id: 'zotero', label: t('panel.tabs.zotero'), icon: <BookMarked size={16} /> },
+      ...(RESEARCH_UI_ENABLED ? [{ id: 'zotero' as const, label: t('panel.tabs.zotero'), icon: <BookMarked size={16} /> }] : []),
       { id: 'general', label: t('panel.tabs.general'), icon: <Settings size={16} /> },
       { id: 'shortcuts', label: t('panel.tabs.shortcuts'), icon: <Keyboard size={16} /> },
       { id: 'proxy', label: t('panel.tabs.proxy'), icon: <Globe size={16} /> },
@@ -92,7 +93,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.ReactEleme
   // 当前 tab 标题；找不到则兜底为面板标题
   const activeTabLabel = React.useMemo(() => {
     const hit = items.find((item) => item.id === renderTab)
-    return hit ? hit.label : t('panel.title')
+    return hit ? hit.label : renderTab === 'zotero' ? t('panel.tabs.zotero') : t('panel.title')
   }, [items, renderTab, t])
 
   const handleTabClick = (id: SettingsTab): void => {
