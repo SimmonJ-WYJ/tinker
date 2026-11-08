@@ -3,5 +3,10 @@
   "waitingBrowser": "请在浏览器中完成登录",
   "success": "登录成功",
   "cancelled": "登录已取消",
-  "error": "登录失败"
+  "error": "登录失败",
+  "callback": {
+    "security": "安全验证失败。请返回 Tinker。",
+    "cancelled": "登录已取消。请返回 Tinker。",
+    "received": "已收到授权。Tinker 正在连接 Google 以完成登录，请返回 Tinker 查看结果。"
+  }
 }

@@ -31,5 +31,6 @@
   },
   "footer": "Less friction between an idea and working code.",
   "subtitle": "Bring an idea. Start a conversation.\nLet’s build something that works.",
-  "localDataTitle": "Your project stays on this device"
+  "localDataTitle": "Your project stays on this device",
+  "brand": "Tinker"
 }

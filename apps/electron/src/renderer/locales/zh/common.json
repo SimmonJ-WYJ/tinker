@@ -61,6 +61,7 @@
     "noClaudeActivated": "当前渠道未启用任何 Claude 模型，请在「模型提供方」中启用后重试。",
     "summary": "部分辅助任务所需的 {{family}} 模型未启用，{{count}} 个任务将使用 {{model}}。"
   },
+  "imageGeneratedBy": "由 {{model}} 生成",
   "imageReferenceCount": "{{count}} 张参考图",
   "imageDetails": "图片与费用详情",
   "imageDimensionsSummary": "{{width}} × {{height}} 像素",

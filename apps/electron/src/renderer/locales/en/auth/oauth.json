@@ -3,5 +3,10 @@
   "waitingBrowser": "Complete sign-in in your browser",
   "success": "Sign-in successful",
   "cancelled": "Sign-in cancelled",
-  "error": "Sign-in failed"
+  "error": "Sign-in failed",
+  "callback": {
+    "security": "Security check failed. Return to Tinker.",
+    "cancelled": "Sign-in cancelled. Return to Tinker.",
+    "received": "Authorization received. Tinker is connecting to Google to finish sign-in. Return to Tinker to check the result."
+  }
 }

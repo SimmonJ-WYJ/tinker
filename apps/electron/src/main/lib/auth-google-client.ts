@@ -4,6 +4,9 @@ import { readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AuthErrorCode, Result, User } from '@asci/shared'
 import { nowIso, nowMs } from '@asci/shared'
+import oauthEn from '../../renderer/locales/en/auth/oauth.json'
+import oauthZh from '../../renderer/locales/zh/auth/oauth.json'
+import { getLanguage } from './i18n-main.ts'
 import { getConfigDir } from './config-paths.ts'
 import { readGoogleClientConfig } from './auth-google-config.ts'
 import { generatePkce, parseTokenResponse } from './auth-oidc.ts'
@@ -12,6 +15,7 @@ import { getFetchFn } from './proxy-fetch.ts'
 import { getEffectiveProxyUrl } from './proxy-settings-service.ts'
 interface GoogleConfig { clientId: string; clientSecret?: string }
 interface Options { configDir?: string; config?: GoogleConfig; fetch?: (url: string, init?: RequestInit) => Promise<Response>; timeoutMs?: number }
+const OAUTH_MESSAGES = { en: oauthEn, zh: oauthZh }
 const fail = (code: AuthErrorCode, message: string): Result<never> => ({ ok: false, error: { code, message } })
 export function createGoogleAuthClient(options: Options = {}): OpensciAuthClient {
   const dir = options.configDir ?? getConfigDir()
@@ -68,15 +72,15 @@ export function createGoogleAuthClient(options: Options = {}): OpensciAuthClient
         if (url.pathname !== '/callback' || req.method !== 'GET') { res.writeHead(404).end(); return }
         if (settled || exchanging) { res.writeHead(409).end(); return }
         if (url.searchParams.get('state') !== pkce.state) {
-          res.writeHead(400).end('Security check failed. Return to ASCI.')
+          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end(OAUTH_MESSAGES[getLanguage()].callback.security)
           finish(fail('oauth-state-mismatch', 'Google callback state mismatch')); return
         }
         if (url.searchParams.has('error') || !url.searchParams.get('code')) {
-          res.writeHead(400).end('Sign-in cancelled. Return to ASCI.')
+          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' }).end(OAUTH_MESSAGES[getLanguage()].callback.cancelled)
           finish(fail('oauth-cancelled', 'Google authorization denied')); return
         }
         exchanging = true
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Authorization received. ASCI is connecting to Google to finish sign-in. Return to ASCI to check the result.')
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end(OAUTH_MESSAGES[getLanguage()].callback.received)
         void (async () => {
           const result = await tokens(cfg, { grant_type: 'authorization_code', code: url.searchParams.get('code')!, redirect_uri: redirectUri, code_verifier: pkce.verifier }, controller.signal)
           if (!result.ok) { finish(result); return }

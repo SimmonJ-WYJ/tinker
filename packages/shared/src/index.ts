@@ -20,3 +20,5 @@ export * from './types/auth-ipc.ts'
 export * from './auth-password-policy.ts'
 
 export * from "./agent/runtime-policy.ts"
+
+export * from './agent/image-request-authorization.ts'

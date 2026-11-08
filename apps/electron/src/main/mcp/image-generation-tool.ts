@@ -5,6 +5,9 @@ import { createHash, randomUUID } from 'node:crypto'
 import { bindImageEditSelection } from './image-edit-selection.ts'
 import { buildImageRequestBody } from './image-request-body.ts'
 import { ImageRequestLedger } from './image-request-ledger.ts'
+import { ImageExecutionGuard } from './image-execution-guard.ts'
+import type { ImageExecutionOptions } from './image-execution-guard.ts'
+import type { ImageTurnSnapshot } from './image-turn-controller.ts'
 import { basename, isAbsolute, join } from 'node:path'
 import { readImageReferences } from './image-reference.ts'
 import { ImageAssets } from './image-assets.ts'
@@ -15,13 +18,29 @@ import { listChannels, decryptApiKey } from '../lib/channel-manager.ts'
 import { getFetchFn } from '../lib/proxy-fetch.ts'
 import { getEffectiveProxyUrl } from '../lib/proxy-settings-service.ts'
 
-export function createImageGenerationMcpServer(sessionId: string, sessionDirectory?: string, runId: string = randomUUID(), selectedImageId?: string) {
+export function createImageGenerationMcpServer(sessionId: string, sessionDirectory?: string, runId: string = randomUUID(), selectedImageId?: string, executionOptions: ImageExecutionOptions & { getTurn?: () => ImageTurnSnapshot; latestImageId?: string; onImageSaved?: (id: string, paths: string[]) => void } = {}) {
   const channels = listChannels().filter(channel => channel.enabled && channel.provider === 'custom-image')
   const choices = channels.flatMap(channel => channel.models.filter(model => model.enabled).map(model => ({ channelId: channel.id, channelName: channel.name, model: model.id, maxReferences: channel.capabilities?.imageMaxReferences, quality: channel.capabilities?.imageQualityPriority })))
   if (!choices.length) return undefined
   const directory = getConversationAttachmentsDir(sessionId)
   const assets = new ImageAssets(directory)
-  const requests = new ImageRequestLedger(directory, runId)
+  const executionContexts = new Map<string, {guard:ImageExecutionGuard;requests:ImageRequestLedger;selectedImageId?:string;latestImageId?:string;onImageSaved?: (id:string,paths:string[])=>void}>()
+  const getExecutionContext = () => {
+    const turn=executionOptions.getTurn?.()
+    const id=turn?.id ?? runId
+    let context=executionContexts.get(id)
+    if(!context) {
+      context={
+        guard:new ImageExecutionGuard({...executionOptions,authorization:turn?.authorization ?? executionOptions.authorization}),
+        requests:new ImageRequestLedger(directory,id),
+        selectedImageId:turn ? turn.selectedImageId : selectedImageId,
+        latestImageId:turn?.latestImageId ?? executionOptions.latestImageId ?? assets.list().filter(asset=>asset.available).at(-1)?.id,
+        onImageSaved:turn ? (imageId,paths)=>turn.authorization.addReference(imageId,paths) : executionOptions.onImageSaved,
+      }
+      executionContexts.set(id,context)
+    }
+    return context
+  }
   const roots = [...(sessionDirectory ? [sessionDirectory] : []), directory]
   const resolvePath = (path: string): string => {
     if (isAbsolute(path)) return path
@@ -38,8 +57,8 @@ export function createImageGenerationMcpServer(sessionId: string, sessionDirecto
         return {content:[{type:'image' as const,data:Buffer.from(image!.bytes).toString('base64'),mimeType:image!.mime}]}
       } catch(error) {return {isError:true,content:[{type:'text' as const,text:error instanceof Error?error.message:'Image not found'}]}}
     }),
-    tool('generate_image', `Generate ONE image only for an explicit user request. Paid API; never retry automatically. Selected base image for this user turn: ${selectedImageId ?? 'none'}. If selected, use this exact version and no other base. Available selections: ${JSON.stringify(choices)}.
-For edits, set baseImageId to the stable ID (or latest) from list_images. This automatically supplies the base image and retains its model/channel unless the user explicitly requests another. Use referenceImagePaths for attached original images in order, never describe missing references from memory. Reference order: baseImageId first, followed by referenceImageIds, then referenceImagePaths. Exact model IDs must match; do not substitute. For a complex composition or multi-reference task set complex=true. Automatic ranking uses configured quality preference, not a guarantee of model identity or quality.
+    tool('generate_image', `Generate ONE image only for an explicit user request. Paid API; never retry automatically. When the current user selects a base image, use that exact version and no other base. Available selections: ${JSON.stringify(choices)}.
+For edits, set baseImageId to the exact stable ID from list_images. If no version is explicitly selected, latest resolves to the last available image at the start of this user turn; it never follows newly generated results. This automatically supplies the base image and retains its model/channel unless the user explicitly requests another. Use referenceImagePaths for attached original images in order, never describe missing references from memory. Reference order: baseImageId first, followed by referenceImageIds, then referenceImagePaths. Exact model IDs must match; do not substitute. For a complex composition or multi-reference task set complex=true. Automatic ranking uses configured quality preference, not a guarantee of model identity or quality.
 Prompt must preserve the user's language and all invariant constraints, including pose, composition, identity, style and anatomy when specified. State each reference's role explicitly. Do not invent a new style. After success inspect_image to verify the result before claiming constraints met. UI renders generatedImage automatically: DO NOT emit markdown image links, raw filesystem links or duplicate attachments. Return a concise truthful summary only; do not claim perfect fidelity.`, {
       prompt: z.string().min(1).max(12000),
       channelId: z.string().optional(), model: z.string().optional(), complex:z.boolean().optional(),
@@ -49,22 +68,35 @@ Prompt must preserve the user's language and all invariant constraints, includin
       if (busy) return { isError: true, content: [{ type: 'text' as const, text: 'An image request is already running. Do not submit another.' }] }
       busy = true
       let key = ''
+      const signal = extra && typeof extra === 'object' && 'signal' in extra && extra.signal instanceof AbortSignal ? extra.signal : undefined
       try {
+        // 捕获本次调用的不可变回合，后续 await 期间也不能继承新用户消息的授权。
+        const { guard, requests, selectedImageId: selected, latestImageId, onImageSaved } = getExecutionContext()
+        const resolveId = (id: string): string => {
+          if (id !== 'latest') return id
+          if (!latestImageId) throw new Error('No image was available at the start of this user turn; use list_images for a stable image ID')
+          return latestImageId
+        }
+        guard.assertAllowed(input, signal)
         assets.assertWritable()
-        const baseImageId = bindImageEditSelection(selectedImageId, input.baseImageId)
+        const requestedBase = bindImageEditSelection(selected, input.baseImageId)
+        const baseImageId = requestedBase ? resolveId(requestedBase) : undefined
         const parent = baseImageId ? assets.get(baseImageId) : undefined
-        const ids = [...new Set([...(parent ? [parent.id] : []), ...(input.referenceImageIds ?? [])])]
+        const ids = [...new Set([...(parent ? [parent.id] : []), ...(input.referenceImageIds ?? []).map(resolveId)])]
         const paths = [...ids.map(id=>assets.path(id)), ...(input.referenceImagePaths ?? []).map(resolvePath)]
         const references = readImageReferences(paths, roots)
         const choice = selectImageModel(choices, {...input, parent, referenceCount:references.length})
         const channel = channels.find(item => item.id === choice.channelId)!
         const fingerprint = createHash('sha256').update(JSON.stringify([choice.channelId, choice.model, input.prompt, references.map(reference => createHash('sha256').update(reference.bytes).digest('hex'))])).digest('hex')
-        const result = await requests.run(fingerprint, async () => {
+        const result = await guard.run(input, fingerprint, () => requests.run(fingerprint, async () => {
+        guard.assertAllowed(input, signal)
         key = decryptApiKey(channel.id)
         const protocol = channel.capabilities?.imageProtocol ?? 'openai-images'
         const gemini = protocol === 'openai-images' ? undefined : buildGeminiImageRequest(channel.baseUrl,key,choice.model,input.prompt,references.map(ref=>({mime:ref.mime,data:Buffer.from(ref.bytes).toString('base64')})),protocol)
-        const response = await getFetchFn(await getEffectiveProxyUrl())(gemini?.url ?? `${normalizeOpenAIBaseUrl(channel.baseUrl)}/images/${references.length ? 'edits' : 'generations'}`, {
-          method: 'POST', redirect: 'error', signal: AbortSignal.any([...(extra && typeof extra === 'object' && 'signal' in extra && extra.signal instanceof AbortSignal ? [extra.signal] : []), AbortSignal.timeout(180_000)]),
+        const fetch = getFetchFn(await getEffectiveProxyUrl())
+        guard.assertAllowed(input, signal)
+        const response = await fetch(gemini?.url ?? `${normalizeOpenAIBaseUrl(channel.baseUrl)}/images/${references.length ? 'edits' : 'generations'}`, {
+          method: 'POST', redirect: 'error', signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(180_000)]),
           headers: gemini?.headers ?? { ...(references.length ? {} : { 'Content-Type': 'application/json' }), Authorization: `Bearer ${key}` },
           body: buildImageRequestBody({ model: choice.model, prompt: input.prompt, references, geminiBody: gemini?.body }),
         })
@@ -85,9 +117,11 @@ Prompt must preserve the user's language and all invariant constraints, includin
         const { attachment } = saveAttachment({ conversationId: sessionId, filename: `generated.${extension}`, mediaType: image.mimeType, data: image.data })
         assets.add({id:attachment.id,filename:basename(attachment.localPath),model:choice.model,channelId:channel.id,prompt:input.prompt,referenceIds:ids,baseImageId:parent?.id})
         return JSON.stringify({ model: choice.model, channelName:channel.name, channelId:channel.id, protocol, referenceCount:references.length, imageId:attachment.id, baseImageId:parent?.id, generatedImage: attachment })
-        })
+        }), signal)
         const saved = JSON.parse(result) as { imageId: string }
-        assets.get(saved.imageId)
+        const savedPath = assets.path(saved.imageId)
+        readImageReferences([savedPath], [directory])
+        onImageSaved?.(saved.imageId, [savedPath, `${sessionId}/${basename(savedPath)}`])
         return { content: [{ type: 'text' as const, text: result }] }
       } catch (error) {
         const message=error instanceof Error ? error.message : 'Image generation failed'

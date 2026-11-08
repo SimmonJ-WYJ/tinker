@@ -10,7 +10,7 @@ import { ASCI_PRIVACY_POLICY_URL, ASCI_TERMS_OF_USE_URL } from '@asci/shared'
 import { useT } from '@/hooks/useT.ts'
 import { Trans } from '@/components/common/Trans.tsx'
 import { Button } from '@/components/ui/button.tsx'
-import { oauthPendingIdAtom } from '@/atoms/auth-atoms.ts'
+import { authRouteAtom, oauthPendingIdAtom } from '@/atoms/auth-atoms.ts'
 import { parseAuthError } from '@/lib/auth/auth-form-helpers.ts'
 import { TitlebarDragRegion } from '@/components/app-shell/TitlebarDragRegion.tsx'
 import { GoogleIcon } from './GoogleIcon.tsx'
@@ -26,30 +26,88 @@ export function LoginPage(props: LoginPageProps): React.ReactElement {
   const pendingId = useAtomValue(oauthPendingIdAtom)
   const setPendingId = useSetAtom(oauthPendingIdAtom)
 
+  const setAuthRoute = useSetAtom(authRouteAtom)
   const [submitting, setSubmitting] = React.useState(false)
+  const [cancelling, setCancelling] = React.useState(false)
+  const [initialOAuthPending, setInitialOAuthPending] = React.useState(props.initialOAuthPending === true)
+  const startRequest = React.useRef<ReturnType<typeof window.electronAPI.oauth.start> | null>(null)
+  const cancelRequested = React.useRef(false)
+  const cancelInFlight = React.useRef(false)
+  const mounted = React.useRef(true)
 
-  const oauthPending = pendingId !== null || props.initialOAuthPending === true
+  React.useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+
+  const oauthPending = pendingId !== null || initialOAuthPending
 
   const startGoogleOAuth = async (): Promise<void> => {
+    if (startRequest.current || cancelInFlight.current || oauthPending) return
+    cancelRequested.current = false
     setSubmitting(true)
-    const r = await window.electronAPI.oauth.start({ provider: 'google' })
-    setSubmitting(false)
-    if (!r.ok) {
-      const key = parseAuthError(r.error).replace('auth:', '') as 'errors.unknown'
-      toast.error(t(key))
-      return
+    try {
+      const request = window.electronAPI.oauth.start({ provider: 'google' })
+      startRequest.current = request
+      const r = await request
+      if (!mounted.current) {
+        if (r.ok) await window.electronAPI.oauth.cancel({ pendingId: r.value.pendingId })
+        return
+      }
+      // 取消操作负责清理晚到的会话，避免重新进入等待态。
+      if (cancelRequested.current) return
+      if (!r.ok) {
+        const key = parseAuthError(r.error).replace('auth:', '') as 'errors.unknown'
+        toast.error(t(key))
+        return
+      }
+      setPendingId(r.value.pendingId)
+    } catch {
+      if (mounted.current && !cancelRequested.current) toast.error(t('errors.network-error'))
+    } finally {
+      startRequest.current = null
+      if (mounted.current) setSubmitting(false)
     }
-    setPendingId(r.value.pendingId)
   }
 
   const openExternal = (url: string): void => {
     window.electronAPI.openExternal(url).catch(console.error)
   }
 
-  const cancelOAuth = async (): Promise<void> => {
-    if (pendingId !== null) {
-      await window.electronAPI.oauth.cancel({ pendingId })
-      setPendingId(null)
+  const cancelOAuth = async (closeWindow = false): Promise<void> => {
+    if (cancelInFlight.current) return
+    cancelInFlight.current = true
+    cancelRequested.current = true
+    setCancelling(true)
+    let id = pendingId
+    try {
+      const r = await startRequest.current
+      if (r?.ok) id = r.value.pendingId
+      if (id !== null) {
+        const result = await window.electronAPI.oauth.cancel({ pendingId: id })
+        if (!result.ok) {
+          if (mounted.current) {
+            setPendingId(id)
+            const key = parseAuthError(result.error).replace('auth:', '') as 'errors.unknown'
+            toast.error(t(key))
+          }
+          return
+        }
+      }
+      if (mounted.current) {
+        setPendingId(null)
+        setInitialOAuthPending(false)
+        setAuthRoute('login')
+        if (closeWindow) window.close()
+      }
+    } catch {
+      if (mounted.current) {
+        if (id !== null) setPendingId(id)
+        toast.error(t('errors.network-error'))
+      }
+    } finally {
+      cancelInFlight.current = false
+      if (mounted.current) setCancelling(false)
     }
   }
 
@@ -88,7 +146,7 @@ export function LoginPage(props: LoginPageProps): React.ReactElement {
 
           <footer className="login-page__story-footer flex items-center justify-between gap-4">
             <p className="text-[12px] leading-[1.45] text-foreground/60">{t('login.footer')}</p>
-            <span className="text-[11px] font-semibold">OPENSCI</span>
+            <span className="text-[11px] font-semibold">{t('login.brand')}</span>
           </footer>
         </section>
 
@@ -104,7 +162,7 @@ export function LoginPage(props: LoginPageProps): React.ReactElement {
                     <Loader2 className="size-5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                     <p>{t('login.oauthPending')}</p>
                   </div>
-                  <Button variant="subtle" className="login-page__cancel w-full" onClick={() => void cancelOAuth()}>
+                  <Button variant="subtle" className="login-page__cancel w-full" onClick={() => void cancelOAuth()} disabled={cancelling}>
                     {t('login.oauthCancel')}
                   </Button>
                 </>
@@ -115,7 +173,7 @@ export function LoginPage(props: LoginPageProps): React.ReactElement {
                     variant="default"
                     className="login-page__submit w-full gap-3 rounded-[10px] text-[15px] font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     onClick={() => void startGoogleOAuth()}
-                    disabled={submitting}
+                    disabled={submitting || cancelling}
                     aria-busy={submitting}
                   >
                     {submitting ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <GoogleIcon />}
@@ -125,7 +183,8 @@ export function LoginPage(props: LoginPageProps): React.ReactElement {
                     type="button"
                     variant="subtle"
                     className="login-page__cancel w-full"
-                    onClick={() => window.close()}
+                    onClick={() => void cancelOAuth(true)}
+                    disabled={cancelling}
                   >
                     {t('login.cancel')}
                   </Button>

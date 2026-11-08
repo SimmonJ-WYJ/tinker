@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { get } from 'node:http'
 import { createConnection } from 'node:net'
+import { setLanguage } from './i18n-main.ts'
 import { createGoogleAuthClient } from './auth-google-client.ts'
 const directory = () => mkdtempSync(join(tmpdir(), 'asci-google-'))
 test('missing config gives actionable error', async () => {
@@ -97,4 +98,36 @@ test('malformed HTTP target returns 400 and leaves pending login usable', async 
   expect(status).toBe(400)
   h.cancel()
   expect(await h.completion).toMatchObject({ ok: false, error: { code: 'oauth-cancelled' } })
+})
+
+
+test('loopback responses use the current language and Tinker branding', async () => {
+  for (const language of ['en', 'zh'] as const) {
+    setLanguage(language)
+    try {
+      for (const outcome of ['security', 'cancelled', 'received'] as const) {
+        const h = await createGoogleAuthClient({
+          configDir: directory(), config: { clientId: 'desktop.apps.googleusercontent.com' },
+          fetch: async () => new Response('', { status: 400 }),
+        }).startLogin()
+        const url = new URL(h.authorizeUrl)
+        const callback = new URL(url.searchParams.get('redirect_uri')!)
+        callback.searchParams.set('state', outcome === 'security' ? 'wrong' : url.searchParams.get('state')!)
+        callback.searchParams.set(outcome === 'cancelled' ? 'error' : 'code', 'test')
+        const response = await new Promise<{ body: string; contentType: string }>((resolve, reject) => {
+          get(callback, res => {
+            let body = ''
+            res.setEncoding('utf8')
+            res.on('data', chunk => { body += chunk })
+            res.on('end', () => resolve({ body, contentType: String(res.headers['content-type']) }))
+          }).on('error', reject)
+        })
+        expect(response.body).toContain('Tinker')
+        expect(response.body).not.toMatch(/ASCI|OPENSCI/i)
+        expect(response.contentType).toBe('text/plain; charset=utf-8')
+        expect(/[\u4e00-\u9fff]/.test(response.body)).toBe(language === 'zh')
+        await h.completion
+      }
+    } finally { setLanguage('en') }
+  }
 })
