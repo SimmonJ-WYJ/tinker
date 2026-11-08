@@ -12,6 +12,10 @@ export interface ImageAuthorizationContext {
   selectedImageId?: string
   /** 宿主在回合开始时解析的稳定版本，禁止跟随生成结果漂移。 */
   latestImageId?: string
+  /** 宿主从已消费用户回合重建，只传任务语义，不传旧批准。 */
+  previousImageTask?: boolean
+  /** 宿主验证当前消息所附文件为本会话真实图片。 */
+  hasCurrentImageAttachment?: boolean
   referenceImageIds?: readonly string[]
   referenceImagePaths?: readonly string[]
 }
@@ -74,14 +78,27 @@ function visibleUserMessage(message: string): string {
     .trim()
 }
 
-function requestsImage(context: ImageAuthorizationContext): boolean {
-  const clauses = visibleUserMessage(context.userMessage).split(/[，,。.!?？！？；;\n]/).map(part => part.trim()).filter(Boolean)
-  // 否定生成动作会撤回授权；“不要改脸”等输出约束不撤回明确生成请求。
-  if (clauses.some(clause => /^(?:(?:请|帮我|给我)\s*)*(?:不要|别|无需|不用|不需要)(?:再|帮我|给我)?(?:生成|画|绘制|制作|设计|生图)|^(?:please\s+)?(?:do not|don't|never)\s+(?:generate|create|draw|render|make)\b/i.test(clause))) return false
+export function requestsImage(context: ImageAuthorizationContext): boolean {
+  const visible = visibleUserMessage(context.userMessage)
+  const contextualDiscussion = /费用|多少钱|花费|权限|提示词|命令|教程|方法|是否|是不是|怎么|如何|为什么|为何|[吗么？?]|群聊|好友|通讯录|上传|发送|删除|支付|购买|\b(?:cost|price|permission|prompt|command|tutorial|how|why|chat|contact|upload|send|delete|pay|buy)\b/i.test(visible)
+  const clauses = visible.split(/[，,。.!?？！？；;\n]/).map(part => part.trim()).filter(Boolean)
+  // 否定整次生成/执行会撤回授权；命名画面局部的约束不撤回整体请求。
+  if (clauses.some(clause => {
+    const negative = clause.match(/(?:不要|别|无需|不用|不需要)\s*(?:再次|重新|继续|再|先)?\s*(?:生成|生图|绘制|画|制作|设计|操作|执行|开始|动手)|\b(?:do not|don't|never)\s+(?:generate|create|draw|render|make|proceed|act|do anything)\b/i)
+    if (!negative) return false
+    const subject = clause.slice(0, negative.index)
+    return !/(?:背景|标题|文字|字体|阴影|人物|衣服|颜色)(?:里|中|上|部分)?\s*$|\b(?:background|title|text|font|shadow|clothes|color)\s*$/i.test(subject)
+  })) return false
   return clauses.some(message => {
     if (isGenerationClause(message)) return true
     const request=stripRequestPrefix(message)
     if (/代码|逻辑|函数|实现|脚本|程序|组件|\b(?:code|script|function|component)\b/i.test(request)) return false
+    // 省略宾语的续作只能借用已消费图片任务，不能仅凭磁盘存在图片。
+    const contextual = context.previousImageTask || context.selectedImageId || context.hasCurrentImageAttachment
+    if (context.previousImageTask && !contextualDiscussion && /^(?:(?:请|帮我|给我)\s*)*(?:再次生成|重新生成|再生成|再来一张|重试一下|重试)(?:吧|一下)?$|^(?:please\s+)?(?:generate(?: it)? again|regenerate|try again)$/i.test(message)) return true
+    const hasReference = Boolean(context.referenceImageIds?.length || context.referenceImagePaths?.length)
+    const visualEdit = /^(?:把|将).{0,40}(?:女生|男生|女人|男人|人物|背景|衣服|泳衣|颜色|文字|字体|标题).{0,40}(?:加入(?:到)?(?:旁边|画面|图中)|加到(?:旁边|画面|图中)|放到(?:旁边|画面|图中)|换|改|变|移|调)|^让(?:她|他|人物).{0,30}(?:站|坐|穿|拿|移)|^(?:add|move|place|dress)\s+(?:(?:this|that|the)\s+)?(?:woman|man|girl|boy|person|character)\b.{0,30}\b(?:beside|next to|left|right|background|picture|image|wearing)\b/i.test(request)
+    if (contextual && hasReference && visualEdit && !contextualDiscussion) return true
     const pictureTarget=/^(?:修改|调整|替换|重画|重做|翻译)(?:这|那|选中|当前|刚才|上一|原)?(?:张)?(?:图片|图像|图|海报)/.test(request)
       || /^(?:change|edit|replace|translate|modify)\s+(?:(?:this|that|the|selected)\s+)?(?:image|picture|poster|photo)\b/i.test(request)
     const selectedTransform=/^(?:换成|改成|改为)|^(?:change|translate)\s+(?:it\s+)?(?:to|into)\b/i.test(request)
@@ -144,6 +161,9 @@ export class ImageRequestAuthorization implements ImageAuthorization {
     this.ids.add(id)
     for (const path of paths) this.paths.add(path)
   }
+
+  /** 生命周期取消不改变任务类别；新用户续作仍需建立全新的授权对象。 */
+  isImageTask(): boolean { return this.automatic }
 
   cancel(): void { this.cancelled = true; this.approved.clear() }
 }

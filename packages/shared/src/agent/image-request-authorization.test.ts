@@ -89,3 +89,27 @@ test('latest只能解析为本回合开始时的会话图片，不能替换明�
  test('选中图片并不授权修改相关代码',()=>{
  expect(turn('修改代码中的图片加载逻辑','chosen').authorize(IMAGE_GENERATION_TOOL,request,'one').action).toBe('ask')
  })
+
+
+test.each(['再次生成', '重新生成', '再来一张', 'Generate again', 'Try again'])('自然续作需要真实图片任务上下文: %s', userMessage => {
+ const contextual = new ImageRequestAuthorization({userMessage, previousImageTask:true})
+ expect(contextual.authorize(IMAGE_GENERATION_TOOL,request,'retry').action).toBe('allow')
+ expect(new ImageRequestAuthorization({userMessage}).authorize(IMAGE_GENERATION_TOOL,request,'retry').action).toBe('ask')
+ expect(contextual.authorize(IMAGE_GENERATION_TOOL,{prompt:'extra'},'extra').action).toBe('ask')
+})
+test.each(['把这个女生加入旁边 并换了一个泳衣','把背景换成蓝色','让她站到左边','Add this woman beside him'])('自然视觉修改需要当前引用或图片任务: %s',userMessage=>{
+ for(const context of [{previousImageTask:true},{hasCurrentImageAttachment:true},{selectedImageId:'chosen'}]){
+  expect(new ImageRequestAuthorization({userMessage,referenceImageIds:['chosen'],...context}).authorize(IMAGE_GENERATION_TOOL,request,'edit').action).toBe('allow')
+ }
+ // 仅有历史图片文件，不能把任何新指令都理解成编辑。
+ expect(turn(userMessage).authorize(IMAGE_GENERATION_TOOL,request,'edit').action).toBe('ask')
+})
+test.each(['把这个女生加入数据库', 'Add this woman to the team', '再次生成，不过先别生成', '再次生成，但先不要操作', '把这个女生加入旁边，暂时不要操作', '再次生成，但先不要生成', '再次生成，先别生成', '再次生成，多少钱', '不要再次生成，换成英文版', '把背景换成蓝色，先告诉我费用', '把这个女生加入旁边，然后删除项目', '再次生成账单', '再次生成的费用是多少','重新生成需要权限吗','再次生成代码','Try again?','把这个女生加入群聊','把这个文件删除','把图片上传到服务器','再次生成提示词','他说：再次生成','不要再次生成','解释如何把背景换成蓝色'])('图片上下文不会授权讨论、否定或其他动作: %s',userMessage=>{
+ const scope=new ImageRequestAuthorization({userMessage,previousImageTask:true,selectedImageId:'chosen',referenceImageIds:['chosen']})
+ expect(scope.authorize(IMAGE_GENERATION_TOOL,request,'discussion').action).toBe('ask')
+ expect(scope.authorize('Bash',{command:'rm -rf data'},'shell').action).toBe('deny')
+})
+
+test.each(['再次生成，背景不要画人物','生成一张海报，标题不要绘制阴影','再次生成，不要改脸'])('局部输出约束不撤销完整图片请求: %s',userMessage=>{
+ expect(new ImageRequestAuthorization({userMessage,previousImageTask:true}).authorize(IMAGE_GENERATION_TOOL,request).action).toBe('allow')
+})
