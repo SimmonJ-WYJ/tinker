@@ -62,3 +62,9 @@
 - 用户照片是动态数据，不硬编码进产品；桌面关键几何按 Figma 实测，字体栅格化、内容长度和操作系统差异仍会影响整页像素。
 - 没有终止事实的旧硬停止历史无法追溯证明“停止”；显示未完成，不推测成成功或停止。
 - 远端推送与 CI 状态须以交付时实际远端结果为准，本地通过不等于 GitHub CI 已通过。
+
+## 远端核对
+
+已成功推送到授权的私有 `SimmonJ-WYJ/tinker`，分支 `feat/message-reference-flow`；远端 main 仍为 `fbde681`。推送钩子再次完成 typecheck 与 **3361 pass / 4 skip / 0 fail** 全测。
+
+GitHub 对已推送的 `13c3d51` 返回：0 check runs、0 commit statuses、0 Actions runs；源码中也没有 `.github/workflows`。combined status 的默认 `pending` 不代表存在正在运行的任务。本轮不擅自新增 CI 配置，不把本地通过说成 GitHub CI 通过。最终分支 SHA 与对应状态在交付时再次核对。

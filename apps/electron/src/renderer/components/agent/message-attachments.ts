@@ -45,4 +45,3 @@ export function extractUserText(message: SDKUserMessage): string | null {
 
   return texts.length > 0 ? texts.join('\n') : null
 }
-
