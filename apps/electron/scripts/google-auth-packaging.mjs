@@ -1,3 +1,4 @@
+// @ts-check
 /** Google 登录配置的打包守门：只接受应用客户端信息，绝不携带用户令牌。 */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -5,6 +6,7 @@ import { dirname, join, resolve } from 'node:path'
 
 const CONFIG_FILE = 'auth-google.json'
 
+/** @param {string} path */
 function readClient(path) {
   try {
     const value = JSON.parse(readFileSync(path, 'utf8'))
@@ -21,6 +23,7 @@ function readClient(path) {
   }
 }
 
+/** @param {string} appDir */
 function sourcePath(appDir) {
   const explicit = process.env.TINKER_GOOGLE_AUTH_CONFIG
   if (explicit) return resolve(explicit)
@@ -33,19 +36,26 @@ function sourcePath(appDir) {
   return candidates.find(existsSync) ?? local
 }
 
-/** 由 electron-builder 的 beforePack 具名 hook 调用，每次覆盖旧 stage。 */
+/**
+ * 由 electron-builder 的 beforePack 具名 hook 调用，每次覆盖旧 stage。
+ * @param {import('app-builder-lib').BeforePackContext} context
+ */
 export async function beforePack(context) {
-  const staged = join(context.appDir, 'dist', CONFIG_FILE)
+  const appDir = context.packager.info.appDir
+  const staged = join(appDir, 'dist', CONFIG_FILE)
   rmSync(staged, { force: true })
-  const config = readClient(sourcePath(context.appDir))
+  const config = readClient(sourcePath(appDir))
   mkdirSync(dirname(staged), { recursive: true })
   writeFileSync(staged, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 })
   console.log('[Google 登录打包] 客户端配置已验证并准备完成')
 }
 
-/** 校验实际 Resources，防止 extraResources 遗漏或复制成另一份客户端配置。 */
+/**
+ * 校验实际 Resources，防止 extraResources 遗漏或复制成另一份客户端配置。
+ * @param {import('app-builder-lib').AfterPackContext} context
+ */
 export async function afterPack(context) {
-  const staged = readClient(join(context.appDir, 'dist', CONFIG_FILE))
+  const staged = readClient(join(context.packager.info.appDir, 'dist', CONFIG_FILE))
   const resources = context.packager.getResourcesDir(context.appOutDir)
   const bundled = readClient(join(resources, CONFIG_FILE))
   if (JSON.stringify(staged) !== JSON.stringify(bundled)) {
