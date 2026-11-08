@@ -52,3 +52,16 @@
 - 前后对比：[首页](../ui-refinement-review/home-comparison.png)、[图片结果](../ui-refinement-review/conversation-comparison.png)；[深色中文](../ui-refinement-review/home-dark-zh.jpg)、[窄窗](../ui-refinement-review/narrow.jpg)。
 
 - 最终复核修复了拖拽状态被普通外观覆盖的问题。真实 AgentView 通过 data-drag-over/data-disabled 驱动状态，浏览器确认普通/禁用/拖拽/聚焦拖拽表面不同且高亮保持。附件和发送点击区实测30×30px，模式按钮高度28px，见 [controls.json](../ui-refinement-review/controls.json) 和 [状态截图](../ui-refinement-review/composer-states.jpg)。
+
+
+## 2026-11-08：用户手调侧栏同步
+
+- 状态：已实现并完成实际 Electron 验收，供分支审阅。
+- 新基线：main 2006607。侧栏和工具栏的当前值以本节及 docs/design.md §10.4 为准，前文为历史验收记录。
+- 来源：Figma 115:599 / 115:645，规范 Guide 119:187。
+- 256px 侧栏，左右 12px，行内 6px。导航 36px，项目/Recent 30px，图标盒 14px，图文间距 6px，文字 14/22px。顶栏 56px，macOS 红绿灯安全区保留。
+- Given 一个非当前项目，When 点击行内加号，Then 仅创建一次属于该项目的草稿并切换会话，保持原项目展开状态。
+- Given Recent 的键盘焦点，When Enter / Space，Then 打开会话；内部操作与输入不再触发行导航。
+- Given 英文/中文和浅/深色，When 切换视图或窗口宽度，Then 侧栏维持层级与焦点可达，窄窗沿用现有抽屉。
+- 真实 Electron 测量、截图与独立复审见 [验收记录](../qa/2026-11-08-sidebar/README.md)。
+- 仅提交分支供人工合并，不替换运行中的用户应用，不混入 Rust 迁移和其他业务更改。

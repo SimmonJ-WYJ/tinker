@@ -1,0 +1,184 @@
+{
+  "environment": "Actual Electron 39 renderer, isolated temporary native profile, synthetic projects/sessions, no model requests",
+  "geometry": {
+    "sidebar": {
+      "x": 0,
+      "y": 56,
+      "w": 256,
+      "h": 944,
+      "font": "14px",
+      "line": "20px",
+      "bg": "rgb(236, 237, 239)"
+    },
+    "menu": {
+      "x": 12,
+      "y": 56,
+      "w": 232,
+      "h": 36,
+      "font": "14px",
+      "line": "22px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "project": {
+      "x": 12,
+      "y": 166,
+      "w": 232,
+      "h": 30,
+      "font": "14px",
+      "line": "20px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "recent": {
+      "x": 12,
+      "y": 328,
+      "w": 232,
+      "h": 30,
+      "font": "14px",
+      "line": "20px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "recentText": {
+      "x": 18,
+      "y": 332,
+      "w": 214,
+      "h": 22,
+      "font": "14px",
+      "line": "22px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "heading": {
+      "x": 12,
+      "y": 304,
+      "w": 232,
+      "h": 18,
+      "font": "12px",
+      "line": "18px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "account": {
+      "x": 16,
+      "y": 940,
+      "w": 224,
+      "h": 40,
+      "font": "14px",
+      "line": "22px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "icon": {
+      "x": 18,
+      "y": 67,
+      "w": 14,
+      "h": 14,
+      "font": "14px",
+      "line": "22px",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "back": "matrix(-1, 0, 0, 1, 0, 0)",
+    "images": [
+      {
+        "name": "collapse",
+        "w": 16,
+        "h": 16,
+        "loaded": true
+      },
+      {
+        "name": "back",
+        "w": 9.5625,
+        "h": 8.984375,
+        "loaded": true
+      },
+      {
+        "name": "forward",
+        "w": 9.5625,
+        "h": 8.984375,
+        "loaded": true
+      },
+      {
+        "name": "plus",
+        "w": 11,
+        "h": 11,
+        "loaded": true
+      },
+      {
+        "name": "search",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "folderOpen",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "projectAdd",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "folder",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "projectAdd",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "folder",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "projectAdd",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "folder",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "projectAdd",
+        "w": 14,
+        "h": 14,
+        "loaded": true
+      },
+      {
+        "name": "chevron",
+        "w": 18,
+        "h": 18,
+        "loaded": true
+      }
+    ]
+  },
+  "darkFilter": "invert(0.88)",
+  "chinese": "新建会话\n搜索",
+  "keyboardActions": "1",
+  "keyboardNavigation": true,
+  "searchDialog": true,
+  "projectExpand": "true",
+  "longTitle": {
+    "truncated": true,
+    "width": 146
+  },
+  "collapsed": true,
+  "projectDraft": {
+    "count": 1,
+    "workspace": "qa2",
+    "drawerClosed": true
+  },
+  "narrowNoOverflow": true,
+  "smallNoOverflow": true,
+  "errors": [],
+  "passed": true
+}

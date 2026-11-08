@@ -1,7 +1,7 @@
 /** 常驻窗口工具栏：侧栏抽屉、真实页面历史；不调用 Electron 网页 history。 */
 import * as React from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { ArrowLeft, ArrowRight, PanelLeft } from 'lucide-react'
+import { SidebarGlyph } from './SidebarGlyph'
 import { TabBar } from '@/components/tabs/TabBar'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/hooks/useT'
@@ -54,9 +54,9 @@ export function WorkspaceToolbar({ narrow, drawerOpen, onDrawerToggle }: Workspa
  const expanded = narrow ? drawerOpen : !collapsed
  return <header className="workspace-toolbar titlebar-drag-region" data-mac-windowed={chrome.platform === 'darwin' && !chrome.fullscreen} data-sidebar-collapsed={narrow || collapsed}>
    <div className="workspace-toolbar__controls titlebar-no-drag">
-     <Button type="button" variant="ghost" size="icon-sm" data-sidebar-toggle aria-expanded={expanded} aria-label={t(expanded ? 'sidebar.collapse' : 'sidebar.expand')} onClick={() => narrow ? onDrawerToggle() : setCollapsed(!collapsed)}><PanelLeft size={17} strokeWidth={1.5} /></Button>
-     <Button type="button" variant="ghost" size="icon-sm" aria-label={t('navigation.back')} disabled={history.index <= 0} onClick={() => navigate(-1)}><ArrowLeft size={17} strokeWidth={1.5} /></Button>
-     <Button type="button" variant="ghost" size="icon-sm" aria-label={t('navigation.forward')} disabled={history.index >= history.entries.length - 1} onClick={() => navigate(1)}><ArrowRight size={17} strokeWidth={1.5} /></Button>
+     <Button type="button" variant="ghost" size="icon-sm" data-sidebar-toggle aria-expanded={expanded} aria-label={t(expanded ? 'sidebar.collapse' : 'sidebar.expand')} onClick={() => narrow ? onDrawerToggle() : setCollapsed(!collapsed)}><SidebarGlyph name="collapse" /></Button>
+     <Button type="button" variant="ghost" size="icon-sm" aria-label={t('navigation.back')} disabled={history.index <= 0} onClick={() => navigate(-1)}><SidebarGlyph name="back" /></Button>
+     <Button type="button" variant="ghost" size="icon-sm" aria-label={t('navigation.forward')} disabled={history.index >= history.entries.length - 1} onClick={() => navigate(1)}><SidebarGlyph name="forward" /></Button>
    </div>
    <div className="workspace-toolbar__title">{view === 'conversations' ? <TabBar /> : title}</div>
  </header>

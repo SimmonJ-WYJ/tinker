@@ -1,3 +1,5 @@
+import { SidebarGlyph } from '../app-shell/SidebarGlyph'
+import { useCreateSession } from '@/hooks/useCreateSession'
 /**
  * ProjectSwitcher — 科研项目切换入口
  *
@@ -53,6 +55,16 @@ export function ProjectSwitcher({ variant = 'button', onSelectProject }: Project
   const activeView = useAtomValue(activeViewAtom)
   const setActiveView = useSetAtom(activeViewAtom)
   const openSession = useOpenSession()
+  const { createAgent } = useCreateSession()
+  const sessionCreateInFlight = React.useRef(false)
+  const [pendingSessionWorkspace, setPendingSessionWorkspace] = React.useState<string | null>(null)
+  const handleCreateInProject = async (workspaceId: string): Promise<void> => {
+    if (sessionCreateInFlight.current) return
+    sessionCreateInFlight.current = true
+    setPendingSessionWorkspace(workspaceId)
+    try { await createAgent({ draft: true, workspaceId }) }
+    finally { sessionCreateInFlight.current = false; setPendingSessionWorkspace(null) }
+  }
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set())
   const [open, setOpen] = React.useState(false)
   const [manageOpen, setManageOpen] = React.useState(false)
@@ -141,12 +153,16 @@ export function ProjectSwitcher({ variant = 'button', onSelectProject }: Project
                 <Button type="button" variant="ghost" size="row"
                   aria-current={ws.id === currentWorkspaceId ? 'page' : undefined}
                   className="home-projects__item" onClick={() => handleSelect(ws)}>
-                  <span className="home-sidebar__nav-icon" aria-hidden="true"><Folder size={18} strokeWidth={1.5} /></span><span className="truncate">{displayName(ws)}</span>
+                  <span className="home-sidebar__nav-icon" aria-hidden="true" /><span className="truncate">{displayName(ws)}</span>
                 </Button>
                 <button type="button" className="home-projects__toggle" aria-expanded={isExpanded}
                   aria-label={t('projectTree.expand', { name: displayName(ws) })}
                   onClick={() => setExpanded(prev => { const next = new Set(prev); if (next.has(ws.id)) next.delete(ws.id); else next.add(ws.id); return next })}>
-                  <ChevronDown size={14} className={isExpanded ? '' : '-rotate-90'} />
+                  <SidebarGlyph name={isExpanded || ws.id === currentWorkspaceId ? "folderOpen" : "folder"} />
+                </button>
+                <button type="button" className="home-projects__create" aria-label={t('sidebar.newTask')} disabled={pendingSessionWorkspace !== null}
+                  onClick={() => { void handleCreateInProject(ws.id) }}>
+                  <SidebarGlyph name="projectAdd" />
                 </button>
               </div>
               {isExpanded && <div className="home-projects__children">
