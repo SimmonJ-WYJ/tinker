@@ -129,3 +129,27 @@ test('流内新用户回合不会复用旧权限promise，旧卡晚到批准也�
  service.respondToPermission(requests[1]!.requestId,'deny',false)
  expect(await current).toMatchObject({behavior:'deny'})
 })
+
+test('真实宿主上下文的自然续作经过 hook 与 canUseTool 均不弹卡',async()=>{
+ const {mkdtempSync,rmSync}=await import('node:fs')
+ const {tmpdir}=await import('node:os')
+ const {join}=await import('node:path')
+ const {createImageTurnFactory}=await import('../mcp/image-turn-factory.ts')
+ const directory=mkdtempSync(join(tmpdir(),'image-context-permission-'))
+ const service=new AgentPermissionService()
+ const requests:PermissionRequest[]=[]
+ try{
+  const create=createImageTurnFactory('s',directory,directory,[{type:'user',uuid:'prior',parent_tool_use_id:null,message:{content:[{type:'text',text:'帮我生图'}]}}])
+  const controller=new ImageTurnController(create('retry','再次生成'),create)
+  const use=service.createCanUseTool('s',request=>requests.push(request),undefined,undefined,controller)
+  const hook=service.createPreToolUseHardRuleHookForSession('s',{confirmPaidImage:use})
+  const input={prompt:'retry scene'}
+  const hookResult=await hook({hook_event_name:'PreToolUse',tool_name:IMAGE_GENERATION_TOOL,tool_input:input,session_id:'s',transcript_path:'/tmp/fixture',cwd:directory,tool_use_id:'retry-call'},'retry-call',{signal:new AbortController().signal})
+  expect(hookResult).toMatchObject({hookSpecificOutput:{permissionDecision:'allow'}})
+  expect(await use(IMAGE_GENERATION_TOOL,input,{...options(),toolUseID:'retry-call'})).toMatchObject({behavior:'allow'})
+  expect(requests).toHaveLength(0)
+  expect(await use('Bash',{command:'rm -rf /'},{...options(),toolUseID:'danger'})).toMatchObject({behavior:'deny'})
+  controller.interrupt()
+  expect(await use(IMAGE_GENERATION_TOOL,input,{...options(),toolUseID:'retry-call'})).toMatchObject({behavior:'deny'})
+ }finally{service.clearSessionPending('s');rmSync(directory,{recursive:true,force:true})}
+})

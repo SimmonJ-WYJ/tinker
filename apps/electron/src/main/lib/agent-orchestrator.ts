@@ -1,6 +1,5 @@
 import { ImageTurnController, injectQueuedImageMessage } from '../mcp/image-turn-controller.ts'
-import { ImageRequestAuthorization } from '@asci/shared'
-import { readSessionImageScope } from '../mcp/image-turn-context.ts'
+import { createImageTurnFactory } from '../mcp/image-turn-factory.ts'
 import { validateImageEditSelection } from '../mcp/image-edit-selection.ts'
 import { createImageGenerationMcpServer } from '../mcp/image-generation-tool.ts'
 import { getAgentTurnFailure, hasAgentOutput } from './agent-turn-outcome.ts'
@@ -497,6 +496,7 @@ export class AgentOrchestrator {
     console.log(`[Agent 编排] Resume 状态: sdkSessionId=${existingSdkSessionId || '无'}, asci sessionId=${sessionId}`)
 
     // 5. 持久化用户消息（SDKMessage 格式）
+    const imageUserHistory = getAgentSessionSDKMessages(sessionId)
     const inputMessageUuid = randomUUID()
     const userSDKMsg: SDKMessage = {
       type: 'user',
@@ -703,16 +703,9 @@ export class AgentOrchestrator {
 
       // Register after user/custom servers: these auto-allowed names must always
       // refer to our constrained host implementation, never a user-controlled server.
-      const imageSessionDirectory = agentCwd
-      const createImageTurn = (id: string, message: string, selectedImageId?: string) => {
-        const scope = readSessionImageScope(sessionId, getConversationAttachmentsDir(sessionId), {
-          sessionDirectory: imageSessionDirectory,
-          userMessages: [message, ...getAgentSessionMessages(sessionId).filter(item => item.role === 'user').map(item => item.content)],
-        })
-        return { id, selectedImageId, latestImageId: scope.latestImageId, authorization: new ImageRequestAuthorization({ userMessage: message, selectedImageId, ...scope }) }
-      }
+      const createImageTurn = createImageTurnFactory(sessionId, getConversationAttachmentsDir(sessionId), agentCwd, imageUserHistory)
       const imageAuthorization = new ImageTurnController(
-        createImageTurn(String(streamStartedAt), userMessage, input.imageEditReferenceId), createImageTurn,
+        createImageTurn(inputMessageUuid, userMessage, input.imageEditReferenceId), createImageTurn,
         getAgentSessionSDKMessages(sessionId).flatMap(message => message.type === 'user' && 'uuid' in message && typeof message.uuid === 'string' ? [message.uuid] : []),
       )
       this.imageAuthorizations.set(sessionId, imageAuthorization)
@@ -2456,6 +2449,7 @@ export class AgentOrchestrator {
       // 立即持久化到 JSONL
       const persistMsg: SDKMessage = {
         type: 'user',
+        _imageQueued: true,
         uuid,
         message: {
           content: [{ type: 'text', text }],
