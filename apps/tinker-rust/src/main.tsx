@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useT } from './i18n.ts'
 import { HistoryPanel } from './HistoryPanel.tsx'
+import { RunPanel } from './RunPanel.tsx'
 import type { TextKey } from './i18n.ts'
 import './style.css'
 import { decodeSnapshot } from './desktop-contract.ts'
@@ -73,6 +74,7 @@ function App(): React.ReactElement {
         <p className="footnote">{t(!health ? 'storageUnknown' : health.storageKind === 'file' ? 'fileStorage' : 'memory')}</p>
         {health && <p className="footnote">{t('architecture')}: {health.architecture} · IPC v{health.protocolVersion}</p>}
         <HistoryPanel t={t} invoke={invoke} />
+        <RunPanel t={t} invoke={invoke} input={draft} />
       </section>
     </main>
   </div>
