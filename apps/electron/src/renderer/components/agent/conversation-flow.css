@@ -27,7 +27,7 @@
 .conversation-user__bubble:has(.conversation-reference) { width: min(var(--conversation-user-width), 100%); }
 .conversation-user__bubble > * { min-width: 0; max-width: 100%; }
 .conversation-user__bubble .conversation-user__text { display: block; padding: 0; border-radius: 0; background: transparent; }
-.conversation-user__text .prose, .conversation-assistant-turn .prose { font-size: 16px; line-height: 24px; }
+.conversation-user__text .prose, .conversation-assistant-turn .prose { font-size: 16px; line-height: 24px; color: hsl(var(--conversation-body)); }
 .conversation-user__text .prose p { margin: 0; line-height: 24px; }
 .conversation-flow .conversation-user__metadata { margin-top: -6px; min-height: 18px; justify-content: flex-end; color: hsl(var(--conversation-secondary)); font-size: 12px; line-height: 18px; }
 .conversation-reference { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px; border-radius: 8px; background: hsl(var(--conversation-quote-surface)); }
@@ -52,7 +52,9 @@
 .conversation-image-task[open] .conversation-image-task__chevron { transform: rotate(180deg); }
 .conversation-image-task__records { margin-top: 16px; padding-left: 16px; border-left: 1px solid hsl(var(--border)); font-size: 13px; }
 .dark .conversation-image-task__chevron img, .dark .conversation-composer-glyph { filter: invert(.85); }
-.conversation-reasoning-selector { gap: 8px; }
+.conversation-reasoning-selector { gap: 8px; min-width: var(--conversation-reasoning-width); }
+.conversation-model-selector { min-width: var(--conversation-model-width); max-width: min(180px, 24vw); }
+.conversation-model-selector > span { max-width: 100%; }
 .conversation-reasoning-selector img { flex-shrink: 0; }
 .dark .conversation-reasoning-selector img { filter: invert(.85); }
 .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer-surface { display: flex; flex-direction: column; min-height: var(--conversation-composer-height); justify-content: space-between; border-radius: 16px; padding: 12px 16px; border-color: hsl(var(--conversation-composer-line)); }

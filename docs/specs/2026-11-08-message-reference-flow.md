@@ -1,12 +1,12 @@
 # 对话流与引用图片来源
 
-状态：引用 UI 已实现并完成独立复审、真实浏览器验收；待串行整合生图修复后聚合验证和推送。领域语言沿用现有 SDK message / image version / attachment。
+状态：实现、独立复审、真实浏览器验收与最终聚合检查完成。交付分支 feat/message-reference-flow；main 由用户人工合并。领域语言沿用现有 SDK message / image version / attachment。
 
 ## 基线与协作边界
 
 - 工作区 `/tmp/tinker-message-reference-20261108`，分支 `feat/message-reference-flow`。
 - 起点 main `fbde681`，已快进纳入已交付 Google 打包修复 `77d5f36`、`3cfc286`，保留其独立提交。
-- 生图续作在另一工作区实现。本轮不修改 `image-request-authorization.ts`、`image-turn-context.ts`、`image-turn-factory.ts`、`agent-orchestrator.ts` 或该任务测试。已确认生图提交 c4cbab6，待引用 UI 到达干净提交后串行整合并保留独立提交。
+- 生图续作在另一工作区实现。本轮不修改 `image-request-authorization.ts`、`image-turn-context.ts`、`image-turn-factory.ts`、`agent-orchestrator.ts` 或该任务测试。生图提交 c4cbab6 已在引用 UI 提交 865b59c 后串行整合，合并提交 f946135；Google、引用 UI 和生图修复均保留独立提交。
 - 当前用户运行的是 `/Volumes/Tinker 0.1.611-arm64/Tinker.app`，本轮不安装、替换或调用付费生图。
 
 ## 设计真相源

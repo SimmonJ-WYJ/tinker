@@ -219,6 +219,8 @@ button.settings-channel-switch[data-state='checked'] > span { background-color: 
   --conversation-turn-gap: 40px;
   --conversation-top-inset: 64px;
   --conversation-composer-height: 125px;
+    --conversation-model-width: 90px;
+    --conversation-reasoning-width: 108px;
   --workspace-panel-radius: 24px;
   --workspace-composer-radius: 20px;
   --workspace-font-caption: 12px;

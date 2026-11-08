@@ -186,7 +186,7 @@ export function ModelSelector({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto gap-1 px-1.5 py-1 rounded text-sm font-normal hover:text-foreground [&_svg]:size-3.5"
+                className={cn('h-auto gap-1 px-1.5 py-1 rounded text-sm font-normal hover:text-foreground [&_svg]:size-3.5', compactTrigger && 'conversation-model-selector')}
               >
                 <span className="flex min-w-0 max-w-[260px] items-center">
                   {displayModelInfo ? (

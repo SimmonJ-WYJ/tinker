@@ -20,7 +20,7 @@ import { GeneratedImageReferenceProvider } from './generated-image-references.ts
  * - system 消息独立渲染
  *
  * 展示规则（v0.9.26 起）：
- * - assistant turn 不再展示模型图标/名称，内容占满对话区宽度；
+ * - assistant turn 以品牌符号与正文对齐，不重复展示模型名称；
  *   时间戳移至底部操作栏，紧挨复制按钮左侧。
  * - user 消息不再展示头像/名称；气泡右对齐，时间戳 hover 可见。
  */

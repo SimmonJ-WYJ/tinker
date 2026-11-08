@@ -140,7 +140,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const { t: tErrors } = useT('errors')
   const { t: tCommon } = useT('common')
 
-  // 推理深度并入模型下拉底部：读每会话推理深度，拼成 ModelSelector 的 reasoning 区（介绍走 hover）
+  // 首页模型菜单与对话独立入口共享同一套每会话推理深度配置。
   const { effort, setEffort } = useReasoningEffort(sessionId)
   const reasoningForModel = React.useMemo(
     () => ({

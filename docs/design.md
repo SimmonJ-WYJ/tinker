@@ -611,6 +611,8 @@ _本文档随每次 token / 规则改动同步更新。漂移即缺陷。_
 | `--conversation-turn-gap` | 40px | 相同 |
 | `--conversation-top-inset` | 64px | 相同 |
 | `--conversation-composer-height` | 125px | 相同 |
+| `--conversation-model-width` | 90px | 相同 |
+| `--conversation-reasoning-width` | 108px | 相同 |
 | `--conversation-message-surface` | #F4F5F6 | 210 8% 18% |
 | `--conversation-quote-surface` | #FBFBFC | 210 8% 22% |
 | `--conversation-body` | #252B30 | 200 10% 90% |
