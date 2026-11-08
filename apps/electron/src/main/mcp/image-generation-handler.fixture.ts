@@ -7,6 +7,7 @@ import { ImageRequestAuthorization } from '@asci/shared'
 import type { AttachmentSaveInput, Channel } from '@asci/shared'
 import { readSessionImageScope } from './image-turn-context.ts'
 import { ImageTurnController } from './image-turn-controller.ts'
+import { createImageTurnFactory } from './image-turn-factory.ts'
 
 const directory=mkdtempSync(join(tmpdir(),'image-handler-fixture-'))
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=','base64')
@@ -44,7 +45,7 @@ try {
  expect(calls).toBe(1)
  expect((await generate({prompt:'unrequested second'},{})).isError).toBe(true)
  expect(calls).toBe(1)
- const editScope=new ImageRequestAuthorization({userMessage:'换成英文版',selectedImageId:'image-1',...readSessionImageScope('s',directory)})
+ const editScope=new ImageRequestAuthorization({userMessage:'把这个女生加入旁边 并换了一个泳衣',selectedImageId:'image-1',...readSessionImageScope('s',directory)})
  expect((await handler(editScope,'turn2','image-1')({prompt:'English version',baseImageId:'image-1'},{})).isError).not.toBe(true)
  expect(calls).toBe(2)
  const latestScope=new ImageRequestAuthorization({userMessage:'修改这张图片',...readSessionImageScope('s',directory)})
@@ -57,25 +58,25 @@ try {
  scope.cancel()
  expect((await generate(input,{})).isError).toBe(true)
  expect(calls).toBe(3)
- const createTurn=(id:string,userMessage:string)=>({id,authorization:new ImageRequestAuthorization({userMessage})})
+ const createTurn=createImageTurnFactory('s',directory,directory,[])
  const controller=new ImageTurnController(createTurn('queue-initial','生成图片'),createTurn)
  const queuedServer=createImageGenerationMcpServer('s',directory,'queue-initial',undefined,{getTurn:()=>controller.current})!
  const queuedTools=queuedServer.instance as unknown as {_registeredTools:Record<string,FixtureTool>}
  const queued=queuedTools._registeredTools.generate_image!.handler
- controller.enqueue('queue-next','继续帮我生图')
+ controller.enqueue('queue-next','再次生成')
  expect((await queued({prompt:'queue image'},{})).isError).not.toBe(true)
  expect(controller.getScopeId()).toBe('queue-initial')
  expect(controller.consume({type:'user',uuid:'queue-next',isReplay:true,parent_tool_use_id:null})).toBe(true)
  expect((await queued({prompt:'queue image'},{})).isError).not.toBe(true)
  let releaseProxy:()=>void=()=>{}
  proxyBarrier=new Promise<void>(resolve=>{releaseProxy=resolve})
- controller.enqueue('queue-now','继续帮我生图')
+ controller.enqueue('queue-now','重新生成')
  const old=queued({prompt:'old pending'}, {})
  // 此scope默认名额已用，另创建一个明确请求回合进入proxy await竞态。
  controller.consume({type:'user',uuid:'queue-now',isReplay:true,parent_tool_use_id:null})
  const pending=queued({prompt:'inflight'}, {})
  await Promise.resolve();await Promise.resolve()
- controller.enqueue('replacement','继续帮我生图')
+ controller.enqueue('replacement','Try again')
  controller.interrupt()
  controller.consume({type:'user',uuid:'replacement',isReplay:true,parent_tool_use_id:null})
  releaseProxy();proxyBarrier=undefined
@@ -83,5 +84,13 @@ try {
  expect((await pending).isError).toBe(true)
  expect((await queued({prompt:'new after interrupt'},{})).isError).not.toBe(true)
  expect(calls).toBe(6)
- console.log('IMAGE_HANDLER_FIXTURE_PASS: 6 fake API calls; queue consumption and immutable inflight scope verified; authorization, replay, new-turn edit, plan and cancellation verified')
+ // 正常发送（新 query）从宿主历史恢复，真实 handler 不依赖模型声称已获授权。
+ const resumed=createImageTurnFactory('s',directory,directory,[{type:'user',uuid:'previous',parent_tool_use_id:null,message:{content:[{type:'text',text:'帮我生图'}]}}])
+ const retried=resumed('manual-retry','再次生成')
+ expect((await handler(retried.authorization,'manual-retry')({prompt:'retry scene'},{})).isError).not.toBe(true)
+ expect(calls).toBe(7)
+ const discussed=resumed('discussion','再次生成需要多少钱')
+ expect((await handler(discussed.authorization,'discussion')({prompt:'unrequested'},{})).isError).toBe(true)
+ expect(calls).toBe(7)
+ console.log('IMAGE_HANDLER_FIXTURE_PASS: 7 fake API calls; queue consumption and immutable inflight scope verified; authorization, replay, new-turn edit, plan and cancellation verified')
 } finally {rmSync(directory,{recursive:true,force:true});mock.restore()}

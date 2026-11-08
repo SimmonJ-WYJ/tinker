@@ -5,6 +5,13 @@
   :root {
     /* 工作台表面：参考截图比例，保留 Tinker 品牌色。 */
     --workspace-chrome: 240 8% 93%;
+    --conversation-message-surface: 210.00000 10.00000% 96.07843%;
+    --conversation-quote-surface: 240.00000 14.28571% 98.62745%;
+    --conversation-body: 207.27273 12.94118% 16.66667%;
+    --conversation-secondary: 197.14286 5.78512% 47.45098%;
+    --conversation-quote-title: 203.33333 13.63636% 25.88235%;
+    --conversation-quote-source: 205.71429 8.43373% 51.17647%;
+    --conversation-composer-line: 200.00000 8.57143% 86.27451%;
     --workspace-surface: 0 0% 99%;
     --workspace-ink: 200 22% 20%;
     --workspace-muted: 202 9% 41%;
@@ -94,6 +101,13 @@
 
   .dark {
     --workspace-chrome: 210 10% 9%;
+    --conversation-message-surface: 210 8% 18%;
+    --conversation-quote-surface: 210 8% 22%;
+    --conversation-body: 200 10% 90%;
+    --conversation-secondary: 210 8% 65%;
+    --conversation-quote-title: 200 10% 88%;
+    --conversation-quote-source: 210 8% 70%;
+    --conversation-composer-line: 210 8% 28%;
     --workspace-surface: 210 9% 12%;
     --workspace-ink: 200 10% 90%;
     --workspace-muted: 210 8% 65%;
@@ -198,6 +212,15 @@ button.settings-channel-switch[data-state='checked'] > span { background-color: 
   --workspace-sidebar-avatar-ink: 0 0% 100%;
   --workspace-toolbar-height: 56px;
   --workspace-content-width: 680px;
+  --conversation-content-width: 832px;
+  --conversation-user-width: 480px;
+  --conversation-upload-width: 112px;
+  --conversation-upload-height: 148px;
+  --conversation-turn-gap: 40px;
+  --conversation-top-inset: 64px;
+  --conversation-composer-height: 125px;
+    --conversation-model-width: 90px;
+    --conversation-reasoning-width: 108px;
   --workspace-panel-radius: 24px;
   --workspace-composer-radius: 20px;
   --workspace-font-caption: 12px;

@@ -2,13 +2,21 @@ import * as React from 'react'
 import type { UserImageEditReference } from '@asci/shared'
 import { ImageLightbox } from '@/components/ui/image-lightbox'
 import { useT } from '@/hooks/useT'
+import { FileImage } from 'lucide-react'
+import { useMessageReferenceNavigation } from './message-reference-navigation.tsx'
 
 /** 已发送消息持有原图的确定引用，历史回看不再依赖输入区草稿或最新版本。 */
-export function SentImageReference({ reference }: { reference: UserImageEditReference }): React.ReactElement {
+export function SentImageReference({ reference, sourceMessageId }: { reference: UserImageEditReference; sourceMessageId?: string }): React.ReactElement {
   const { t } = useT('common')
   const [src, setSrc] = React.useState('')
   const [failed, setFailed] = React.useState(false)
   const [open, setOpen] = React.useState(false)
+  const [attempt, setAttempt] = React.useState(0)
+  const [missingSource, setMissingSource] = React.useState(false)
+  const trigger = React.useRef<HTMLButtonElement>(null)
+  const navigation = useMessageReferenceNavigation()
+  const available = !!sourceMessageId && !!navigation?.hasSource(sourceMessageId)
+  React.useEffect(() => { setMissingSource(false) }, [reference.imageId, reference.localPath, sourceMessageId])
 
   React.useEffect(() => {
     let active = true
@@ -19,17 +27,25 @@ export function SentImageReference({ reference }: { reference: UserImageEditRefe
       .then(data => { if (active) setSrc(`data:${reference.mediaType};base64,${data}`) })
       .catch(() => { if (active) setFailed(true) })
     return () => { active = false }
-  }, [reference.localPath, reference.mediaType, reference.imageId])
-
-  if (failed) return <p role="alert" className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{t('imageVersion.missing')}</p>
-  if (!src) return <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p>
+  }, [reference.localPath, reference.mediaType, reference.imageId, attempt])
 
   return (
-    <div className="mb-2 max-w-[300px] min-w-0" data-image-edit-reference={reference.imageId}>
-      <button type="button" onClick={() => setOpen(true)} className="block max-w-full overflow-hidden rounded-lg focus-visible:outline focus-visible:outline-2">
-        <img src={src} alt={reference.filename} className="max-w-full h-auto max-h-[200px] object-contain" onError={() => setFailed(true)} />
+    <div className="conversation-reference" data-image-edit-reference={reference.imageId}>
+      <button ref={trigger} type="button" className="conversation-reference__thumbnail" disabled={!failed && !src}
+        aria-label={t(failed ? 'imageReference.retry' : 'imageReference.view')}
+        onClick={() => { if (failed) setAttempt(value => value + 1); else setOpen(true) }}>
+        {failed ? <FileImage aria-hidden="true" /> : src ? <img src={src} alt={reference.filename} onError={() => { setFailed(true); setOpen(false) }} /> : <span aria-hidden="true" className="conversation-reference__skeleton" />}
       </button>
-      <ImageLightbox src={src} alt={reference.filename} open={open} onOpenChange={setOpen} />
+      <div className="conversation-reference__source">
+        <p className="conversation-reference__title">{t('imageReference.title')}</p>
+        <button type="button" className="conversation-reference__jump" disabled={!available} aria-label={t(available ? 'imageReference.backToSource' : 'imageReference.sourceMissing')}
+          onClick={event => { if (sourceMessageId && !navigation?.jump(sourceMessageId, event.currentTarget)) setMissingSource(true) }}>
+          {t(available && !missingSource ? 'imageReference.backToSource' : 'imageReference.sourceMissing')}
+        </button>
+        {failed && <span role="alert" className="conversation-reference__error">{t('imageReference.loadFailed')}</span>}
+      </div>
+      <ImageLightbox src={src} alt={reference.filename} open={open && !failed} onOpenChange={setOpen}
+        onSave={() => { void window.electronAPI.saveImageAs(reference.localPath, reference.filename) }} returnFocus={() => trigger.current?.focus()} />
     </div>
   )
 }

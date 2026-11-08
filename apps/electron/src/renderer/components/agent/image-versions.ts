@@ -2,6 +2,7 @@
 import type { SDKMessage, SDKAssistantMessage, SDKToolUseBlock } from '@asci/shared'
 import { findToolResultInMessages } from './tool-result-lookup'
 export interface ImageVersion {
+ sourceMessageId?: string
  imageId?: string
  baseImageId?: string
  model?: string
@@ -29,7 +30,7 @@ export function collectImageVersions(messages:SDKMessage[]):ImageVersion[] {
    const result=findToolResultInMessages((block as SDKToolUseBlock).id,messages)
    if(result?.isError) continue
    const version=parseImageVersion(result?.result)
-   if(version?.imageId && !versions.has(version.imageId)) versions.set(version.imageId,version)
+   if(version?.imageId && !versions.has(version.imageId)) versions.set(version.imageId,{...version, sourceMessageId: (message as SDKAssistantMessage).uuid})
   }
  }
  return [...versions.values()]

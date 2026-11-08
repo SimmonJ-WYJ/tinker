@@ -1,6 +1,8 @@
 import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { captureSendDraft, sendRecoveryDraftsAtom, forgetSendDraftAtom } from '@/atoms/send-recovery-atoms'
 import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
+import conversationPlus from '@/assets/conversation/plus.svg'
+import { ConversationReasoningSelector } from './ConversationReasoningSelector.tsx'
 import { ImageEditReference } from './ImageEditReference'
 import { latestTurnAttemptedImage, latestUserImageEditReferenceId } from './image-retry-policy.ts'
 import { BinaryBackdrop } from '../welcome/BinaryBackdrop'
@@ -22,7 +24,7 @@ import * as React from 'react'
 import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai'
 import { selectAtom } from 'jotai/utils'
 import { toast } from 'sonner'
-import { Bot, Square, Copy, Check, Map as MapIcon, Plus, ArrowUp } from 'lucide-react'
+import { Bot, Copy, Check, Map as MapIcon, Plus, ArrowUp } from 'lucide-react'
 import { AgentMessages } from './AgentMessages'
 import { QueuedMessagesBar } from './QueuedMessagesBar'
 import { contextCandidates, latestContextUsage } from './context-candidates'
@@ -138,7 +140,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const { t: tErrors } = useT('errors')
   const { t: tCommon } = useT('common')
 
-  // 推理深度并入模型下拉底部：读每会话推理深度，拼成 ModelSelector 的 reasoning 区（介绍走 hover）
+  // 首页模型菜单与对话独立入口共享同一套每会话推理深度配置。
   const { effort, setEffort } = useReasoningEffort(sessionId)
   const reasoningForModel = React.useMemo(
     () => ({
@@ -1099,6 +1101,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       type: 'user',
       ...(selectedImage && { imageEditReference: {
         imageId: selectedImage.imageId,
+        sourceMessageId: selectedImage.sourceMessageId,
         localPath: selectedImage.generatedImage.localPath,
         filename: selectedImage.generatedImage.filename,
         mediaType: selectedImage.generatedImage.mediaType,
@@ -1236,6 +1239,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
     // 硬停：清空排队徽标（残留排队消息会变孤儿）
     store.set(clearQueuedMessageUuidsAtom, sessionId)
+    store.set(stoppedByUserSessionsAtom, previous => new Set(previous).add(sessionId))
 
     window.electronAPI.stopAgent(sessionId).catch(console.error)
   }, [sessionId, setStreamingStates, store])
@@ -1497,6 +1501,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const hasTextInput = inputContent.trim().length > 0
   const canSend = (hasTextInput || pendingFiles.length > 0 || pendingMentions.length > 0) && agentChannelId !== null && hasAvailableModel && (!streaming || hasTextInput && !selectedImage)
 
+  const imageGenerating = streaming && !!streamState?.toolActivities?.some(activity => activity.toolName === 'mcp__asci-image__generate_image' && !activity.done)
   return (
     <>
     <AgentSessionProvider sessionId={sessionId}>
@@ -1597,7 +1602,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                     ? tConversation('agent.emptyState.welcomeBody')
                     : !hasAvailableModel
                     ? tConversation('agent.emptyState.noModelBody')
-                    : isHome ? tHome('home.placeholder') : inputPlaceholder
+                    : imageGenerating ? tCommon('imageReference.supplement') : isHome ? tHome('home.placeholder') : inputPlaceholder
                 }
                 rotatingPlaceholders={isHome ? undefined : rotatingPlaceholders}
                 rotatingPrefix={tConversation('input.inputPrefix')}
@@ -1643,7 +1648,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                       aria-label={tConversation('input.attachTooltip')}
                       onClick={handleOpenFileDialog}
                     >
-                      <Plus aria-hidden="true" className="!size-4" strokeWidth={1.5} />
+                      <img src={conversationPlus} alt="" className="conversation-composer-glyph" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
@@ -1661,8 +1666,10 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                   filterChannelIds={agentChannelIds}
                   externalSelectedModel={externalSelectedModel}
                   onModelSelect={handleModelSelect}
-                  reasoning={reasoningForModel}
+                  compactTrigger={!isHome}
+                  reasoning={isHome ? reasoningForModel : undefined}
                 />
+                {!isHome && <ConversationReasoningSelector reasoning={reasoningForModel} />}
                 {taskMode === 'coding' && <ContextUsageBadge
                   key={sessionId}
                   sessionId={sessionId}
@@ -1680,10 +1687,11 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                   <Button
                     type="button"
                     size="icon"
-                    className="agent-composer__stop rounded-full bg-foreground text-background hover:bg-foreground/90 [&_svg]:!size-[11px]"
+                    aria-label={tCommon('imageReference.stop')}
+                    className="agent-composer__stop rounded-full bg-foreground text-background hover:bg-foreground/90"
                     onClick={handleStop}
                   >
-                    <Square className="size-[12px]" fill="currentColor" strokeWidth={0} />
+                    <span aria-hidden="true" className="conversation-stop-glyph" />
                   </Button>
                 ) : (
                   <Button

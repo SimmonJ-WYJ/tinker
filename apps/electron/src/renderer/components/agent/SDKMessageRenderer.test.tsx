@@ -234,3 +234,20 @@ test('general tool progress is collapsed while the final answer remains visible'
  expect(details.textContent).not.toContain('Final verified answer')
  expect(screen.queryByText('Final verified answer')).not.toBeNull()
 })
+
+
+test('已中断的历史生图回合在新请求后仍显示 stopped，不依赖会话级临时标记', () => {
+  const messages = [userInput('Create an image.'), asst([{type:'tool_use',id:'stopped-image',name:'mcp__asci-image__generate_image',input:{prompt:'Synthetic'}}]), {type:'result',subtype:'success',terminal_reason:'aborted_tools'}] as SDKMessage[]
+  const turn = lastAssistantTurn(messages)
+  const view = renderInConversation(<AssistantTurnRenderer compactProcess turn={turn} allMessages={messages} stoppedByUser={false} />)
+  expect(view.container.querySelector('[data-image-task-state="stopped"]')).not.toBeNull()
+  expect(view.container.querySelector('[data-image-task-state="incomplete"]')).toBeNull()
+})
+
+
+test('硬停止的宿主历史事实在继续对话后仍标记原生图回合', () => {
+  const messages = [userInput('Create an image.'), asst([{type:'tool_use',id:'hard-stopped-image',name:'mcp__asci-image__generate_image',input:{prompt:'Synthetic'}}]), {type:'system',subtype:'asci_turn_stopped'}, userInput('Next request.'),asst([textBlock('Next answer.')])] as SDKMessage[]
+  const turn = groupIntoTurns(messages).find((group): group is AssistantTurn => group.type === 'assistant-turn')!
+  const view = renderInConversation(<AssistantTurnRenderer compactProcess turn={turn} allMessages={messages} stoppedByUser={false} />)
+  expect(view.container.querySelector('[data-image-task-state="stopped"]')).not.toBeNull()
+})

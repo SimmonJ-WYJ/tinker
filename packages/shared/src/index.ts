@@ -22,3 +22,5 @@ export * from './auth-password-policy.ts'
 export * from "./agent/runtime-policy.ts"
 
 export * from './agent/image-request-authorization.ts'
+export * from './agent/image-reference-source.ts'
+export * from './constants/agent-history.ts'

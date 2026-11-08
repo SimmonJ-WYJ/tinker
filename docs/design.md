@@ -596,3 +596,29 @@ macOS 非全屏为系统红绿灯保留 108px 起点，全屏/其他平台恢复
 ---
 
 _本文档随每次 token / 规则改动同步更新。漂移即缺陷。_
+
+
+### 对话流与引用图片（Figma 115:604）
+
+数值真相源仍为 tokens.css。上传附件独立于用户气泡，历史引用以确定图片 ID 和来源 SDK UUID 绑定。桌面引用卡内边距/间距 12，缩略图 72×48，气泡内边距16、圆角14；窄窗允许来源文案换行。
+
+| token | 浅色/几何值 | 深色 |
+|---|---|---|
+| `--conversation-content-width` | 832px | 相同 |
+| `--conversation-user-width` | 480px | 相同 |
+| `--conversation-upload-width` | 112px | 相同 |
+| `--conversation-upload-height` | 148px | 相同 |
+| `--conversation-turn-gap` | 40px | 相同 |
+| `--conversation-top-inset` | 64px | 相同 |
+| `--conversation-composer-height` | 125px | 相同 |
+| `--conversation-model-width` | 90px | 相同 |
+| `--conversation-reasoning-width` | 108px | 相同 |
+| `--conversation-message-surface` | #F4F5F6 | 210 8% 18% |
+| `--conversation-quote-surface` | #FBFBFC | 210 8% 22% |
+| `--conversation-body` | #252B30 | 200 10% 90% |
+| `--conversation-secondary` | #727C80 | 210 8% 65% |
+| `--conversation-quote-title` | #39444B | 200 10% 88% |
+| `--conversation-quote-source` | #78848D | 210 8% 70% |
+| `--conversation-composer-line` | #D9DDDF | 210 8% 28% |
+
+来源跳转保存阅读锚点，停止自动吸底，短暂高亮并提供按栈返回。旧 UUID 缺失只在确定图片绑定唯一时恢复，缺失/歧义来源不可点击。亮暗主题均保留完整图片预览；减少动态效果使用即时滚动。

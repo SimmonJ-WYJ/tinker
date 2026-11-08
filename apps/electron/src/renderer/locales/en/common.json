@@ -91,5 +91,37 @@
     "occupied": "The editor already has a draft or reference. You can keep editing; restoring will not replace it.",
     "attachmentFailed": "Attachments could not be prepared. Your draft is kept; no model request was sent."
   },
-  "workspaceDefaultName": "Default project"
+  "workspaceDefaultName": "Default project",
+  "imageReference": {
+    "title": "Reference image",
+    "backToSource": "Return to the original message",
+    "sourceMissing": "Original message unavailable",
+    "returnReading": "Return to reading position",
+    "located": "Original message highlighted",
+    "loading": "Loading reference image",
+    "loadFailed": "Image unavailable",
+    "retry": "Retry image preview",
+    "uploaded": "Local upload · reference image",
+    "generating": "Generating image",
+    "generated": "Image generated",
+    "failed": "Image generation failed",
+    "stopped": "Image generation stopped",
+    "combine": "Combining reference images with uploaded reference images for composition",
+    "quoteOnly": "Using the referenced image for composition",
+    "uploadOnly": "Using uploaded reference images for composition",
+    "create": "Creating the requested image",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "supplement": "Add to your request…",
+    "view": "View reference image",
+    "viewUpload": "View uploaded image",
+    "stop": "Stop generation",
+    "partial": "Some images generated",
+    "incomplete": "Image generation incomplete",
+    "generatedDetail": "All requested image calls completed",
+    "partialDetail": "Some image calls failed; completed images remain available",
+    "incompleteDetail": "Some image calls have no result; completed images remain available",
+    "failedDetail": "Image generation did not complete successfully",
+    "stoppedDetail": "Generation was stopped; completed images remain available"
+  }
 }

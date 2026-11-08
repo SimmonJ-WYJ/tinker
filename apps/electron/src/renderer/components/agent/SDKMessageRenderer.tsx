@@ -1,7 +1,11 @@
+import { HOST_TURN_STOPPED_SUBTYPE } from '@asci/shared'
 import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 import { collectImageVersions } from './image-versions'
 import { GeneratedImage } from './GeneratedImage.tsx'
-import { SentImageReference } from './SentImageReference.tsx'
+import { UserInputMessage } from './UserInputMessage.tsx'
+import { ConversationSymbol } from './ConversationSymbol.tsx'
+import { ImageGenerationStatus } from './ImageGenerationStatus.tsx'
+import { extractUserText } from './message-attachments.ts'
 import { GeneratedImageReferenceProvider } from './generated-image-references.tsx'
 /**
  * SDKMessageRenderer — 渲染 SDKMessage 对象
@@ -16,14 +20,14 @@ import { GeneratedImageReferenceProvider } from './generated-image-references.ts
  * - system 消息独立渲染
  *
  * 展示规则（v0.9.26 起）：
- * - assistant turn 不再展示模型图标/名称，内容占满对话区宽度；
+ * - assistant turn 以品牌符号与正文对齐，不重复展示模型名称；
  *   时间戳移至底部操作栏，紧挨复制按钮左侧。
  * - user 消息不再展示头像/名称；气泡右对齐，时间戳 hover 可见。
  */
 
 import * as React from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { Loader2, AlertTriangle, FileText, FileImage, Download, BookmarkPlus, Check, Plus, ThumbsUp, ThumbsDown, Ban } from 'lucide-react'
+import { Loader2, AlertTriangle, BookmarkPlus, Check, Plus, ThumbsUp, ThumbsDown, Ban } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useIsDevMode } from '@/lib/dev-mode'
@@ -39,7 +43,6 @@ import {
   type FeedbackSelection,
 } from '@/atoms/session-feedback-atoms'
 import type { EvidenceSetSummary, ObjectId } from '@asci/shared'
-import { ImageLightbox } from '@/components/ui/image-lightbox'
 import { processPresentation } from './process-presentation'
 import { AIThinkingOrb } from '@/components/ui/ai-thinking-orb'
 import { ContentBlock } from './ContentBlock'
@@ -55,7 +58,6 @@ import {
   MessageActions,
   MessageAction,
   MessageResponse,
-  UserMessageContent,
 } from '@/components/ai-elements/message'
 import { CopyButton } from '@/components/common/CopyButton'
 import { MessageMoreActions } from './MessageMoreActions.tsx'
@@ -173,20 +175,6 @@ function extractTurnUsage(turnMessages: SDKMessage[]): { durationMs?: number; us
 }
 
 // ===== 辅助：从 user 消息中提取纯文本内容 =====
-
-export function extractUserText(message: SDKUserMessage): string | null {
-  const content = message.message?.content
-  if (!Array.isArray(content)) return null
-
-  const texts: string[] = []
-  for (const block of content) {
-    if (block.type === 'text' && 'text' in block) {
-      texts.push((block as { text: string }).text)
-    }
-  }
-
-  return texts.length > 0 ? texts.join('\n') : null
-}
 
 // ===== 辅助：判断 user 消息是否为真正的人类用户输入（非工具结果/子代理提示） =====
 
@@ -475,6 +463,7 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
   // 该 turn 是否被软中断（aborted_streaming / aborted_tools）
   // 用于在消息底部显示“已被用户中断”徽章，独立于会话级 stoppedByUser 标记
   const isInterruptedTurn = turn.turnMessages.some((m) => {
+    if (m.type === 'system' && (m as SDKSystemMessage).subtype === HOST_TURN_STOPPED_SUBTYPE) return true
     if (m.type !== 'result') return false
     const reason = (m as { terminal_reason?: string }).terminal_reason
     return reason === 'aborted_streaming' || reason === 'aborted_tools'
@@ -665,13 +654,23 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
     return isDispatchToScenario(previous, current) ? 'mt-3' : 'mt-7'
   }
 
+  const imageCalls = topLevelEnriched.map(({ block }) => block).filter((block): block is SDKToolUseBlock => block.type === 'tool_use' && (block as SDKToolUseBlock).name === 'mcp__asci-image__generate_image')
+  const firstAssistant = turn.assistantMessages[0]
+  const firstIndex = firstAssistant ? allMessages.findIndex(message => message === firstAssistant || !!firstAssistant.uuid && message.type === 'assistant' && (message as SDKAssistantMessage).uuid === firstAssistant.uuid) : -1
+  const imageRequest = firstIndex < 0 ? undefined : allMessages.slice(0, firstIndex).findLast(message => message.type === 'user' && isUserInputMessage(message as SDKUserMessage)) as SDKUserMessage | undefined
+
   let previousVisibleItem: typeof renderItems[number] | undefined
 
   return (
-    <Message from="assistant">
+    <Message from="assistant" className="conversation-assistant-turn">
+      <ConversationSymbol />
       <GeneratedImageReferenceProvider assistantMessages={turn.assistantMessages} allMessages={allMessages} sessionId={imageSessionId} basePath={basePath}>
       <MessageContent>
-        {presentation.records.length > 0 && (
+        {presentation.records.length > 0 && (imageCalls.length > 0 ? (
+          <ImageGenerationStatus calls={imageCalls} allMessages={allMessages} userMessage={imageRequest} streaming={isStreaming} stopped={showStoppedBadge}>
+            {presentation.records.map(({ block }, index) => <ContentBlock key={index} block={block} allMessages={allMessages} basePath={basePath} isStreaming={false} />)}
+          </ImageGenerationStatus>
+        ) : (
           <details className="mb-5 text-sm text-muted-foreground" data-agent-process="true">
             <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg py-2 focus-visible:outline focus-visible:outline-2">
               {isStreaming && <AIThinkingOrb state={webProcess ? 'searching' : 'working'} />}
@@ -687,7 +686,7 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
               ))}
             </div>
           </details>
-        )}
+        ))}
         {topLevelEnriched.filter(({ block }) => block.type === 'tool_use' && (block as SDKToolUseBlock).name === 'mcp__asci-image__generate_image').map(({ block }) => {
           const toolBlock = block as SDKToolUseBlock
           const result = findToolResultInMessages(toolBlock.id, allMessages)
@@ -857,9 +856,10 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
         const hasTime = turn.createdAt != null
         if (!hasDuration && !hasTime && !hasActions) return null
         return (
-          <MessageActions className="mt-3 min-h-8 flex-wrap justify-start gap-x-1 gap-y-1 opacity-100">
+          <MessageActions className="conversation-assistant-metadata mt-3 min-h-8 flex-wrap justify-start gap-x-1 gap-y-1 opacity-100">
             <div className="mr-2 flex items-center gap-2 text-xs text-muted-foreground">
             {hasDuration && <DurationBadge durationMs={durationMs!} usage={usage} />}
+            {hasDuration && hasTime && <span aria-hidden="true">·</span>}
             {hasTime && (
               <span className="text-xs tabular-nums">
                 {formatMessageTime(turn.createdAt!)}
@@ -1366,7 +1366,7 @@ export function SDKMessageRenderer({
   if (msgType === 'user') {
     const uMsg = message as SDKUserMessage
     if (isUserInputMessage(uMsg)) {
-      return <UserInputMessage message={uMsg} />
+      return <UserInputMessage message={uMsg} allMessages={allMessages} />
     }
     return null
   }
@@ -1386,153 +1386,6 @@ export function SDKMessageRenderer({
   }
 
   return null
-}
-
-// ===== 附件解析 =====
-
-/** 解析的附件引用 */
-export interface AttachedFileRef {
-  filename: string
-  path: string
-}
-
-/** 解析消息中的 <attached_files> 块，返回文件列表和剩余文本 */
-export function parseAttachedFiles(content: string): { files: AttachedFileRef[]; text: string } {
-  const regex = /<attached_files>\n?([\s\S]*?)\n?<\/attached_files>\n*/
-  const match = content.match(regex)
-  if (!match) return { files: [], text: content }
-
-  const files: AttachedFileRef[] = []
-  const lines = match[1]!.split('\n')
-  for (const line of lines) {
-    const lineMatch = line.match(/^-\s+(.+?):\s+(.+)$/)
-    if (lineMatch) {
-      files.push({ filename: lineMatch[1]!.trim(), path: lineMatch[2]!.trim() })
-    }
-  }
-
-  const text = content.replace(regex, '').trim()
-  return { files, text }
-}
-
-/** 判断文件是否为图片类型 */
-export function isImageFile(filename: string): boolean {
-  return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(filename)
-}
-
-/** 图片附件缩略图，点击可预览大图 */
-function AttachedImageThumb({ file }: { file: AttachedFileRef }): React.ReactElement {
-  const { t } = useT('common')
-  const [imageSrc, setImageSrc] = React.useState<string | null>(null)
-  const [lightboxOpen, setLightboxOpen] = React.useState(false)
-
-  React.useEffect(() => {
-    const ext = file.filename.split('.').pop()?.toLowerCase() ?? 'png'
-    const mimeMap: Record<string, string> = {
-      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-      gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp',
-    }
-    const mediaType = mimeMap[ext] ?? 'image/png'
-
-    window.electronAPI
-      .readAttachment(file.path)
-      .then((base64) => setImageSrc(`data:${mediaType};base64,${base64}`))
-      .catch((err) => console.error('[AttachedImageThumb] 读取附件失败:', err))
-  }, [file.path, file.filename])
-
-  const handleSave = React.useCallback((): void => {
-    window.electronAPI.saveImageAs(file.path, file.filename)
-  }, [file.path, file.filename])
-
-  if (!imageSrc) {
-    return <div className="w-[200px] h-[140px] rounded-lg bg-muted/30 animate-pulse shrink-0" />
-  }
-
-  return (
-    <div className="relative group inline-block">
-      <img
-        src={imageSrc}
-        alt={file.filename}
-        className="max-w-[300px] max-h-[200px] rounded-lg object-contain cursor-pointer"
-        onClick={() => setLightboxOpen(true)}
-      />
-      <Button
-        type="button"
-        variant="overlay"
-        size="icon-xs"
-        onClick={handleSave}
-        className="absolute bottom-2 right-2 h-auto w-auto p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-        title={t('image.save')}
-      >
-        <Download className="size-4" />
-      </Button>
-      <ImageLightbox
-        src={imageSrc}
-        alt={file.filename}
-        open={lightboxOpen}
-        onOpenChange={setLightboxOpen}
-        onSave={handleSave}
-      />
-    </div>
-  )
-}
-
-/** 文件附件芯片 */
-function AttachedFileChip({ file }: { file: AttachedFileRef }): React.ReactElement {
-  const isImg = isImageFile(file.filename)
-  const Icon = isImg ? FileImage : FileText
-
-  return (
-    <div className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-2.5 py-1 text-sm text-muted-foreground">
-      <Icon className="size-3.5 shrink-0" />
-      <span className="truncate max-w-[200px]">{file.filename}</span>
-    </div>
-  )
-}
-
-// ===== 用户输入消息渲染 =====
-
-function UserInputMessage({ message }: { message: SDKUserMessage }): React.ReactElement {
-  const rawText = extractUserText(message) ?? ''
-  const { files: attachedFiles, text } = parseAttachedFiles(rawText)
-  const imageFiles = attachedFiles.filter((f) => isImageFile(f.filename))
-  const nonImageFiles = attachedFiles.filter((f) => !isImageFile(f.filename))
-  const meta = extractMeta(message as unknown as SDKMessage)
-
-  return (
-    <Message from="user">
-      <MessageContent>
-        {message.imageEditReference && <SentImageReference reference={message.imageEditReference} />}
-        {/* 图片缩略图 */}
-        {imageFiles.length > 0 && (
-          <div className="flex flex-wrap gap-2.5 mb-2">
-            {imageFiles.map((file) => (
-              <AttachedImageThumb key={file.path} file={file} />
-            ))}
-          </div>
-        )}
-        {/* 非图片文件芯片 */}
-        {nonImageFiles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {nonImageFiles.map((file) => (
-              <AttachedFileChip key={file.path} file={file} />
-            ))}
-          </div>
-        )}
-        {text && <UserMessageContent>{text}</UserMessageContent>}
-      </MessageContent>
-      {text && (
-        <MessageActions className="mt-0.5 justify-end">
-          {meta.createdAt && (
-            <span className="text-xs tabular-nums">
-              {formatMessageTime(meta.createdAt)}
-            </span>
-          )}
-          <CopyButton content={text} />
-        </MessageActions>
-      )}
-    </Message>
-  )
 }
 
 // ===== 错误消息渲染 =====
@@ -1668,8 +1521,8 @@ export function MessageGroupRenderer({ group, allMessages, basePath, onFork, onR
 
   if (group.type === 'user') {
     return (
-      <div data-message-id={groupId} data-message-role="user">
-        <UserInputMessage message={group.message} />
+      <div data-message-id={groupId} data-message-role="user" tabIndex={-1}>
+        <UserInputMessage message={group.message} allMessages={allMessages} />
       </div>
     )
   }
@@ -1683,7 +1536,7 @@ export function MessageGroupRenderer({ group, allMessages, basePath, onFork, onR
 
   // assistant-turn
   return (
-    <div data-message-id={groupId}>
+    <div data-message-id={groupId} data-message-role="assistant" tabIndex={-1}>
       <AssistantTurnRenderer
         turn={group}
         compactProcess={compactProcess}

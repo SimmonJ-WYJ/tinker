@@ -1,0 +1,70 @@
+# Tinker 消息流与图片引用验证
+
+本报告对应 `feat/message-reference-flow`，设计源为 [Figma Conversation surface 115:604](https://www.figma.com/design/qNZ4GSgKdkHK51a5x79VF8/Tinker?node-id=115-604)。旧节点 106:178 已删除，未据其宣称像素验收。
+
+## 本次交付与提交关系
+
+- 基线 main：`fbde681afe228e408c73e5e6125fd72c658f1f2c`。
+- Google 授权打包修复：`77d5f36`、`3cfc286`，原提交完整保留；没有真实客户端配置、令牌或用户资料进入仓库。
+- 引用 UI：`865b59ca50e4fb3acd0f219a43d04f88d4e00b06`。上传图在气泡外，历史引用卡在气泡内；预览、精确来源定位、高亮、按栈返回、旧数据和失败降级；生图状态及输入框层级同步。
+- 图片自然续作修复：`c4cbab62a85d99a0b4b2fa9db0cbaab694b21d23`；通过 `f946135` 无冲突整合。原授权打包与引用 UI 不被覆盖。该修复的详细独立证据见 [生图续作报告](2026-11-08-image-context-validation.md)。
+- 版本遵守仓库自动 patch 规则：Electron 0.1.612、shared 0.1.143、根 0.1.41。没有制作、安装或替换新的安装包，也没有合并 main。
+
+## 最终组合分支检查
+
+| 检查 | 结果 |
+| --- | --- |
+| `bun run typecheck` | 6 个 workspace 全部退出 0 |
+| `bun test` | **3361 pass、4 skip、0 fail**；3365 tests / 378 files / 8795 assertions |
+| `bun run lint` | 全仓退出 0 |
+| `bun run electron:build` | main、preload、renderer、resources 全部退出 0 |
+| 引用定向 8 文件 | 37 pass、0 fail；127 assertions |
+| `git diff --check` | 通过 |
+| 独立只读复审 | 软/硬停止和即时停止问题修复后，无剩余阻塞；整合复核通过 |
+
+最初一次受限沙箱全测中，本地回调/桥接监听被禁止，另有两项旧图片 fallback 测试暴露可见错误提示回归。已恢复明确可见的双语错误提示，并在允许本机 loopback 的环境重新完成上表最终全测。没有修改产品代码来绕过端口限制。
+
+## 真实浏览器验收
+
+使用实际 `AgentView`、`AgentMessages`、SDK renderer、模型/推理菜单、图片查看器与消息输入框。仅 IPC 桥接被合成实现替代，数据与图片均为临时生成的测试数据；不是一张截图伪装的产品页面。
+
+- 真实滚动定位并高亮来源；重复点击不增加返回层。高亮 1800ms 后解除，返回入口仍可用。
+- 两个不同来源连续跳转后逐层恢复点击时的阅读锚点、相对位置和焦点；返回使用原滚动容器，不依赖页面滚动。
+- 引用缩略图和上传图分别打开完整预览；Escape/关闭回到触发按钮。
+- 缺失来源禁用跳转；图片读取失败与解码失败保留卡片/上传位置；引用卡显示可见错误提示，缩略图保留重试入口。
+- 旧引用在重开后通过精确图片 ID+路径恢复真实前序 UUID；纯上传没有引用卡；来源只在未来出现时仍不可定位（实际 renderer 与共享 helper 均有回归测试）。
+- 生图过程可折叠；多调用全部成功、部分失败、无结果、停止与失败不会互相冒充。Stop 调用现有 API，并即时切换状态。
+- 模型与推理菜单可打开并实际选择；沿用现有状态，不新增第二套模型配置。
+- 英文/中文、浅色/深色、1440 / 768 / 390px、减少动态效果通过。无横向页面溢出，浏览器运行错误为 0。
+- `appendSDKMessages` 实际写入 JSONL，经第二个独立进程重开仍绑定原来源；历史前缀、普通上传和其他字段不变。
+- 硬停止新增独立宿主 system 终止事实，不伪造 SDK result。重复停止不重复追加，下一轮清空会话标记不清掉旧回合事实。
+
+临时 `reference-qa.html/.jsx` 已从产品源码目录删除，不进入生产构建或 Git 提交。QA 脚本、合成图片、日志与浏览器 profile 留在本机 `/tmp/tinker-reference-browser`。以下证据只包含合成内容，无用户真实会话或照片。
+
+| Figma 几何目标 | 浏览器实测 |
+| --- | --- |
+| 内容/输入框宽 832 | 832px（列含左右留白为 880px） |
+| 用户引用气泡宽 480 | 480px |
+| 引用卡 448×72 | 448×72px |
+| 引用缩略图 72×48 | 72×48px |
+| 上传预览 112×148 | 112×148px |
+| 输入框高 125 | 125px |
+| 模型/推理按钮最小宽 90 / 108 | 90 / 108px |
+| 正文颜色 #252B30 | rgb(37, 43, 48) |
+
+[浅色英文截图](assets/message-reference-20261108/light-en.png) · [深色中文截图](assets/message-reference-20261108/dark-zh.png) · [390px 窄窗截图](assets/message-reference-20261108/narrow-390.png)
+
+## 验收边界
+
+- 未调用付费生图或真实模型做端到端验证；生图续作 handler 使用假网络，详见其独立报告。
+- 未重新登录真实 Google 账号；保留此前已验证的打包修复，不携带真实 OAuth 配置。
+- 浏览器验收覆盖真实组件和合成 IPC；本轮没有运行新的安装版 Electron，也未验证本机签名/公证或分发升级。
+- 用户照片是动态数据，不硬编码进产品；桌面关键几何按 Figma 实测，字体栅格化、内容长度和操作系统差异仍会影响整页像素。
+- 没有终止事实的旧硬停止历史无法追溯证明“停止”；显示未完成，不推测成成功或停止。
+- 远端推送与 CI 状态须以交付时实际远端结果为准，本地通过不等于 GitHub CI 已通过。
+
+## 远端核对
+
+已成功推送到授权的私有 `SimmonJ-WYJ/tinker`，分支 `feat/message-reference-flow`；远端 main 仍为 `fbde681`。推送钩子再次完成 typecheck 与 **3361 pass / 4 skip / 0 fail** 全测。
+
+GitHub 对已推送的 `13c3d51` 返回：0 check runs、0 commit statuses、0 Actions runs；源码中也没有 `.github/workflows`。combined status 的默认 `pending` 不代表存在正在运行的任务。本轮不擅自新增 CI 配置，不把本地通过说成 GitHub CI 通过。最终分支 SHA 与对应状态在交付时再次核对。
