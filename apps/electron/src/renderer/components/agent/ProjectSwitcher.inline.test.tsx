@@ -2,9 +2,10 @@
 import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
-import { agentWorkspacesAtom, currentAgentWorkspaceIdAtom } from '@/atoms/agent-atoms'
+import { agentWorkspacesAtom, currentAgentWorkspaceIdAtom, currentAgentSessionIdAtom } from '@/atoms/agent-atoms'
 import { setAppLanguage } from '@/lib/i18n'
 import type { AgentWorkspace } from '@asci/shared'
+import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { ProjectSwitcher } from './ProjectSwitcher'
 const workspace = (id: string, name: string): AgentWorkspace => ({ id, name, slug: id, createdAt: 1, updatedAt: 1 })
 const updateSettings = mock(async () => undefined)
@@ -62,4 +63,27 @@ test('输入框项目选择回调独立于导航，不直接切换当前项目',
  fireEvent.click(await screen.findByRole('button', { name: 'New workspace' }))
  expect(choose).toHaveBeenCalledWith(expect.objectContaining({ id: 'second' }))
  expect(store.get(currentAgentWorkspaceIdAtom)).toBe('first')
+})
+
+
+test('项目行加号创建该项目草稿，连续点击只发起一次创建', async () => {
+  const store = mount()
+  const session = { id: 'project-draft', workspaceId: 'second', title: 'New session', createdAt: 1, updatedAt: 1 }
+  let finish: ((value: typeof session) => void) | undefined
+  const createSession = mock(() => new Promise<typeof session>(resolve => { finish = resolve }))
+  window.electronAPI.createAgentSession = createSession
+  const row = screen.getByRole('button', { name: 'My actual project' }).closest('.home-projects__row')
+  const add = row?.querySelector<HTMLButtonElement>('.home-projects__create')
+  expect(add).toBeTruthy()
+  fireEvent.click(add!)
+  fireEvent.click(add!)
+  expect(createSession).toHaveBeenCalledTimes(1)
+  expect(createSession).toHaveBeenCalledWith(undefined, undefined, 'second')
+  expect(screen.getByRole('button', { name: 'Expand My actual project' })).toHaveAttribute('aria-expanded', 'false')
+  expect(add).toBeDisabled()
+  finish!(session)
+  await waitFor(() => expect(store.get(currentAgentSessionIdAtom)).toBe('project-draft'))
+  expect(store.get(currentAgentWorkspaceIdAtom)).toBe('second')
+  expect(store.get(draftSessionIdsAtom).has('project-draft')).toBe(true)
+  await waitFor(() => expect(add).not.toBeDisabled())
 })

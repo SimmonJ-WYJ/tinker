@@ -69,6 +69,7 @@ export function AgentSessionItem({
   const displayTitle = useDisplaySessionTitle()
   const formatRelativeTime = useFormatRelativeTime()
   const [editing, setEditing] = React.useState(false)
+  const [focused, setFocused] = React.useState(false)
   const [editTitle, setEditTitle] = React.useState('')
   const inputRef = React.useRef<HTMLInputElement>(null)
   const justStartedEditing = React.useRef(false)
@@ -98,6 +99,8 @@ export function AgentSessionItem({
   const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      // 显式确认不受双击后防止误触 blur 的短暂保护影响。
+      justStartedEditing.current = false
       saveTitle()
     } else if (e.key === 'Escape') {
       setEditing(false)
@@ -109,7 +112,7 @@ export function AgentSessionItem({
     [session.updatedAt, formatRelativeTime],
   )
 
-  const showActions = hovered && !editing
+  const showActions = (hovered || focused) && !editing
   const comfortableActions = actionSpacing === 'comfortable'
   const actionButtonClassName = cn(
     'h-auto text-foreground/30 hover:bg-foreground/[0.08] hover:text-foreground/60 [&_svg]:size-[13px]',
@@ -121,6 +124,17 @@ export function AgentSessionItem({
       role="button"
       tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect()
+        }
+      }}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false)
+      }}
       onDoubleClick={(e) => {
         e.stopPropagation()
         startEdit()
@@ -195,6 +209,7 @@ export function AgentSessionItem({
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
+                  aria-label={t('sessionItem.rename')}
                   onClick={(e) => { e.stopPropagation(); startEdit() }}
                   className={actionButtonClassName}
                 >
@@ -207,6 +222,7 @@ export function AgentSessionItem({
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
+                  aria-label={t(session.archived ? 'sessionItem.unarchive' : 'sessionItem.archive')}
                   onClick={(e) => { e.stopPropagation(); onToggleArchive(session.id) }}
                   className={actionButtonClassName}
                 >
@@ -219,6 +235,7 @@ export function AgentSessionItem({
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
+                  aria-label={t('sessionItem.deleteSession')}
                   onClick={(e) => { e.stopPropagation(); onRequestDelete() }}
                   className={cn(
                     'h-auto text-foreground/30 hover:bg-destructive/10 hover:text-destructive [&_svg]:size-[13px]',

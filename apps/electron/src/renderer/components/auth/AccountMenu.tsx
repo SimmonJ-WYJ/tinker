@@ -1,3 +1,4 @@
+import { SidebarGlyph } from '../app-shell/SidebarGlyph'
 // apps/electron/src/renderer/components/auth/AccountMenu.tsx
 /**
  * AccountMenu — 侧边栏底部账户菜单触发器 + 弹出卡片，spec §九
@@ -92,6 +93,7 @@ export function AccountMenu(): React.ReactElement | null {
             </div>
             {/* 用户名 */}
             <span className="flex-1 text-sm truncate text-left">{displayName}</span>
+            <span className="sidebar-account-chevron"><SidebarGlyph name="chevron" /></span>
           </button>
         </PopoverTrigger>
 

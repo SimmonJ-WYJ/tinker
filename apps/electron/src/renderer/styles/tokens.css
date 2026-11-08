@@ -13,6 +13,14 @@
     --workspace-selected: 210 9% 87%;
     --workspace-composer: 0 0% 100%;
     --workspace-halo: 210 8% 95%;
+    /* 用户手调侧栏：Figma 115:645，作用域限定于导航。 */
+    --workspace-sidebar-surface: 220.00000 8.57143% 93.13725%;
+    --workspace-sidebar-ink: 188.57143 8.86076% 15.49020%;
+    --workspace-sidebar-muted: 0 0% 42%;
+    --workspace-sidebar-selected-ink: 240 5.26316% 7.45098%;
+    --workspace-sidebar-hover: 0 0% 89%;
+    --workspace-sidebar-selected: 240.00000 4.61538% 87.25490%;
+    --workspace-sidebar-avatar: 206.25000 7.40741% 57.64706%;
 
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
@@ -94,6 +102,13 @@
     --workspace-selected: 210 8% 23%;
     --workspace-composer: 210 8% 16%;
     --workspace-halo: 210 8% 14%;
+    --workspace-sidebar-surface: 210 10% 9%;
+    --workspace-sidebar-ink: 200 10% 90%;
+    --workspace-sidebar-muted: 212.00000 8.47458% 65.29412%;
+    --workspace-sidebar-selected-ink: 200 10% 90%;
+    --workspace-sidebar-hover: 210 8% 19%;
+    --workspace-sidebar-selected: 210 8% 23%;
+    --workspace-sidebar-avatar: 202.85714 9.58904% 42.94118%;
 
     --background: 0 0% 7%;                /* 统一背景色 zinc-900 */
     --foreground: 0 0% 98%;
@@ -180,9 +195,27 @@ button.settings-channel-switch[data-state='checked'] > span { background-color: 
 /* 工作台几何值只有一个入口；组件和设计指南引用同名变量。 */
 :root {
   --workspace-sidebar-width: 256px;
-  --workspace-toolbar-height: 52px;
+  --workspace-sidebar-avatar-ink: 0 0% 100%;
+  --workspace-toolbar-height: 56px;
   --workspace-content-width: 680px;
   --workspace-panel-radius: 24px;
   --workspace-composer-radius: 20px;
   --workspace-font-caption: 12px;
+  --workspace-sidebar-gutter: 12px;
+  --workspace-sidebar-row-inset: 6px;
+  --workspace-sidebar-icon: 14px;
+  --workspace-sidebar-icon-gap: 6px;
+  --workspace-sidebar-nav-height: 36px;
+  --workspace-sidebar-row-height: 30px;
+  --workspace-sidebar-section-gap: 12px;
+  --workspace-sidebar-heading-gap: 6px;
+  --workspace-sidebar-recent-gap: 3px;
+  --workspace-sidebar-row-radius: 6px;
+  --workspace-sidebar-project-radius: 8px;
+  --workspace-sidebar-font: 14px;
+  --workspace-sidebar-line-height: 22px;
+  --workspace-sidebar-label-line-height: 18px;
+  --workspace-sidebar-account-height: 40px;
+  --workspace-sidebar-avatar-size: 32px;
+  --workspace-sidebar-account-bottom: 20px;
 }

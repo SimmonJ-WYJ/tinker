@@ -472,7 +472,7 @@ DIVIDER_CLASS               = 'border-border/50'
 | Token/元素 | 目标值 | 实现规则 |
 | --- | --- | --- |
 | `--workspace-sidebar-width` | 256px | 顶栏控制区、侧栏和抽屉共享，禁止再写独立 inline 248/280px |
-| `--workspace-toolbar-height` | 52px | 窗口按钮 28px，图标 16px，间距 4px |
+| `--workspace-toolbar-height` | 56px | 窗口按钮 28px，图标 16px，间距 4px |
 | `--workspace-panel-radius` | 24px | 主内容面板专用，右/底外距 8px |
 | `--workspace-content-width` | 680px | 首页和会话输入表面的共同最大宽度 |
 | `--workspace-composer-radius` | 20px | 输入表面专用，首页外圈加 10px，外半径 30px |
@@ -481,17 +481,52 @@ DIVIDER_CLASS               = 'border-border/50'
 
 macOS 非全屏为系统红绿灯保留 108px 起点，全屏/其他平台恢复 16px。侧栏收起宽度为 0，顶部展开按钮仍可用。右侧面板比例、Splitter 和恢复行为沿用现有原子状态，不因视觉调整改变。
 
-### 10.4 侧栏的文字与对齐
+### 10.4 侧栏的文字、几何与交互（Figma 115:599，2026-11-08）
 
-| 元素 | 字号/行高 | 行高与间距 |
+本节以用户调整的 [会话画板 115:599](https://www.figma.com/design/qNZ4GSgKdkHK51a5x79VF8/Tinker?node-id=115-599) 的侧栏 115:645 为本次视觉依据。[Figma Design Guide 119:187](https://www.figma.com/design/qNZ4GSgKdkHK51a5x79VF8/Tinker?node-id=119-187) 包含可编辑的浅/深色标本、尺寸与状态说明。原画板保留。CSS 数值继续以 tokens.css 为实现真相源。
+
+| 元素 | 字号 / 行高 | 几何与间距 |
 | --- | --- | --- |
-| 一级导航 | 14/20px | 36px 点击行，2px 行间距 |
-| 项目名称 | 14/20px | 34px 点击行 |
-| 项目子会话、Recent | 13/20px | 32px 点击行，2px 行间距 |
-| 分组标题 | 12/20px | 28px 分组行 |
-| 底部账号 | 14/20px | 44px 点击行，头像 30px |
+| 一级导航 | 14 / 22px，Medium | 36px 高，2px 行间距 |
+| 项目名称 | 14 / 22px，Medium | 30px 高，2px 行间距，8px 圆角 |
+| 项目子会话、Recent | 14 / 22px，Regular | 30px 高，Recent 间距 3px，6px 圆角 |
+| 分组标题 | 12 / 18px，Medium | 标题与列表相隔 6px，组间 12px |
+| 底部账号 | 14 / 22px，Medium | 224 × 40px，左侧 16px，底部 20px，头像 32px |
 
-一级图标左边界 24px、宽 18px、图标与文字间距 10px，文字基线为 52px。项目子会话从同一文字基线起排。Recent 无图标时从 24px 起排。选中使用单一弱底色，不叠加阴影；项目中当前会话已高亮时，不在 Recent 再绘制第二块底色。长名称截断，焦点时操作仍可达。
+- 侧栏宽 256px，内容列宽 232px，左右边距各 12px。列表行左右内距 6px。
+- 图标盒 14px，图文间距 6px。带图标文字的窗口横坐标为 38px，Recent 为 18px，账号为 60px。源 SVG 固有尺寸保持不变，小加号在图标盒内居中。
+- 工具栏高 56px，导航从 y = 56px 开始。macOS 窗口态继续保留 108px 红绿灯安全区，不能用绘图坐标覆盖系统控件。
+- 项目文件夹保留独立的展开/收起。右侧「＋」在 hover 或键盘聚焦时可见，复用现有会话创建入口，显式传入该项目 ID 并打开新草稿。等待期间拦截重复点击。
+- Recent 默认只显示标题。聚焦行时显露重命名、归档和删除，Enter / Space 打开会话。内部编辑框和按钮不再次触发行导航。
+- 选中仅使用单一弱底色。项目内当前会话已高亮时，Recent 不重复绘制底色。长名称单行省略，焦点环和右侧操作保持可达。
+- 使用本次 Figma 导出的本地 SVG，不保留临时资源 URL。返回图形在外层镜像还原方向，前进禁用态由真实历史状态决定。暗色反色保留复合图形的明暗差异。
+
+侧栏专用色阶限定在导航作用域，不覆盖聊天正文：
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| --workspace-sidebar-surface | #ECEDEF | #151719 |
+| --workspace-sidebar-ink | #242A2B | #E3E6E8 |
+| --workspace-sidebar-muted | #6B6B6B | #9FA6AE |
+| --workspace-sidebar-hover | #E3E3E3 | #2D3034 |
+| --workspace-sidebar-selected | #DDDDE0 | #363B3F |
+| --workspace-sidebar-selected-ink | #121214 | #E3E6E8 |
+| --workspace-sidebar-avatar | #8B949B | #637078 |
+| --workspace-sidebar-avatar-ink | #FFFFFF | #FFFFFF |
+
+几何 token 属于 workspace-sidebar 命名空间，单位 px：
+
+| 后缀 | 值 | 后缀 | 值 |
+| --- | --- | --- | --- |
+| --workspace-sidebar-gutter | 12 | --workspace-sidebar-row-inset | 6 |
+| --workspace-sidebar-icon | 14 | --workspace-sidebar-icon-gap | 6 |
+| --workspace-sidebar-nav-height | 36 | --workspace-sidebar-row-height | 30 |
+| --workspace-sidebar-section-gap | 12 | --workspace-sidebar-heading-gap | 6 |
+| --workspace-sidebar-recent-gap | 3 | --workspace-sidebar-row-radius | 6 |
+| --workspace-sidebar-project-radius | 8 | --workspace-sidebar-font | 14 |
+| --workspace-sidebar-line-height | 22 | --workspace-sidebar-label-line-height | 18 |
+| --workspace-sidebar-account-height | 40 | --workspace-sidebar-avatar-size | 32 |
+| --workspace-sidebar-account-bottom | 20 | --workspace-sidebar-width | 256 |
 
 ### 10.5 首页与输入框
 

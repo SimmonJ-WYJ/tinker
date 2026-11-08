@@ -1,3 +1,4 @@
+import { SidebarGlyph } from './SidebarGlyph'
 /**
  * LeftSidebar - 左侧导航栏
  *
@@ -15,7 +16,7 @@ import { useAtom, useSetAtom, useAtomValue } from 'jotai'
 import { toast } from 'sonner'
 import {
   Plus,
-  PanelLeftOpen, Search, SquarePen,
+  PanelLeftOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -467,10 +468,10 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
     <div className="home-sidebar relative h-full flex flex-col transition-[width] duration-300"
       style={{ width: width ?? 'var(--workspace-sidebar-width)', flexShrink: 0 }}>
       <div className="home-sidebar__menu">
-        <SidebarMenuItem icon={<SquarePen size={18} strokeWidth={1.5} />} label={t('sidebar.newTask')}
+        <SidebarMenuItem icon={<SidebarGlyph name="plus" />} label={t('sidebar.newTask')}
           active={activeView === 'conversations' && !!activeTabId && draftSessionIds.has(activeTabId)}
           onClick={handleNewAgentSession} spotlightTarget="new-task" conceptSpotlightTarget="new-task-nav" />
-        <SidebarMenuItem icon={<Search size={18} strokeWidth={1.5} />} label={t('sidebar.search')} onClick={() => setSearchDialogOpen(true)} />
+        <SidebarMenuItem icon={<SidebarGlyph name="search" />} label={t('sidebar.search')} onClick={() => setSearchDialogOpen(true)} />
 
       </div>
       <ProjectSwitcher variant="list" />
@@ -491,6 +492,7 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
       {LOGIN_ENABLED ? <div className="home-sidebar__account"><AccountMenu /></div> : (
         <div className="home-sidebar__account"><Button variant="ghost" className="sidebar-account-trigger" onClick={() => setSettingsOpen(true)}>
           <UserAvatar avatar={userProfile.avatar} size={36} /><span className="flex-1 truncate text-left">{displayUserName}</span>
+          <span className="sidebar-account-chevron"><SidebarGlyph name="chevron" /></span>
         </Button></div>
       )}
       {deleteDialog}<SearchDialog />
