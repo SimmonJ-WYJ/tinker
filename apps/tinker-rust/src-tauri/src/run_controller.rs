@@ -1,0 +1,316 @@
+//! 单活动离线执行的线程控制；事件提交后才更新可见状态，终态拒绝晚到片段。
+use crate::{
+    run_provider::{OfflineFixture, RunProvider},
+    run_store::{RunStore, StoredRun},
+    run_types::*,
+    session_lifecycle::RunStatus,
+};
+use std::{
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, Weak,
+    },
+    thread::{self, JoinHandle},
+};
+#[derive(Debug)]
+struct Inner {
+    store: RunStore,
+    current: Option<StoredRun>,
+    token: Option<Arc<AtomicBool>>,
+    blocked: bool,
+}
+#[derive(Debug)]
+pub struct RunController {
+    inner: Arc<Mutex<Inner>>,
+    worker: Mutex<Option<JoinHandle<()>>>,
+}
+impl RunController {
+    pub fn open(root: impl AsRef<Path>) -> Result<Self, RunError> {
+        let store = RunStore::open(root)?;
+        let mut current = None;
+        for id in store.ids()? {
+            let mut run = store.load(&id)?;
+            if !is_terminal(run.snapshot.status) {
+                store.append(
+                    &mut run,
+                    RunRecordKind::Interrupted,
+                    None,
+                    Some("processInterrupted".into()),
+                )?;
+            }
+            current = Some(run);
+        }
+        Ok(Self {
+            inner: Arc::new(Mutex::new(Inner {
+                store,
+                current,
+                token: None,
+                blocked: false,
+            })),
+            worker: Mutex::new(None),
+        })
+    }
+    pub fn start(
+        &self,
+        request_id: String,
+        input: String,
+        scenario: OfflineScenario,
+    ) -> Result<RunSnapshot, RunError> {
+        validate_id(&request_id)?;
+        if input.trim().is_empty() {
+            return Err(RunError::EmptyInput);
+        }
+        if input.len() > MAX_INPUT_BYTES {
+            return Err(RunError::InputTooLarge);
+        }
+        let mut handle = self.worker.lock().map_err(|_| RunError::StoreIo)?;
+        {
+            let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+            let is_current = inner
+                .current
+                .as_ref()
+                .is_some_and(|run| run.snapshot.run_id == request_id);
+            let previous = if is_current {
+                inner.current.clone()
+            } else {
+                match inner.store.load(&request_id) {
+                    Ok(run) => Some(run),
+                    Err(RunError::RunNotFound) => None,
+                    Err(error) => return Err(error),
+                }
+            };
+            if let Some(run) = previous {
+                if !is_current && !is_terminal(run.snapshot.status) {
+                    inner.blocked = true;
+                    return Err(RunError::RecoveryRequired);
+                }
+                return if run.snapshot.input == input && run.snapshot.scenario == scenario {
+                    Ok(run.snapshot)
+                } else {
+                    Err(RunError::RequestConflict)
+                };
+            }
+            if inner.blocked {
+                return Err(RunError::RecoveryRequired);
+            }
+            if inner
+                .current
+                .as_ref()
+                .is_some_and(|run| !is_terminal(run.snapshot.status))
+            {
+                return Err(RunError::RunBusy);
+            }
+        }
+        // 旧线程的令牌已取消或它已进入终态，释放状态锁后回收，避免与回调互等。
+        if let Some(previous) = handle.take() {
+            previous.join().map_err(|_| RunError::StoreIo)?;
+        }
+        let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        let mut run = match inner.store.create(&request_id, input.clone(), scenario) {
+            Ok(run) => run,
+            Err(error) => {
+                // 写入或同步失败可能留下已存在但未确认的元数据，须重启恢复后再执行。
+                inner.blocked = true;
+                if let Ok(mut run) = inner.store.load(&request_id) {
+                    mark_storage_failure(&mut run, error);
+                    inner.current = Some(run);
+                }
+                return Err(error);
+            }
+        };
+        if let Err(error) = inner
+            .store
+            .append(&mut run, RunRecordKind::Started, None, None)
+        {
+            mark_storage_failure(&mut run, error);
+            inner.current = Some(run);
+            inner.blocked = true;
+            return Err(error);
+        }
+        let snapshot = run.snapshot.clone();
+        let token = Arc::new(AtomicBool::new(false));
+        inner.current = Some(run);
+        inner.token = Some(token.clone());
+        drop(inner);
+        let weak = Arc::downgrade(&self.inner);
+        let worker_id = request_id;
+        let spawned = thread::Builder::new()
+            .name("rust-offline-fixture".into())
+            .spawn(move || execute(weak, worker_id, input, scenario, token));
+        match spawned {
+            Ok(worker) => {
+                *handle = Some(worker);
+                Ok(snapshot)
+            }
+            Err(_) => {
+                let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+                finish(&mut inner, &snapshot.run_id, Err(RunError::StoreIo));
+                Err(RunError::StoreIo)
+            }
+        }
+    }
+    pub fn cancel(&self, run_id: &str) -> Result<RunSnapshot, RunError> {
+        validate_id(run_id)?;
+        let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        if inner
+            .current
+            .as_ref()
+            .is_some_and(|run| run.snapshot.run_id == run_id)
+        {
+            if inner
+                .current
+                .as_ref()
+                .is_some_and(|run| is_terminal(run.snapshot.status))
+            {
+                return Ok(inner.current.as_ref().unwrap().snapshot.clone());
+            }
+            if let Some(token) = &inner.token {
+                token.store(true, Ordering::Release);
+            }
+            let Inner {
+                store,
+                current,
+                blocked,
+                ..
+            } = &mut *inner;
+            let run = current.as_mut().ok_or(RunError::RunNotFound)?;
+            if let Err(error) = store.append(run, RunRecordKind::Cancelled, None, None) {
+                mark_storage_failure(run, error);
+                *blocked = true;
+                return Err(error);
+            }
+            return Ok(run.snapshot.clone());
+        }
+        let run = inner.store.load(run_id)?;
+        if is_terminal(run.snapshot.status) {
+            Ok(run.snapshot)
+        } else {
+            Err(RunError::RecoveryRequired)
+        }
+    }
+    pub fn read(
+        &self,
+        run_id: Option<&str>,
+        after_sequence: u64,
+        limit: usize,
+    ) -> Result<RunEventPage, RunError> {
+        if limit == 0 || limit > 256 {
+            return Err(RunError::InvalidLimit);
+        }
+        let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        let id = run_id
+            .or_else(|| {
+                inner
+                    .current
+                    .as_ref()
+                    .map(|run| run.snapshot.run_id.as_str())
+            })
+            .ok_or(RunError::RunNotFound)?;
+        validate_id(id)?;
+        let run = if inner
+            .current
+            .as_ref()
+            .is_some_and(|run| run.snapshot.run_id == id)
+        {
+            inner.current.clone().ok_or(RunError::RunNotFound)?
+        } else {
+            inner.store.load(id)?
+        };
+        if after_sequence > run.snapshot.sequence {
+            return Err(RunError::InvalidCursor);
+        }
+        let events: Vec<_> = run
+            .events
+            .into_iter()
+            .filter(|event| event.sequence > after_sequence)
+            .take(limit)
+            .collect();
+        let next_after_sequence = events.last().map_or(after_sequence, |event| event.sequence);
+        Ok(RunEventPage {
+            protocol_version: PROTOCOL_VERSION,
+            has_more: next_after_sequence < run.snapshot.sequence,
+            snapshot: run.snapshot,
+            events,
+            next_after_sequence,
+        })
+    }
+}
+impl Drop for RunController {
+    fn drop(&mut self) {
+        if let Ok(inner) = self.inner.lock() {
+            if let Some(token) = &inner.token {
+                token.store(true, Ordering::Release);
+            }
+        }
+        if let Ok(mut worker) = self.worker.lock() {
+            if let Some(worker) = worker.take() {
+                let _ = worker.join();
+            }
+        }
+    }
+}
+fn execute(
+    inner: Weak<Mutex<Inner>>,
+    id: String,
+    input: String,
+    scenario: OfflineScenario,
+    token: Arc<AtomicBool>,
+) {
+    let result = OfflineFixture.execute(&input, scenario, &token, &mut |text| {
+        let state = inner.upgrade().ok_or(RunError::RecoveryRequired)?;
+        let mut state = state.lock().map_err(|_| RunError::StoreIo)?;
+        if token.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        let Inner {
+            store,
+            current,
+            blocked,
+            ..
+        } = &mut *state;
+        let run = current.as_mut().ok_or(RunError::RunNotFound)?;
+        if run.snapshot.run_id != id || is_terminal(run.snapshot.status) {
+            return Ok(());
+        }
+        match store.append(run, RunRecordKind::Delta, Some(text.into()), None) {
+            Ok(()) => Ok(()),
+            Err(RunError::RunLimitExceeded) => Err(RunError::RunLimitExceeded),
+            Err(error) => {
+                mark_storage_failure(run, error);
+                *blocked = true;
+                token.store(true, Ordering::Release);
+                Err(error)
+            }
+        }
+    });
+    if token.load(Ordering::Acquire) {
+        return;
+    }
+    if let Some(inner) = inner.upgrade() {
+        if let Ok(mut inner) = inner.lock() {
+            finish(&mut inner, &id, result);
+        }
+    }
+}
+fn finish(inner: &mut Inner, id: &str, result: Result<(), RunError>) {
+    let Some(run) = inner.current.as_mut() else {
+        return;
+    };
+    if run.snapshot.run_id != id || is_terminal(run.snapshot.status) {
+        return;
+    }
+    let (kind, error_code) = match result {
+        Ok(()) => (RunRecordKind::Completed, None),
+        Err(error) => (RunRecordKind::Failed, Some(error.code().into())),
+    };
+    if let Err(error) = inner.store.append(run, kind, None, error_code) {
+        mark_storage_failure(run, error);
+        inner.blocked = true;
+    }
+}
+fn mark_storage_failure(run: &mut StoredRun, error: RunError) {
+    run.snapshot.status = RunStatus::Failed;
+    run.snapshot.error_code = Some(error.code().into());
+    run.snapshot.recovery_required = true;
+}

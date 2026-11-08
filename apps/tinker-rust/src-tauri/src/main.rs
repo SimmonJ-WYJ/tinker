@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod run_commands;
 use std::sync::Mutex;
 use tauri::Manager;
 use tinker_rust_foundation::{
@@ -51,6 +52,12 @@ fn main() {
                 .map(|path| HistoryState::new(path.join(HISTORY_DIRECTORY)))
                 .unwrap_or_else(|_| HistoryState::unavailable());
             app.manage(history);
+            let runs = app
+                .path()
+                .app_local_data_dir()
+                .map(run_commands::RunHostState::new)
+                .unwrap_or_else(|_| run_commands::RunHostState::unavailable());
+            app.manage(runs);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -58,7 +65,10 @@ fn main() {
             save_draft,
             submit_draft,
             recover_draft,
-            history_commands::read_session_history
+            history_commands::read_session_history,
+            run_commands::start_lab_run,
+            run_commands::cancel_lab_run,
+            run_commands::read_lab_run
         ])
         .run(tauri::generate_context!())
         .expect("Tinker Rust 启动失败");
