@@ -215,6 +215,8 @@ export interface SDKAssistantMessage {
 /** 用户编辑时选中的确定版本；独立于 prompt 保存，供历史消息显示原图。 */
 export interface UserImageEditReference {
   imageId: string
+  /** 宿主根据确定图片产物验证的来源 SDK UUID；旧消息可缺省。 */
+  sourceMessageId?: string
   /** 经宿主校验的会话相对附件路径 */
   localPath: string
   filename: string

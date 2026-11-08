@@ -1,0 +1,38 @@
+import * as React from 'react'
+import type { SDKMessage, SDKToolUseBlock, SDKUserMessage } from '@asci/shared'
+import { useT } from '@/hooks/useT'
+import chevron from '@/assets/conversation/chevron-down.svg'
+import { findToolResultInMessages } from './tool-result-lookup'
+import { parseImageVersion } from './image-versions'
+import { extractUserText, isImageFile, parseAttachedFiles } from './message-attachments'
+
+interface Props {
+  calls: SDKToolUseBlock[]
+  allMessages: SDKMessage[]
+  userMessage?: SDKUserMessage
+  streaming?: boolean
+  stopped?: boolean
+  children: React.ReactNode
+}
+
+/** 状态仅依据真实生图工具调用及结果，不展示推理进度或虚构百分比。 */
+export function ImageGenerationStatus({ calls, allMessages, userMessage, streaming, stopped, children }: Props): React.ReactElement {
+  const { t } = useT('common')
+  const results = calls.map(call => findToolResultInMessages(call.id, allMessages))
+  const pending = results.some(result => !result)
+  const successes = results.filter(result => result && !result.isError && parseImageVersion(result.result)).length
+  const state = pending ? (streaming ? 'generating' : stopped ? 'stopped' : 'incomplete')
+    : successes === calls.length ? 'generated' : successes > 0 ? 'partial' : 'failed'
+  const quote = !!userMessage?.imageEditReference
+  const upload = userMessage ? parseAttachedFiles(extractUserText(userMessage) ?? '').files.some(file => isImageFile(file.filename)) : false
+  const description = state === 'generating'
+    ? quote && upload ? 'combine' : quote ? 'quoteOnly' : upload ? 'uploadOnly' : 'create'
+    : `${state}Detail` as const
+  return <details className="conversation-image-task" data-agent-process="true" data-image-task-state={state}>
+    <summary className="conversation-image-task__summary">
+      <span className="conversation-image-task__title">{t(`imageReference.${state}`)}</span>
+      <span className="conversation-image-task__detail"><span>{t(`imageReference.${description}`)} · {t('imageReference.steps', { count: calls.length })}</span><span className="conversation-image-task__chevron"><img src={chevron} alt="" /></span></span>
+    </summary>
+    <div className="conversation-image-task__records">{children}</div>
+  </details>
+}

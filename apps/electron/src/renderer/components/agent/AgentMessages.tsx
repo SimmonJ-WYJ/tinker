@@ -34,6 +34,8 @@ import { userProfileAtom } from '@/atoms/user-profile'
 import { tabMinimapCacheAtom } from '@/atoms/tab-atoms'
 import { ScrollPositionManager } from '@/hooks/useScrollPositionMemory'
 import { cn } from '@/lib/utils'
+import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
+import './conversation-flow.css'
 import { AIThinkingOrb } from '@/components/ui/ai-thinking-orb'
 import { getToolPhrase } from './tool-phrase'
 import { taskModesAtom } from './TaskModeSelector'
@@ -775,11 +777,16 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   // 实时消息中是否已有可渲染的助手内容
   const hasLiveAssistantContent = allGroups.some((g) => g.type === 'assistant-turn' && liveGroupSet.has(g))
 
+  const referenceTargets = React.useMemo(() => allGroups.filter(group => group.type === 'assistant-turn').map(group => ({
+    groupId: getGroupId(group), sourceIds: group.type === 'assistant-turn' ? group.assistantMessages.map(message => message.uuid).filter((id): id is string => typeof id === 'string' && !!id) : [],
+  })), [allGroups])
+
   return (
     <Conversation
       resize={ready && !transitioning && !justPromoted ? 'smooth' : 'instant'}
-      className={ready ? 'opacity-100 transition-opacity duration-200' : 'opacity-0'}
+      className={cn('conversation-flow', ready ? 'opacity-100 transition-opacity duration-200' : 'opacity-0')}
     >
+      <MessageReferenceNavigation sessionId={sessionId} targets={referenceTargets}>
       <ScrollPositionManager id={sessionId} ready={ready} />
       <ConversationContent className="conversation-column__messages">
         {/* 统一消息渲染（持久化 + 实时合并为一个列表，确保 system 消息位置正确） */}
@@ -799,7 +806,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
                 basePath={sessionPath || undefined}
                 onFork={isLive ? undefined : onFork}
                 onRewind={isLive ? undefined : onRewind}
-                isStreaming={isLive || undefined}
+                isStreaming={streaming && isLive || undefined}
                 stoppedByUser={isLastAssistantTurn || undefined}
                 sessionModelId={sessionModelId}
               />
@@ -866,6 +873,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
         </div>
       )}
       <ConversationScrollButton key={sessionId} generating={streaming || !!streamState?.isCompacting} orbState={retrying ? 'connecting' : taskMode === 'search' ? 'searching' : 'working'} />
+      </MessageReferenceNavigation>
     </Conversation>
   )
 }

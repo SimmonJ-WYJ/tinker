@@ -87,6 +87,8 @@ export interface ModelSelectorReasoning {
 }
 
 interface ModelSelectorProps {
+  /** 对话工具栏可使用紧凑模型名称，完整渠道仍在菜单中显示。 */
+  compactTrigger?: boolean
   /** 仅显示此渠道的模型 */
   filterChannelId?: string
   /** 仅显示这些渠道的模型（多渠道过滤） */
@@ -105,6 +107,7 @@ export function ModelSelector({
   externalSelectedModel,
   onModelSelect,
   reasoning,
+  compactTrigger = false,
 }: ModelSelectorProps): React.ReactElement {
   const { t } = useT('common')
   const channels = useAtomValue(channelsAtom)
@@ -189,7 +192,7 @@ export function ModelSelector({
                   {displayModelInfo ? (
                     <>
                       <span className="min-w-0 truncate text-foreground">{displayModelInfo.modelName}</span>
-                      <span className="ml-1 max-w-[100px] shrink-0 truncate text-muted-foreground">· {displayModelInfo.channelName}</span>
+                      {!compactTrigger && <span className="ml-1 max-w-[100px] shrink-0 truncate text-muted-foreground">· {displayModelInfo.channelName}</span>}
                       {reasoning && (
                         <span className="text-muted-foreground ml-1">
                           {reasoning.options.find(opt => opt.value === reasoning.current)?.label || reasoning.current}
@@ -200,7 +203,7 @@ export function ModelSelector({
                     <span className="text-muted-foreground">{t('modelSelector.selectModel')}</span>
                   )}
                 </span>
-                <ChevronDown className="size-3.5" />
+                {!compactTrigger && <ChevronDown className="size-3.5" />}
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>

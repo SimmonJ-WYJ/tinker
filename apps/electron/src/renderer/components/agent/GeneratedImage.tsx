@@ -25,7 +25,8 @@ export function GeneratedImage({result,versions=[],sessionId}:{result?:string;ve
  const canEdit=Boolean(src && !failed && version.imageId && (!sessionId || sessionId===owner))
  const select=():void=>{
   if(!canEdit || !version.imageId) return
-  const selected={...version,imageId:version.imageId,previewSrc:src}
+  const sourceMessageId=versions.find(item=>item.imageId===version.imageId && item.generatedImage.localPath===version.generatedImage.localPath)?.sourceMessageId
+  const selected={...version,imageId:version.imageId,previewSrc:src,sourceMessageId}
   setDrafts(previous=>new Map(previous).set(sessionId??owner,selected))
  }
  const save=():void=>{void window.electronAPI.saveImageAs(artifact.localPath,artifact.filename)}

@@ -29,7 +29,7 @@ if (!process.env.CLAUDE_CONFIG_DIR) {
   process.env.CLAUDE_CONFIG_DIR = getSdkConfigDir()
 }
 import type { AgentSessionMeta, AgentMessage, SDKMessage, ForkSessionInput, AgentMessageSearchResult } from '@asci/shared'
-import { nowMs } from '@asci/shared'
+import { nowMs, bindImageReferenceSources, HOST_TURN_STOPPED_SUBTYPE } from '@asci/shared'
 
 /**
  * 会话索引文件格式
@@ -230,7 +230,8 @@ export function appendSDKMessages(id: string, messages: SDKMessage[]): void {
   const filePath = getAgentSessionMessagesPath(id)
 
   try {
-    const lines = messages.map((m) => JSON.stringify(m)).join('\n') + '\n'
+    const history = messages.some(message => message.type === 'user' && message.imageEditReference) ? getAgentSessionSDKMessages(id) : []
+    const lines = bindImageReferenceSources(messages, history).map((m) => JSON.stringify(m)).join('\n') + '\n'
     appendFileSync(filePath, lines, 'utf-8')
   } catch (error) {
     console.error(`[Agent 会话] 追加 SDKMessage 失败 (${id}):`, error)
@@ -353,6 +354,10 @@ export function updateAgentSessionMeta(
     updatedAt: nowMs(),
   }
 
+  // 硬停止不一定产生 SDK result；保存独立宿主事实，下一轮清空会话标记后仍可识别旧回合。
+  if (updates.stoppedByUser === true && existing.stoppedByUser !== true) {
+    appendSDKMessages(id, [{ type: 'system', subtype: HOST_TURN_STOPPED_SUBTYPE, _createdAt: nowMs() }])
+  }
   index.sessions[idx] = updated
   writeIndex(index)
 

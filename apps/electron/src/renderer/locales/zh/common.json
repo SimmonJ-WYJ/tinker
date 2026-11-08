@@ -91,5 +91,37 @@
     "occupied": "输入框已有内容或引用，可继续编辑；恢复不会覆盖当前内容。",
     "attachmentFailed": "附件准备失败，草稿已保留，尚未向模型发送请求。"
   },
-  "workspaceDefaultName": "默认项目"
+  "workspaceDefaultName": "默认项目",
+  "imageReference": {
+    "title": "引用图片",
+    "backToSource": "回到原消息",
+    "sourceMissing": "原消息已不可用",
+    "returnReading": "返回刚才的阅读位置",
+    "located": "已高亮原消息",
+    "loading": "正在读取引用图片",
+    "loadFailed": "图片暂不可用",
+    "retry": "重试图片预览",
+    "uploaded": "本地上传 · 参考图",
+    "generating": "正在生成图片",
+    "generated": "图片已生成",
+    "failed": "图片生成失败",
+    "stopped": "图片生成已停止",
+    "combine": "正在结合引用图片与上传参考图处理构图",
+    "quoteOnly": "正在基于引用图片处理构图",
+    "uploadOnly": "正在结合上传参考图处理构图",
+    "create": "正在创作你请求的图片",
+    "steps_one": "{{count}} 个步骤",
+    "steps_other": "{{count}} 个步骤",
+    "supplement": "补充你的要求…",
+    "view": "查看引用图片",
+    "viewUpload": "查看上传图片",
+    "stop": "停止生成",
+    "partial": "部分图片已生成",
+    "incomplete": "图片生成未完成",
+    "generatedDetail": "本次所有生图调用均已完成",
+    "partialDetail": "部分生图调用失败，已完成的图片仍可查看",
+    "incompleteDetail": "部分生图调用尚无结果，已完成的图片仍可查看",
+    "failedDetail": "本次图片生成未成功完成",
+    "stoppedDetail": "生成已停止，已完成的图片仍可查看"
+  }
 }
