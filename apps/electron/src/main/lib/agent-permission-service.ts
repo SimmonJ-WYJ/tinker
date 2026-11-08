@@ -20,6 +20,7 @@ import type {
   AskUserRequest,
   HardRuleContext,
   HardRuleDecision,
+  ImageAuthorization,
 } from '@asci/shared'
 import type {
   HookCallback,
@@ -27,6 +28,8 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import {
   SAFE_TOOLS,
+  IMAGE_GENERATION_TOOL,
+  imageRequestKey,
   isDangerousCommand,
   hasDangerousStructure,
   evaluateHardRule,
@@ -90,6 +93,7 @@ export interface CanUseToolOptions {
 
 interface PreToolUseHardRuleHookOptions {
   shouldAsk?: () => boolean
+  imageGenerationAllowed?: () => boolean
   /** 在 SDK 自动/跳过模式之前完成付费授权，返回最终决定，避免重复确认。 */
   confirmPaidImage?: (toolName: string, input: Record<string, unknown>, options: CanUseToolOptions) => Promise<PermissionResult>
 }
@@ -154,7 +158,8 @@ export class AgentPermissionService {
         ? hookInput.tool_input as Record<string, unknown>
         : {}
       // 明确只处理宿主付费生图工具；任何失败都拒绝，不把授权失败降级为自动执行。
-      if (hookInput.tool_name === 'mcp__asci-image__generate_image' && hookOptions.confirmPaidImage) {
+      if (hookInput.tool_name === IMAGE_GENERATION_TOOL && hookOptions.imageGenerationAllowed?.() === false) return {hookSpecificOutput: {hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'Image generation is unavailable in plan mode or an ended turn'}}
+      if (hookInput.tool_name === IMAGE_GENERATION_TOOL && hookOptions.confirmPaidImage) {
         if (!toolUseID) return {hookSpecificOutput: {hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'Paid image call is missing its tool identity'}}
         try {
           const result = await hookOptions.confirmPaidImage(hookInput.tool_name, toolInput, {signal: options.signal, toolUseID})
@@ -191,14 +196,44 @@ export class AgentPermissionService {
     sendToRenderer: (request: PermissionRequest) => void,
     askUserHandler?: (sessionId: string, input: Record<string, unknown>, signal: AbortSignal, sendToRenderer: (request: AskUserRequest) => void) => Promise<PermissionResult>,
     sendAskUserToRenderer?: (request: AskUserRequest) => void,
+    imageAuthorization?: ImageAuthorization,
   ): (toolName: string, input: Record<string, unknown>, options: CanUseToolOptions) => Promise<PermissionResult> {
+    const imageCalls = new Map<string, { key: string; promise: Promise<PermissionResult> }>()
+    const imageDecisions = new Map<string, Promise<PermissionResult>>()
     return async (toolName, input, options) => {
+      if (options.signal.aborted) return { behavior: 'deny', message: 'Operation aborted' }
       // AskUserQuestion 拦截：委托给交互式问答服务
       if (toolName === 'AskUserQuestion' && askUserHandler && sendAskUserToRenderer) {
         return askUserHandler(sessionId, input, options.signal, sendAskUserToRenderer)
       }
 
       const allow = (): PermissionResult => ({ behavior: 'allow' as const, updatedInput: input })
+
+      // 生图只读取宿主本回合授权；不进入 worker 或会话白名单的快捷分支。
+      if (toolName === IMAGE_GENERATION_TOOL && imageAuthorization) {
+        const decision = imageAuthorization.authorize(toolName, input, options.toolUseID)
+        if (decision.action === 'deny') return { behavior: 'deny', message: decision.reason }
+        const key = `${imageAuthorization.getScopeId?.() ?? ''}:${imageRequestKey(input)}`
+        const previous = imageCalls.get(options.toolUseID)
+        if (previous && previous.key !== key) return { behavior: 'deny', message: 'Image call identity changed its parameters' }
+        if (previous) return previous.promise
+        if (decision.action === 'allow') return allow()
+        const duplicate = imageDecisions.get(key)
+        if (duplicate) {
+          imageCalls.set(options.toolUseID, { key, promise: duplicate })
+          return duplicate
+        }
+        const hardRule = evaluateHardRule(toolName, input, this.getHardRuleContext(sessionId))
+        const promise = this.requestPermission(sessionId, toolName, input, options, sendToRenderer, hardRule).then(result => {
+          if (result.behavior !== 'allow' || options.signal.aborted) return { behavior: 'deny' as const, message: 'Image call was not approved' }
+          imageAuthorization.approve(toolName, input, options.toolUseID)
+          const approved = imageAuthorization.authorize(toolName, input, options.toolUseID)
+          return approved.action === 'allow' ? allow() : { behavior: 'deny' as const, message: approved.reason }
+        })
+        imageDecisions.set(key, promise)
+        imageCalls.set(options.toolUseID, { key, promise })
+        return promise
+      }
 
       const hardRule = evaluateHardRule(toolName, input, this.getHardRuleContext(sessionId))
       if (hardRule.action === 'deny') {
@@ -342,8 +377,8 @@ export class AgentPermissionService {
     sendToRenderer: (request: PermissionRequest) => void,
     hardRule?: HardRuleDecision,
   ): Promise<PermissionResult> {
+    if (options.signal.aborted) return Promise.resolve({ behavior: 'deny', message: 'Operation aborted' })
     const request = this.buildPermissionRequest(sessionId, toolName, input, options, hardRule)
-    sendToRenderer(request)
 
     return new Promise<PermissionResult>((resolve) => {
       this.pendingPermissions.set(request.requestId, { resolve, request, rawInput: input })
@@ -355,6 +390,7 @@ export class AgentPermissionService {
           resolve({ behavior: 'deny' as const, message: 'Operation aborted' })
         }
       }, { once: true })
+      sendToRenderer(request)
     })
   }
 

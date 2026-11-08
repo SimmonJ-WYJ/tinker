@@ -160,6 +160,10 @@ export interface ClaudeAgentQueryOptions extends AgentQueryInput {
   onStderr?: (data: string) => void
   /** SDK session ID 捕获回调 */
   onSessionId?: (sdkSessionId: string) => void
+  /** SDK 实际消费用户消息的回显；在任何后续工具回调前同步通知宿主。 */
+  onUserMessageConsumed?: (message: SDKMessage) => void
+  /** 初始输入由宿主分配 UUID，避免排队消息复用初始输入的身份。 */
+  inputMessageUuid?: string
   /** 模型确认回调 */
   onModelResolved?: (model: string) => void
   /** 上下文窗口缓存回调 */
@@ -480,6 +484,7 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
         allowDangerouslySkipPermissions: options.allowDangerouslySkipPermissions,
         // 关键：false 获取完整消息，与 v2 stream() 返回格式一致
         includePartialMessages: false,
+        ...(options.onUserMessageConsumed && { extraArgs: { 'replay-user-messages': null } }),
         promptSuggestions: options.runtimeProfile !== 'conversation',
         cwd: options.cwd,
         ...(options.sandbox && { sandbox: options.sandbox }),
@@ -532,6 +537,7 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
       // 将初始 prompt 入队
       channel.enqueue({
         type: 'user' as const,
+        ...(options.inputMessageUuid && { uuid: options.inputMessageUuid }),
         session_id: options.sessionId,
         message: {
           role: 'user' as const,
@@ -560,6 +566,8 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
         if (controller.signal.aborted) break
 
         const msg = sdkMessage as Record<string, unknown>
+
+        if (msg.type === 'user') options.onUserMessageConsumed?.(sdkMessage as SDKMessage)
 
         // 捕获 SDK session_id
         if ('session_id' in msg && typeof msg.session_id === 'string' && msg.session_id) {

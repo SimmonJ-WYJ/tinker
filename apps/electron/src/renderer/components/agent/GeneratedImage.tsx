@@ -13,10 +13,9 @@ export function GeneratedImage({result,versions=[],sessionId}:{result?:string;ve
  const compareButton=React.useRef<HTMLButtonElement>(null)
  const {t}=useT('common');const setDrafts=useSetAtom(imageEditDraftsAtom)
  const [src,setSrc]=React.useState('');const [open,setOpen]=React.useState(false);const [compare,setCompare]=React.useState(false);const [failed,setFailed]=React.useState(false)
- const [dimensions,setDimensions]=React.useState<{width:number;height:number}|null>(null)
  const version=React.useMemo(()=>parseImageVersion(result),[result]);const artifact=version?.generatedImage
  React.useEffect(()=>{
-  let active=true;setSrc('');setDimensions(null);setFailed(false)
+  let active=true;setSrc('');setFailed(false)
   if(artifact) void window.electronAPI.readAttachment(artifact.localPath).then(data=>{if(active)setSrc(`data:${artifact.mediaType};base64,${data}`)}).catch(()=>{if(active)setFailed(true)})
   return ()=>{active=false}
  },[artifact])
@@ -31,23 +30,14 @@ export function GeneratedImage({result,versions=[],sessionId}:{result?:string;ve
  }
  const save=():void=>{void window.electronAPI.saveImageAs(artifact.localPath,artifact.filename)}
  return <div className="generated-image" data-generated-image="true">
-  {failed?<p role="alert" className="generated-image__placeholder">{t('imageVersion.missing')}</p>:src?<button type="button" onClick={()=>setOpen(true)} className="generated-image__preview"><img src={src} alt={artifact.filename} onError={()=>setFailed(true)} onLoad={event=>{const {naturalWidth:width,naturalHeight:height}=event.currentTarget;if(width>0&&height>0)setDimensions({width,height})}}/></button>:<p role="status" className="generated-image__placeholder">{t('loading')}</p>}
+  {failed?<p role="alert" className="generated-image__placeholder">{t('imageVersion.missing')}</p>:src?<button type="button" onClick={()=>setOpen(true)} className="generated-image__preview"><img src={src} alt={artifact.filename} onError={()=>setFailed(true)}/></button>:<p role="status" className="generated-image__placeholder">{t('loading')}</p>}
   <div className="generated-image__actions">
    <Button variant="outline" size="sm" className="generated-image__action" onClick={select} disabled={!canEdit} title={!canEdit&&!failed?t('imageVersion.unavailableId'):undefined}><Pencil aria-hidden="true"/>{t('imageVersion.edit')}</Button>
    {version.baseImageId && <Button ref={compareButton} variant="subtle" size="sm" className="generated-image__action" disabled={!parent} onClick={()=>setCompare(true)} title={!parent?t('imageVersion.parentMissing'):undefined}><Columns2 aria-hidden="true"/>{t('imageVersion.compare')}</Button>}
    <Button variant="subtle" size="sm" className="generated-image__action" onClick={save} disabled={!src||failed}><Download aria-hidden="true"/>{t('save')}</Button>
   </div>
   {version.baseImageId && !parent && <p role="status" className="generated-image__notice">{t('imageVersion.parentMissing')}</p>}
-  <details className="generated-image__details">
-   <summary><span>{t('imageDetails')}</span>{dimensions && <span className="generated-image__dimensions">{t('imageDimensionsSummary',dimensions)}</span>}</summary>
-   <div className="generated-image__metadata">
-    {version.imageId && <p title={version.imageId}>{t('imageVersion.label',{id:version.imageId.slice(0,8)})}{version.baseImageId && <span title={version.baseImageId}> · {t('imageVersion.from',{id:version.baseImageId.slice(0,8)})}</span>}</p>}
-    {(version.model || version.channelName || typeof version.referenceCount==='number') && <p>{[version.model,version.channelName,typeof version.referenceCount==='number'?t('imageReferenceCount',{count:version.referenceCount}):undefined].filter(Boolean).join(' · ')}</p>}
-    {dimensions && <p>{t('imageActualDimensions',dimensions)}</p>}
-    {(version.referenceCount??0)>0 && <p>{t('imageEditDimensionsNotice')}</p>}
-    <p>{t('imageBillingNotice')}</p>
-   </div>
-  </details>
+  {version.model && <p className="generated-image__caption">{t('imageGeneratedBy',{model:version.model})}</p>}
   <ImageLightbox src={src} alt={artifact.filename} open={open} onOpenChange={setOpen} onSave={save}/>
   {parent && <ImageVersionCompare current={version} parent={parent} open={compare} onOpenChange={setCompare} returnFocus={()=>compareButton.current?.focus()}/>}
  </div>

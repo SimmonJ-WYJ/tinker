@@ -1,3 +1,6 @@
+import { ImageTurnController, injectQueuedImageMessage } from '../mcp/image-turn-controller.ts'
+import { ImageRequestAuthorization } from '@asci/shared'
+import { readSessionImageScope } from '../mcp/image-turn-context.ts'
 import { validateImageEditSelection } from '../mcp/image-edit-selection.ts'
 import { createImageGenerationMcpServer } from '../mcp/image-generation-tool.ts'
 import { getAgentTurnFailure, hasAgentOutput } from './agent-turn-outcome.ts'
@@ -188,6 +191,7 @@ export class AgentOrchestrator {
   private adapter: AgentProviderAdapter
   private eventBus: AgentEventBus
   private activeSessions = new Map<string, number>()
+  private imageAuthorizations = new Map<string, ImageTurnController>()
 
   /** 队列消息本地记录（sessionId → UUID 集合，用于防重） */
   private queuedMessageUuids = new Map<string, Set<string>>()
@@ -493,8 +497,10 @@ export class AgentOrchestrator {
     console.log(`[Agent 编排] Resume 状态: sdkSessionId=${existingSdkSessionId || '无'}, asci sessionId=${sessionId}`)
 
     // 5. 持久化用户消息（SDKMessage 格式）
+    const inputMessageUuid = randomUUID()
     const userSDKMsg: SDKMessage = {
       type: 'user',
+      uuid: inputMessageUuid,
       ...(imageEditReference && { imageEditReference }),
       message: {
         content: [{ type: 'text', text: userMessage }],
@@ -697,7 +703,26 @@ export class AgentOrchestrator {
 
       // Register after user/custom servers: these auto-allowed names must always
       // refer to our constrained host implementation, never a user-controlled server.
-      const imageServer = runtimePolicy.profile !== 'conversation' ? createImageGenerationMcpServer(sessionId, agentCwd, String(streamStartedAt), input.imageEditReferenceId) : undefined
+      const imageSessionDirectory = agentCwd
+      const createImageTurn = (id: string, message: string, selectedImageId?: string) => {
+        const scope = readSessionImageScope(sessionId, getConversationAttachmentsDir(sessionId), {
+          sessionDirectory: imageSessionDirectory,
+          userMessages: [message, ...getAgentSessionMessages(sessionId).filter(item => item.role === 'user').map(item => item.content)],
+        })
+        return { id, selectedImageId, latestImageId: scope.latestImageId, authorization: new ImageRequestAuthorization({ userMessage: message, selectedImageId, ...scope }) }
+      }
+      const imageAuthorization = new ImageTurnController(
+        createImageTurn(String(streamStartedAt), userMessage, input.imageEditReferenceId), createImageTurn,
+        getAgentSessionSDKMessages(sessionId).flatMap(message => message.type === 'user' && 'uuid' in message && typeof message.uuid === 'string' ? [message.uuid] : []),
+      )
+      this.imageAuthorizations.set(sessionId, imageAuthorization)
+      const imageGenerationAllowed = () => this.activeSessions.get(sessionId) === runGeneration && !planModeEntered && getPermissionMode() !== 'plan'
+      // 自定义 MCP 不得占用宿主受限工具命名空间（未配置生图渠道时也清除）。
+      delete mcpServers['asci-image']
+      const imageServer = runtimePolicy.profile !== 'conversation' ? createImageGenerationMcpServer(sessionId, agentCwd, String(streamStartedAt), input.imageEditReferenceId, {
+        getTurn: () => imageAuthorization.current,
+        isExecutionAllowed: imageGenerationAllowed,
+      }) : undefined
       if (imageServer) mcpServers['asci-image'] = imageServer as unknown as Record<string, unknown>
       if (runtimePolicy.profile !== 'conversation') mcpServers['asci-web'] = createPublicWebMcpServer() as unknown as Record<string, unknown>
       if (runtimePolicy.profile === 'coding') mcpServers['asci-project'] = createProjectHtmlMcpServer(agentCwd) as unknown as Record<string, unknown>
@@ -853,6 +878,7 @@ export class AgentOrchestrator {
         (request: AskUserRequest) => {
           this.eventBus.emit(sessionId, { kind: 'asci_event', event: { type: 'ask_user_request', request } })
         },
+        imageAuthorization,
       )
 
       /**
@@ -988,7 +1014,8 @@ export class AgentOrchestrator {
           )
         }
 
-        // 付费生成在所有模式下保持逐次授权；读取本会话已有图片不重复询问。
+        // 生图在所有权限模式下保持当前回合作用域，计划模式不可提前执行。
+        if (toolName === 'mcp__asci-image__generate_image' && !imageGenerationAllowed()) return { behavior: 'deny', message: 'Image generation is unavailable in plan mode or an ended turn' }
         if (toolName === 'mcp__asci-image__generate_image' || toolName === 'mcp__asci-image__inspect_image' || toolName === 'mcp__asci-image__list_images') {
           return acceptEditsCanUseTool(toolName, normalizedInput, options)
         }
@@ -1158,6 +1185,10 @@ export class AgentOrchestrator {
       let retentionNeedsReinjection = false
       const queryOptions: ClaudeAgentQueryOptions = {
         sessionId,
+        inputMessageUuid,
+        onUserMessageConsumed: message => {
+          if (imageAuthorization.consume(message)) permissionService.clearSessionPending(sessionId)
+        },
         prompt: finalPrompt,
         model: effectiveModelId || DEFAULT_CLAUDE_MODEL_ID,
         cwd: agentCwd,
@@ -1195,9 +1226,14 @@ export class AgentOrchestrator {
             matcher: '*',
             hooks: [
               createLookupShellGuard(userMessage, selectedTaskMode),
+              async hookInput => {
+                if (hookInput.hook_event_name === 'PreToolUse' && hookInput.tool_name === 'EnterPlanMode') planModeEntered = true
+                return {}
+              },
               permissionService.createPreToolUseHardRuleHookForSession(sessionId, {
                 shouldAsk: () => getPermissionMode() !== 'bypassPermissions',
                 confirmPaidImage: acceptEditsCanUseTool,
+                imageGenerationAllowed,
               }),
             ],
           }],
@@ -1424,6 +1460,10 @@ export class AgentOrchestrator {
           // A0 ①：所有 SDK query 调用必须走 runOrchestratorQuery
           // agents 字段由 wrapper 从 subagentRegistry.snapshot() 注入（Step 7.2 已 reseed），
           // 这里显式剥离 queryOptions.agents 以满足 baseOptions: Omit<..., 'agents'> 类型约束
+          if (attempt > 1) {
+            queryOptions.inputMessageUuid = randomUUID()
+            imageAuthorization.registerInputIdentity(queryOptions.inputMessageUuid)
+          }
           const { agents: _agentsField, ...baseQueryOptions } = queryOptions
           console.log('[Agent 上下文]', JSON.stringify({
             profile: runtimePolicy.profile,
@@ -1958,10 +1998,13 @@ export class AgentOrchestrator {
               const resumeMessages: SDKMessage[] = []
 
               try {
+                const resumeInputUuid = randomUUID()
+                imageAuthorization.registerInputIdentity(resumeInputUuid)
                 const { agents: _resumeAgentsField, ...baseResumeQueryOptions } = queryOptions
                 const resumeOptions: Omit<ClaudeAgentQueryOptions, 'agents'> = {
                   ...baseResumeQueryOptions,
                   prompt: resumePrompt,
+                  inputMessageUuid: resumeInputUuid,
                   resumeSessionId: capturedSdkSessionId,
                 }
 
@@ -2271,6 +2314,8 @@ export class AgentOrchestrator {
       this.subagentSpansSink.flush()
       // 只在 generation 匹配时才清理，防止旧流的 finally 误删新流的注册
       if (this.activeSessions.get(sessionId) === runGeneration) {
+        this.imageAuthorizations.get(sessionId)?.cancel()
+        this.imageAuthorizations.delete(sessionId)
         this.activeSessions.delete(sessionId)
         this.sessionPermissionModes.delete(sessionId)
         this.queuedMessageUuids.delete(sessionId)
@@ -2288,6 +2333,9 @@ export class AgentOrchestrator {
    * 再调用 adapter.abort() 中止底层 SDK 进程。
    */
   stop(sessionId: string): void {
+    this.imageAuthorizations.get(sessionId)?.cancel()
+    this.imageAuthorizations.delete(sessionId)
+    permissionService.clearSessionPending(sessionId)
     this.activeSessions.delete(sessionId)
     this.sessionPermissionModes.delete(sessionId)
     this.lastResolvedUserLang.delete(sessionId)
@@ -2339,6 +2387,11 @@ export class AgentOrchestrator {
   stopAll(): void {
     if (this.activeSessions.size === 0) return
     console.log(`[Agent 编排] 正在中止所有活跃会话 (${this.activeSessions.size} 个)...`)
+    for (const [sessionId, authorization] of this.imageAuthorizations) {
+      authorization.cancel()
+      permissionService.clearSessionPending(sessionId)
+    }
+    this.imageAuthorizations.clear()
     this.adapter.dispose()
     this.activeSessions.clear()
     this.sessionPermissionModes.clear()
@@ -2389,18 +2442,15 @@ export class AgentOrchestrator {
     }
 
     try {
-      // 用户希望"立即打断当前输出并续跑新消息"：先软中断，再把消息压入通道
-      // - interrupt() 让 SDK 结束当前 turn 并 yield 一个 aborted result
-      // - 随后通道里的 'now' 消息会作为下一轮 turn 的用户输入被消费
-      if (opts?.interrupt && this.adapter.interruptQuery) {
-        try {
-          await this.adapter.interruptQuery(sessionId)
-        } catch (error) {
-          console.warn(`[Agent 编排] 软中断失败（将继续追加消息）:`, error)
-        }
-      }
-
-      await this.adapter.sendQueuedMessage(sessionId, sdkMessage)
+      await injectQueuedImageMessage({
+        controller: this.imageAuthorizations.get(sessionId), id: uuid, text,
+        send: () => this.adapter.sendQueuedMessage!(sessionId, sdkMessage),
+        interrupt: opts?.interrupt && this.adapter.interruptQuery ? async () => {
+          try { await this.adapter.interruptQuery!(sessionId); return true }
+          catch (error) { console.warn('[Agent 编排] 软中断失败（将继续追加消息）:', error); return false }
+        } : undefined,
+        onInterrupted: () => permissionService.clearSessionPending(sessionId),
+      })
       console.log(`[Agent 编排] 追加消息已注入: sessionId=${sessionId}, uuid=${uuid}, interrupt=${!!opts?.interrupt}`)
 
       // 立即持久化到 JSONL

@@ -1,4 +1,4 @@
-/* 图片优先，操作与可展开元数据依次降低层级。 */
+/* 图片优先，操作与模型署名依次降低层级。 */
 .generated-image {
   display: flex;
   flex-direction: column;
@@ -17,8 +17,7 @@
   background: hsl(var(--background));
 }
 
-.generated-image__preview:focus-visible,
-.generated-image__details summary:focus-visible {
+.generated-image__preview:focus-visible {
   outline: 2px solid hsl(var(--foreground));
   outline-offset: 2px;
 }
@@ -65,44 +64,16 @@
   stroke-width: 1.5;
 }
 
-.generated-image__details,
+.generated-image__caption,
 .generated-image__notice {
   max-width: 100%;
+  margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: 12px;
   line-height: 18px;
   overflow-wrap: anywhere;
 }
 
-.generated-image__details {
-  width: 100%;
-  border-top: 1px solid hsl(var(--border) / 0.6);
-}
-
-.generated-image__details summary {
-  padding-block: 8px;
-  cursor: pointer;
-}
-
-.generated-image__details summary:hover {
-  color: hsl(var(--foreground));
-}
-
-.generated-image__dimensions {
-  display: inline-block;
-  margin-inline-start: 8px;
-}
-
-.generated-image__metadata {
-  display: grid;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 8px;
-  background: hsl(var(--foreground) / 0.025);
-}
-
-.generated-image__metadata p,
-.generated-image__notice,
 .generated-image__placeholder {
   margin: 0;
 }
