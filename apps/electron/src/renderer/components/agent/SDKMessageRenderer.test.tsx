@@ -251,3 +251,13 @@ test('硬停止的宿主历史事实在继续对话后仍标记原生图回合',
   const view = renderInConversation(<AssistantTurnRenderer compactProcess turn={turn} allMessages={messages} stoppedByUser={false} />)
   expect(view.container.querySelector('[data-image-task-state="stopped"]')).not.toBeNull()
 })
+
+test('运行中的过程主标题使用文字流光，无内嵌球体，结束后停止', () => {
+  const messages=[userInput('Check synthetic sources'),asst([paperSearchTool('status-search'),thinkingBlock('Synthetic thought')])]
+  const turn=lastAssistantTurn(messages)
+  const view=renderInConversation(<AssistantTurnRenderer turn={turn} allMessages={messages} compactProcess isStreaming />)
+  expect(view.container.querySelectorAll('[data-thinking-orb]')).toHaveLength(0)
+  expect(view.container.querySelector('[data-agent-process] summary .agent-status-text[data-active="true"]')).not.toBeNull()
+  view.rerender(<StickToBottom><AssistantTurnRenderer turn={turn} allMessages={messages} compactProcess isStreaming={false} /></StickToBottom>)
+  expect(view.container.querySelector('.agent-status-text[data-active="true"]')).toBeNull()
+})

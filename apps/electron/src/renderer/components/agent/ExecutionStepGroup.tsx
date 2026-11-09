@@ -15,6 +15,7 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 import { FlowRow } from './FlowRow.tsx'
+import { RunningStatusText } from './RunningStatusText.tsx'
 import { useT } from '@/hooks/useT'
 import { usePreserveScrollOnExpand } from '@/hooks/usePreserveScrollOnExpand'
 import { ContentBlock } from './ContentBlock.tsx'
@@ -101,13 +102,13 @@ export function ExecutionStepGroup({
             <span>{scenarioName}</span>
           </span>
         )}
-        <span className={cn(
+        <RunningStatusText active={isLive} className={cn(
           'truncate text-[14px]',
 
           dimmed ? 'text-muted-foreground/70' : 'text-muted-foreground',
         )}>
           {baseLabel}
-        </span>
+        </RunningStatusText>
       </FlowRow>
 
       {/* Codex 风：分割线属于步骤组本身，固定在步骤标题下方；后续正文不再承载 border-t。 */}

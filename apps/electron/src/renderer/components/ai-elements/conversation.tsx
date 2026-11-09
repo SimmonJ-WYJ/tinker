@@ -1,4 +1,3 @@
-import { AIThinkingOrb } from '@/components/ui/ai-thinking-orb'
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
 /**
  * AI Elements - 对话容器原语
@@ -93,23 +92,20 @@ export function ConversationEmptyState({
 
 // ===== ConversationScrollButton 滚动到底部 =====
 
-export type ConversationScrollButtonProps = ComponentProps<typeof Button> & { generating?: boolean; orbState?: 'working' | 'searching' | 'connecting' }
+export type ConversationScrollButtonProps = ComponentProps<typeof Button> & { generating?: boolean }
 
 export function ConversationScrollButton({
   className,
   generating = false,
-  orbState = 'working',
   ...props
 }: ConversationScrollButtonProps): React.ReactElement | null {
   const { t } = useT('conversation')
   const { isAtBottom, scrollToBottom, scrollRef, stopScroll } = useStickToBottomContext()
   const [readingTop, setReadingTop] = useState<number | null>(null)
-  const [hovered, setHovered] = useState(false)
 
   useEffect(() => {
     if (!generating) {
       setReadingTop(null)
-      setHovered(false)
     }
   }, [generating])
 
@@ -140,15 +136,11 @@ export function ConversationScrollButton({
       aria-label={label}
       title={label}
       onClick={handleScrollToBottom}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       type="button"
       variant="outline"
       {...props}
     >
-      {hovered
-        ? returning ? <ArrowUpIcon aria-hidden="true" className="size-4" /> : <ArrowDownIcon aria-hidden="true" className="size-4" />
-        : <AIThinkingOrb state={orbState} />}
+      {returning ? <ArrowUpIcon aria-hidden="true" className="size-4" /> : <ArrowDownIcon aria-hidden="true" className="size-4" />}
     </Button>
   )
 }

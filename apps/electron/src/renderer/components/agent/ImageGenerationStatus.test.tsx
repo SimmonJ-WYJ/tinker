@@ -10,12 +10,15 @@ const result = (id: string, failed: boolean): SDKMessage => ({ type: 'user', par
 test.each([
   { messages: [result('a', false)], streaming: true, stopped: false, title: 'Generating image' },
   { messages: [result('a', false)], streaming: false, stopped: true, title: 'Image generation stopped' },
+  { messages: [result('a', false)], streaming: true, stopped: true, title: 'Image generation stopped' },
   { messages: [result('a', false)], streaming: false, stopped: false, title: 'Image generation incomplete' },
   { messages: [result('a', false), result('b', true)], streaming: false, stopped: false, title: 'Some images generated' },
   { messages: [result('a', true), result('b', true)], streaming: false, stopped: false, title: 'Image generation failed' },
   { messages: [result('a', false), result('b', false)], streaming: false, stopped: false, title: 'Image generated' },
 ])('多调用结果保持准确状态：$title', async ({ messages, streaming, stopped, title }) => {
   await setAppLanguage('en')
-  render(<ImageGenerationStatus calls={calls} allMessages={[...messages]} streaming={streaming} stopped={stopped}>Tool details</ImageGenerationStatus>)
+  const view = render(<ImageGenerationStatus calls={calls} allMessages={[...messages]} streaming={streaming} stopped={stopped}>Tool details</ImageGenerationStatus>)
   expect(screen.getByText(title)).toBeInTheDocument()
+  expect(view.container.querySelectorAll('.agent-status-text[data-active="true"]')).toHaveLength(title === 'Generating image' ? 1 : 0)
+  expect(view.container.querySelector('.conversation-image-task__detail .agent-status-text')).toBeNull()
 })

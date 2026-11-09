@@ -44,7 +44,7 @@ import {
 } from '@/atoms/session-feedback-atoms'
 import type { EvidenceSetSummary, ObjectId } from '@asci/shared'
 import { processPresentation } from './process-presentation'
-import { AIThinkingOrb } from '@/components/ui/ai-thinking-orb'
+import { RunningStatusText } from './RunningStatusText.tsx'
 import { ContentBlock } from './ContentBlock'
 import { findToolResultInMessages } from './tool-result-lookup'
 import { ResearchGapResultRenderer } from './tool-result-renderers/research-gap-result.tsx'
@@ -617,6 +617,7 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
   }, [topLevelBlocks, turn.turnMessages, allMessages])
 
   const presentation = processPresentation(topLevelEnriched, compactProcess)
+  const hasVisibleAnswer = presentation.answer.some(({ block }) => block.type !== 'text' || (typeof block.text === 'string' && !!block.text.trim()))
   const webProcess = presentation.records.some(({ block }) => block.type === 'tool_use' && /search|fetch/i.test((block as SDKToolUseBlock).name))
 
   // 0.2.0：把顶层块序列预处理成「渲染项」——连续≥2 过程块折叠成执行步骤组
@@ -666,6 +667,9 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
       <ConversationSymbol />
       <GeneratedImageReferenceProvider assistantMessages={turn.assistantMessages} allMessages={allMessages} sessionId={imageSessionId} basePath={basePath}>
       <MessageContent>
+        {isStreaming && compactProcess && presentation.records.length === 0 && !hasVisibleAnswer && (
+          <RunningStatusText active role="status" className="text-sm text-muted-foreground">{tConv('agent.messages.thinkingStreaming')}</RunningStatusText>
+        )}
         {presentation.records.length > 0 && (imageCalls.length > 0 ? (
           <ImageGenerationStatus calls={imageCalls} allMessages={allMessages} userMessage={imageRequest} streaming={isStreaming} stopped={showStoppedBadge}>
             {presentation.records.map(({ block }, index) => <ContentBlock key={index} block={block} allMessages={allMessages} basePath={basePath} isStreaming={false} />)}
@@ -673,10 +677,9 @@ export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onR
         ) : (
           <details className="mb-5 text-sm text-muted-foreground" data-agent-process="true">
             <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg py-2 focus-visible:outline focus-visible:outline-2">
-              {isStreaming && <AIThinkingOrb state={webProcess ? 'searching' : 'working'} />}
-              <span>{isStreaming
+              <RunningStatusText active={!!isStreaming}>{isStreaming
                 ? tConv(webProcess ? 'agent.process.checking' : 'agent.process.working')
-                : tConv('agent.process.records')}</span>
+                : tConv('agent.process.records')}</RunningStatusText>
               <span className="text-xs opacity-60">{tConv('agent.process.actions', { count: presentation.records.filter(({ block }) => block.type === 'tool_use').length })}</span>
               <span aria-hidden="true" className="ml-1">⌄</span>
             </summary>

@@ -5,6 +5,7 @@ import chevron from '@/assets/conversation/chevron-down.svg'
 import { findToolResultInMessages } from './tool-result-lookup'
 import { parseImageVersion } from './image-versions'
 import { extractUserText, isImageFile, parseAttachedFiles } from './message-attachments'
+import { RunningStatusText } from './RunningStatusText.tsx'
 
 interface Props {
   calls: SDKToolUseBlock[]
@@ -21,7 +22,7 @@ export function ImageGenerationStatus({ calls, allMessages, userMessage, streami
   const results = calls.map(call => findToolResultInMessages(call.id, allMessages))
   const pending = results.some(result => !result)
   const successes = results.filter(result => result && !result.isError && parseImageVersion(result.result)).length
-  const state = pending ? (streaming ? 'generating' : stopped ? 'stopped' : 'incomplete')
+  const state = pending ? (stopped ? 'stopped' : streaming ? 'generating' : 'incomplete')
     : successes === calls.length ? 'generated' : successes > 0 ? 'partial' : 'failed'
   const quote = !!userMessage?.imageEditReference
   const upload = userMessage ? parseAttachedFiles(extractUserText(userMessage) ?? '').files.some(file => isImageFile(file.filename)) : false
@@ -30,7 +31,7 @@ export function ImageGenerationStatus({ calls, allMessages, userMessage, streami
     : `${state}Detail` as const
   return <details className="conversation-image-task" data-agent-process="true" data-image-task-state={state}>
     <summary className="conversation-image-task__summary">
-      <span className="conversation-image-task__title">{t(`imageReference.${state}`)}</span>
+      <RunningStatusText active={state === 'generating'} className="conversation-image-task__title">{t(`imageReference.${state}`)}</RunningStatusText>
       <span className="conversation-image-task__detail"><span>{t(`imageReference.${description}`)} · {t('imageReference.steps', { count: calls.length })}</span><span className="conversation-image-task__chevron"><img src={chevron} alt="" /></span></span>
     </summary>
     <div className="conversation-image-task__records">{children}</div>

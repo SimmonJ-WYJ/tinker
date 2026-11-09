@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FlowRow } from './FlowRow.tsx'
+import { RunningStatusText } from './RunningStatusText.tsx'
 import { MessageResponse, SelectableMessageResponse } from '@/components/ai-elements/message'
 import { useT } from '@/hooks/useT'
 import type { TFunction } from 'i18next'
@@ -456,15 +457,15 @@ function ThinkingBlock({ block, dimmed = false, isStreaming = false, iconOverrid
         icon={iconOverride ?? null}
         edgeAlign={dividerAfterHeader && iconOverride == null}
       >
-        <span
+        <RunningStatusText
+          active={label.pulse && iconOverride == null}
           className={cn(
             'text-[14px]',
             dimmed ? 'text-muted-foreground/70' : 'text-muted-foreground',
-            label.pulse && 'animate-pulse',
           )}
         >
           {label.text}
-        </span>
+        </RunningStatusText>
       </FlowRow>
 
       {dividerAfterHeader && (
@@ -542,13 +543,13 @@ export function ContentBlock({ block, allMessages, basePath, animate = false, in
 export interface ThinkingLabel {
   /** 主文案 */
   text: string
-  /** 是否应用 animate-pulse */
+  /** 是否处于实时思考，呈现运行态文字效果 */
   pulse: boolean
 }
 
 /**
  * 生成思考块 Trigger 的显示文案。
- * - 流式中：Thinking...（脉冲）
+ * - 流式中：Thinking...（文字流光）
  * - 结束后无耗时信息：Thinking
  * - 结束后有耗时：Thinking · Ns
  */
