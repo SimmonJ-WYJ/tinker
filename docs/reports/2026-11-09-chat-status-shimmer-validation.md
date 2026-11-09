@@ -45,8 +45,8 @@
 - reduced-motion 与 forced-colors 的 animation/background 均为 none，文字填色非透明。
 - 390px 窄窗中文思考标题无裁切，完成/取消/失败后没有残留 agent-status-shimmer 动画。
 
-本机证据：`/tmp/tinker-status-shimmer-qa-20261109/result.json`、`generating-light.png`、`generating-dark.png`、`thinking-narrow.png`。已实际查看三图。外部 Vite 夹具最初未正确转换模块，改用已验证的本机渲染目录后完成验收，临时入口随后移除。夹具、截图和原始用户图片均不进入提交，也未上传 Library。
+本机证据：`/tmp/tinker-status-shimmer-qa-20261109/result.json`、`generating-light.png`、`generating-dark.png`、`thinking-narrow.png`。已实际查看三图。外部 Vite 夹具最初未正确转换模块，改用已验证的本机渲染目录后完成验收，临时入口随后移除。临时夹具和原始用户图片不进入提交。三张合成数据验收截图保存到 `docs/reports/assets/2026-11-09-status-{light,dark,narrow}.png`，仅用于 GitHub UI 复核，未上传 Library。
 
 ## 限制与交付
 
-没有运行真实模型、付费生图或生产账号端到端，没有安装/打包/替换当前应用或桌面 DMG。视觉验收在真实独立浏览器中完成，不代表 Electron 安装包已更新或完成屏幕阅读器人工审计。实现提交以交付消息为准，当前请求只保留本地代码产物，不自动推送或合并。
+没有运行真实模型、付费生图或生产账号端到端，没有安装/打包/替换当前应用或桌面 DMG。视觉验收在真实独立浏览器中完成，不代表 Electron 安装包已更新或完成屏幕阅读器人工审计。实现提交为 `9a6522e`。用户随后明确要求提交到 main，本次按该授权进行 GitHub PR 审查与合并，不更新安装包。
