@@ -19,15 +19,15 @@ test('非生成状态始终隐藏，生成结束立即隐藏', () => {
  expect(screen.queryByRole('button')).toBeNull()
 })
 
-test('默认 Orb，悬停下箭头，离开恢复 Orb', () => {
+test('运行中始终显示导航箭头，不再绘制思考球体', () => {
  const view = render(<ConversationScrollButton generating />)
- expect(view.container.querySelector('[data-thinking-orb]')).not.toBeNull()
- expect(view.container.querySelector('.lucide-arrow-down')).toBeNull()
+ expect(view.container.querySelector('[data-thinking-orb]')).toBeNull()
+ expect(view.container.querySelector('.lucide-arrow-down')).not.toBeNull()
  fireEvent.mouseEnter(screen.getByRole('button'))
  expect(view.container.querySelector('[data-thinking-orb]')).toBeNull()
  expect(view.container.querySelector('.lucide-arrow-down')).not.toBeNull()
  fireEvent.mouseLeave(screen.getByRole('button'))
- expect(view.container.querySelector('[data-thinking-orb]')).not.toBeNull()
+ expect(view.container.querySelector('[data-thinking-orb]')).toBeNull()
 })
 
 test('点击到最新后悬停上箭头，返回原阅读点，可再次往返', () => {
@@ -41,7 +41,7 @@ test('点击到最新后悬停上箭头，返回原阅读点，可再次往返',
  view.rerender(<ConversationScrollButton generating />)
  expect(view.container.querySelector('.lucide-arrow-up')).not.toBeNull()
  fireEvent.mouseLeave(screen.getByRole('button'))
- expect(view.container.querySelector('[data-thinking-orb]')).not.toBeNull()
+ expect(view.container.querySelector('[data-thinking-orb]')).toBeNull()
  fireEvent.mouseEnter(screen.getByRole('button'))
  fireEvent.click(screen.getByRole('button'))
  expect(stop).toHaveBeenCalledTimes(1)
@@ -69,13 +69,13 @@ test('初始在底部隐藏；结束生成后不保留上次返回点', () => {
 })
 
 
-test('鼠标点击获得焦点后移开，仍恢复 Orb', () => {
+test('鼠标点击后移开仍保留明确的导航箭头', () => {
  const view = render(<ConversationScrollButton generating />)
  const button = screen.getByRole('button')
  fireEvent.mouseEnter(button)
  fireEvent.focus(button)
  fireEvent.click(button)
  fireEvent.mouseLeave(button)
- expect(view.container.querySelector('.lucide-arrow-down') === null).toBe(true)
- expect(view.container.querySelector('[data-thinking-orb]') !== null).toBe(true)
+ expect(view.container.querySelector('.lucide-arrow-down') !== null).toBe(true)
+ expect(view.container.querySelector('[data-thinking-orb]')).toBeNull()
 })

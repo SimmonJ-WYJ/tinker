@@ -36,15 +36,16 @@ import { ScrollPositionManager } from '@/hooks/useScrollPositionMemory'
 import { cn } from '@/lib/utils'
 import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
 import './conversation-flow.css'
-import { AIThinkingOrb } from '@/components/ui/ai-thinking-orb'
+import { ConversationSymbol } from './ConversationSymbol.tsx'
+import { RunningStatusText } from './RunningStatusText.tsx'
 import { getToolPhrase } from './tool-phrase'
-import { taskModesAtom } from './TaskModeSelector'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { groupIntoTurns, MessageGroupRenderer, getGroupId, getGroupPreview, type MessageGroup } from './SDKMessageRenderer'
 import { useT } from '@/hooks/useT'
 import type { AgentMessage, AgentEventUsage, RetryAttempt, SDKMessage } from '@asci/shared'
 import { nowMs } from '@asci/shared'
 import type { ToolActivity, AgentStreamState } from '@/atoms/agent-atoms'
+import { queuedMessageUuidsAtom } from '@/atoms/agent-atoms'
 
 /** AgentMessages 属性接口 */
 interface AgentMessagesProps {
@@ -597,19 +598,19 @@ export function DurationBadge({ durationMs, usage }: { durationMs: number; usage
 }
 
 /** 唯一的执行状态：具体动作，不重复展示运行计时和语言元数据。 */
-function AgentRunningIndicator({ label, state }: { label: string; state: 'working' | 'searching' | 'connecting' }): React.ReactElement {
+function AgentRunningIndicator({ label, withLogo = true }: { label: string; withLogo?: boolean }): React.ReactElement {
   return (
-    <div role="status" className="flex items-center gap-2 min-h-[28px]">
-      <AIThinkingOrb state={state} />
-      <span className="text-sm text-muted-foreground">{label}</span>
+    <div role="status" className="flex items-center gap-3 min-h-[28px]">
+      {withLogo && <ConversationSymbol />}
+      <RunningStatusText active className="text-sm text-muted-foreground">{label}</RunningStatusText>
     </div>
   )
 }
 
 export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoaded, persistedSDKMessages, streaming, streamState, liveMessages, sessionPath, stoppedByUser, onRetry, onRetryInNewSession, onFork, onRewind, onCompact }: AgentMessagesProps): React.ReactElement {
   const { t: tConversation } = useT('conversation')
-  const taskMode = useAtomValue(taskModesAtom)[sessionId] ?? 'search'
   const userProfile = useAtomValue(userProfileAtom)
+  const queuedMessages = useAtomValue(queuedMessageUuidsAtom).get(sessionId)
   const setMinimapCache = useSetAtom(tabMinimapCacheAtom)
   /** 淡入控制：切换会话时先隐藏，等布局完成后再显示。 */
   const [ready, setReady] = React.useState(false)
@@ -652,6 +653,8 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
     ? getToolPhrase(activeTool.toolName, activeTool.input, tConversation).loadingLabel
     : tConversation('agent.messages.thinkingStreaming')
   const retrying = streamState?.retrying
+  // 终态来自宿主信号，不能等待延迟的 streaming prop 才停掉视觉运行状态。
+  const statusRunning = streaming && streamState?.running !== false && !stoppedByUser && !retrying?.failed
 
   const { displayedContent: smoothContent } = useSmoothStream({
     content: streamingContent,
@@ -774,8 +777,17 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
     }
   }, [sessionId, minimapItems, setMinimapCache])
 
-  // 实时消息中是否已有可渲染的助手内容
-  const hasLiveAssistantContent = allGroups.some((g) => g.type === 'assistant-turn' && liveGroupSet.has(g))
+  // 累积 live 列表可能含已完成回合，只让最近真实输入之后的尾部助手回合运行。
+  const pendingUserIds = new Set(queuedMessages?.map(message => message.uuid))
+  const latestBoundaryIndex = allGroups.findLastIndex(group => group.type === 'user'
+    ? !pendingUserIds.has(group.message.uuid ?? '')
+    : group.type === 'system' && (group.message.subtype === 'compact_boundary' || group.message.subtype === 'compacting'))
+  const activeAssistantGroup = allGroups.findLast((group, index) => index > latestBoundaryIndex && group.type === 'assistant-turn' && liveGroupSet.has(group))
+  const hasLiveAssistantContent = !!activeAssistantGroup
+  const liveBlocks = activeAssistantGroup?.type === 'assistant-turn' ? activeAssistantGroup.assistantMessages.flatMap(message => message.message.content) : []
+  const hasLiveText = liveBlocks.some(block => block.type === 'text' && typeof block.text === 'string' && !!block.text.trim())
+  // 工具/无正文阶段由 SDK 承载标题，纯正文后的执行提示仍保留，但不重复 Logo。
+  const sdkShowsStatus = liveBlocks.some(block => block.type === 'tool_use') || (liveBlocks.length > 0 && !hasLiveText)
 
   const referenceTargets = React.useMemo(() => allGroups.filter(group => group.type === 'assistant-turn').map(group => ({
     groupId: getGroupId(group), sourceIds: group.type === 'assistant-turn' ? group.assistantMessages.map(message => message.uuid).filter((id): id is string => typeof id === 'string' && !!id) : [],
@@ -794,7 +806,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
           allGroups.map((group, idx) => {
             const isLive = liveGroupSet.has(group)
             // 仅在最后一个 assistant-turn 上显示"已被用户中断" badge
-            const isLastAssistantTurn = !streaming && stoppedByUser
+            const isLastAssistantTurn = !statusRunning && stoppedByUser
               && group.type === 'assistant-turn'
               && idx === allGroups.findLastIndex((g) => g.type === 'assistant-turn')
             return (
@@ -806,7 +818,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
                 basePath={sessionPath || undefined}
                 onFork={isLive ? undefined : onFork}
                 onRewind={isLive ? undefined : onRewind}
-                isStreaming={streaming && isLive || undefined}
+                isStreaming={statusRunning && group === activeAssistantGroup || undefined}
                 stoppedByUser={isLastAssistantTurn || undefined}
                 sessionModelId={sessionModelId}
               />
@@ -828,30 +840,31 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
         )}
 
         {/* 有实时助手内容时：显示运行指示器或占位（防止 streaming 结束到 Actions Bar 出现之间的高度跳动）
-            px-2.5 与 Message 根容器的水平 padding 对齐，保证 Spinner 和上方消息内容左缘齐整 */}
-        {hasLiveAssistantContent && !suppressAgentRunning && !(allGroups.some(g => g.type === 'assistant-turn' && liveGroupSet.has(g) && g.assistantMessages.some(m => m.message.content.some(b => b.type === 'tool_use')))) && (
-          <div className="mt-0.5 min-h-[28px] px-2.5 flex items-center gap-2 flex-wrap">
+            标题由 SDK 承载时不重复，纯正文后的续作状态沿用已有 Logo 列缩进 */}
+        {hasLiveAssistantContent && !suppressAgentRunning && !sdkShowsStatus && (
+          <div className={cn('mt-0.5 min-h-[28px] flex items-center gap-2 flex-wrap', liveBlocks.length > 0 && 'conversation-assistant-turn')}>
             {retrying && <RetryingNotice retrying={retrying} />}
-            {streaming && <AgentRunningIndicator label={executionLabel} state={retrying ? 'connecting' : taskMode === 'search' ? 'searching' : 'working'} />}
+            {statusRunning && <AgentRunningIndicator label={executionLabel} withLogo={liveBlocks.length === 0} />}
           </div>
         )}
 
-        {/* 无实时助手内容时：显示占位气泡（无头像，仅内容） */}
+        {/* 无实时助手内容时：静态品牌 Logo 与真实执行状态共用正常对话列。 */}
         {/* 注意：工具活动已通过 SDK 渲染路径（liveGroups）展示，此处不再使用 ToolActivityList */}
         {!hasLiveAssistantContent && !suppressAgentRunning && (streaming || smoothContent || retrying) && (
-          <Message from="assistant" className="min-h-[44px]">
+          <Message from="assistant" className="conversation-assistant-turn min-h-[44px]">
+            <ConversationSymbol />
             <MessageContent>
               {retrying && <RetryingNotice retrying={retrying} />}
               {smoothContent ? (
                 <>
                   <SelectableMessageResponse basePath={sessionPath || undefined}>{smoothContent}</SelectableMessageResponse>
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
-                    {streaming && <AgentRunningIndicator label={executionLabel} state={retrying ? 'connecting' : taskMode === 'search' ? 'searching' : 'working'} />}
+                    {statusRunning && <AgentRunningIndicator label={executionLabel} withLogo={false} />}
                   </div>
                 </>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {streaming && <AgentRunningIndicator label={executionLabel} state={retrying ? 'connecting' : taskMode === 'search' ? 'searching' : 'working'} />}
+                  {statusRunning && <AgentRunningIndicator label={executionLabel} withLogo={false} />}
                 </div>
               )}
             </MessageContent>
@@ -872,7 +885,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
           </div>
         </div>
       )}
-      <ConversationScrollButton key={sessionId} generating={streaming || !!streamState?.isCompacting} orbState={retrying ? 'connecting' : taskMode === 'search' ? 'searching' : 'working'} />
+      <ConversationScrollButton key={sessionId} generating={statusRunning || !!streamState?.isCompacting} />
       </MessageReferenceNavigation>
     </Conversation>
   )

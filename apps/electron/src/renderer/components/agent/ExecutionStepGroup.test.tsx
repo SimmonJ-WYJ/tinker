@@ -230,3 +230,10 @@ it('进行中的执行组使用静态标记，不重复播放加载动画', () =
  expect(container.querySelector('.animate-spin')).toBeNull()
  expect(container.querySelector('.animate-pulse')).toBeNull()
 })
+
+it('只有当前实时步骤标题流光，完成后清除动画状态', () => {
+ const view=renderInConversation(<ExecutionStepGroup steps={STEPS} speaker="master" allMessages={[]} isLive turnStreaming />)
+ expect(view.container.querySelector('.agent-status-text[data-active="true"]')).not.toBeNull()
+ rerenderInConversation(view,<ExecutionStepGroup steps={STEPS} speaker="master" allMessages={[]} isLive={false} turnStreaming={false} />)
+ expect(view.container.querySelector('.agent-status-text[data-active="true"]')).toBeNull()
+})
