@@ -1,0 +1,12 @@
+/* 只降低配置示例和空值辅助说明的层级，输入值、标签与必填反馈保留原色。 */
+.channel-form input::placeholder {
+  color: hsl(var(--channel-input-placeholder));
+  opacity: 1;
+}
+.channel-form-empty-url [id$='-description'] {
+  color: hsl(var(--channel-input-hint));
+}
+@media (forced-colors: active) {
+  .channel-form input::placeholder,
+  .channel-form-empty-url [id$='-description'] { color: GrayText; }
+}

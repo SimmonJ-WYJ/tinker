@@ -1,21 +1,24 @@
 /* 仅文字内部流光，不改变透明度或几何位置；无渐变支持时保留普通文字。 */
 .agent-status-text { width: fit-content; max-width: 100%; }
-.agent-status-text[data-active='true'] { color: hsl(var(--running-text-base)); }
+.agent-status-text[data-active='true'] { color: hsl(var(--running-text-base) / .55); }
 @supports ((background-clip: text) or (-webkit-background-clip: text)) {
   .agent-status-text[data-active='true'] {
-    background-image: linear-gradient(110deg, hsl(var(--running-text-base)) 32%, hsl(var(--running-text-sheen)) 50%, hsl(var(--running-text-base)) 68%);
-    background-size: 200% 100%;
-    background-position: 100% 0;
+    background-color: hsl(var(--running-text-base) / .55);
+    background-image: linear-gradient(90deg, transparent 0%, hsl(var(--running-text-sheen) / .75) 40%, hsl(var(--running-text-sheen) / .75) 60%, transparent 100%);
+    background-size: 50% 100%;
+    background-repeat: no-repeat;
+    background-position: -100% 0;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    animation: agent-status-shimmer 2.4s linear infinite;
+    /* 本机 Codex 参考：先等 .6s，1s 扫过，随后留白，4s 一轮。 */
+    animation: agent-status-shimmer 4s steps(48, end) .6s infinite;
   }
 }
 @keyframes agent-status-shimmer {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
+  0% { background-position: -100% 0; }
+  25%, 100% { background-position: 250% 0; }
 }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .agent-status-text[data-active='true'] {

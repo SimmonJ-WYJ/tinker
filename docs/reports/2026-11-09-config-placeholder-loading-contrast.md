@@ -1,5 +1,7 @@
 # 配置占位与 loading 可见度验收
 
+本报告对应首轮 f04afa7，后续用户复调与最终浅色方案见 [Codex 式扫光复调记录](./2026-11-09-codex-shimmer-placeholder-refinement.md)。
+
 ## 版本和范围
 
 - 只读确认运行进程来自 `/Volumes/Tinker 0.1.615-arm64/Tinker.app`，包内记录为 main `d94a3f06ee9ea0bba2d017248a4e948e7a87dfad`。

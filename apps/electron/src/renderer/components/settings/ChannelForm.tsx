@@ -1,6 +1,7 @@
 import { addQuickModels, type ProviderDraft } from '@/lib/channel-drafts'
 import { ChannelModels } from './ChannelModels'
 import { ChannelProviderMark, getChannelProtocolLabel } from './ChannelProviderMark'
+import './channel-form.css'
 /**
  * ChannelForm - 模型配置编辑表单
  *
@@ -613,7 +614,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
   const protocolLabel = getChannelProtocolLabel(provider, imageProtocol) ?? PROVIDER_LABELS[provider]
 
   return (
-    <div className="mx-auto w-full">
+    <div className="channel-form mx-auto w-full">
       {/* 标题栏 - sticky 吸顶，确保新建模式的「创建」按钮始终可见 */}
       <div className="sticky top-0 z-10 -mx-6 -mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/70 bg-muted/45 px-6 py-2.5 backdrop-blur-md">
         <Button
@@ -716,7 +717,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
           />
         </div>
         <SettingsInput
-          className="p-0"
+          className={cn('p-0', !baseUrl.trim() && 'channel-form-empty-url')}
           label={t('channelForm.fields.baseUrl')}
           value={baseUrl}
           onChange={setBaseUrl}
