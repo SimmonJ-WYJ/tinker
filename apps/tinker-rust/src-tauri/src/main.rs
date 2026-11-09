@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-mod run_commands;
 use std::sync::Mutex;
 use tauri::Manager;
+use tinker_rust_foundation::run_commands;
 use tinker_rust_foundation::{
     history_commands::{self, HistoryState},
     history_library::HISTORY_DIRECTORY,
