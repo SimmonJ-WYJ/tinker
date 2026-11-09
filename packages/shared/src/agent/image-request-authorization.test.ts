@@ -113,3 +113,66 @@ test.each(['把这个女生加入数据库', 'Add this woman to the team', '再�
 test.each(['再次生成，背景不要画人物','生成一张海报，标题不要绘制阴影','再次生成，不要改脸'])('局部输出约束不撤销完整图片请求: %s',userMessage=>{
  expect(new ImageRequestAuthorization({userMessage,previousImageTask:true}).authorize(IMAGE_GENERATION_TOOL,request).action).toBe('allow')
 })
+
+describe('自然视觉编辑组合与安全边界', () => {
+ const original='你看看加入这个女生 三个人一起'
+ test.each([original,'你看下，加上这个女生，三个人同框','帮我把刚上传的女生放进这张海报里','把她加进去，三个人一起合影','加入这个女生，站在他旁边','让他们三个人站在一起','Please add her beside him','Include this woman in the picture','Put the uploaded person next to him','Add this girl, all three together'])('有宿主图片上下文时理解动作/对象，而非固定整句：%s', userMessage => {
+  for(const evidence of [{selectedImageId:'chosen'},{hasCurrentImageAttachment:true},{previousImageTask:true}]){
+   const scope=new ImageRequestAuthorization({userMessage,referenceImageIds:['chosen'],referenceImagePaths:['/session/upload.png'],...evidence})
+   expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'composition',referenceImagePaths:['/session/upload.png']},'edit').action).toBe('allow')
+   expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'second'},'extra').action).toBe('ask')
+  }
+  expect(turn(userMessage).authorize(IMAGE_GENERATION_TOOL,request).action).toBe('ask')
+ })
+ test.each(['你看看这个女生 三个人一起','你看看加入这个女生是否合适','只分析把这个女生加入旁边的效果','先分析这张图片，换成英文版','加入这个女生，先只分析，别动手','先不要加入这个女生，换成英文版','加入这个女生，但先别编辑','Add her beside him, do not edit yet','Add this woman to the database','你看看加入这个女生的代码怎么实现','把这个女生加入项目成员','Add her to the team','把这个女生的记录加入资料库','把她的记录加入资料库','加入这个女生的联系方式','Add her record to the archive','Add this girl to the roster','Put this person in the meeting','加入这个女生，然后上传图片到服务器','Add her and email the image to the team','他说：“加入这个女生 三个人一起”','`Add her beside him`'])('图片上下文不把讨论/否定/非视觉动作变成生成：%s', userMessage => {
+  expect(new ImageRequestAuthorization({userMessage,selectedImageId:'chosen',hasCurrentImageAttachment:true,previousImageTask:true,referenceImageIds:['chosen']}).authorize(IMAGE_GENERATION_TOOL,request).action).toBe('ask')
+ })
+ test('人数不扩大输出数量，明确张数仍受当前回合约束',()=>{
+  const scope=turn(original+'，生成两张图片','chosen')
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'one'},'one').action).toBe('allow')
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'two'},'two').action).toBe('allow')
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'three'},'three').action).toBe('ask')
+  expect(turn(original,'chosen').authorize(IMAGE_GENERATION_TOOL,{prompt:'x',baseImageId:'foreign'}).action).toBe('deny')
+  expect(turn(original,'chosen').authorize(IMAGE_GENERATION_TOOL,{prompt:'x',referenceImagePaths:['/other/private.png']}).action).toBe('ask')
+ })
+ test('明确批准确立任务语义，许可仍只绑定本次精确请求',()=>{
+  const scope=turn('看看这个构图','chosen')
+  expect(scope.isImageTask()).toBe(false)
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,request,'approved').action).toBe('ask')
+  scope.approve(IMAGE_GENERATION_TOOL,request,'approved')
+  expect(scope.isImageTask()).toBe(true)
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,request,'approved').action).toBe('allow')
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'extra'},'extra').action).toBe('ask')
+  scope.cancel();scope.approve(IMAGE_GENERATION_TOOL,request,'approved')
+  expect(scope.isImageTask()).toBe(true)
+  expect(scope.authorize(IMAGE_GENERATION_TOOL,request,'approved').action).toBe('deny')
+ })
+ test('被拒的非法请求、取消后晚到批准不能确立图片任务',()=>{
+  const scope=turn('看看这个需求')
+  scope.approve(IMAGE_GENERATION_TOOL,{...request,referenceImageIds:['foreign']},'bad')
+  expect(scope.isImageTask()).toBe(false)
+  scope.cancel();scope.approve(IMAGE_GENERATION_TOOL,request,'late')
+  expect(scope.isImageTask()).toBe(false)
+ })
+})
+
+test('未知选图 ID 不能单独提供图片编辑上下文',()=>{
+ const scope=new ImageRequestAuthorization({userMessage:'你看看加入这个女生 三个人一起',selectedImageId:'foreign',referenceImageIds:['chosen']})
+ expect(scope.isImageTask()).toBe(false)
+ expect(scope.authorize(IMAGE_GENERATION_TOOL,{prompt:'composition',baseImageId:'foreign'}).action).toBe('deny')
+})
+
+test.each(['加入这个女生 三个人一起，暂不生成','加入这个女生 三个人一起，先只讨论不生成','加入这个女生 三个人一起，先只讨论','加入这个女生，暂缓生成','加入这个女生，先别把她加进去','Add her beside him, not yet','Add her beside him, first discuss','把她加入照片资料库','把她加入图片库','Add her to the picture library','Add her to the image archive'])('复审：撤回或非视觉完整目的地不能自动生图：%s',userMessage=>{
+ expect(turn(userMessage,'chosen').authorize(IMAGE_GENERATION_TOOL,request).action).toBe('ask')
+})
+
+test.each(['让他们一起参加会议','让他们一起参加活动'])('多人一起不足以证明画面动作：%s',userMessage=>{
+ expect(turn(userMessage,'chosen').authorize(IMAGE_GENERATION_TOOL,request).action).toBe('ask')
+})
+test('多人明确合影/同框仍是视觉动作',()=>{
+ for(const userMessage of ['让他们一起合影','让他们三个人同框'])expect(turn(userMessage,'chosen').authorize(IMAGE_GENERATION_TOOL,request).action).toBe('allow')
+})
+
+test.each(['你看看加入这个女生 三个人一起 这句话什么意思','加入这个女生 三个人一起 好不好','Add her beside him, what does that mean'])('视觉动作描述仍不能把明确询问变成付费请求：%s',userMessage=>{
+ expect(turn(userMessage,'chosen').authorize(IMAGE_GENERATION_TOOL,request).action).toBe('ask')
+})
