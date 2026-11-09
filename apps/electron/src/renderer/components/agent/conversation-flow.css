@@ -58,7 +58,8 @@
 .conversation-reasoning-selector img { flex-shrink: 0; }
 .dark .conversation-reasoning-selector img { filter: invert(.85); }
 .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer-surface { display: flex; flex-direction: column; min-height: var(--conversation-composer-height); justify-content: space-between; border-radius: 16px; padding: 12px 16px; border-color: hsl(var(--conversation-composer-line)); }
-.workspace-shell .conversation-column:not([data-home-empty]) .rich-text-input .ProseMirror { min-height: 52px; padding: 0; font-size: 16px; line-height: 22px; }
+.workspace-shell .conversation-column:not([data-home-empty]) .rich-text-input { --rich-input-padding-top: 0px; --rich-input-padding-inline: 0px; --rich-input-padding-bottom: 0px; --rich-input-font-size: 14px; --rich-input-line-height: 22px; }
+.workspace-shell .conversation-column:not([data-home-empty]) .rich-text-input .ProseMirror { min-height: 52px; }
 .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer-toolbar { min-height: 32px; padding: 0; gap: 8px; }
 .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer-toolbar button[aria-haspopup='menu'] { min-height: 30px; border: 1px solid hsl(var(--border)); border-radius: 15px; padding-inline: 12px; font-size: 12px; color: hsl(var(--foreground)); }
 .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer__icon-button, .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer__stop, .workspace-shell .conversation-column:not([data-home-empty]) .agent-composer__send { width: 32px; height: 32px; }

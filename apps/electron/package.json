@@ -1,6 +1,6 @@
 {
   "name": "@asci/electron",
-  "version": "0.1.613",
+  "version": "0.1.614",
   "description": "Tinker — adaptive AI agents",
   "main": "dist/main.cjs",
   "author": {

@@ -115,7 +115,8 @@
 .workspace-shell .agent-composer-surface[data-disabled='true']:focus-within { border-color: hsl(var(--workspace-line) / .55); box-shadow: 0 2px 6px hsl(var(--foreground) / .025); }
 .workspace-shell .agent-composer-surface[data-drag-over='true'],
 .workspace-shell .agent-composer-surface[data-drag-over='true']:focus-within { border-color: hsl(var(--info)); background: hsl(var(--info) / .06); box-shadow: 0 0 0 2px hsl(var(--info) / .4), 0 0 20px 4px hsl(var(--info) / .2); }
-.home-conversation .home-composer .ProseMirror { min-height: 72px; padding: 16px 20px 0; font-size: 15px; line-height: 24px; }
+.home-conversation .home-composer .rich-text-input { --rich-input-padding-top: 16px; --rich-input-padding-inline: 20px; --rich-input-padding-bottom: 0px; --rich-input-font-size: 15px; --rich-input-line-height: 24px; }
+.home-conversation .home-composer .ProseMirror { min-height: 72px; }
 .workspace-shell .agent-composer-toolbar { min-height: 40px; height: auto; padding: 0 10px 10px; gap: 8px; }
 .workspace-shell .agent-composer-toolbar button { font-size: 13px; font-weight: 400; }
 .workspace-shell .agent-composer-toolbar button[aria-haspopup='menu'] { min-height: 30px; padding-inline: 8px; border: 0; border-radius: 8px; font-size: var(--workspace-font-caption); color: hsl(var(--muted-foreground)); }
@@ -135,7 +136,8 @@
 .workspace-shell .conversation-column { width: 100%; max-width: calc(var(--workspace-content-width) + 48px); }
 .workspace-shell .conversation-column .conversation-column__messages { padding-inline: 24px; }
 .workspace-shell .conversation-column > [data-input-mode='agent'] { padding: 12px 24px 16px; }
-.workspace-shell .conversation-column .rich-text-input .ProseMirror { min-height: 48px; padding: 14px 18px 6px; font-size: 14px; line-height: 22px; }
+.workspace-shell .conversation-column .rich-text-input { --rich-input-padding-top: 14px; --rich-input-padding-inline: 18px; --rich-input-padding-bottom: 6px; --rich-input-font-size: 14px; --rich-input-line-height: 22px; }
+.workspace-shell .conversation-column .rich-text-input .ProseMirror { min-height: 48px; }
 .home-header { min-height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; gap: 16px; flex-shrink: 0; }
 .home-header__breadcrumb { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 14px; }
 .home-header__breadcrumb span { color: hsl(var(--muted-foreground)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -209,7 +211,7 @@
 @media (max-width: 640px) {
   .workspace-shell .conversation-column .conversation-column__messages { padding-inline: 20px; }
   .workspace-shell .conversation-column > [data-input-mode='agent'] { padding-inline: 16px; }
-  .home-conversation .home-composer .ProseMirror { padding-inline: 14px; }
+  .home-conversation .home-composer .rich-text-input { --rich-input-padding-inline: 14px; }
   .workspace-shell .agent-composer-toolbar { gap: 6px; padding-inline: 8px; }
   .workspace-shell .agent-composer-toolbar button[aria-haspopup='menu'] > span { max-width: 140px; }
 }

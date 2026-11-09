@@ -18,6 +18,7 @@ import { useAtom } from 'jotai'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import './rich-text-input-layout.css'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
@@ -585,7 +586,7 @@ export function RichTextInput({
       attributes: {
         class: cn(
           'prose dark:prose-invert max-w-none focus:outline-none',
-          'min-h-[101px] w-full text-[15px] leading-[1.6]',
+          'min-h-[101px] w-full',
           '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
           '[&_pre]:rounded-md [&_pre]:p-3',
           '[&_code]:bg-muted [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-sm [&_code]:text-foreground',
@@ -923,17 +924,16 @@ export function RichTextInput({
         </div>
       )}
       <EditorContent editor={editor} className="w-full" />
-      {/* 轮播占位覆盖层：固定前缀（如「输入」）静止，仅后缀滚动切换。
-          与 ProseMirror 文字起点对齐：padding 9px 15px */}
+      {/* 轮播提示和编辑器共用排版变量，场景修改内边距时保持相同文字起点。 */}
       {useRotating && isEmptyForPlaceholder && rotatingPlaceholders && (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-[15px] top-[9px] flex items-baseline text-sm leading-normal text-muted-foreground"
+          className="rich-text-input__placeholder"
         >
           {rotatingPrefix && <span className="opacity-50">{rotatingPrefix}&nbsp;</span>}
           {/* 后缀裁剪容器：滚入时 translateY 超出部分被裁掉，呈现滚动感 */}
-          <span className="inline-block overflow-hidden">
-            <span key={rotIdx} className="rgph-item inline-block whitespace-nowrap">
+          <span className="block overflow-hidden">
+            <span key={rotIdx} className="rgph-item block whitespace-nowrap">
               {rotatingPlaceholders[rotIdx % rotatingPlaceholders.length]}
             </span>
           </span>
@@ -976,7 +976,6 @@ export function RichTextInput({
         }
         .ProseMirror {
           outline: none;
-          padding: 9px 15px 0px;
           font-style: normal;
         }
         .ProseMirror p {
