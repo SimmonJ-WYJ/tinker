@@ -3,11 +3,12 @@ import { expect, mock } from 'bun:test'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ImageRequestAuthorization } from '@asci/shared'
-import type { AttachmentSaveInput, Channel } from '@asci/shared'
+import { ImageRequestAuthorization, IMAGE_GENERATION_TOOL } from '@asci/shared'
+import type { AttachmentSaveInput, Channel, PermissionRequest } from '@asci/shared'
 import { readSessionImageScope } from './image-turn-context.ts'
 import { ImageTurnController } from './image-turn-controller.ts'
 import { createImageTurnFactory } from './image-turn-factory.ts'
+import { AgentPermissionService } from '../lib/agent-permission-service.ts'
 
 const directory=mkdtempSync(join(tmpdir(),'image-handler-fixture-'))
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=','base64')
@@ -92,5 +93,47 @@ try {
  const discussed=resumed('discussion','再次生成需要多少钱')
  expect((await handler(discussed.authorization,'discussion')({prompt:'unrequested'},{})).isError).toBe(true)
  expect(calls).toBe(7)
- console.log('IMAGE_HANDLER_FIXTURE_PASS: 7 fake API calls; queue consumption and immutable inflight scope verified; authorization, replay, new-turn edit, plan and cancellation verified')
+ // 用户原句必须穿过真实文件范围、选图绑定、执行守卫和 handler；无真实网络。
+ const upload=join(directory,'new-reference.png');writeFileSync(upload,png)
+ const naturalText=`<attached_files>\n- new-reference.png: ${upload}\n</attached_files>\n你看看加入这个女生 三个人一起`
+ const naturalCreate=createImageTurnFactory('s',directory,directory,[])
+ const natural=naturalCreate('natural-original',naturalText,'image-1')
+ const naturalInput={prompt:'three-person composition',baseImageId:'image-1',referenceImagePaths:[upload],complex:true}
+ const service=new AgentPermissionService({cwd:directory,workspaceRoot:directory,homeDir:directory})
+ const approvalCards:PermissionRequest[]=[]
+ const naturalPermission=service.createCanUseTool('s',card=>approvalCards.push(card),undefined,undefined,natural.authorization)
+ const naturalHook=service.createPreToolUseHardRuleHookForSession('s',{confirmPaidImage:naturalPermission})
+ expect(await naturalHook({hook_event_name:'PreToolUse',tool_name:IMAGE_GENERATION_TOOL,tool_input:naturalInput,session_id:'s',transcript_path:'/tmp/synthetic',cwd:directory,tool_use_id:'natural-call'},'natural-call',{signal:new AbortController().signal})).toMatchObject({hookSpecificOutput:{permissionDecision:'allow'}})
+ expect(await naturalPermission(IMAGE_GENERATION_TOOL,naturalInput,{toolUseID:'natural-call',signal:new AbortController().signal})).toMatchObject({behavior:'allow'})
+ expect(approvalCards).toHaveLength(0)
+ const naturalHandler=handler(natural.authorization,'natural-original','image-1')
+ expect((await naturalHandler(naturalInput,{})).isError).not.toBe(true)
+ expect((await naturalHandler(naturalInput,{})).isError).not.toBe(true)
+ expect((await naturalHandler({...naturalInput,prompt:'unrequested extra'},{})).isError).toBe(true)
+ expect(calls).toBe(8)
+ const approvedCreate=createImageTurnFactory('s',directory,directory,[])
+ const approvedTurn=approvedCreate('manual-approved','看看这个构图','image-1')
+ const approvedInput={prompt:'manual approval',baseImageId:'image-1'}
+ const approvedHandler=handler(approvedTurn.authorization,'manual-approved','image-1')
+ expect((await approvedHandler(approvedInput,{})).isError).toBe(true)
+ const approvePermission=service.createCanUseTool('s',card=>approvalCards.push(card),undefined,undefined,approvedTurn.authorization)
+ const pendingApproval=approvePermission(IMAGE_GENERATION_TOOL,approvedInput,{toolUseID:'approved-call',signal:new AbortController().signal})
+ expect(approvalCards).toHaveLength(1)
+ service.respondToPermission(approvalCards[0]!.requestId,'allow',false)
+ expect(await pendingApproval).toMatchObject({behavior:'allow'})
+ expect((await approvedHandler(approvedInput,{})).isError).not.toBe(true)
+ expect(calls).toBe(9)
+ const approvedHistory=[{type:'user',uuid:'manual-approved',parent_tool_use_id:null,imageEditReference:{imageId:'image-1'},message:{content:[{type:'text',text:'看看这个构图'}]}}]
+ const restored=createImageTurnFactory('s',directory,directory,approvedHistory)('approved-retry','再次生成')
+ const restoredPermission=service.createCanUseTool('s',card=>approvalCards.push(card),undefined,undefined,restored.authorization)
+ expect(await restoredPermission(IMAGE_GENERATION_TOOL,{prompt:'approved task retry'},{toolUseID:'restored-call',signal:new AbortController().signal})).toMatchObject({behavior:'allow'})
+ expect(approvalCards).toHaveLength(1)
+ const restoredHandler=handler(restored.authorization,'approved-retry')
+ expect((await restoredHandler({prompt:'approved task retry'},{})).isError).not.toBe(true)
+ expect((await restoredHandler({prompt:'extra file',referenceImagePaths:['/another-session/private.png']},{})).isError).toBe(true)
+ restored.authorization.cancel()
+ expect((await restoredHandler({prompt:'late'},{})).isError).toBe(true)
+ expect(calls).toBe(10)
+ service.clearSessionPending('s')
+ console.log('IMAGE_HANDLER_FIXTURE_PASS: 10 fake API calls; natural edits, approved task recovery, queue, immutable inflight scope, exact files, plan and cancellation verified')
 } finally {rmSync(directory,{recursive:true,force:true});mock.restore()}
