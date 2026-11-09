@@ -1,6 +1,6 @@
 # 图片审批循环修复验证
 
-基线 main `b61ee1a8b7a04053643eb8da63dc43afee738459`。隔离工作树 `/tmp/tinker-image-approval-fix-20261109`，本地分支 `fix/image-edit-approval-context`。只修 Electron 图片宿主/共享授权，不改 Rust、README/CLAUDE 或用户会话。本报告不是发布、安装或真实付费生成成功证明。
+初始基线 main `b61ee1a8b7a04053643eb8da63dc43afee738459`。GitHub 交付前无冲突合并 main `915d3ae6e655e1e40d8fbee9bb39887d7c07896e`，分支 `fix/image-edit-approval-context`。只修 Electron 图片宿主/共享授权，相对最新 main 不改 Rust、README/CLAUDE 或用户会话。本报告不是发布、安装或真实付费生成成功证明。
 
 ## 根因与修改
 
@@ -36,7 +36,16 @@
 
 4 项 skip 是既有的包内 rg binary 集成测试，开发依赖布局未提供其测试入口；未修改或隐藏这些测试。本轮新增测试全部执行。中途类型检查发现夹具缺少必填 homeDir/tool_use_id，以及循环推断需要显式类型；已补齐后六包 typecheck 通过，没有使用 any。
 
-本机日志前缀 `/tmp/tinker-image-approval-`；最终为 `final-types.log`、`final-tests.log`、`final-lint.log`、`final-build.log`、`target-final.log`。此前 red/green 日志保留，用于区分复现和验证。
+原始 red/green 与合并后验证日志仅留本地，不纳入 Git 提交。
+
+## 最新主干整合复验
+
+- main `915d3ae` 通过 merge 整合，无冲突。Rust HTTP provider、Cargo 文件和原有 Rust 报告均保留，与 main 没有本轮差异。
+- 合并后重新执行全量 Bun：**3443 pass、4 skip、0 fail、9107 assertions**。
+- typecheck 六个 workspace、全仓 lint、Electron build 均重新通过。
+- 首次受限沙箱运行有 14 项本机监听测试失败，允许 loopback 后完整重跑通过，没有改测试跳过失败。
+- 独立只读复审与 code-simplifier 的复用、简化、可读性检查无阻塞，独立七文件定向 **165 pass、0 fail、423 assertions**。
+- 无真实模型或付费请求，构建未启动、安装或替换用户应用，Rust Cargo 构建不在本轮范围。
 
 ## 宿主链路覆盖
 
@@ -52,14 +61,14 @@
 ## 真实验收与升级限制
 
 - 没有读取/修改真实用户 JSONL、上传照片、密钥或个人资料；没有重发用户已成功的生图调用。
-- 没有操作正在运行的 Tinker，没有安装、打包、推送、PR、合并 main 或发布；本地 Electron build 只验证可构建。
+- 没有操作正在运行的 Tinker，没有安装、打包、合并 main 或发布。GitHub 交付范围仅为修复分支和 Draft PR，本地 Electron build 只验证可构建。
 - 没有运行真实模型/SDK 流端到端或真实付费生成；此处“真实 handler”指实际代码配合假网络，不能等同用户账号端到端。
 - 没有修改 UI，本轮没有截图/浏览器样式验收；审批是否发出的断言使用真实权限服务的 renderer 请求数量和实际执行边界。
 - 已有自然改图语句的旧 false 可以安全恢复语义。若旧版只留下泛泛文本、false 和丢失的批准事实，不能无缝推断；用户需要再明确一次生图/编辑或确认合法调用。新版本会记录语义，后续明确重试不再陷入同一循环。
 - 未知或额外文件、超出输出数量、失效/跨会话来源仍会要求确认或拒绝；这是保留的权限边界。
 
-## 本地交付与回滚
+## GitHub 交付与回滚
 
-本轮只保留独立本地提交，确切 SHA 以交付消息为准。后续推送、合并和验收包需由主对话按授权继续；当前安装包不会自动获得本地修复。
+实现提交 `c015f9ff5675225a24ffaf450697add47d9ef027`。已合并最新 main，最终分支 SHA、Draft PR、远端 CI 与复审评论以交付消息为准。合并留给开发者手动完成，当前安装包不会自动获得此修复。
 
 回滚本次提交可恢复旧识别与恢复逻辑，不需要删除用户数据。旧读取器遇到新确认事件会保守失去续作上下文，不扩大旧权限；再次明确输入可建立新的普通消费边界。

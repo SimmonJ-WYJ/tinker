@@ -1,12 +1,12 @@
 # 自然图片编辑与批准后续作修复
 
-状态：实现、回归、聚合验证和独立复审完成；准备本地提交。基线 main b61ee1a。工作树 `/tmp/tinker-image-approval-fix-20261109`，分支 `fix/image-edit-approval-context`。
+状态：实现与本地验证完成，已无冲突整合 main `915d3ae`，重新验证后交付 Draft PR。分支 `fix/image-edit-approval-context`。
 
 ## 目标与边界
 
 “你看看加入这个女生 三个人一起”在宿主已验证选图/上传时应识别为本回合图片编辑。显式批准合法图片调用后，任务语义可用于下一轮明确的“再次生成”，但批准参数、额外文件、数量和调用身份不可继承。缺少上下文、讨论/分析/询问、否定、代码/数据库/群聊等非视觉动作仍保守询问；跨会话引用和取消后调用仍拒绝。
 
-只改 Electron 图片宿主与 shared 授权。保留敏感工具审批、计划模式和执行守卫。本轮不修改 Rust、README/CLAUDE、用户真实 JSONL、运行的安装包，不推送、不合 main、不发布、不打包、不付费生图。磁盘保留 4 GiB 停止线。
+只改 Electron 图片宿主与 shared 授权。保留敏感工具审批、计划模式和执行守卫。本轮相对 main 不修改 Rust、README/CLAUDE、用户真实 JSONL 或运行的安装包。交付仅推送修复分支并创建 Draft PR，不合并 main、不开 auto-merge、不发布、不打包、不付费生图。磁盘保留 4 GiB 停止线。
 
 ## 已复核根因
 
@@ -38,11 +38,14 @@ Files：shared 授权对象；`image-turn-journal.ts`、`image-turn-factory.ts` 
 
 Run：相关授权、factory/controller/journal、permission-flow、execution-guard、handler 测试。观察红测后再实现。
 
-### 3. 验证与本地交付
+### 3. 验证与交付
 
 - [x] 全仓 typecheck / Bun tests / lint，Electron build；不做 DMG，不争用 Cargo 缓存。
 - [x] 独立只读复审并修正确认问题；复核数据/授权不扩大、Rust零差异、无真实用户资料。
 - [x] `git diff --check`，正常版本/提交钩子，本地 Conventional Commit。记录根因、测试、SHA和未跑项目到 `docs/reports/2026-11-09-image-approval-validation.md`。
+
+- [x] 合并最新 main，保留 Rust 主干变更，重新执行全量检查。
+交付流程：推送已验证修复分支、创建 Draft PR、核对远端 head 与 CI 并回帖复审。远端状态以 PR 和交付消息为准。
 
 ## 设计判断
 
