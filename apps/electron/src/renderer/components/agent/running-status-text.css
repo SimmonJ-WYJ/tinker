@@ -1,16 +1,16 @@
 /* 仅文字内部流光，不改变透明度或几何位置；无渐变支持时保留普通文字。 */
 .agent-status-text { width: fit-content; max-width: 100%; }
-.agent-status-text[data-active='true'] { color: hsl(var(--foreground) / .72); }
+.agent-status-text[data-active='true'] { color: hsl(var(--running-text-base)); }
 @supports ((background-clip: text) or (-webkit-background-clip: text)) {
   .agent-status-text[data-active='true'] {
-    background-image: linear-gradient(110deg, hsl(var(--foreground) / .72) 40%, hsl(var(--foreground)) 50%, hsl(var(--foreground) / .72) 60%);
-    background-size: 240% 100%;
+    background-image: linear-gradient(110deg, hsl(var(--running-text-base)) 32%, hsl(var(--running-text-sheen)) 50%, hsl(var(--running-text-base)) 68%);
+    background-size: 200% 100%;
     background-position: 100% 0;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    animation: agent-status-shimmer 2.6s linear infinite;
+    animation: agent-status-shimmer 2.4s linear infinite;
   }
 }
 @keyframes agent-status-shimmer {

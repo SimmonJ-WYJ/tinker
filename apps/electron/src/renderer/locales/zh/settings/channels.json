@@ -43,6 +43,7 @@
     "createTooltip": {
       "noName": "请先填写配置名称",
       "noKey": "请先填写 API Key",
+      "noBaseUrl": "请填写 Base URL",
       "noEnabledModel": "请至少启用一个模型",
       "testNotPassed": "请先通过测试连接",
       "invalidUrl": "请填写有效的 HTTP(S) Base URL"
@@ -59,7 +60,8 @@
       "providerLabel": "供应商类型",
       "providerPlaceholder": "选择供应商",
       "baseUrl": "Base URL",
-      "baseUrlPlaceholder": "https://api.example.com",
+      "baseUrlPlaceholder": "例如：https://api.example.com",
+      "baseUrlEmptyHint": "请输入服务商提供的 Base URL，示例不会作为配置保存。",
       "previewUrl": "预览：{{url}}",
       "apiKey": "API Key",
       "apiKeyEditPlaceholder": "留空则不更新",

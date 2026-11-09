@@ -43,6 +43,7 @@
     "createTooltip": {
       "noName": "Please fill in the configuration name",
       "noKey": "Please fill in the API key",
+      "noBaseUrl": "Please fill in the Base URL",
       "noEnabledModel": "Please enable at least one model",
       "testNotPassed": "Pass the connection test first",
       "invalidUrl": "Enter a valid HTTP(S) Base URL"
@@ -59,7 +60,8 @@
       "providerLabel": "Provider type",
       "providerPlaceholder": "Select provider",
       "baseUrl": "Base URL",
-      "baseUrlPlaceholder": "https://api.example.com",
+      "baseUrlPlaceholder": "e.g. https://api.example.com",
+      "baseUrlEmptyHint": "Enter your provider’s Base URL. The example is not saved.",
       "previewUrl": "Preview: {{url}}",
       "apiKey": "API Key",
       "apiKeyEditPlaceholder": "Leave empty to keep the existing key",

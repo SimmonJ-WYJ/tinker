@@ -593,13 +593,15 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
   const enabledModelCount = models.filter((m) => m.enabled).length
   /**
    * "创建"按钮的守门项 —— 新建/编辑共用一套逻辑
-   * 顺序：配置名 → API Key → 启用模型 → 连接测试通过
+   * 顺序：配置名 → API Key → Base URL → 启用模型 → 连接测试通过
    * 返回 null 表示一切就绪，按钮可点。
    */
   const submitMissing: string | null = !name.trim()
     ? t('channelForm.createTooltip.noName')
     : !apiKey.trim()
       ? t('channelForm.createTooltip.noKey')
+      : !baseUrl.trim()
+        ? t('channelForm.createTooltip.noBaseUrl')
       : provider === 'custom-image' && !validImageBaseUrl(baseUrl)
         ? t('channelForm.createTooltip.invalidUrl')
       : enabledModelCount === 0
@@ -719,7 +721,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
           value={baseUrl}
           onChange={setBaseUrl}
           placeholder={t('channelForm.fields.baseUrlPlaceholder')}
-          description={baseUrl.trim() ? t('channelForm.fields.previewUrl', { url: provider === 'custom-image' && imageProtocol !== 'openai-images' ? `${safeGeminiPreview(baseUrl)}/${imageProtocol === 'gemini-interactions' ? 'interactions' : `models/${probeModelId}:generateContent`}` : buildPreviewUrl(baseUrl, provider) }) : undefined}
+          description={baseUrl.trim() ? t('channelForm.fields.previewUrl', { url: provider === 'custom-image' && imageProtocol !== 'openai-images' ? `${safeGeminiPreview(baseUrl)}/${imageProtocol === 'gemini-interactions' ? 'interactions' : `models/${probeModelId}:generateContent`}` : buildPreviewUrl(baseUrl, provider) }) : t('channelForm.fields.baseUrlEmptyHint')}
           descriptionAfterInput
           required
         />

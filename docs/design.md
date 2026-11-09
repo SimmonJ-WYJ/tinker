@@ -48,6 +48,8 @@
 
 ## 三、色彩 token 字典
 
+聊天运行文字使用 `--running-text-base` 与 `--running-text-sheen`，数值见 tokens.css。浅色为深色字上的浅灰扫光，深色为次级字上的亮色扫光，避免工作台局部前景变量压低高光差。2.4 秒线性循环，仅主标题内部变化，Logo 和副文案静态。减少动态效果与 forced-colors 恢复普通文字，不用降低整行透明度表达运行态。
+
 ### 3.1 命名约定
 
 - 所有 token 用 CSS 变量定义，**值为 HSL 分量字符串**（不含 `hsl()` 包裹），便于 Tailwind 的 `hsl(var(--xxx) / <alpha-value>)` 模板叠 alpha：
