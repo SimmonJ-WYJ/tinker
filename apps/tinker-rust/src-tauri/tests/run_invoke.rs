@@ -275,3 +275,72 @@ fn real_handler_restores_interrupted_after_abrupt_process_exit_without_replaying
         "interrupted"
     );
 }
+
+struct HostEcho;
+impl tinker_rust_foundation::run_provider::RunProvider for HostEcho {
+    fn execute(
+        &self,
+        input: &str,
+        _: &std::sync::atomic::AtomicBool,
+        emit: &mut dyn FnMut(&str) -> Result<(), tinker_rust_foundation::run_types::RunError>,
+    ) -> Result<(), tinker_rust_foundation::run_types::RunError> {
+        emit(input)?;
+        emit("/host")
+    }
+}
+struct HostPanic;
+impl tinker_rust_foundation::run_provider::RunProvider for HostPanic {
+    fn execute(
+        &self,
+        _: &str,
+        _: &std::sync::atomic::AtomicBool,
+        emit: &mut dyn FnMut(&str) -> Result<(), tinker_rust_foundation::run_types::RunError>,
+    ) -> Result<(), tinker_rust_foundation::run_types::RunError> {
+        emit("partial")?;
+        panic!("private synthetic panic payload");
+    }
+}
+#[test]
+fn real_handler_uses_trusted_host_provider_injection_without_changing_dto() {
+    for (provider, expected_status, expected_output) in [
+        (
+            std::sync::Arc::new(HostEcho)
+                as std::sync::Arc<dyn tinker_rust_foundation::run_provider::RunProvider>,
+            "completed",
+            "input/host",
+        ),
+        (std::sync::Arc::new(HostPanic), "failed", "partial"),
+    ] {
+        let fixture = Fixture::new();
+        let app = mock_builder()
+            .manage(run_commands::RunHostState::with_provider(
+                &fixture.0, provider,
+            ))
+            .invoke_handler(tauri::generate_handler![
+                run_commands::start_lab_run,
+                run_commands::cancel_lab_run,
+                run_commands::read_lab_run
+            ])
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+        let request =
+            serde_json::json!({"requestId":"injected","input":"input","scenario":"failure"});
+        invoke(&window, "start_lab_run", request.clone()).unwrap();
+        let page = terminal(&window, "injected");
+        assert_eq!(page["snapshot"]["status"], expected_status);
+        assert_eq!(page["snapshot"]["output"], expected_output);
+        assert_eq!(page["snapshot"]["scenario"], "failure");
+        assert_eq!(
+            invoke(&window, "start_lab_run", request).unwrap(),
+            page["snapshot"]
+        );
+        let log = fs::read_to_string(fixture.0.join("runs-v1/injected.jsonl")).unwrap();
+        assert!(!log.contains("private synthetic"));
+        if expected_status == "failed" {
+            assert_eq!(page["snapshot"]["errorCode"], "providerPanicked");
+        }
+    }
+}

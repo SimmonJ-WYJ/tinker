@@ -49,7 +49,7 @@ fn run_success_is_durable_and_deduplicated_after_reopen() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     let first = controller
-        .start(
+        .start_fixture(
             "request-1".into(),
             "合成输入".into(),
             OfflineScenario::Success,
@@ -60,7 +60,7 @@ fn run_success_is_durable_and_deduplicated_after_reopen() {
     assert!(!done.output.is_empty());
     assert_eq!(
         controller
-            .start(
+            .start_fixture(
                 "request-1".into(),
                 "不同输入".into(),
                 OfflineScenario::Success
@@ -71,7 +71,7 @@ fn run_success_is_durable_and_deduplicated_after_reopen() {
     );
     assert_eq!(
         controller
-            .start(
+            .start_fixture(
                 "request-1".into(),
                 "合成输入".into(),
                 OfflineScenario::Success
@@ -86,7 +86,7 @@ fn run_success_is_durable_and_deduplicated_after_reopen() {
     let reopened = RunController::open(&temp.0).unwrap();
     assert_eq!(
         reopened
-            .start(
+            .start_fixture(
                 "request-1".into(),
                 "合成输入".into(),
                 OfflineScenario::Success
@@ -100,11 +100,11 @@ fn run_cancel_is_idempotent_and_rejects_late_deltas() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("slow".into(), "输入".into(), OfflineScenario::Slow)
+        .start_fixture("slow".into(), "输入".into(), OfflineScenario::Slow)
         .unwrap();
     assert_eq!(
         controller
-            .start("other".into(), "输入".into(), OfflineScenario::Success)
+            .start_fixture("other".into(), "输入".into(), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "runBusy"
@@ -123,7 +123,7 @@ fn run_failure_retains_input_and_partial_output() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("fail".into(), "保留输入".into(), OfflineScenario::Failure)
+        .start_fixture("fail".into(), "保留输入".into(), OfflineScenario::Failure)
         .unwrap();
     let failed = terminal(&controller, "fail");
     assert_eq!(failed.status, RunStatus::Failed);
@@ -136,7 +136,7 @@ fn run_reopen_interrupts_without_restarting_provider() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("inflight".into(), "输入".into(), OfflineScenario::Slow)
+        .start_fixture("inflight".into(), "输入".into(), OfflineScenario::Slow)
         .unwrap();
     drop(controller);
     let reopened = RunController::open(&temp.0).unwrap();
@@ -144,7 +144,7 @@ fn run_reopen_interrupts_without_restarting_provider() {
     assert_eq!(interrupted.status, RunStatus::Interrupted);
     assert_eq!(
         reopened
-            .start("inflight".into(), "输入".into(), OfflineScenario::Slow)
+            .start_fixture("inflight".into(), "输入".into(), OfflineScenario::Slow)
             .unwrap(),
         interrupted
     );
@@ -159,14 +159,14 @@ fn run_storage_lock_and_validation_are_explicit() {
     );
     assert_eq!(
         controller
-            .start("../bad".into(), "x".into(), OfflineScenario::Success)
+            .start_fixture("../bad".into(), "x".into(), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "invalidRunId"
     );
     assert_eq!(
         controller
-            .start("large".into(), "x".repeat(65_537), OfflineScenario::Success)
+            .start_fixture("large".into(), "x".repeat(65_537), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "inputTooLarge"
@@ -182,7 +182,7 @@ fn run_truncated_tail_is_readable_but_never_replayed() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("truncated".into(), "输入".into(), OfflineScenario::Slow)
+        .start_fixture("truncated".into(), "输入".into(), OfflineScenario::Slow)
         .unwrap();
     drop(controller);
     std::fs::OpenOptions::new()
@@ -197,7 +197,7 @@ fn run_truncated_tail_is_readable_but_never_replayed() {
     assert!(snapshot.recovery_required);
     assert_eq!(
         reopened
-            .start("truncated".into(), "输入".into(), OfflineScenario::Slow)
+            .start_fixture("truncated".into(), "输入".into(), OfflineScenario::Slow)
             .unwrap(),
         snapshot
     );
@@ -211,7 +211,7 @@ fn run_corrupt_middle_and_future_version_are_rejected() {
         let temp = Temp::new();
         let controller = RunController::open(&temp.0).unwrap();
         controller
-            .start("corrupt".into(), "输入".into(), OfflineScenario::Slow)
+            .start_fixture("corrupt".into(), "输入".into(), OfflineScenario::Slow)
             .unwrap();
         drop(controller);
         let path = temp.0.join("runs-v1/corrupt.jsonl");
@@ -226,7 +226,7 @@ fn run_storage_failure_stops_provider_and_reports_uncertain_durability() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("storage".into(), "保留".into(), OfflineScenario::Slow)
+        .start_fixture("storage".into(), "保留".into(), OfflineScenario::Slow)
         .unwrap();
     let path = temp.0.join("runs-v1/storage.jsonl");
     fs::remove_file(&path).unwrap();
@@ -237,7 +237,7 @@ fn run_storage_failure_stops_provider_and_reports_uncertain_durability() {
     assert_eq!(failed.input, "保留");
     assert_eq!(
         controller
-            .start("new".into(), "输入".into(), OfflineScenario::Success)
+            .start_fixture("new".into(), "输入".into(), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "recoveryRequired"
@@ -249,7 +249,7 @@ fn run_full_input_bound_does_not_expand_public_event_payloads() {
     let controller = RunController::open(&temp.0).unwrap();
     let input = "\u{0001}".repeat(65_536);
     controller
-        .start("full".into(), input.clone(), OfflineScenario::Success)
+        .start_fixture("full".into(), input.clone(), OfflineScenario::Success)
         .unwrap();
     terminal(&controller, "full");
     let page = controller.read(None, 0, 256).unwrap();
@@ -275,13 +275,13 @@ fn run_empty_input_and_cursor_bounds_do_not_mutate_the_run() {
     let controller = RunController::open(&temp.0).unwrap();
     assert_eq!(
         controller
-            .start("empty".into(), " \n\t".into(), OfflineScenario::Success)
+            .start_fixture("empty".into(), " \n\t".into(), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "emptyInput"
     );
     controller
-        .start("valid".into(), "输入".into(), OfflineScenario::Success)
+        .start_fixture("valid".into(), "输入".into(), OfflineScenario::Success)
         .unwrap();
     let done = terminal(&controller, "valid");
     assert_eq!(
@@ -303,7 +303,7 @@ fn run_empty_input_and_cursor_bounds_do_not_mutate_the_run() {
     assert!(!empty.has_more);
     assert_eq!(
         controller
-            .start("valid".into(), "输入".into(), OfflineScenario::Failure)
+            .start_fixture("valid".into(), "输入".into(), OfflineScenario::Failure)
             .unwrap_err()
             .code(),
         "requestConflict"
@@ -331,7 +331,7 @@ fn run_empty_middle_line_is_corrupt_not_silently_skipped() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("blank".into(), "输入".into(), OfflineScenario::Slow)
+        .start_fixture("blank".into(), "输入".into(), OfflineScenario::Slow)
         .unwrap();
     drop(controller);
     let path = temp.0.join("runs-v1/blank.jsonl");
@@ -376,11 +376,11 @@ fn run_latest_start_order_survives_equal_file_timestamps() {
     let temp = Temp::new();
     let controller = RunController::open(&temp.0).unwrap();
     controller
-        .start("z-first".into(), "first".into(), OfflineScenario::Success)
+        .start_fixture("z-first".into(), "first".into(), OfflineScenario::Success)
         .unwrap();
     terminal(&controller, "z-first");
     controller
-        .start("a-second".into(), "second".into(), OfflineScenario::Success)
+        .start_fixture("a-second".into(), "second".into(), OfflineScenario::Success)
         .unwrap();
     terminal(&controller, "a-second");
     drop(controller);
@@ -411,14 +411,14 @@ fn run_unacknowledged_header_never_deduplicates_as_a_live_run() {
     .unwrap();
     assert_eq!(
         controller
-            .start("uncertain".into(), "输入".into(), OfflineScenario::Success)
+            .start_fixture("uncertain".into(), "输入".into(), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "recoveryRequired"
     );
     assert_eq!(
         controller
-            .start("other".into(), "输入".into(), OfflineScenario::Success)
+            .start_fixture("other".into(), "输入".into(), OfflineScenario::Success)
             .unwrap_err()
             .code(),
         "recoveryRequired"
@@ -430,3 +430,31 @@ fn run_unacknowledged_header_never_deduplicates_as_a_live_run() {
         RunStatus::Interrupted
     );
 }
+
+// 旧离线回归仅在测试宿主中选择fixture，控制器不识别执行场景。
+trait FixtureStart {
+    fn start_fixture(
+        &self,
+        id: String,
+        input: String,
+        scenario: OfflineScenario,
+    ) -> Result<crate::run_types::RunSnapshot, crate::run_types::RunError>;
+}
+impl FixtureStart for RunController {
+    fn start_fixture(
+        &self,
+        id: String,
+        input: String,
+        scenario: OfflineScenario,
+    ) -> Result<crate::run_types::RunSnapshot, crate::run_types::RunError> {
+        self.start_with_provider(
+            id,
+            input,
+            scenario,
+            std::sync::Arc::new(crate::run_provider::OfflineFixture::new(scenario)),
+        )
+    }
+}
+
+#[path = "run_provider_tests.rs"]
+mod provider_tests;

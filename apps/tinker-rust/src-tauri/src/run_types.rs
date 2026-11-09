@@ -96,6 +96,7 @@ pub enum RunError {
     RunLimitExceeded,
     RecoveryRequired,
     OfflineFixtureFailed,
+    ProviderPanicked,
     EmptyInput,
 }
 impl RunError {
@@ -116,6 +117,7 @@ impl RunError {
             Self::UnsupportedVersion => "unsupportedVersion",
             Self::RunLimitExceeded => "runLimitExceeded",
             Self::RecoveryRequired => "recoveryRequired",
+            Self::ProviderPanicked => "providerPanicked",
             Self::OfflineFixtureFailed => "offlineFixtureFailed",
             Self::EmptyInput => "emptyInput",
         }

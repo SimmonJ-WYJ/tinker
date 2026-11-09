@@ -2,19 +2,40 @@
 use std::{path::Path, sync::Arc};
 use tinker_rust_foundation::{
     run_controller::RunController,
+    run_provider::{OfflineFixture, RunProvider},
     run_types::{OfflineScenario, RunError, RunEventPage, RunSnapshot},
 };
 
-pub struct RunHostState(Result<Arc<RunController>, &'static str>);
+pub struct RunHostState {
+    controller: Result<Arc<RunController>, &'static str>,
+    provider: Option<Arc<dyn RunProvider>>,
+}
 impl RunHostState {
     pub fn new(root: impl AsRef<Path>) -> Self {
-        Self(RunController::open(root).map(Arc::new).map_err(code))
+        Self {
+            controller: RunController::open(root).map(Arc::new).map_err(code),
+            provider: None,
+        }
+    }
+    // 仅供受信任的Rust宿主注入；IPC参数不能选择实现。
+    #[allow(dead_code)] // 生产入口目前只绑定离线fixture，保留受信任宿主注入入口。
+    pub fn with_provider(root: impl AsRef<Path>, provider: Arc<dyn RunProvider>) -> Self {
+        Self {
+            controller: RunController::open(root).map(Arc::new).map_err(code),
+            provider: Some(provider),
+        }
     }
     pub fn unavailable() -> Self {
-        Self(Err("runUnavailable"))
+        Self {
+            controller: Err("runUnavailable"),
+            provider: None,
+        }
     }
     fn controller(&self) -> Result<Arc<RunController>, &'static str> {
-        self.0.as_ref().map(Arc::clone).map_err(|error| *error)
+        self.controller
+            .as_ref()
+            .map(Arc::clone)
+            .map_err(|error| *error)
     }
 }
 fn code(error: RunError) -> &'static str {
@@ -38,8 +59,14 @@ pub async fn start_lab_run(
         return Err("emptyInput");
     }
     let controller = state.controller()?;
+    let provider = state
+        .provider
+        .clone()
+        .unwrap_or_else(|| Arc::new(OfflineFixture::new(scenario)));
     tauri::async_runtime::spawn_blocking(move || {
-        controller.start(request_id, input, scenario).map_err(code)
+        controller
+            .start_with_provider(request_id, input, scenario, provider)
+            .map_err(code)
     })
     .await
     .map_err(|_| "runUnavailable")?
