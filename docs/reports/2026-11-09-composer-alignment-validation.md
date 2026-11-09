@@ -47,4 +47,6 @@
 
 IME 验收为 Chromium CDP composition 与 DOM 事件，不包含 macOS/Windows 真实输入法候选窗。缩放为浏览器 CSS zoom，不是 Electron 菜单缩放验收。发送和停止使用合成回调，只证明 UI 输入及状态布局，没有触发真实模型或生成请求。本轮未运行生产账号端到端、未读取真实会话、未打包、未替换当前安装包或应用，也未自动合并。
 
-实现提交及后续 GitHub 状态以交付消息为准。本次不修改 README/CLAUDE 或用户手工设计。
+GitHub UI 审阅使用 `docs/reports/assets/2026-11-09-composer-{light,dark,narrow}.png` 三张合成截图。仅包含输入组件和模拟内容，没有用户原始聊天或截图，未上传 Library。
+
+实现提交及 GitHub 状态以交付消息为准。本次不修改 README/CLAUDE 或用户手工设计。
