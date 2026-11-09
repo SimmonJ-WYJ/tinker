@@ -5,25 +5,32 @@ use std::{
     thread,
     time::Duration,
 };
+/// 受信任的同步实现；应轮询取消令牌并传播sink错误。宿主负责配置实现。
 pub trait RunProvider: Send + Sync {
     fn execute(
         &self,
         input: &str,
-        scenario: OfflineScenario,
         cancelled: &AtomicBool,
         emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
     ) -> Result<(), RunError>;
 }
 #[derive(Debug)]
-pub struct OfflineFixture;
+pub struct OfflineFixture {
+    scenario: OfflineScenario,
+}
+impl OfflineFixture {
+    pub fn new(scenario: OfflineScenario) -> Self {
+        Self { scenario }
+    }
+}
 impl RunProvider for OfflineFixture {
     fn execute(
         &self,
         _input: &str,
-        scenario: OfflineScenario,
         cancelled: &AtomicBool,
         emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
     ) -> Result<(), RunError> {
+        let scenario = self.scenario;
         let fragments = [
             "[offline fixture] ",
             "This is a local test. ",

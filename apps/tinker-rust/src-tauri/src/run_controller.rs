@@ -1,6 +1,6 @@
-//! 单活动离线执行的线程控制；事件提交后才更新可见状态，终态拒绝晚到片段。
+//! 单活动执行的线程控制；事件提交后才更新可见状态，终态拒绝晚到片段。
 use crate::{
-    run_provider::{OfflineFixture, RunProvider},
+    run_provider::RunProvider,
     run_store::{RunStore, StoredRun},
     run_types::*,
     session_lifecycle::RunStatus,
@@ -51,11 +51,13 @@ impl RunController {
             worker: Mutex::new(None),
         })
     }
-    pub fn start(
+    /// scenario仅用于旧日志及请求去重；执行行为完全由宿主注入的provider决定。
+    pub fn start_with_provider(
         &self,
         request_id: String,
         input: String,
         scenario: OfflineScenario,
+        provider: Arc<dyn RunProvider>,
     ) -> Result<RunSnapshot, RunError> {
         validate_id(&request_id)?;
         if input.trim().is_empty() {
@@ -136,8 +138,8 @@ impl RunController {
         let weak = Arc::downgrade(&self.inner);
         let worker_id = request_id;
         let spawned = thread::Builder::new()
-            .name("rust-offline-fixture".into())
-            .spawn(move || execute(weak, worker_id, input, scenario, token));
+            .name("rust-run-provider".into())
+            .spawn(move || execute(weak, worker_id, input, provider, token));
         match spawned {
             Ok(worker) => {
                 *handle = Some(worker);
@@ -254,36 +256,39 @@ fn execute(
     inner: Weak<Mutex<Inner>>,
     id: String,
     input: String,
-    scenario: OfflineScenario,
+    provider: Arc<dyn RunProvider>,
     token: Arc<AtomicBool>,
 ) {
-    let result = OfflineFixture.execute(&input, scenario, &token, &mut |text| {
-        let state = inner.upgrade().ok_or(RunError::RecoveryRequired)?;
-        let mut state = state.lock().map_err(|_| RunError::StoreIo)?;
-        if token.load(Ordering::Acquire) {
-            return Ok(());
-        }
-        let Inner {
-            store,
-            current,
-            blocked,
-            ..
-        } = &mut *state;
-        let run = current.as_mut().ok_or(RunError::RunNotFound)?;
-        if run.snapshot.run_id != id || is_terminal(run.snapshot.status) {
-            return Ok(());
-        }
-        match store.append(run, RunRecordKind::Delta, Some(text.into()), None) {
-            Ok(()) => Ok(()),
-            Err(RunError::RunLimitExceeded) => Err(RunError::RunLimitExceeded),
-            Err(error) => {
-                mark_storage_failure(run, error);
-                *blocked = true;
-                token.store(true, Ordering::Release);
-                Err(error)
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        provider.execute(&input, &token, &mut |text| {
+            let state = inner.upgrade().ok_or(RunError::RecoveryRequired)?;
+            let mut state = state.lock().map_err(|_| RunError::StoreIo)?;
+            if token.load(Ordering::Acquire) {
+                return Ok(());
             }
-        }
-    });
+            let Inner {
+                store,
+                current,
+                blocked,
+                ..
+            } = &mut *state;
+            let run = current.as_mut().ok_or(RunError::RunNotFound)?;
+            if run.snapshot.run_id != id || is_terminal(run.snapshot.status) {
+                return Ok(());
+            }
+            match store.append(run, RunRecordKind::Delta, Some(text.into()), None) {
+                Ok(()) => Ok(()),
+                Err(RunError::RunLimitExceeded) => Err(RunError::RunLimitExceeded),
+                Err(error) => {
+                    mark_storage_failure(run, error);
+                    *blocked = true;
+                    token.store(true, Ordering::Release);
+                    Err(error)
+                }
+            }
+        })
+    }))
+    .unwrap_or(Err(RunError::ProviderPanicked));
     if token.load(Ordering::Acquire) {
         return;
     }
