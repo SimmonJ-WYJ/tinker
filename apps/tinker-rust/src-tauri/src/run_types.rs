@@ -98,6 +98,12 @@ pub enum RunError {
     OfflineFixtureFailed,
     ProviderPanicked,
     EmptyInput,
+    HttpConfig,
+    HttpTransport,
+    HttpStatus,
+    HttpProtocol,
+    HttpTimeout,
+    HttpUnsupported,
 }
 impl RunError {
     pub fn code(&self) -> &'static str {
@@ -120,6 +126,12 @@ impl RunError {
             Self::ProviderPanicked => "providerPanicked",
             Self::OfflineFixtureFailed => "offlineFixtureFailed",
             Self::EmptyInput => "emptyInput",
+            Self::HttpConfig => "httpConfig",
+            Self::HttpTransport => "httpTransport",
+            Self::HttpStatus => "httpStatus",
+            Self::HttpProtocol => "httpProtocol",
+            Self::HttpTimeout => "httpTimeout",
+            Self::HttpUnsupported => "httpUnsupported",
         }
     }
 }

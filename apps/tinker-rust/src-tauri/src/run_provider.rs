@@ -1,4 +1,4 @@
-//! 可替换的离线片段提供者；唯一实现不执行网络、shell或模型调用。
+//! 可替换的执行提供者与默认离线片段；可信宿主负责选择实现。
 use crate::run_types::{OfflineScenario, RunError};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
