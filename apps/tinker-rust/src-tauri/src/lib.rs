@@ -15,3 +15,6 @@ pub mod run_store;
 #[cfg(test)]
 mod run_store_tests;
 pub mod run_types;
+
+pub mod chat_http;
+pub mod run_commands;

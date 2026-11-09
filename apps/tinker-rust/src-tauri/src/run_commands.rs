@@ -1,10 +1,10 @@
-//! 离线实验 IPC：只接请求ID/文本/固定场景，文件IO离开WebView线程。
-use std::{path::Path, sync::Arc};
-use tinker_rust_foundation::{
+//! Rust Lab IPC：只接请求ID/文本/固定场景；可信宿主注入执行器，文件IO离开WebView线程。
+use crate::{
     run_controller::RunController,
     run_provider::{OfflineFixture, RunProvider},
     run_types::{OfflineScenario, RunError, RunEventPage, RunSnapshot},
 };
+use std::{path::Path, sync::Arc};
 
 pub struct RunHostState {
     controller: Result<Arc<RunController>, &'static str>,
@@ -18,12 +18,21 @@ impl RunHostState {
         }
     }
     // 仅供受信任的Rust宿主注入；IPC参数不能选择实现。
-    #[allow(dead_code)] // 生产入口目前只绑定离线fixture，保留受信任宿主注入入口。
     pub fn with_provider(root: impl AsRef<Path>, provider: Arc<dyn RunProvider>) -> Self {
         Self {
             controller: RunController::open(root).map(Arc::new).map_err(code),
             provider: Some(provider),
         }
+    }
+    /// 可信宿主显式构造网络配置；前端不能选择端点、模型或凭据。
+    pub fn with_chat_http(
+        root: impl AsRef<Path>,
+        config: crate::chat_http::ChatHttpConfig,
+    ) -> Self {
+        Self::with_provider(
+            root,
+            Arc::new(crate::chat_http::ChatHttpProvider::new(config)),
+        )
     }
     pub fn unavailable() -> Self {
         Self {
