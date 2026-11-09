@@ -1,0 +1,25 @@
+/* 编辑文本和轮播提示共用行框与起点，场景只覆盖这些排版变量。 */
+.rich-text-input {
+  --rich-input-padding-top: 9px;
+  --rich-input-padding-inline: 15px;
+  --rich-input-padding-bottom: 0px;
+  --rich-input-font-size: 15px;
+  --rich-input-line-height: 24px;
+}
+.rich-text-input .ProseMirror,
+.rich-text-input__placeholder {
+  font-size: var(--rich-input-font-size);
+  line-height: var(--rich-input-line-height);
+}
+.rich-text-input .ProseMirror {
+  padding: var(--rich-input-padding-top) var(--rich-input-padding-inline) var(--rich-input-padding-bottom);
+}
+.rich-text-input__placeholder {
+  position: absolute;
+  top: var(--rich-input-padding-top);
+  left: var(--rich-input-padding-inline);
+  display: flex;
+  align-items: flex-start;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
