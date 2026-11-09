@@ -41,7 +41,7 @@ test('编辑中转站 URL，先等待保存被门控，再测试成功仍会自�
   render(<ChannelForm channel={channel} onSaved={() => {}} onCancel={() => {}} />)
   await waitFor(() => expect((screen.getByPlaceholderText('Leave empty to keep the existing key') as HTMLInputElement).value).toBe('key'))
   await act(async () => { await Bun.sleep(130) })
-  fireEvent.change(screen.getByPlaceholderText('https://api.example.com'), { target: { value: 'https://new-relay.test/v1' } })
+  fireEvent.change(screen.getByLabelText('Base URL', { exact: false }), { target: { value: 'https://new-relay.test/v1' } })
   fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
   await act(async () => { await Bun.sleep(700) })
   expect(update).not.toHaveBeenCalled()

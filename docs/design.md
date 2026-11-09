@@ -48,6 +48,8 @@
 
 ## 三、色彩 token 字典
 
+聊天运行文字使用 `--running-text-base` 与 `--running-text-sheen`，数值见 tokens.css。参考本机 Codex 的默认次级灰字、55% 基色与 75% 白色扫光，.6 秒进入等待、1 秒扫过、4 秒循环、48 阶采样，避免整行长期偏黑。仅主标题内部变化，Logo 和副文案静态。减少动态效果与 forced-colors 恢复普通文字，不降低整行透明度。配置输入的示例与空值辅助说明分别使用 `--channel-input-placeholder` 与 `--channel-input-hint`，真实输入、标签和必填反馈保留原色。
+
 ### 3.1 命名约定
 
 - 所有 token 用 CSS 变量定义，**值为 HSL 分量字符串**（不含 `hsl()` 包裹），便于 Tailwind 的 `hsl(var(--xxx) / <alpha-value>)` 模板叠 alpha：
