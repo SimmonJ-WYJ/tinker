@@ -17,7 +17,13 @@ TINKER_CANDIDATE=1 ASCI_SKIP_LOGIN=1 bun run electron:start
 本候选采用免登录、本机自带 Key。API Key 仅在应用内配置，不要提交到 Git。
 Mac 候选资料隔离在 `~/Library/Application Support/Tinker Candidate`；没有自动迁移现有 ASCI 会话或渠道。
 
-## 验证与当前限制
+## 当前清理与兼容边界
+
+当前源码正在按依赖退役科研专属流程，保留通用聊天、模型/渠道、生图、项目、历史读取/导出和媒体能力。执行批次与测试边界见[科研退役记录](docs/reports/2026-11-10-research-retirement.md)。现有 Electron/SDK 后端仍承担生产功能，Rust/Tauri 是独立迁移路径，未用它替换正式界面或用户数据。
+
+## 旧候选验证记录与限制
+
+以下是上列旧候选版本的记录，不代表当前源码或新安装包的完整验收。
 
 - 上次候选构建回归：3127 通过、4 跳过、0 失败；类型检查与构建通过。
 - 已实测首页、模型缺省设置入口、中文切换、项目创建、搜索、示例草稿及返回后保留草稿。
