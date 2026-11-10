@@ -27,6 +27,8 @@ Mac 候选资料隔离在 `~/Library/Application Support/Tinker Candidate`；没
 
 原项目的 CI、自动发布和通知配置保存在 `docs/upstream-workflows/*.disabled`，不会在本仓库自动执行。更新源和对外发行配置尚待确认，不要直接执行旧配置向原仓库发布。
 
+当前 issue 与 PR 默认提交到 [`SimmonJ-WYJ/tinker`](https://github.com/SimmonJ-WYJ/tinker)，上游历史链接保留原仓库归属。
+
 ## 项目来源与许可
 
-保留原有 ASCI/OPENSCI Labs 及贡献者归属。许可见 [LICENSE](LICENSE)，声明见 [NOTICE](NOTICE)。原项目文档见 [历史 README](docs/history/ASCI-README.md)。
+保留原有 ASCI/OPENSCI Labs 及贡献者归属。许可见 [LICENSE](LICENSE)，声明见 [NOTICE](NOTICE)。原项目文档见 [历史 README](docs/history/ASCI-README.md) 与 [历史领域语言](docs/history/ASCI-CONTEXT.md)。当前开发约定见 [CLAUDE.md](CLAUDE.md)，通用领域语言见 [CONTEXT.md](CONTEXT.md)；旧科研路线图不再作为当前产品目标。

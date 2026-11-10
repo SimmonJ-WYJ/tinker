@@ -7,8 +7,15 @@
 
 ## 1. 项目速览
 
-**ASCI（Agent-based Scientific Collaboration Interface）** — 面向科研用户的深度 Agent 桌面应用，
-基于 `@anthropic-ai/claude-agent-sdk` + Electron。
+**Tinker** — 面向聊天、写作、编程、图像与文件任务的通用 Agent 桌面应用，
+基于 `@anthropic-ai/claude-agent-sdk` + Electron，由 ASCI 项目演进而来。
+
+当前开发仓库与默认 issue / PR 目标为 [`SimmonJ-WYJ/tinker`](https://github.com/SimmonJ-WYJ/tinker)。
+保留 ASCI / OPENSCI Labs 与贡献者来源，见 [LICENSE](./LICENSE)、[NOTICE](./NOTICE) 和
+[历史 README](./docs/history/ASCI-README.md)。科研领域术语与旧路线图见
+[历史 CONTEXT](./docs/history/ASCI-CONTEXT.md)，不作为当前产品目标。
+内部 `@asci/*`、`ASCI_*`、MCP 协议名、`.asci` 数据路径、app identifier / OAuth / deeplink
+均为兼容契约，不能按品牌批量改名。现有 Electron / SDK 后端继续承担生产功能，不能因存在 Rust 实验前端就退役。
 
 - 运行时：Bun 1.2.5+（替代 npm / pnpm / node）
 - 语言：TypeScript 5+（严格模式，ESNext）
@@ -22,7 +29,7 @@
 ```
 packages/
   shared/   # 类型、IPC 通道常量、utils        ← 零运行时依赖
-  core/     # Provider 适配器、Shiki、Zotero 客户端
+  core/     # Provider 适配器、Shiki、历史集成兼容模块
   ui/       # 共享 React 组件（CodeBlock、Mermaid...）
 apps/
   electron/ # 桌面应用主体（main / preload / renderer）
@@ -142,7 +149,7 @@ bun run dist:fast                # 当前架构快速验证
 非平凡改动先写设计方案，再实现：
 
 - `docs/specs/<feature>-spec.md` — 设计规格 + 实现计划，**tracked（随 PR 进 git）**；带状态头（状态 / 关联 issue / 关联 PR / 领域语言事实源），格式参照 `docs/specs/capability-package-spec.md`
-- 领域语言（术语表）落仓库根 `CONTEXT.md`（tracked）
+- 当前领域语言（术语表）落仓库根 `CONTEXT.md`（tracked）；科研历史定义归档到 `docs/history/ASCI-CONTEXT.md`，不自动恢复旧功能或路线图
 
 **约定**：设计方案一律放 `docs/specs/`（tracked），**不放** `docs/superpowers/`（该目录在 `.gitignore` 内，仅当前会话临时 scratch）。这样 spec 可被 issue/PR 引用、可跨会话、可长期保留；优先读同 feature 的 spec 再动代码。
 
@@ -218,7 +225,7 @@ SDK 曾在 0.2.111 与 0.2.113 调整 `options.env` 的叠加/替换语义。项
 
 ### Issue tracker
 
-Issues and PRDs are tracked as GitHub issues on `OPENSCI-Labs/ASCI-Alpha` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues and PRDs are tracked as GitHub issues on `SimmonJ-WYJ/tinker` via the `gh` CLI. Upstream issue references retain their original repository context. See `docs/agents/issue-tracker.md`.
 
 ### PR flow
 
