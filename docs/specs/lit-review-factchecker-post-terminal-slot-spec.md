@@ -13,10 +13,10 @@ lit-review 综述生成后，spec §5.4 + scenario `stop_conditions` 都声称 `
 
 ### 根因（已对照代码核验）
 
-1. **fact-checker 只挂在 `optional_followups`，不在 `steps`**：lit-review Turn-2 PLAN 模板 [`system-prompt.md:102-104`](../../apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md) 把它放进 `optional_followups`；真正会派的 `steps` 里只有 `evidence-triager / reader / evidence-skimmer`。
+1. **fact-checker 只挂在 `optional_followups`，不在 `steps`**：lit-review Turn-2 PLAN 模板 [`system-prompt.md:102-104`](https://github.com/SimmonJ-WYJ/tinker/blob/4ca339592668581c1dc36abc9097fc9bf0aa1650/apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md) 把它放进 `optional_followups`；真正会派的 `steps` 里只有 `evidence-triager / reader / evidence-skimmer`。
 2. **执行协议根本不消费 `optional_followups`（也不消费 `stop_conditions`）**：主 Agent 的 PLAN 执行协议 [`agent-prompt-builder.ts:565-583`](../../apps/electron/src/main/lib/agent-prompt-builder.ts) 只有 7 步——`parse → confirm 门 → steps（含 when）→ 等待/并行 → terminal_skill → closing_action → summary`。没有任何一步读 `optional_followups` / `stop_conditions`。→ 对**任何模型**都是 0 派发（结构性不可达，区别于 lit-search 的"步骤在 steps 里、个别模型不照做"的模型走偏）。
 3. **更深一层结构缺陷——协议没有"terminal_skill 之后"的动作槽**：即便把 fact-checker 挪进 `steps`，`steps`（第 3 步）整体在 `terminal_skill`（第 5 步）**之前**执行，而 fact-checker 必须在综述正文**写出之后**核查每段——它会在无内容可核时空跑。协议形状 `steps → terminal_skill → summary` 里，terminal_skill 之后只剩 summary，没有可靠落点。（这也是关联 FINDING-20260610-001「reader 全 insufficient → terminal_skill 不触发」的同一类结构空白。）
-4. **自相矛盾 / 误导表现**：`stop_conditions` 写「fact-checker has run on each chapter at least once」却无代码强制；收尾 summary 模板 [`system-prompt.md:120`](../../apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md) 串 `Fact-check status: <verified count> / <flagged count>`——fact-checker 没跑，占位符**原样泄漏**给用户，给出"已核验"的错觉且无跳过信号。
+4. **自相矛盾 / 误导表现**：`stop_conditions` 写「fact-checker has run on each chapter at least once」却无代码强制；收尾 summary 模板 [`system-prompt.md:120`](https://github.com/SimmonJ-WYJ/tinker/blob/4ca339592668581c1dc36abc9097fc9bf0aa1650/apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md) 串 `Fact-check status: <verified count> / <flagged count>`——fact-checker 没跑，占位符**原样泄漏**给用户，给出"已核验"的错觉且无跳过信号。
 5. **现有护栏罩不到**：#590 的 [`plan-terminal-skill-guard.ts:37-38`](../../apps/electron/src/main/lib/plan-terminal-skill-guard.ts) 注释「只对 lit-search 的 general-query PLAN 生效，不波及 lit-review」，强制补调的也只是 `lit-search-report` skill。
 
 ## 目标 / 非目标
