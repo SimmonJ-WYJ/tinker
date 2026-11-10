@@ -124,11 +124,6 @@ extraResources:
     to: default-skills
     filter:
       - "**/*"
-  # 默认能力包（首次启动时同步到 ~/.asci/capability-packs/；spec §5 首发）
-  - from: default-capability-packs
-    to: default-capability-packs
-    filter:
-      - "**/*"
   # ASCI 品牌 Logo 素材（品牌素材下载功能使用）
   - from: resources/asci-logos
     to: asci-logos

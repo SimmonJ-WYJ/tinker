@@ -91,8 +91,6 @@ import {
   agentSessionPathMapAtom,
   allPendingAskUserRequestsAtom,
   allPendingExitPlanRequestsAtom,
-  allPendingLitReviewDirectionsRequestsAtom,
-  allPendingSearchPlanRequestsAtom,
   finalizeStreamingActivities,
 } from '@/atoms/agent-atoms'
 import type { AgentContextStatus } from '@/atoms/agent-atoms'
@@ -1489,13 +1487,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   const allAskUserRequests = useAtomValue(allPendingAskUserRequestsAtom)
   const allExitPlanRequests = useAtomValue(allPendingExitPlanRequestsAtom)
-  const allLitReviewDirectionsRequests = useAtomValue(allPendingLitReviewDirectionsRequestsAtom)
-  const allSearchPlanRequests = useAtomValue(allPendingSearchPlanRequestsAtom)
   const hasBannerOverlay =
     (allAskUserRequests.get(sessionId)?.length ?? 0) > 0 ||
-    (allExitPlanRequests.get(sessionId)?.length ?? 0) > 0 ||
-    (allLitReviewDirectionsRequests.get(sessionId)?.length ?? 0) > 0 ||
-    (allSearchPlanRequests.get(sessionId)?.length ?? 0) > 0
+    (allExitPlanRequests.get(sessionId)?.length ?? 0) > 0
 
   const isHome = !agentError && messagesLoaded && messages.length === 0 && persistedSDKMessages.length === 0 && liveMessages.length === 0 && !streaming && !hasBannerOverlay
   const hasTextInput = inputContent.trim().length > 0

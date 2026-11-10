@@ -1,66 +1,24 @@
-/**
- * PaperEntryDetailPanel - 工作区论文详情预览
- *
- * 视觉与 PaperDetailRenderer（kind='paper'）保持一致：
- *   title → 紧凑 authors/venue/year → 操作按钮行 → Abstract → 元信息 grid
- * 业务差异：entry 已在 workspace，加入 Zotero 走 ZoteroLinkDialog（可选 tags），
- * 而 record 路径直接 ingest+link 不弹窗。
- */
-
+/** 工作区历史论文详情：元数据、摘要、来源链接只读展示。 */
 import * as React from 'react'
-import { useAtomValue } from 'jotai'
-import { ExternalLink, Share2, Check } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ZoteroLinkDialog } from '@/components/agent/ZoteroLinkDialog'
-import { currentAgentWorkspaceIdAtom } from '@/atoms/agent-atoms'
-import { useOpenCitationGraph } from '@/components/citation-graph/useOpenCitationGraph'
 import { readCitedBy } from '@/components/agent/session-papers-utils'
 import { useT } from '@/hooks/useT'
 import { formatDateTime } from '@/utils/dayjs'
 import type { WorkspacePaperEntry } from '@asci/shared'
 import { MAX_AUTHORS_FULL, sanitizeText } from '@asci/shared'
 
-/** Zotero 风格 Z 字 logo（红底白 Z），与 PaperDetailRenderer 同源 */
-function ZoteroLogoIcon({ className }: { className?: string }): React.ReactElement {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <rect width="24" height="24" rx="5" fill="#CC2936" />
-      <path
-        d="M7 7.5h10L8 16h9"
-        stroke="white"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 interface PaperEntryDetailPanelProps {
   entry: WorkspacePaperEntry
+  readOnly?: true
 }
 
 export function PaperEntryDetailPanel({ entry }: PaperEntryDetailPanelProps): React.ReactElement {
   const { t } = useT('library')
-  const [zoteroDialogOpen, setZoteroDialogOpen] = React.useState(false)
   // 防御性兜底：entry.authors 在历史数据 / IPC 边界可能为 undefined（main 上 hotfix）
   const safeAuthors = Array.isArray(entry.authors) ? entry.authors : []
   const citedBy = readCitedBy(entry)
-  const workspaceId = useAtomValue(currentAgentWorkspaceIdAtom)
-  const openGraph = useOpenCitationGraph()
-
   const arxivId = extractArxivId(entry)
-  const canOpenGraph = Boolean(entry.doi || arxivId || entry.title)
-  const zoteroAdded = !!entry.linkedZoteroKey
-
-  const handleOpenGraph = (): void => {
-    if (!canOpenGraph) return
-    openGraph({
-      seed: { doi: entry.doi, arxivId, title: entry.title },
-      workspaceId,
-      seedTitleHint: entry.title,
-    })
-  }
 
   const openExternal = (url: string): void => {
     window.electronAPI.openExternal(url).catch(console.error)
@@ -98,35 +56,6 @@ export function PaperEntryDetailPanel({ entry }: PaperEntryDetailPanelProps): Re
 
       {/* 操作栏 */}
       <div className="flex flex-wrap gap-2 pt-1">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleOpenGraph}
-          disabled={!canOpenGraph}
-          title={canOpenGraph ? t('paperDetail.actions.openGraphTitle') : t('paperDetail.actions.openGraphDisabledEntryTitle')}
-        >
-          <Share2 className="size-3.5 mr-1" />
-          {t('paperDetail.actions.openGraph')}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setZoteroDialogOpen(true)}
-          disabled={zoteroAdded || !entry.title}
-          title={zoteroAdded ? t('paperDetail.actions.addedToZoteroTitle') : !entry.title ? t('paperDetail.actions.missingTitleTitle') : t('paperDetail.actions.addToZoteroTitle')}
-        >
-          {zoteroAdded ? (
-            <>
-              <Check className="size-3.5 mr-1" />
-              {t('paperDetail.actions.addedToZotero')}
-            </>
-          ) : (
-            <>
-              <ZoteroLogoIcon className="size-4 mr-1" />
-              {t('paperDetail.actions.addToZotero')}
-            </>
-          )}
-        </Button>
         {entry.doi && (
           <Button size="sm" variant="outline" onClick={() => entry.doi && openExternal(`https://doi.org/${entry.doi}`)}>
             <ExternalLink className="size-3 mr-1" />
@@ -175,11 +104,6 @@ export function PaperEntryDetailPanel({ entry }: PaperEntryDetailPanelProps): Re
         </dl>
       </div>
 
-      <ZoteroLinkDialog
-        open={zoteroDialogOpen}
-        onOpenChange={setZoteroDialogOpen}
-        entry={entry}
-      />
     </div>
   )
 }

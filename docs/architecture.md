@@ -1,7 +1,9 @@
 # 架构参考
 
-ASCI 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"源码难以一眼看出"的横切关系与约定；
+Tinker 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"源码难以一眼看出"的横切关系与约定；
 每个文件具体实现以源码头部中文注释为准。
+
+2026-11-10 科研退役将科研运行接线与历史兼容区分开。本文保留旧模块位置以便读取历史数据，不能据此重新启动科研服务。批次与验证边界见[退役报告](./reports/2026-11-10-research-retirement.md)。
 
 ---
 
@@ -19,7 +21,7 @@ ASCI 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"
 - `IPC_CHANNELS` —— 基础通道（运行时、Git、环境）
 - `CHANNEL_IPC_CHANNELS` —— 渠道管理
 - `AGENT_IPC_CHANNELS` —— Agent 功能
-- `CAPABILITY_PACK_IPC_CHANNELS` —— 能力包列表 / 启停（详见 [`agent-sdk-integration.md`](./agent-sdk-integration.md#orchestrator--子-agent)）
+- `CAPABILITY_PACK_IPC_CHANNELS` —— 能力包只读列表（详见 [`agent-sdk-integration.md`](./agent-sdk-integration.md#agentmcp-和技能边界)）
 - `ATTACHMENT_IPC_CHANNELS` —— 附件管理（保存/读取/另存/删除/文件对话框/文本提取）
 - `ENVIRONMENT_IPC_CHANNELS` —— 环境检查
 - `PROXY_IPC_CHANNELS` —— 代理设置
@@ -67,9 +69,9 @@ ASCI 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"
 
 | 服务 | 职责 |
 |------|------|
-| `agent-orchestrator.ts` | Agent 核心编排：并发守卫、渠道查找、环境变量构建、SDK 路径解析、消息持久化、事件流处理、错误处理、首轮自动命名、子 Agent 装配（reseed builtin + load capability packs + 通过 `runOrchestratorQuery` 注入 SDK `options.agents`） |
+| `agent-orchestrator.ts` | Agent 核心编排：并发守卫、渠道查找、环境变量构建、SDK 路径解析、消息持久化、事件流处理、错误处理、首轮自动命名、子 Agent 装配（可用自建能力包与 Registry，经 `runOrchestratorQuery` 注入 SDK `options.agents`） |
 | `agent-session-manager.ts` | 会话管理：SDK 消息持久化、会话元数据 CRUD、JSONL 存储 |
-| `agent-prompt-builder.ts` | 系统提示词构建：动态上下文、内置 6 人小队（searcher/relevance-scorer/citation-explorer/reader/synthesizer/fact-checker）、工作区上下文注入、Capability Pack Routing 信号；内置 prompt 全英文，末尾追加 Output Language directive 路由输出语言（从 `i18n-main.ts` 的 `getLanguage()` 取值） |
+| `agent-prompt-builder.ts` | 通用系统提示词、工作区上下文与已注册 Agent 清单；内置科研小队不再提供，科研路由已退役；保留权限、文件、PDF 与输出语言策略 |
 | `agent-permission-service.ts` | 工具权限检查、权限模式管理 |
 | `agent-ask-user-service.ts` | AskUser 请求处理 |
 | `agent-exit-plan-service.ts` | ExitPlan 服务 |
@@ -79,23 +81,21 @@ ASCI 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"
 
 ### Agent SDK 子 Agent 装配（A0）
 
-详见 [`agent-sdk-integration.md` — Orchestrator + 子 Agent](./agent-sdk-integration.md#orchestrator--子-agent)。
+详见 [`agent-sdk-integration.md` — Orchestrator + 子 Agent](./agent-sdk-integration.md#agentmcp-和技能边界)。
 
 | 服务 | 职责 |
 |------|------|
 | `subagent-registry.ts` | `SubagentRegistry` 接口 + in-memory 实现；三类来源（`builtin` / `user-config` / `capability-pack`）按优先级管理命名空间；`snapshot()` 产出 SDK `options.agents` 字典 |
 | `subagent-registry-seed.ts` | 把 `buildBuiltinAgents` 展开为 builtin RegistryEntry —— builtin / pack 走同一 Registry 路径 |
-| `run-orchestrator-query.ts` | **唯一** SDK query entrypoint（A0 ①）；`assembleQueryOptions()` 注入 `options.agents` + 装配 SubagentStart/Stop / pack.taskCompleted / paper-meta-cap hooks |
-| `capability-pack-loader.ts` | 扫 `~/.asci/capability-packs/`、zod 校验 manifest、CJK heuristic、模板占位符展开、reseed 注册到 Registry |
-| `capability-pack-service.ts` | IPC 业务层：`listCapabilityPacks` / `toggleCapabilityPack`（仅写状态，不主动 reseed —— 下次 query 自然生效） |
-| `capability-pack-state.ts` | 用户级 `~/.asci/capability-pack-state.json` 启停持久化 |
-| `workspace-capability-pack-state.ts` | 工作区级 `capabilities.json` override（缺 key 继承 / true 强启 / false 禁用） |
+| `run-orchestrator-query.ts` | **唯一** SDK query entrypoint（A0 ①）；`assembleQueryOptions()` 注入 `options.agents` + 通用 SubagentStart/Stop / pack.taskCompleted hooks，科研 hooks 不再装配 |
+| `capability-pack-loader.ts` | 加载自建能力包、校验与展开模板并注册到 Registry；跳过三个退役内置 packId，不删除已安装目录 |
+| `capability-pack-service.ts` | 只读 `listCapabilityPacks`，没有 toggle/import/uninstall；列表不展示三个退役内置 packId |
 | `subagent-spans-hook.ts` | SubagentStart/Stop FIFO 配对成 `SubagentSpan` |
 | `agent-orchestrator-spans-sink.ts` | 500ms debounce + 批量落 `AgentSessionMeta.subagentSpans`，cleanup 路径 `flush()` 兜底 |
-| `emit-filesystem-agents.ts` | G3 修复：把 scenario Agent 同步写到 `<cwd>/.claude/agents/<name>.md` —— claude binary 的 Agent dispatch 只读文件式 agents |
-| `emit-mcp-config.ts` | G5 修复：把 master `mcpServers` 写到 `<cwd>/.mcp.json` + patch `~/.claude.json` 标记 trust，让 sub-agent subprocess load 同一批 MCP |
+| `emit-filesystem-agents.ts` / `emit-mcp-config.ts` / `mark-claude-project-trusted.ts` | 旧兼容实现保留，生产编排已停止调用；不自动覆盖用户 agents/MCP 文件或修改 trust |
+| `runtime-skill-projection.ts` | 本次自有技能 plugin 投影及 SDK/后台任务租约，不修改用户源目录；未知/修改技能保留 |
 | `pack-task-completed-hook.ts` | SubagentStop 命中 capability-pack 时 emit `pack.taskCompleted` |
-| `paper-meta-cap-hook.ts` | lit-review → lit-search 跨包补漏 cap=3 / fail≥2 早停 |
+| `paper-meta-cap-hook.ts` 等科研 hook | 保留的旧源码，不再接入当前 query |
 
 ### 工具与文件
 
@@ -118,14 +118,16 @@ ASCI 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"
 | `global-shortcut-service.ts` | 全局快捷键注册 |
 | `quick-task-window.ts` | 快速任务窗口管理 |
 
-### Zotero 集成
+### Zotero 历史兼容（九项主动科研命令已退役）
 
 | 模块 | 职责 |
 |------|------|
-| `zotero-library.ts` | Zotero 本地库读取 |
-| `zotero-integration.ts` | Zotero 注入/引用流程 |
+| `zotero-library.ts` | 旧数据读取兼容，不在启动时自动同步 |
+| `zotero-integration.ts` | 旧集成源码保留，九项 Zotero 入队/配置/重建等主动命令已封堵 |
 | `zotero-context-block.ts` | Zotero 上下文块构建 |
 | `zotero-client/` | Zotero MCP 客户端 |
+
+通用 OCR/ASR/PDF/Python 不随 Zotero 退役。OCR/ASR 使用既有独立设置字段，在 MCP 设置中管理，ASR 默认关闭且不在挂载时下载。历史状态/读取与缓存/权重管理保持，九项 Zotero 科研重建/入队/自动下载等入口明确不可用。论文/图谱主动写入与历史页面的对应围栏见退役记录第三批，普通笔记、读取/导出与已有资料管理保留；不将科学专属写入围栏泛化为所有用户数据不可编辑。
 
 ---
 
@@ -182,8 +184,8 @@ Profile 在 `@asci/core`，不依赖 Electron 主进程 i18n。涉及文案的�
 | `tab-atoms.ts` | 多标签页状态：tabs、activeTabId、流式指示、小地图缓存（仅 Agent tab） |
 | `user-profile.ts` | 用户档案（姓名 + 头像） |
 | `updater.ts` | 自动更新状态（检查/下载/安装），优雅降级（updater 不可用时保持 idle） |
-| `library-atoms.ts` | 文献库状态 |
-| `zotero-atoms.ts` | Zotero 集成状态 |
+| `library-atoms.ts` | 旧文献库兼容状态 |
+| `zotero-atoms.ts` | 旧 Zotero 状态兼容，不表示仍开放新工作流 |
 | `side-panel-layout.ts` | 侧边栏布局 |
 | `search-atoms.ts` | 搜索状态 |
 | `draft-session-atoms.ts` | 草稿会话 |
@@ -200,7 +202,7 @@ Profile 在 `@asci/core`，不依赖 Electron 主进程 i18n。涉及文案的�
 - **`settings/`** —— 设置面板；`GeneralSettings`、`ChannelSettings` / `ChannelForm`、`AgentSettings`、`McpServerForm`、`ProxySettings`、`ShortcutSettings`、`AboutSettings`；含 `primitives/` 可复用表单组件
 - **`file-browser/`** —— 工作区文件树浏览
 - **`preview/`** —— 文件预览面板（PDF / 图片 / 文本）
-- **`library/`** —— 文献库视图
+- **`library/`** —— 旧文献数据兼容视图
 - **`ai-elements/`** —— Markdown / 代码块 / Mermaid / 推理折叠 / 富文本输入
 - **`quick-task/`** —— 快速任务窗口（全局快捷键触发）
 - **`onboarding/`** / **`welcome/`** —— 新手引导、欢迎页

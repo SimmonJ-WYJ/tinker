@@ -16,12 +16,14 @@
         "fallbackControl": "不可在此切换",
         "zoteroDescription": "Zotero 文献库与附件读取",
         "zoteroControl": "在「设置 → Zotero」中切换",
-        "ocrDescription": "本机 PaddleOCR 图像文字识别",
+        "ocrDescription": "识别图片中的文字，独立于文献库集成。",
         "ocrControl": "在「设置 → Zotero → 图片识别」中切换",
-        "asrDescription": "本机 SenseVoice 语音识别",
+        "asrDescription": "将音频转为文字，仅在主动开启时下载语音模型。",
         "asrControl": "在「设置 → Zotero → 语音识别」中切换",
         "paperSearchDescription": "22+ 学术数据源并行检索",
-        "paperSearchControl": "uv 就绪后自动启用"
+        "paperSearchControl": "uv 就绪后自动启用",
+        "ocrLabel": "图片识别（OCR）",
+        "asrLabel": "语音识别（ASR）"
       },
       "row": {
         "edit": "编辑",

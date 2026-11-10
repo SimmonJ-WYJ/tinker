@@ -252,21 +252,21 @@ Workflow:
 3. Commit both — the .md as source, the PNG as a supplementary figure
 ```
 
-### With `scientific-writing`
+### With document drafting
 
-When `scientific-writing` produces a manuscript, all diagrams and structural figures should use this skill's standards. The writing skill handles prose and citations; this skill handles visual structure.
+When drafting a document, use this skill's standards for diagrams and structural figures. Keep prose and citations in the document, and maintain the visual structure in Markdown/Mermaid source.
 
 ```
 Workflow:
-1. Use scientific-writing to draft the manuscript
+1. Draft the document in the requested format
 2. For every figure that shows a workflow, architecture, or relationship:
-   - Replace placeholder with a Mermaid diagram following this skill's guide
-3. Use scientific-schematics only for figures that truly need photorealistic/complex rendering
+   - Replace the placeholder with a Mermaid diagram following this skill's guide
+3. Use scientific-schematics for figures that need complex rendering
 ```
 
-### With `review-proposer` / `literature-review-result`
+### With review summaries and concept notes
 
-Review skills (`review-proposer` for direction discovery, `literature-review-result` for writing the review body) produce summaries with lots of relationship data. Use this skill to:
+When a review summary or concept note contains relationship data, use this skill to:
 
 - Create concept maps (Mindmap) of the literature landscape
 - Show publication timelines (Timeline or Gantt)

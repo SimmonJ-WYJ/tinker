@@ -4,7 +4,7 @@
  * 不持久化（切会话清空通过 atomFamily 的 per-session 隔离自然实现）。
  *
  * Chrome 风累积模型（不主动清理，所有打开过的 tab 常驻直到手动关闭）：
- * - 默认 tab（session-files / session-papers）恒在最前、**不可关闭**（会话文件面板必须常驻），
+ * - 默认 tab（session-files）恒在最前、**不可关闭**（会话文件面板必须常驻），
  *   但与其余 tab 一同参与横向滚动，无钉死。
  * - paper 详情按论文身份独立成 tab（`paper:<key>`，key 用 recordKey / entry.key，DOI 优先）：
  *   不同论文各自累积；同一篇论文的检索 record 与入库 entry 收敛到同一 tab（kind 随之更新）。
@@ -44,7 +44,6 @@ export interface SessionTabsState {
 
 export const DEFAULT_TABS: ReadonlyArray<RightTab> = Object.freeze([
   { id: 'session-files', kind: 'session-files', title: '', payload: null },
-  { id: 'session-papers', kind: 'session-papers', title: '', payload: null },
 ])
 
 /** 默认 tab 的 id 集合：恒常驻、不可关闭，批量关闭操作一律跳过 */
@@ -214,11 +213,11 @@ export function closeTabsToRight(state: SessionTabsState, id: string): SessionTa
   return { tabs: next, activeId }
 }
 
-/** 每会话独立的 tabs atom；首次访问返回 DEFAULT_TABS（Papers 激活） */
+/** 每会话独立的 tabs atom；首次访问返回 DEFAULT_TABS（Files 激活） */
 export const rightPanelTabsBySessionAtom = atomFamily((_sessionId: string) =>
   atom<SessionTabsState>({
     tabs: [...DEFAULT_TABS],
-    activeId: 'session-papers',
+    activeId: 'session-files',
   }),
 )
 
@@ -251,7 +250,7 @@ export function openResearchGapTab(
 }
 
 /**
- * 不可关闭的 tab：仅默认 tab（会话文件 / 检索论文）。
+ * 不可关闭的 tab：仅默认 tab（会话文件）。
  * 研究空白 tab 现在每次分析独立、可关闭（关了从对话内结果卡片点回来）。
  */
 export function isUnclosableTabId(id: string): boolean {

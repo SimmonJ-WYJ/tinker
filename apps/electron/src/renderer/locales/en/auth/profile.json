@@ -15,21 +15,21 @@
   "noValue": "Not set",
   "dataLocality": {
     "title": "Where your data lives",
-    "body": "Research data (papers, notes, evidence sets) is stored locally in ~/.asci/ on this device. It is not uploaded and does not sync across devices, so it won't appear when you sign in on another device."
+    "body": "Local conversation history, file records, and notes are kept on this device in ~/.asci/ and do not sync across devices through your account. When you use a model or tool, the inputs needed to handle your request may be sent to that service."
   },
   "deleteAccount": "Disconnect Google account",
-  "deleteAccountDescription": "Revoke Tinker’s Google authorization and sign out. Your Google account and local research library are kept.",
+  "deleteAccountDescription": "Revoke Tinker’s Google authorization and sign out. Your Google account and local data are kept.",
   "deleteConfirm": {
     "title": "Disconnect Google account",
     "description": "This revokes Tinker’s Google authorization. You can authorize again later.",
     "impactServerData": "Only application authorization is revoked. Your Google account is kept.",
-    "impactLocalKept": "Your local research library is kept.",
+    "impactLocalKept": "Your local data is kept.",
     "impactLogout": "You will be signed out of Tinker.",
     "acknowledge": "I understand that signing in again requires authorization.",
     "cancel": "Cancel",
     "confirm": "Disconnect",
     "deleting": "Disconnecting…",
-    "success": "Google authorization disconnected. Your local library is kept.",
+    "success": "Google authorization disconnected. Your local data is kept.",
     "error": "Failed to disconnect Google authorization. Please try again."
   }
 }

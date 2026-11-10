@@ -1,15 +1,4 @@
-/**
- * AddEvidenceDialog —— 证据区「＋补证据」的库对象选择器（#709 主题容器）
- *
- * 三段切换：论文 / 综述 / 历史对话。
- *   - 论文：workspacePapers.list 候选 → evidenceSets.addPaper（懒建 paper + 对象级 ref，幂等）
- *   - 综述：reviews.list 候选 → evidenceSets.addEvidence（review 对象级 ref，空引文 C1，幂等）
- *   - 历史对话：两级下钻 —— 本工作区会话列表 → 进某会话选某条 Q&A 回合
- *     （listConversationTurns 取候选 → evidenceSets.addConversationMessage 落 message 级 ref，幂等）
- *
- * 对象级引用（C1）：不带具体段落引文，证据卡只显示来源标题；精确段落仍走划词。
- * 对话证据是 message 级（幂等键 sessionId+messageUuid），故需两级选到具体回合，不能平铺单选。
- */
+/** 主题容器的既有对象引用选择器；保留综述与对话，退役 paper 新入库分支。 */
 import * as React from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -32,10 +21,9 @@ import type {
   ConversationTurnCandidate,
   ObjectId,
   ReviewSummary,
-  WorkspacePaperEntry,
 } from '@asci/shared'
 
-type Segment = 'paper' | 'review' | 'conversation'
+type Segment = 'review' | 'conversation'
 
 /** 对话证据「已在本集」判定键：sessionId + messageUuid */
 export function conversationKey(sessionId: string, messageUuid: string): string {
@@ -62,7 +50,6 @@ export function AddEvidenceDialog({
   onOpenChange,
   setId,
   workspaceId,
-  addedZoteroKeys,
   addedReviewIds,
   addedConversationKeys,
   onAdded,
@@ -70,15 +57,10 @@ export function AddEvidenceDialog({
   const { t } = useT('library')
   const { t: tCommon } = useT('common')
   const formatRelative = useFormatRelativeTime()
-  const [seg, setSeg] = React.useState<Segment>('paper')
-  const [papers, setPapers] = React.useState<WorkspacePaperEntry[]>([])
+  const [seg, setSeg] = React.useState<Segment>('review')
   const [reviews, setReviews] = React.useState<ReviewSummary[]>([])
   const [query, setQuery] = React.useState('')
   const [busy, setBusy] = React.useState(false)
-  // 每篇论文是否有 Zotero PDF 附件：itemKey(=linkedZoteroKey) → boolean。
-  // 与「跳到原文」同源（zotero.library.getAttachmentPath + contentType==='application/pdf'）；
-  // 反映 Zotero 里有无 PDF，而非工作区是否已下载（pdfRelPath）。undefined = 探测中。
-  const [pdfByKey, setPdfByKey] = React.useState<Record<string, boolean>>({})
   // ── 历史对话两级下钻 ──
   const [sessions, setSessions] = React.useState<AgentSessionMeta[]>([])
   const [sessionsLoaded, setSessionsLoaded] = React.useState(false)
@@ -86,38 +68,16 @@ export function AddEvidenceDialog({
   const [turns, setTurns] = React.useState<ConversationTurnCandidate[]>([])
   const [turnsLoading, setTurnsLoading] = React.useState(false)
 
-  // 打开时拉候选（论文 + 综述各一次），并对已链 Zotero 的论文并行探测 PDF 附件
+  // 打开时只拉已有综述候选；对话仍按需读取。
   React.useEffect(() => {
     if (!open) return
-    setSeg('paper')
+    setSeg('review')
     setQuery('')
-    setPdfByKey({})
     setSessions([])
     setSessionsLoaded(false)
     setSelectedSession(null)
     setTurns([])
     let cancelled = false
-    void window.electronAPI.workspacePapers
-      .list(workspaceId, {})
-      .then((rows) => {
-        if (cancelled) return
-        setPapers(rows)
-        for (const p of rows) {
-          const itemKey = p.linkedZoteroKey
-          if (!itemKey) continue
-          void window.electronAPI.zotero.library
-            .getAttachmentPath({ itemKey })
-            .then((att) => {
-              if (cancelled) return
-              const hasPdf = att.found && att.contentType === 'application/pdf'
-              setPdfByKey((m) => ({ ...m, [itemKey]: hasPdf }))
-            })
-            .catch(() => {
-              if (!cancelled) setPdfByKey((m) => ({ ...m, [itemKey]: false }))
-            })
-        }
-      })
-      .catch(() => { if (!cancelled) setPapers([]) })
     void window.electronAPI.reviews
       .list()
       .then((rows) => { if (!cancelled) setReviews(rows) })
@@ -169,37 +129,6 @@ export function AddEvidenceDialog({
     setTurns([])
   }
 
-  const citePaper = async (entry: WorkspacePaperEntry): Promise<void> => {
-    if (busy || !entry.linkedZoteroKey) return
-    if (addedZoteroKeys.has(entry.linkedZoteroKey)) return
-    setBusy(true)
-    try {
-      const res = await window.electronAPI.evidenceSets.addPaper({
-        setId,
-        paper: {
-          zoteroKey: entry.linkedZoteroKey,
-          fallback: {
-            title: entry.title,
-            authors: entry.authors,
-            abstract: entry.abstract ?? undefined,
-            year: entry.year ?? undefined,
-            venue: entry.venue ?? undefined,
-            doi: entry.doi ?? undefined,
-            url: entry.url ?? undefined,
-          },
-        },
-      })
-      toast.success(t(res.created ? 'evidenceSetDetail.addEvidenceDialog.added' : 'evidenceSetDetail.addEvidenceDialog.alreadyIn'))
-      // 不关弹窗：父级 refetch → addedZoteroKeys 更新 → 该行就地翻转为「已添加」，可连续补多条
-      onAdded()
-    } catch (err) {
-      console.error('[AddEvidenceDialog] addPaper failed:', err)
-      toast.error(t('evidenceSetDetail.addEvidenceDialog.addFailed'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const citeReview = async (review: ReviewSummary): Promise<void> => {
     if (busy) return
     if (addedReviewIds.has(review.id)) return
@@ -243,11 +172,6 @@ export function AddEvidenceDialog({
   }
 
   const q = query.trim().toLowerCase()
-  // 仅本工作区 ∩ 已链接 Zotero 的论文（linkedZoteroKey 非空）
-  const zoteroPapers = papers.filter((p) => !!p.linkedZoteroKey)
-  const filteredPapers = q
-    ? zoteroPapers.filter((p) => p.title.toLowerCase().includes(q))
-    : zoteroPapers
   const filteredReviews = q ? reviews.filter((r) => r.title.toLowerCase().includes(q)) : reviews
   const filteredSessions = q ? sessions.filter((s) => s.title.toLowerCase().includes(q)) : sessions
   const filteredTurns = q
@@ -269,15 +193,13 @@ export function AddEvidenceDialog({
           <DialogDescription>{t('evidenceSetDetail.addEvidenceDialog.subtitle')}</DialogDescription>
         </DialogHeader>
 
-        {/* 三段切换 */}
+        {/* 仅引用已经保存的综述或对话 */}
         <div className="flex gap-1">
-          {(['paper', 'review', 'conversation'] as const).map((s) => {
+          {(['review', 'conversation'] as const).map((s) => {
             const label = t(
-              s === 'paper'
-                ? 'evidenceSetDetail.addEvidenceDialog.segPaper'
-                : s === 'review'
-                  ? 'evidenceSetDetail.addEvidenceDialog.segReview'
-                  : 'evidenceSetDetail.addEvidenceDialog.segConversation',
+              s === 'review'
+                ? 'evidenceSetDetail.addEvidenceDialog.segReview'
+                : 'evidenceSetDetail.addEvidenceDialog.segConversation',
             )
             return (
               <button
@@ -320,34 +242,7 @@ export function AddEvidenceDialog({
 
         {/* 候选列表 */}
         <div className="max-h-[46vh] overflow-auto -mx-1 px-1 space-y-1">
-          {seg === 'paper' ? (
-            filteredPapers.length === 0 ? (
-              <Empty text={t('evidenceSetDetail.addEvidenceDialog.emptyPapers')} />
-            ) : (
-              filteredPapers.map((p) => {
-                const hasPdf = p.linkedZoteroKey ? pdfByKey[p.linkedZoteroKey] : undefined
-                return (
-                  <CandidateRow
-                    key={p.key}
-                    title={p.title}
-                    meta={[p.venue, p.year].filter(Boolean).join(' · ')}
-                    pdfBadge={
-                      hasPdf === undefined
-                        ? undefined // 探测中：先不显示标记
-                        : hasPdf
-                          ? { label: t('evidenceSetDetail.addEvidenceDialog.hasPdf'), has: true }
-                          : { label: t('evidenceSetDetail.addEvidenceDialog.noPdf'), has: false }
-                    }
-                    busy={busy}
-                    added={!!p.linkedZoteroKey && addedZoteroKeys.has(p.linkedZoteroKey)}
-                    cite={t('evidenceSetDetail.addEvidenceDialog.cite')}
-                    inSet={t('evidenceSetDetail.addEvidenceDialog.inSet')}
-                    onCite={() => citePaper(p)}
-                  />
-                )
-              })
-            )
-          ) : seg === 'review' ? (
+          {seg === 'review' ? (
             filteredReviews.length === 0 ? (
               <Empty text={t('evidenceSetDetail.addEvidenceDialog.emptyReviews')} />
             ) : (

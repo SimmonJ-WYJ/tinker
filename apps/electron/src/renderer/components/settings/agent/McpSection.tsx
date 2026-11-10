@@ -1,8 +1,9 @@
-import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
+import { MediaCapabilityRow } from '../MediaCapabilityRow'
+import { ZoteroMediaPanel } from '../ZoteroMediaPanel'
 /**
  * McpSection - Agent 设置页内 MCP 服务器配置区
  *
- * 列出当前工作区可见的 MCP：内建（zotero/ocr/asr/paper-search，只读 + 提示去对应总开关）
+ * 列出当前工作区可见的 MCP：内建 OCR/ASR（独立设置）
  * 与用户自定义。新增/编辑切到 McpServerForm 表单视图，删除/启停就地操作。
  */
 
@@ -10,14 +11,11 @@ import * as React from 'react'
 import { useSetAtom } from 'jotai'
 import { Plus, Plug, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge.tsx'
 import { Switch } from '@/components/ui/switch'
 import type { McpServerEntry, GlobalMcpConfig, WorkspaceCapabilities } from '@asci/shared'
 import { workspaceCapabilitiesVersionAtom } from '@/atoms/agent-atoms'
-import { SettingsSection, SettingsCard, SettingsRow, SettingsLinkRow } from '../primitives'
-import type { SettingsTab } from '@/atoms/settings-tab'
+import { SettingsSection, SettingsCard, SettingsRow } from '../primitives'
 import { McpServerForm } from '../McpServerForm'
-import { cn } from '@/lib/utils'
 import { useT } from '@/hooks/useT'
 
 /** 视图模式：列表 / 新增 / 编辑 */
@@ -42,7 +40,7 @@ export function McpSection({ workspaceSlug, capabilitiesVersion }: McpSectionPro
   const [viewMode, setViewMode] = React.useState<ViewMode>('list')
   const [editingServer, setEditingServer] = React.useState<EditingServer | null>(null)
   const [mcpConfig, setMcpConfig] = React.useState<GlobalMcpConfig>({ servers: {} })
-  // 内建 MCP（zotero/ocr/asr/paper-search）—— 由 capabilities 拼接，不可编辑/删除
+  // 内建媒体 MCP —— 由 capabilities 拼接，设置字段负责启停
   const [builtinServers, setBuiltinServers] = React.useState<WorkspaceCapabilities['mcpServers']>([])
   const [loading, setLoading] = React.useState(true)
 
@@ -59,7 +57,7 @@ export function McpSection({ workspaceSlug, capabilitiesVersion }: McpSectionPro
       ])
       setMcpConfig(config)
       // 仅取内建项；用户自定义已在 mcpConfig 内（避免双份显示）
-      setBuiltinServers(capabilities.mcpServers.filter((s) => s.isBuiltin && (RESEARCH_UI_ENABLED || !['zotero', 'paper-search'].includes(s.name))))
+      setBuiltinServers(capabilities.mcpServers.filter((s) => s.isBuiltin))
     } catch (error) {
       console.error('[Agent MCP] 加载配置失败:', error)
     } finally {
@@ -154,9 +152,16 @@ export function McpSection({ workspaceSlug, capabilitiesVersion }: McpSectionPro
         <div className="text-sm text-muted-foreground py-8 text-center">{t('agent.mcp.loading')}</div>
       ) : (
         <SettingsCard>
-          {/* 内建 MCP：跟随对应总开关，只读 */}
-          {builtinServers.map((s) => (
-            <BuiltinMcpRow key={s.name} server={s} />
+          {/* 通用媒体 MCP：独立开关 */}
+          {builtinServers.filter(s => s.name === 'ocr' || s.name === 'asr').map((s) => (
+            <MediaCapabilityRow
+              key={s.name}
+              kind={s.name as 'ocr' | 'asr'}
+              label={t(s.name === 'ocr' ? 'agent.mcp.builtin.ocrLabel' : 'agent.mcp.builtin.asrLabel')}
+              description={t(s.name === 'ocr' ? 'agent.mcp.builtin.ocrDescription' : 'agent.mcp.builtin.asrDescription')}
+              onSettingsChanged={loadData}
+              refreshVersion={`${capabilitiesVersion}:${s.enabled}`}
+            />
           ))}
           {/* 用户自定义 MCP */}
           {serverEntries.map(([name, entry]) => (
@@ -179,6 +184,7 @@ export function McpSection({ workspaceSlug, capabilitiesVersion }: McpSectionPro
           )}
         </SettingsCard>
       )}
+      <ZoteroMediaPanel embedded />
     </SettingsSection>
   )
 }
@@ -190,75 +196,6 @@ const TRANSPORT_LABELS: Record<string, string> = {
   stdio: 'stdio',
   http: 'HTTP',
   sse: 'SSE',
-}
-
-interface BuiltinMcpRowProps {
-  server: { name: string; enabled: boolean; type: string }
-}
-
-/**
- * 内建 MCP 行：只读展示，提示去对应设置页切换。
- * zotero/ocr/asr 的总开关都在 Zotero tab，点整行直接跳过去；其它内建 MCP 退回普通只读 SettingsRow。
- *
- * 设计取舍：不再展示 Plug 图标（4 行同图标无差异）、disabled Switch（不可点）、传输协议 pill（技术噪音）。
- * 状态由「已启用 / 已停用」彩色 pill 承载；跳转由整行 chevron-right 承载（zotero/ocr/asr）。
- */
-function BuiltinMcpRow({ server }: BuiltinMcpRowProps): React.ReactElement {
-  const { t } = useT('settings')
-
-  // zotero / ocr / asr 都受 Zotero 设置页管理 → 可跳转，描述里不再赘述"去 xx 切换"（chevron 已暗示）；
-  // paper-search 等不可跳转的内建 MCP 保留 controlLabel（说明为什么不能这里改）
-  const description = (() => {
-    switch (server.name) {
-      case 'zotero': return t('agent.mcp.builtin.zoteroDescription')
-      case 'ocr': return t('agent.mcp.builtin.ocrDescription')
-      case 'asr': return t('agent.mcp.builtin.asrDescription')
-      case 'paper-search':
-        return `${t('agent.mcp.builtin.paperSearchDescription')} · ${t('agent.mcp.builtin.paperSearchControl')}`
-      default:
-        return `${t('agent.mcp.builtin.fallbackDescription')} · ${t('agent.mcp.builtin.fallbackControl')}`
-    }
-  })()
-
-  const targetTab: SettingsTab | null =
-    server.name === 'zotero' || server.name === 'ocr' || server.name === 'asr'
-      ? 'zotero'
-      : null
-
-  const badges = (
-    <div className="flex items-center gap-1.5">
-      <Badge tone="info" variant="soft">
-        {t('agent.mcp.builtin.badge')}
-      </Badge>
-      <Badge tone={server.enabled ? 'success' : 'neutral'} variant="soft" className="gap-1">
-        <span
-          className={cn(
-            'inline-block size-1.5 rounded-full',
-            server.enabled ? 'bg-success' : 'bg-muted-foreground/50',
-          )}
-        />
-        {server.enabled ? t('agent.mcp.builtin.statusEnabled') : t('agent.mcp.builtin.statusDisabled')}
-      </Badge>
-    </div>
-  )
-
-  if (targetTab) {
-    return (
-      <SettingsLinkRow
-        label={server.name}
-        description={description}
-        targetTab={targetTab}
-      >
-        {badges}
-      </SettingsLinkRow>
-    )
-  }
-
-  return (
-    <SettingsRow label={server.name} description={description}>
-      {badges}
-    </SettingsRow>
-  )
 }
 
 interface McpServerRowProps {

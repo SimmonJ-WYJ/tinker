@@ -219,6 +219,7 @@
         "rebuildEnqueued": "已开始重建，共入队 {{count}} 篇",
         "rebuildFailed": "重建索引失败"
       }
-    }
+    },
+    "retiredReadOnly": "Zotero 工作流已退役，已有数据仍可从历史记录查看。OCR 和语音设置位于 MCP 服务器页面。"
   }
 }

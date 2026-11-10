@@ -219,6 +219,7 @@
         "rebuildEnqueued": "Rebuild started, {{count}} papers enqueued",
         "rebuildFailed": "Failed to rebuild index"
       }
-    }
+    },
+    "retiredReadOnly": "Zotero workflows have been retired. Existing data remains available in history. OCR and speech settings are available under MCP servers."
   }
 }

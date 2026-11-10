@@ -1,6 +1,6 @@
 # PR flow: open, sync, review
 
-PR 规范的真相源是 [ADR-000 §3.3](../adr/ADR-000-common-convention.md)。本文给 Agent 列出可直接执行的 `gh` / `git` 步骤。所有操作用 `gh` CLI，目标恒为 `origin`（`OPENSCI-Labs/ASCI-Alpha`）。
+通用 PR 规范见 [ADR-000 §3.3](../adr/ADR-000-common-convention.md)，当前 Tinker 仓库目标以本文为准。本文给 Agent 列出可直接执行的 `gh` / `git` 步骤。所有操作用 `gh` CLI，目标恒为 `origin`（`SimmonJ-WYJ/tinker`）。
 
 ## 开 PR 前：合并最新主干
 
@@ -10,35 +10,20 @@ PR 规范的真相源是 [ADR-000 §3.3](../adr/ADR-000-common-convention.md)。
    git merge origin/main      # 或 origin/UI-main
    ```
    消化所有冲突后再继续。
-2. ⚠️ **committer email**：merge 会把源分支**所有** commit 的 author / committer email 一并带进来，CI `verify-email` 会逐条校验。任一 commit 邮箱不是 `*@opensci.io`（或允许的 `@users.noreply.github.com`）须先改写——squash merge 也救不了 sync 分支。校验逻辑见 `scripts/verify-commit-email.sh`，规则见 [ADR-000 §3.2](../adr/ADR-000-common-convention.md)。
+2. **提交身份与历史**：正常运行本仓库 hooks。当前 `scripts/verify-commit-email.sh` 允许 `@opensci.io` 或 GitHub 个人 noreply 邮箱及列出的 bot，具体以脚本为准；遇到守门失败先核对新增提交范围与配置，保留已有作者归属，不为套用上游组织规则重写继承历史。
 3. 跑一次 `simplify` / `@code-simplifier` 复盘 reuse / 简化 / 可读性，再 push。
 
 ## 开 PR
 
+- 多行 PR 正文先写入临时文件，执行时用 `--body-file`；下例展示字段结构，避免把正文插入 shell 命令。
+
 ```bash
-gh pr create --repo OPENSCI-Labs/ASCI-Alpha \
+# 将以下字段填入 /tmp/tinker-pr-body.md：Summary / Why / Closes # / Test Plan
+# Test Plan 按实际结果记录 typecheck、Bun tests 与涉及的构建或 UI 验证。
+gh pr create --repo SimmonJ-WYJ/tinker \
   --base main \
   --title "<type>(<scope>): <subject>" \
-  --body "$(cat <<'EOF'
-## Summary
-
-| 改动 | 说明 |
-|------|------|
-| ... | ... |
-
-## Why
-
-- ...
-- ...
-
-Closes #
-
-## Test Plan
-
-- [ ] bun run typecheck
-- [ ] bun test
-EOF
-)"
+  --body-file /tmp/tinker-pr-body.md
 ```
 
 - 标题与 commit 同格式（squash 后成为 main 的 commit message）。
@@ -48,24 +33,13 @@ EOF
 ## PR 开好后：审查并回帖
 
 1. 对刚推上去的 PR 跑一次 `/review` skill 做代码审查。
-2. 把审查结果用评论回帖（多行用 heredoc）：
+2. 把审查结果写入临时文件后回帖，包含发现、位置、建议及已核实项目：
    ```bash
-   gh pr comment <num> --repo OPENSCI-Labs/ASCI-Alpha --body "$(cat <<'EOF'
-   ## /review 结果
-
-   | 发现 | 位置 | 建议 |
-   |------|------|------|
-   | ... | `file:line` | ... |
-
-   ### 已核实无虞
-
-   - ...
-   EOF
-   )"
+   gh pr comment <num> --repo SimmonJ-WYJ/tinker --body-file /tmp/tinker-pr-review.md
    ```
    - **回帖格式硬约束**：同 PR body —— 只用**表格 + 项目符号**，**禁分号、禁散文长句**，用**中文**。
 3. ⚠️ **回帖即收尾**：到此 Agent 流程**结束**。**绝不**执行 `gh pr merge`、**绝不**开启 auto-merge——合并是人工动作，留给开发者手动完成。
 
 ## 远端说明
 
-本仓库有两个 remote：`origin`（`OPENSCI-Labs/ASCI-Alpha`，canonical）与 `personal`（`pantsbang-yannik/ASCI-P`）。`gh` 在 clone 内通常自动推断；若选错，显式传 `--repo OPENSCI-Labs/ASCI-Alpha`。
+当前 `origin` 为 `SimmonJ-WYJ/tinker`。`gh` 在 clone 内通常自动推断；若选错，显式传 `--repo SimmonJ-WYJ/tinker`。上游 [`OPENSCI-Labs/ASCI-Alpha`](https://github.com/OPENSCI-Labs/ASCI-Alpha) 的 issue / PR 链接保留原归属，不把旧编号当成本仓 issue。

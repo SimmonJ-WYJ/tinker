@@ -1,3 +1,4 @@
+import type { RuntimeSkillProjection } from '../runtime-skill-projection.ts'
 import { redactTextWithMatches } from '@asci/shared'
 import { t } from '../i18n-main'
 import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk'
@@ -144,6 +145,7 @@ export interface ClaudeAgentQueryOptions extends AgentQueryInput {
   /** 精简请求策略；不改变 canUseTool 权限。 */
   sandbox?: SandboxSettings
   runtimeProfile?: RuntimeProfile
+  runtimeSkills?: RuntimeSkillProjection
   tools?: string[]
   settingSources?: Array<'project'>
   /** 系统提示词（字符串为自定义提示词，对象为 claude_code preset） */
@@ -389,6 +391,8 @@ const queryReadyResolvers = new Map<string, () => void>()
 /** SDK init 超时时间（毫秒） */
 const QUERY_READY_TIMEOUT_MS = 60_000
 
+const activeQueryResourceClosers = new Map<string, () => void>()
+
 export class ClaudeAgentAdapter implements AgentProviderAdapter {
 
   abort(sessionId: string): void {
@@ -397,6 +401,7 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
     if (query) {
       try {
         query.close()
+        activeQueryResourceClosers.get(sessionId)?.()
       } catch {
         // query 可能已关闭或子进程已退出，忽略
       }
@@ -433,9 +438,10 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
   }
 
   dispose(): void {
-    for (const [, query] of activeQueries) {
+    for (const [sessionId, query] of activeQueries) {
       try {
         query.close()
+        activeQueryResourceClosers.get(sessionId)?.()
       } catch {
         // 忽略已关闭的 query
       }
@@ -445,6 +451,7 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
     }
     activeControllers.clear()
     activeQueries.clear()
+    activeQueryResourceClosers.clear()
     activeChannels.clear()
     queryReadyPromises.clear()
     queryReadyResolvers.clear()
@@ -457,6 +464,15 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
    */
   async *query(input: AgentQueryInput): AsyncIterable<SDKMessage> {
     const options = input as ClaudeAgentQueryOptions
+
+    const releaseSkills = options.runtimeSkills?.retain()
+    const queryTaskIds = new Set<string>()
+    let queryIterator: SDKQuery | undefined
+    const closeResources = (): void => {
+      // SDK close() 保证终止 CLI/MCP，之后不会再收到任务终态。
+      options.runtimeSkills?.forgetTasks(queryTaskIds)
+      releaseSkills?.()
+    }
 
     // 创建 AbortController
     const controller = new AbortController()
@@ -546,13 +562,14 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
         parent_tool_use_id: null,
       } as import('@anthropic-ai/claude-agent-sdk').SDKUserMessage)
 
-      const queryIterator = sdk.query({
+      queryIterator = sdk.query({
         prompt: channel.generator,
         options: sdkOptions,
       })
 
       // 保存 Query 和 Channel 引用，供后续消息注入使用
       activeQueries.set(options.sessionId, queryIterator)
+      activeQueryResourceClosers.set(options.sessionId, closeResources)
       activeChannels.set(options.sessionId, channel)
 
       // 通知 Query 已就绪，解除 sendQueuedMessage 的等待
@@ -565,6 +582,9 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
       for await (const sdkMessage of queryIterator) {
         if (controller.signal.aborted) break
 
+        const taskEvent = sdkMessage as { type: string; subtype?: string; task_id?: string }
+        if (taskEvent.type === 'system' && taskEvent.subtype === 'task_started' && taskEvent.task_id) queryTaskIds.add(taskEvent.task_id)
+        options.runtimeSkills?.observe(sdkMessage as { type: string; subtype?: string; task_type?: string; task_id?: string; status?: string })
         const msg = sdkMessage as Record<string, unknown>
 
         if (msg.type === 'user') options.onUserMessageConsumed?.(sdkMessage as SDKMessage)
@@ -609,6 +629,11 @@ export class ClaudeAgentAdapter implements AgentProviderAdapter {
         yield sdkMessage as SDKMessage
       }
     } finally {
+      // 正常结束、异常 iterator、提前 return 都显式终止底层进程再回收其资源。
+      // close 失败时保守保留 pin；仍释放迭代器引用，避免误删可能在用的目录。
+      try { queryIterator?.close(); closeResources() }
+      catch { releaseSkills?.() }
+      activeQueryResourceClosers.delete(options.sessionId)
       activeControllers.delete(options.sessionId)
       activeQueries.delete(options.sessionId)
       activeChannels.delete(options.sessionId)

@@ -10,6 +10,10 @@ How the engineering skills should consume this repo's domain documentation when 
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
 
+## Current and historical scope
+
+`CONTEXT.md` defines the current Tinker vocabulary. Scientific domain definitions and version roadmaps are archived in [`docs/history/ASCI-CONTEXT.md`](../history/ASCI-CONTEXT.md). Consult them for historical data and compatibility, not as an instruction to restore retired workflows. Existing ADRs retain their original authors and decisions; resolve current-scope conflicts explicitly against the approved spec and code.
+
 ## File structure
 
 This repo is single-context:

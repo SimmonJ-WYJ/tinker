@@ -1,39 +1,21 @@
 import * as React from 'react'
 import { useAtomValue } from 'jotai'
 import { toast } from 'sonner'
-import { ExternalLink, Download, RotateCw, Share2, Check, Eye } from 'lucide-react'
+import { ExternalLink, Download, RotateCw, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-/** Zotero 风格 Z 字 logo（红底白 Z） */
-function ZoteroLogoIcon({ className }: { className?: string }): React.ReactElement {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <rect width="24" height="24" rx="5" fill="#CC2936" />
-      <path
-        d="M7 7.5h10L8 16h9"
-        stroke="white"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-import { currentAgentSessionIdAtom, currentAgentWorkspaceIdAtom } from '@/atoms/agent-atoms'
+import { currentAgentSessionIdAtom } from '@/atoms/agent-atoms'
 import { useOpenInRightPanel } from '@/hooks/useOpenInRightPanel'
-import { workspacePapersAtom } from '@/atoms/workspace-papers-atoms'
-import { useOpenCitationGraph } from '@/components/citation-graph/useOpenCitationGraph'
-import { recordKey, readCitedBy } from '@/components/agent/session-papers-utils'
+import { readCitedBy } from '@/components/agent/session-papers-utils'
 import { useT } from '@/hooks/useT'
 import { formatDateTime } from '@/utils/dayjs'
 import { normalizePaperSource } from '@asci/shared'
 import { renderSourceLabel } from '@/components/agent/session-papers-source-label'
 import type { PaperRecord } from '@asci/shared'
 import { MAX_AUTHORS_FULL, sanitizeText } from '@asci/shared'
-import { ZoteroQuickAddDialog, type ZoteroQuickAddPayload } from '@/components/agent/ZoteroQuickAddDialog'
 
-interface Props { record: PaperRecord }
+interface Props { record: PaperRecord; readOnly?: true }
 
 /**
  * 论文详情卡
@@ -48,42 +30,12 @@ export default function PaperDetailRenderer({ record }: Props): React.ReactEleme
   const [downloading, setDownloading] = React.useState(false)
   const [downloadingLocal, setDownloadingLocal] = React.useState(false)
   const [downloadError, setDownloadError] = React.useState<string | null>(null)
-  const [zoteroAdding, setZoteroAdding] = React.useState(false)
-  // F39：弹窗里挑 collection 再加入
-  const [zoteroDialogOpen, setZoteroDialogOpen] = React.useState(false)
   const openInRightPanel = useOpenInRightPanel()
   const sessionId = useAtomValue(currentAgentSessionIdAtom)
-  const workspacePapers = useAtomValue(workspacePapersAtom)
 
   const arxivId = extractArxivId(record)
   const citedBy = readCitedBy(record)
   const canDownload = !!(arxivId || (record.url && record.url.toLowerCase().endsWith('.pdf')))
-  const workspaceId = useAtomValue(currentAgentWorkspaceIdAtom)
-  const openGraph = useOpenCitationGraph()
-  const canOpenGraph = Boolean(record.doi || arxivId || record.title)
-
-  // 通过 recordKey 反查 workspace entry 的 linkedZoteroKey；切换详情卡 / 重新挂载后仍能保持"已加入"态。
-  // 与 SessionPapersPanel 的列表卡共享同一信号，避免详情视图与列表视图状态分叉。
-  const linkedEntry = React.useMemo(() => {
-    const k = recordKey(record)
-    if (!k) return undefined
-    return workspacePapers.find((e) => e.key === k)
-  }, [record, workspacePapers])
-  const zoteroAdded = !!linkedEntry?.linkedZoteroKey
-
-  const handleOpenGraph = () => {
-    if (!canOpenGraph) return
-    openGraph({
-      seed: {
-        doi: record.doi,
-        arxivId,
-        title: record.title,
-      },
-      workspaceId,
-      seedTitleHint: record.title,
-    })
-  }
-
   const handleDownload = async (): Promise<void> => {
     if (!sessionId) return
     setDownloading(true)
@@ -128,55 +80,6 @@ export default function PaperDetailRenderer({ record }: Props): React.ReactEleme
 
   const openExternal = (url: string): void => {
     window.electronAPI.openExternal(url).catch(console.error)
-  }
-
-  const handleOpenZoteroDialog = (): void => {
-    if (zoteroAdding || zoteroAdded || !record.title) return
-    setZoteroDialogOpen(true)
-  }
-
-  const handleConfirmZotero = async ({ targetTreeViewID, tags }: ZoteroQuickAddPayload): Promise<void> => {
-    setZoteroAdding(true)
-    try {
-      // 优先走 ingestRecords + linkZotero：写入 workspace entry 的 linkedZoteroKey，
-      // 触发 workspace-papers:changed 事件，列表视图与详情视图同时翻成"已加入 Zotero"。
-      // 没有 workspace 上下文时退回 citationGraph.addToZotero（图谱独立场景）。
-      let pdfStatus: 'attached' | 'no_pdf' | 'skipped'
-      if (workspaceId && sessionId) {
-        const [entry] = await window.electronAPI.workspacePapers.ingestRecords(
-          workspaceId,
-          [record],
-          sessionId,
-        )
-        if (!entry) throw new Error(t('paperDetail.actions.ingestFailed'))
-        const result = await window.electronAPI.workspacePapers.linkZotero(
-          workspaceId,
-          entry.key,
-          { tags, targetTreeViewID },
-        )
-        pdfStatus = result.pdfStatus
-      } else {
-        const result = await window.electronAPI.citationGraph.addToZotero({
-          title: record.title,
-          authors: record.authors,
-          year: record.year,
-          venue: record.venue,
-          doi: record.doi,
-          url: record.url,
-          tags,
-          targetTreeViewID,
-        })
-        pdfStatus = result.pdfStatus
-      }
-      // 仅展示成功挂附件的正面信号；resolver 报 no_pdf 时 Zotero 自带的
-      // "Automatically find available PDFs" 仍可能后台挂上 PDF，避免误报负面 toast
-      toast.success(pdfStatus === 'attached' ? t('paperDetail.toast.addSuccessWithPdf') : t('paperDetail.toast.addSuccess'))
-    } catch (error) {
-      toast.error(t('paperDetail.toast.addFailed', { message: error instanceof Error ? error.message : String(error) }))
-      throw error
-    } finally {
-      setZoteroAdding(false)
-    }
   }
 
   return (
@@ -233,42 +136,6 @@ export default function PaperDetailRenderer({ record }: Props): React.ReactEleme
 
       {/* 主操作行：加入 Zotero + 引用图谱 + 下载到本地 + 预览（紧跟标题下方） */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleOpenZoteroDialog}
-          disabled={zoteroAdding || zoteroAdded || !record.title}
-          title={zoteroAdded ? t('paperDetail.actions.addedToZoteroTitle') : !record.title ? t('paperDetail.actions.missingTitleTitle') : t('paperDetail.actions.addToZoteroTitle')}
-          className="gap-1.5"
-        >
-          {zoteroAdded ? (
-            <>
-              <Check className="!size-3.5" />
-              {t('paperDetail.actions.addedToZotero')}
-            </>
-          ) : zoteroAdding ? (
-            <>
-              <RotateCw className="!size-3.5 animate-spin" />
-              {t('paperDetail.actions.addingToZotero')}
-            </>
-          ) : (
-            <>
-              <ZoteroLogoIcon className="size-4" />
-              {t('paperDetail.actions.addToZotero')}
-            </>
-          )}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleOpenGraph}
-          disabled={!canOpenGraph}
-          title={canOpenGraph ? t('paperDetail.actions.openGraphTitle') : t('paperDetail.actions.openGraphDisabledRecordTitle')}
-          className="gap-1.5"
-        >
-          <Share2 className="!size-3.5" />
-          {t('paperDetail.actions.openGraph')}
-        </Button>
         {canDownload && (
           <Button
             size="sm"
@@ -358,14 +225,6 @@ export default function PaperDetailRenderer({ record }: Props): React.ReactEleme
         </dl>
       </div>
 
-      <ZoteroQuickAddDialog
-        open={zoteroDialogOpen}
-        onOpenChange={setZoteroDialogOpen}
-        title={record.title}
-        authors={record.authors}
-        workspaceId={workspaceId ?? null}
-        onConfirm={handleConfirmZotero}
-      />
     </div>
   )
 }

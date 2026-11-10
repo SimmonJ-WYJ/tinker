@@ -77,13 +77,14 @@ export function RightPanelTabContent(): React.ReactElement {
       }
       return <SessionFilesView sessionId={sessionId} sessionPath={sessionPath} />
     case 'session-papers':
-      return <SessionPapersPanel sessionId={sessionId} />
+      return <SessionPapersPanel sessionId={sessionId} readOnly />
     case 'research-gap-table':
       // tab id 形如 `research-gap:<tableId>` —— 解析出 tableId 给 View 定位具体那张表
       return (
         <ResearchGapTableView
           sessionId={sessionId}
           tableId={researchGapTableIdOf(activeTab.id) ?? ''}
+          readOnly
         />
       )
     case 'quote-chat':

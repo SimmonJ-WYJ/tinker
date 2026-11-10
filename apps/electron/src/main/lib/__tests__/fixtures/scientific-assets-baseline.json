@@ -1,0 +1,518 @@
+{
+  "baseline": "4ca339592668581c1dc36abc9097fc9bf0aa1650",
+  "skills": [
+    {
+      "slug": "aeon",
+      "classification": "keep",
+      "fingerprint": "9bcf575d00b673c028117aab193ff78492cb3a561499a904a6cd78a273bba72e"
+    },
+    {
+      "slug": "anndata",
+      "classification": "retire",
+      "fingerprint": "68870651be58bba8e7cde898ea43d341173d205a13e02cbd7253d1f58f3ea413"
+    },
+    {
+      "slug": "arboreto",
+      "classification": "retire",
+      "fingerprint": "dd956695e565766ed6886d088ccd6c6f153e3900c963eb24a394d76b2019db4f"
+    },
+    {
+      "slug": "astropy",
+      "classification": "retire",
+      "fingerprint": "c4b4b50f9fdfee3b0b0c4460aad80fa925d0e258e53bab4e2cbea386fc3f211c"
+    },
+    {
+      "slug": "biopython",
+      "classification": "retire",
+      "fingerprint": "5e7bcba6757e906ec7eec6bf366a67c1776e75216ab73e63bcac4706ea2bdce1"
+    },
+    {
+      "slug": "bioservices",
+      "classification": "retire",
+      "fingerprint": "f344bb13239a5864bc36ba7014b87c315dbcbe49bac76d8107c1f6e17b0f4329"
+    },
+    {
+      "slug": "cirq",
+      "classification": "retire",
+      "fingerprint": "03ed94578865c77fd2077456d6e8e5745488c1f52ee2da2cf62516829e92e0e8"
+    },
+    {
+      "slug": "clinical-decision-support",
+      "classification": "retire",
+      "fingerprint": "bced45bf27f9ac19e06c712463ab6f69f2916692112bbbbd168607e59345e8dc"
+    },
+    {
+      "slug": "clinical-reports",
+      "classification": "retire",
+      "fingerprint": "fc414d65b0d946dde082ff46d2b0f920658a3f6199b951a5a6bf80536e9bcdd2"
+    },
+    {
+      "slug": "cobrapy",
+      "classification": "retire",
+      "fingerprint": "45a7e2e7608d98002119a09e2c93d99c0c97505cda33631a1407678fc951d697"
+    },
+    {
+      "slug": "consciousness-council",
+      "classification": "keep",
+      "fingerprint": "f5619d704d98f094a71c50a09ac8dbad5de63f90ebae259ef11eab6fd1cc64a1"
+    },
+    {
+      "slug": "dask",
+      "classification": "keep",
+      "fingerprint": "c5b17ac7cde260e09a8c88e5d615d22c3c50f81dc48bae04c240f821c70c7bd0"
+    },
+    {
+      "slug": "datamol",
+      "classification": "retire",
+      "fingerprint": "b476daaf7950af7de21abb8ce71d09a76fed9214ab10f8587815b966fce8a295"
+    },
+    {
+      "slug": "deepchem",
+      "classification": "retire",
+      "fingerprint": "fa0e4d5673faee826f64f162fc547928fe0ab2222045738e36428a94045f16bb"
+    },
+    {
+      "slug": "deeptools",
+      "classification": "retire",
+      "fingerprint": "1693b01f2c80984c59d86e7c582b63bfe6ddab0d86ad67812314fca0a71127bd"
+    },
+    {
+      "slug": "docx",
+      "classification": "keep",
+      "fingerprint": "1301219e8e6dad745d166e58206e75a5f1ccb75c0ebbdc249797426a8661409f"
+    },
+    {
+      "slug": "esm",
+      "classification": "retire",
+      "fingerprint": "0355ee5be22476ede6328c796b04983e10498c030564ee2cd0935d07f1c8331d"
+    },
+    {
+      "slug": "etetoolkit",
+      "classification": "retire",
+      "fingerprint": "b0cf327caf6942d842c8ee0f4f12ab92f06e2224c8df09bda86245c4c58cb9ae"
+    },
+    {
+      "slug": "exploratory-data-analysis",
+      "classification": "uncertain-preserve",
+      "fingerprint": "1c641944e0a7fefc3d2cdbf59bd0e70eec45ff4c77f890070b53d85bec98065f"
+    },
+    {
+      "slug": "find-skills",
+      "classification": "keep",
+      "fingerprint": "8357b10b38fe19a22e85c87b181152dd116d92aa010671128063deeecc2b6d4c"
+    },
+    {
+      "slug": "flowio",
+      "classification": "retire",
+      "fingerprint": "e504c806726352074eaba577c8f10dd6c062e6d3f1fd2d9d4445ee0223debb67"
+    },
+    {
+      "slug": "fluidsim",
+      "classification": "retire",
+      "fingerprint": "2fbd797d2983b0e320bae60c1df4a342660d99062d47d9a4d6b055756d6a91d6"
+    },
+    {
+      "slug": "geniml",
+      "classification": "retire",
+      "fingerprint": "90f3a1fca1f9185aa7e916bb1dba4cc04dc98b75be20e145e0d2e01de31f9fac"
+    },
+    {
+      "slug": "geopandas",
+      "classification": "keep",
+      "fingerprint": "9a52d11fd8e3e689ad04c474a1b553965bf8887531dead3106425cc469d6967c"
+    },
+    {
+      "slug": "get-available-resources",
+      "classification": "uncertain-preserve",
+      "fingerprint": "a5e8af3f90716a4b63a587bf495a1ba3a98d9513a26a914c356479565e0eb30e"
+    },
+    {
+      "slug": "gget",
+      "classification": "retire",
+      "fingerprint": "1b3381df628dbacf17bbb448ee471a22f4be87947170baf08424d2da9528609a"
+    },
+    {
+      "slug": "gtars",
+      "classification": "retire",
+      "fingerprint": "f4fc0311b1ecb98ec2bee05ca472ed4fb6642905de3f699048569bd6fcf4c3bd"
+    },
+    {
+      "slug": "histolab",
+      "classification": "retire",
+      "fingerprint": "9a3412e4057f841ccef54dfb78a7beab7593676b82fe4b1390c6c2e3d254fe52"
+    },
+    {
+      "slug": "hypogenic",
+      "classification": "uncertain-preserve",
+      "fingerprint": "6cca97a3e50b18f5fef72e85f74a8cb6d8ce3ce636066e351e78b5e0f3c37732"
+    },
+    {
+      "slug": "hypothesis-generation",
+      "classification": "uncertain-preserve",
+      "fingerprint": "83bad689d13751110653503532e3d72bb11f9378b5e3671e0ec687bb9e51d36b"
+    },
+    {
+      "slug": "infographics",
+      "classification": "uncertain-preserve",
+      "fingerprint": "35440c2465018c54e1bebc3ff22a9738d309fd96109bdf90857b6dfd6ae66f5f"
+    },
+    {
+      "slug": "iso-13485-certification",
+      "classification": "retire",
+      "fingerprint": "5c25ffe48c596f650de007073df656a57347fe2462c367a5ae9602048f9e38e9"
+    },
+    {
+      "slug": "latex-posters",
+      "classification": "retire",
+      "fingerprint": "2d85e544541b0c6ce6357aa748fdb952e642449d3598ffbbab19ee2794736729"
+    },
+    {
+      "slug": "lit-search-report",
+      "classification": "already-planned",
+      "fingerprint": "eed80d96c8db6c2df8d7723dc21d9914840bb538ae5d82c923740206c189fedd"
+    },
+    {
+      "slug": "literature-review-result",
+      "classification": "already-planned",
+      "fingerprint": "e0e78c1b44810b58ada78f287a49d6c8d174e9944113f7bea72e25a5f039bce9"
+    },
+    {
+      "slug": "litreview",
+      "classification": "already-planned",
+      "fingerprint": "44cc53fc807097bcfb00b556e650190273c1d7415d31adb1591dd00b17129baf"
+    },
+    {
+      "slug": "markdown-mermaid-writing",
+      "classification": "keep",
+      "fingerprint": "f8a2832dc5ae8deff215c9919a2599671295bf5f99d920b5b406742caed5e609"
+    },
+    {
+      "slug": "markitdown",
+      "classification": "keep",
+      "fingerprint": "647de304d68d10d59813be192a189eafecbc245a14bfd116d2efd0537897eb24"
+    },
+    {
+      "slug": "matchms",
+      "classification": "retire",
+      "fingerprint": "eab666d93d71287eaae1f349c934aebbb1da709b7a1eaade5157ac5b7671d715"
+    },
+    {
+      "slug": "matplotlib",
+      "classification": "keep",
+      "fingerprint": "dfe4b570b647b5157788e60e3a72c8a4c115a27d23218ea6c45a17bfa215b25f"
+    },
+    {
+      "slug": "medchem",
+      "classification": "retire",
+      "fingerprint": "17f5589f21741cd1a1c1357e142966715c0983ef2aa723116f13039f94005118"
+    },
+    {
+      "slug": "molecular-dynamics",
+      "classification": "retire",
+      "fingerprint": "adc3b29a95e4475e8339153042c22d2dd40983a222d6b30d9e62def7fc3b9b40"
+    },
+    {
+      "slug": "molfeat",
+      "classification": "retire",
+      "fingerprint": "c4a061aeb63fb5af6931cd81fec4a2fddc5491c1f1881c69417f2e02c2165d03"
+    },
+    {
+      "slug": "networkx",
+      "classification": "keep",
+      "fingerprint": "9e6cbca53f547610ff79c6ac2d8f661228c168d49fba9480160a6fde636bd531"
+    },
+    {
+      "slug": "neurokit2",
+      "classification": "retire",
+      "fingerprint": "9b5985f23a9fed269a63c61b1f882988ada66296847a3c48a2478d4fb6f041f6"
+    },
+    {
+      "slug": "neuropixels-analysis",
+      "classification": "retire",
+      "fingerprint": "fcfa5f092ce3ac79c6c4eb1b3f89ec330673a986b1c85b3a2f8ec7f67fd0ae12"
+    },
+    {
+      "slug": "open-notebook",
+      "classification": "uncertain-preserve",
+      "fingerprint": "65694528ef5edc18a970280d0bfd167e02dc0bbdc7ff97d0bb0da3813009463e"
+    },
+    {
+      "slug": "optimize-for-gpu",
+      "classification": "uncertain-preserve",
+      "fingerprint": "f03023606a5d51a84bb6de6fc92d4b2279488a9dd3201cfd8583333684ba44d0"
+    },
+    {
+      "slug": "paper-source-selection",
+      "classification": "already-planned",
+      "fingerprint": "1e1212609f473153de52ee3e69c5a1174434101501cba9aa99c617236e0d6b75"
+    },
+    {
+      "slug": "pdf",
+      "classification": "keep",
+      "fingerprint": "a83f546c2a88818a2b642db6b74b9cba5b2c3960aea50338170ffc832e12f9b9"
+    },
+    {
+      "slug": "pennylane",
+      "classification": "retire",
+      "fingerprint": "06e4b9d825414abdec2f744185d6303f6f258333cf5e97b4c122f3ab6d9ce5dd"
+    },
+    {
+      "slug": "phylogenetics",
+      "classification": "retire",
+      "fingerprint": "9e8fd248b5e24e4b38688e75d350b4f0107fd553632189f591e23c3843a402b2"
+    },
+    {
+      "slug": "polars",
+      "classification": "keep",
+      "fingerprint": "b1b8fc8c2d2efea12165a4a5bace2f887d3066bb0d29b11148f5b3e86bfd1aad"
+    },
+    {
+      "slug": "polars-bio",
+      "classification": "retire",
+      "fingerprint": "c2c037bfed359509d05a294df0b0d42a505d437f6f10c688736adcbc0410bb7b"
+    },
+    {
+      "slug": "pptx",
+      "classification": "keep",
+      "fingerprint": "c8fd84f0a73936eb3d6b727ec73dd9c61f66536148bdca442588e13f1700ef3c"
+    },
+    {
+      "slug": "pptx-posters",
+      "classification": "retire",
+      "fingerprint": "2d072780236c0a5aec2137064e9a5f9699adba85932012e68b11e2404970e5a9"
+    },
+    {
+      "slug": "pydeseq2",
+      "classification": "retire",
+      "fingerprint": "22425451619036183fdd3a29a1d48507ce7284247ff2efff14adec7e4c490ce2"
+    },
+    {
+      "slug": "pydicom",
+      "classification": "retire",
+      "fingerprint": "48f555b1233df44a6c9e2f68a8cac8a61833b140c5ac7176138476732cd30a02"
+    },
+    {
+      "slug": "pylabrobot",
+      "classification": "retire",
+      "fingerprint": "849d6c533ac9a5a39199c53124efbd226d10ea7f0d178f140132fc184b26cef7"
+    },
+    {
+      "slug": "pymc",
+      "classification": "keep",
+      "fingerprint": "5a2bc85dab94f9edc68bf5c80bd66959268db29bdfba60b12eb40fc66977eef2"
+    },
+    {
+      "slug": "pymoo",
+      "classification": "keep",
+      "fingerprint": "26014550ce643662abf81bcb9cac7218391c9e38ea792b2dbabcd1b7965842f3"
+    },
+    {
+      "slug": "pyopenms",
+      "classification": "retire",
+      "fingerprint": "b5f1866baef433d05fbbb3e03ab9db7d32bfdd51d0b192ff00835e1cb9e9f647"
+    },
+    {
+      "slug": "pysam",
+      "classification": "retire",
+      "fingerprint": "649df8d0fb4a6c721c6eec147908ca9a2210dd5b71f148612df552dcc61aca86"
+    },
+    {
+      "slug": "pytdc",
+      "classification": "retire",
+      "fingerprint": "d2cd846f9acd5b2919f838ec847d7428cab3bfdaff013f46979f594dd1559417"
+    },
+    {
+      "slug": "pytorch-lightning",
+      "classification": "keep",
+      "fingerprint": "32b2dcca95dd411fa730e018ebe6e0d3385d837de041944d073e5f569a6f567b"
+    },
+    {
+      "slug": "qiskit",
+      "classification": "retire",
+      "fingerprint": "69f75126cd19ba866697073b8631ef154daf335445434b2f36cc22a89fe52569"
+    },
+    {
+      "slug": "qutip",
+      "classification": "retire",
+      "fingerprint": "d6f0dd9b0030ac4b24739bfdd352d1fef708dcae38f87a96a1419613b8508c19"
+    },
+    {
+      "slug": "rdkit",
+      "classification": "retire",
+      "fingerprint": "2d9641ba4e5c32d0d5c43799efacb742360e1bc4c84cc3996922eb1d778b2a81"
+    },
+    {
+      "slug": "review-proposer",
+      "classification": "already-planned",
+      "fingerprint": "3cf5432a4cf05d8470a009f1917e7646e87d3398cc14e6bb3b97bdcfd0670786"
+    },
+    {
+      "slug": "rowan",
+      "classification": "retire",
+      "fingerprint": "7cf337cd4e5c941e3f976fe5cd2e86da12f5032f7bb1d718144bf95837f5db00"
+    },
+    {
+      "slug": "scanpy",
+      "classification": "retire",
+      "fingerprint": "5011bc9c1cca1d5ce7bfe2160bbec6a8f3d2bca35eb06b678bcbc06d171d5322"
+    },
+    {
+      "slug": "scientific-brainstorming",
+      "classification": "uncertain-preserve",
+      "fingerprint": "d023213b7b440ed7352c1ced6d48d58861d08b6a350656723de26ff001caf0fa"
+    },
+    {
+      "slug": "scientific-critical-thinking",
+      "classification": "uncertain-preserve",
+      "fingerprint": "a6276fc1c1c538cfa6239389c8f683e542e0e8d95a1eab6c9d091de5dbef8c65"
+    },
+    {
+      "slug": "scientific-schematics",
+      "classification": "uncertain-preserve",
+      "fingerprint": "095caa4cdaec148d2275806de80627a3ab9b1fddd15c65c21198f83663dcabe8"
+    },
+    {
+      "slug": "scientific-writing",
+      "classification": "retire",
+      "fingerprint": "4bd7bd96a04cad20493229c5778931787ab693dea27093e3d664b186c8ddc9b4"
+    },
+    {
+      "slug": "scikit-bio",
+      "classification": "retire",
+      "fingerprint": "6c6e1da90c9a9554392035ed4543b46c8b41f81fcfed0e45c29ccfeab5a0f70f"
+    },
+    {
+      "slug": "scikit-learn",
+      "classification": "keep",
+      "fingerprint": "df4cd3d88378ba9d76ac8ced7cdb43a35bcf4a093f81ac3f7f7f782a21fd2ce6"
+    },
+    {
+      "slug": "scikit-survival",
+      "classification": "keep",
+      "fingerprint": "f690443939e06cbb0db73b312becfb840f05a936f92120e1be4fc9a2b7049334"
+    },
+    {
+      "slug": "scvelo",
+      "classification": "retire",
+      "fingerprint": "5c3ded9bd21caa8f455607e8ed724194a7ce9bf4c02150a6b6e08ec0ef4c3035"
+    },
+    {
+      "slug": "scvi-tools",
+      "classification": "retire",
+      "fingerprint": "11716c016b2d35246aa3581b2fd99e82b0054f6d0a2ba9a6d3d4d74f615f2866"
+    },
+    {
+      "slug": "seaborn",
+      "classification": "keep",
+      "fingerprint": "ba3ecc4764a26c485b7666dc84de7e2d2b02273d3b3fb14fd73438b0ca654768"
+    },
+    {
+      "slug": "shap",
+      "classification": "keep",
+      "fingerprint": "92c510066b84eb90daa3d98f70ecb2ee4c8883ef7f0462c76d0bcd1591a76205"
+    },
+    {
+      "slug": "simpy",
+      "classification": "keep",
+      "fingerprint": "1a45603429fe19454b484249255816df076de87daeac199169b8180571095111"
+    },
+    {
+      "slug": "skill-creator",
+      "classification": "keep",
+      "fingerprint": "a3c81bf4ba1e3f58bdda08a3cab974805a3e19c5ef4d969ff506bba4792c3504"
+    },
+    {
+      "slug": "stable-baselines3",
+      "classification": "keep",
+      "fingerprint": "6fb4fb0ce82f7360afcb64c8a08d1b59f828668720edb558cd15beb18c29824c"
+    },
+    {
+      "slug": "statistical-analysis",
+      "classification": "keep",
+      "fingerprint": "2fecb7b520e22a08a71618206946bc82a008d2ba18aafb12f913995fa2168fe8"
+    },
+    {
+      "slug": "statsmodels",
+      "classification": "keep",
+      "fingerprint": "04f5bcb50b4b1c39758ef1e778d1bc6ad299f1007a89dc9fc14374800d0566ff"
+    },
+    {
+      "slug": "sympy",
+      "classification": "keep",
+      "fingerprint": "13f6e5f7e4a5e40638782b6e0398f8f6973e8b8192412642eb09b9136dc5df9a"
+    },
+    {
+      "slug": "timesfm-forecasting",
+      "classification": "keep",
+      "fingerprint": "6273093a570731fac0bf75d6fcbb0e08ac4d7f5f787f1bceb9ed6771dc67b7be"
+    },
+    {
+      "slug": "tool-builder",
+      "classification": "keep",
+      "fingerprint": "31cb5d00ff7b522a762ad9776b202ccaf0c44f83f6afd58b7f7f69e13191a104"
+    },
+    {
+      "slug": "torch-geometric",
+      "classification": "keep",
+      "fingerprint": "1965e0d14da6886b5a02c0e819c4da75f8de0b21c3d1aad609acc2e0bc4b789f"
+    },
+    {
+      "slug": "transformers",
+      "classification": "keep",
+      "fingerprint": "7abbff6c9b1acf034c60addbd55b27504a9d9605dfeb4266945e17368858fe94"
+    },
+    {
+      "slug": "treatment-plans",
+      "classification": "retire",
+      "fingerprint": "77f30ee2c2a4eecd7d0b7135bf3768bf9492bcf2304b508715e46af6cf23c8c8"
+    },
+    {
+      "slug": "umap-learn",
+      "classification": "keep",
+      "fingerprint": "af8803503d2357ede43c2299901453b92730dc594ee94af7fe9fefc9b3ca1c1f"
+    },
+    {
+      "slug": "vaex",
+      "classification": "keep",
+      "fingerprint": "9fd71711118734c5c906c52215503b56622a22fa960b713e0b4061ad62ba3f3a"
+    },
+    {
+      "slug": "venue-templates",
+      "classification": "retire",
+      "fingerprint": "8f2cb9f8cb271eddb1fa519b27372b93cf772fa025363ff38ba16783707d13dc"
+    },
+    {
+      "slug": "what-if-oracle",
+      "classification": "keep",
+      "fingerprint": "1a27e40621d9396897f69f8af203ea77304e5c3ed82887bdfad35cd0d7c00480"
+    },
+    {
+      "slug": "xlsx",
+      "classification": "keep",
+      "fingerprint": "af2bba03a13205dbf5b67048eba521924c2a9a8a18ce81ae288cce96afffeee8"
+    },
+    {
+      "slug": "zarr-python",
+      "classification": "keep",
+      "fingerprint": "453f8bcad00305b940cd8c9a28c69fdbf2a4f607c80b48b281eb6b08581039f1"
+    }
+  ],
+  "legalPaths": [
+    "LICENSE",
+    "NOTICE",
+    "apps/electron/default-skills/docx/LICENSE.txt",
+    "apps/electron/default-skills/pdf/LICENSE.txt",
+    "apps/electron/default-skills/pptx/LICENSE.txt",
+    "apps/electron/default-skills/skill-creator/LICENSE.txt",
+    "apps/electron/default-skills/xlsx/LICENSE.txt"
+  ],
+  "legalHashes": {
+    "LICENSE": "107602ec6e164f486b3a2003aa35dd02d89637dd3b2ae6cbd75560bff5565082",
+    "NOTICE": "4eaf0a71f76445fb9b0513470902c55b19e64bc85613af0eee71980bc2aa1deb",
+    "apps/electron/default-skills/docx/LICENSE.txt": "79f6d8f5b427252fa3b1c11ecdbdb6bf610b944f7530b4de78f770f38741cfaa",
+    "apps/electron/default-skills/pdf/LICENSE.txt": "79f6d8f5b427252fa3b1c11ecdbdb6bf610b944f7530b4de78f770f38741cfaa",
+    "apps/electron/default-skills/pptx/LICENSE.txt": "79f6d8f5b427252fa3b1c11ecdbdb6bf610b944f7530b4de78f770f38741cfaa",
+    "apps/electron/default-skills/skill-creator/LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+    "apps/electron/default-skills/xlsx/LICENSE.txt": "79f6d8f5b427252fa3b1c11ecdbdb6bf610b944f7530b4de78f770f38741cfaa"
+  }
+}

@@ -61,36 +61,32 @@ import { setLanguage as setMainLanguage, onLanguageChange } from './lib/i18n-mai
 import { initializeRuntime } from './lib/runtime-init'
 import { initObjectStore, getDb } from './lib/objects/object-store.ts'
 import { backfillLegacyEvidenceSetWorkspace } from './lib/evidence-set-service.ts'
-import { seedDefaultSkills, seedDefaultCapabilityPacks, getGlobalMcpPath } from './lib/config-paths'
+import { seedDefaultSkills, getGlobalMcpPath } from './lib/config-paths'
 import { AGENT_IPC_CHANNELS, windowBgColor } from '@asci/shared'
 import {
   registerProcessCrashDiagnostics,
   registerWebContentsCrashDiagnostics,
 } from './lib/crash-diagnostics.ts'
-import { upgradeDefaultSkillsInWorkspaces, pruneRetiredDefaultSkills, ensureDefaultWorkspace } from './lib/agent-workspace-manager'
+import { upgradeDefaultSkillsInWorkspaces, ensureDefaultWorkspace } from './lib/agent-workspace-manager'
 import { gcNoWorkspaceFallbackOrphans } from './lib/agent-session-manager'
 import { migrateWorkspaceMcpToGlobal } from './lib/mcp/migration.ts'
 import { ensureGlobalMcpFile, isRecentSelfWrite } from './lib/mcp/global-config.ts'
 import { stopAllAgents, bindAuthServiceToOrchestrator } from './lib/agent-service'
 import { initAutoUpdater, cleanupUpdater } from './lib/updater/auto-updater'
 import { startWorkspaceWatcher, stopWorkspaceWatcher } from './lib/workspace-watcher'
-import { startSessionPapersWatcher, stopSessionPapersWatcher } from './lib/session-papers-watcher'
+import { stopSessionPapersWatcher } from './lib/session-papers-watcher'
 import { getIsQuitting, setQuitting } from './lib/app-lifecycle'
 import { createQuickTaskWindow, toggleQuickTaskWindow, destroyQuickTaskWindow } from './lib/quick-task-window'
 import { registerGlobalShortcut, unregisterAllGlobalShortcuts } from './lib/global-shortcut-service'
 import { loadRendererWindow, shouldUseViteDevServer } from './lib/renderer-loader'
 import {
-  startZoteroPdfAutoTrigger,
   stopZoteroPdfAutoTrigger,
-  triggerZoteroPdfDiff,
 } from './lib/zotero-pdf-trigger'
-import { startZoteroPdfParserWorker, stopZoteroPdfParserWorker } from './lib/zotero-pdf-parser/index'
+import { stopZoteroPdfParserWorker } from './lib/zotero-pdf-parser/index'
 import {
-  startZoteroArticleGeneratorWorker,
   stopZoteroArticleGeneratorWorker,
 } from './lib/zotero-article-generator/index'
 import {
-  startZoteroEmbeddingIndexWorker,
   stopZoteroEmbeddingIndexWorker,
 } from './lib/zotero-embedding-index/index'
 
@@ -347,9 +343,6 @@ app.whenReady().then(async () => {
   // 同步默认 Skills 模板到 ~/.asci/default-skills/
   seedDefaultSkills()
 
-  // 清理已退役的 default Skills（default-skills 目录 + 各工作区残留副本）
-  pruneRetiredDefaultSkills()
-
   // 升级所有工作区中版本过旧的默认 Skills
   upgradeDefaultSkillsInWorkspaces()
 
@@ -366,10 +359,6 @@ app.whenReady().then(async () => {
 
   // 一次性迁移：per-workspace mcp.json → 全局 ~/.asci/mcp.json（幂等，已迁移则 noop）
   migrateWorkspaceMcpToGlobal()
-
-  // 同步首发能力包（lit-search 等）到 ~/.asci/capability-packs/（spec §5）
-  // 已存在则保留用户版本，不覆盖；缺失才从 bundle 复制
-  seedDefaultCapabilityPacks()
 
   // GC：清理 _no-workspace 兜底沙箱里的孤儿 session 目录
   // 兜底路径在 deleteAgentSession 时不会被对称清理（只清绑定了 workspaceId 的 session），
@@ -502,29 +491,6 @@ app.whenReady().then(async () => {
     // 启动工作区文件监听（Agent Skills + 文件浏览器自动刷新）
     startWorkspaceWatcher(mainWindow)
     startGlobalMcpWatcher(mainWindow)
-  }
-
-  // 启动 session 论文集监听（检索流式进度 + 正式落盘推送，替代渲染侧轮询）
-  startSessionPapersWatcher()
-
-  // Zotero PDF：启动 parser worker → 注册自动触发层（仅 listener，不启心跳）→ startup diff
-  // 启动时跑一次 diff，成功（first-baseline / diff）会自动激活 60s 心跳；失败保持 dormant
-  // 等 focus/activate/manual 重新连上。详见 lib/zotero-pdf-trigger.ts 状态机注释。
-  try {
-    if (getSettings().zoteroEnabled && mainWindow) {
-      const pdfTriggerWindow = mainWindow  // 闭包内 narrow 非 null
-      void (async () => {
-        await startZoteroPdfParserWorker()              // 先扫 snapshot 把 pending 入队
-        await startZoteroArticleGeneratorWorker()       // 段落总结增强：开关开时启动并扫描入队
-        startZoteroEmbeddingIndexWorker()               // 向量索引：评估开关开时启动并扫描入队
-        startZoteroPdfAutoTrigger(pdfTriggerWindow)     // 注册 listener（mode=dormant）
-        await triggerZoteroPdfDiff('startup')           // 跑 diff，成功后状态机切到 active 并启心跳
-      })().catch(err => {
-        console.warn('[Zotero PDF] 启动时初始化失败（不影响应用启动）:', err)
-      })
-    }
-  } catch (err) {
-    console.warn('[Zotero PDF] 启动时初始化失败（不影响应用启动）:', err)
   }
 
   // 生产环境下初始化自动更新

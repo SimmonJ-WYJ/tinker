@@ -10,13 +10,20 @@
  * 这正是删除启停机制后「老用户曾禁用的包升级后强制启用」的预期语义。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInMemorySubagentRegistry } from '../subagent-registry.ts'
 import { loadCapabilityPacks } from '../capability-pack-loader.ts'
 
-const DEFAULT_PACKS_DIR = join(__dirname, '..', '..', '..', '..', 'default-capability-packs')
+function writeCustomFixtures(root: string): void {
+ for (const packId of ['custom-search', 'custom-review', 'custom-analysis']) {
+  const dir = join(root, packId)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ packId, version: '1.0.0', scenarioAgent: { name: packId, description: 'Custom task', promptPath: 'prompt.md', tools: ['Read'] }, skillRefs: [], mcpRefs: [], uiFramework: 'conversation-and-artifact' }))
+  writeFileSync(join(dir, 'prompt.md'), 'Complete the requested task.')
+ }
+}
 
 let tmpRoot: string
 let packsDir: string
@@ -25,7 +32,7 @@ beforeEach(() => {
   tmpRoot = mkdtempSync(join(tmpdir(), 'asci-414-'))
   packsDir = join(tmpRoot, 'capability-packs')
   // 把仓库内置包拷到可变 tmp 目录，便于模拟「移除某包」
-  cpSync(DEFAULT_PACKS_DIR, packsDir, { recursive: true })
+  writeCustomFixtures(packsDir)
 })
 afterEach(() => {
   rmSync(tmpRoot, { recursive: true, force: true })
@@ -40,34 +47,34 @@ describe('#414 Codex 风开箱即用', () => {
       .filter((e) => e.kind === 'subagent' && e.role === 'scenario')
       .map((e) => e.name)
       .sort()
-    expect(scenes).toEqual(['lit-review', 'lit-search', 'research-gap'])
+    expect(scenes).toEqual(['custom-analysis', 'custom-review', 'custom-search'])
   })
 
-  it('AC2：移除 lit-search 包后其场景能力消失，lit-review 仍在，且不抛', async () => {
+  it('AC2：移除 custom-search 包后其场景能力消失，custom-review 仍在，且不抛', async () => {
     const r = createInMemorySubagentRegistry()
     await loadCapabilityPacks(r, { packsDir, language: 'en' })
-    expect(r.get('lit-search', { kind: 'subagent' })).not.toBeNull()
+    expect(r.get('custom-search', { kind: 'subagent' })).not.toBeNull()
 
-    // 移除 lit-search 包目录 → reload
-    rmSync(join(packsDir, 'lit-search'), { recursive: true, force: true })
+    // 移除 custom-search 包目录 → reload
+    rmSync(join(packsDir, 'custom-search'), { recursive: true, force: true })
     await loadCapabilityPacks(r, { packsDir, language: 'en' })
 
-    expect(r.get('lit-search', { kind: 'subagent' })).toBeNull()
-    expect(r.list({ packId: 'lit-search' })).toHaveLength(0)
+    expect(r.get('custom-search', { kind: 'subagent' })).toBeNull()
+    expect(r.list({ packId: 'custom-search' })).toHaveLength(0)
     // 其余包不受影响
-    expect(r.get('lit-review', { kind: 'subagent' })).not.toBeNull()
+    expect(r.get('custom-review', { kind: 'subagent' })).not.toBeNull()
   })
 
   it('CP-6：残留旧 capability-pack-state.json 把包标 false，loader 仍注册（不可禁用）', async () => {
-    // 模拟老用户曾禁用 lit-search 的历史状态文件
+    // 模拟老用户曾禁用 custom-search 的历史状态文件
     writeFileSync(
       join(tmpRoot, 'capability-pack-state.json'),
-      JSON.stringify({ 'lit-search': false }),
+      JSON.stringify({ 'custom-search': false }),
       'utf-8',
     )
     const r = createInMemorySubagentRegistry()
     await loadCapabilityPacks(r, { packsDir, language: 'en' })
-    // 启停门控已删除 → lit-search 仍然注册
-    expect(r.get('lit-search', { kind: 'subagent' })).not.toBeNull()
+    // 启停门控已删除 → custom-search 仍然注册
+    expect(r.get('custom-search', { kind: 'subagent' })).not.toBeNull()
   })
 })

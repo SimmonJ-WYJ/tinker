@@ -27,24 +27,18 @@ import type {
   OutputFeedbackGetForSessionInput,
   EvidenceSetsAddConversationMessageInput,
   EvidenceSetsAddConversationMessageResult,
-  EvidenceSetsAddPaperInput,
   EvidenceSetsCreateWithConversationMessageInput,
   EvidenceSetsCreateWithConversationMessageResult,
   EvidenceSetsPreviewConversationInput,
   EvidenceSetsPreviewConversationResult,
   EvidenceSetsListConversationTurnsInput,
   EvidenceSetsListConversationTurnsResult,
-  EvidenceSetsCreateWithPaperInput,
   EvidenceSetsGetDetailInput,
   EvidenceSetsGetLatestForSessionInput,
   EvidenceSetsListByPaperInput,
   EvidenceSetsListSummaryInput,
-  EvidenceSetsPromoteFromReviewInput,
-  EvidenceSetsPromoteFromReviewResult,
   EvidenceSetsCreateNamedInput,
   EvidenceSetsCreateNamedResult,
-  EvidenceSetsEnsureAndPromoteFromReviewInput,
-  EvidenceSetsEnsureAndPromoteFromReviewResult,
   EvidenceSetsRenameInput,
   EvidenceSetsRenameResult,
   EvidenceSetsAddNoteInput,
@@ -66,7 +60,6 @@ import type {
 } from '@asci/shared'
 import * as workspacePaperStore from '../lib/workspace-paper-store'
 import { emitPapersChanged } from '../lib/workspace-paper-events'
-import { performLinkZotero } from '../lib/workspace-paper-actions'
 import { getAgentWorkspace } from '../lib/agent-workspace-manager'
 import { getPaperByDoi, getPaperById } from '../lib/objects/repositories/paper-repository.ts'
 import { resolveZoteroKeyForEvidence } from '../lib/workspace-paper-lookup.ts'
@@ -74,8 +67,6 @@ import { lookupDoiMetadata } from '../lib/doi-metadata-lookup.ts'
 import { appendOutputFeedback, getSessionFeedbackMap } from '../lib/output-feedback-service'
 import { getDb as getObjectsDb } from '../lib/objects/object-store.ts'
 import {
-  addPaperToEvidenceSet,
-  createEvidenceSetWithPaper,
   createNoteFromPaperHighlight as notesCreateFromPaperHighlight,
   createNoteFromReviewHighlight as notesCreateFromReviewHighlight,
   listAllNotes as notesListAll,
@@ -93,8 +84,6 @@ import {
   addEvidenceToContainer,
   addFreeNoteToContainer,
   createNamedEvidenceSet,
-  ensureAndPromoteReviewEvidenceSet,
-  promoteReviewEvidenceSet,
   removeEvidenceFromContainer,
   removeNoteFromContainer,
   renameEvidenceSet,
@@ -110,6 +99,17 @@ import { getReviewByBodyPath, listReviews } from '../lib/objects/repositories/re
 
 /** 注册论文 / 笔记 / 综述 / 证据集 IPC 处理器 */
 export function registerPapersIpc(): void {
+  // 在解析工作区、打开数据库或触发网络前结束已退役的科研写入。
+  const unavailable = (): never => { throw new Error('SCIENTIFIC_WORKFLOW_UNAVAILABLE: Existing data remains readable.') }
+  for (const channel of [
+    WORKSPACE_PAPERS_IPC_CHANNELS.INGEST_RECORDS,
+    WORKSPACE_PAPERS_IPC_CHANNELS.LINK_ZOTERO,
+    EVIDENCE_SETS_IPC_CHANNELS.ADD_PAPER,
+    EVIDENCE_SETS_IPC_CHANNELS.CREATE_WITH_PAPER,
+    EVIDENCE_SETS_IPC_CHANNELS.PROMOTE_FROM_REVIEW,
+    EVIDENCE_SETS_IPC_CHANNELS.ENSURE_AND_PROMOTE_FROM_REVIEW,
+  ]) ipcMain.handle(channel, unavailable)
+
   // ===== 工作区论文库 =====
 
   function resolveSlug(workspaceId: string): string {
@@ -141,31 +141,10 @@ export function registerPapersIpc(): void {
   })
 
   // 用户主动把 session-level PaperRecord 回流到 workspace-papers（加 Zotero / 收藏前的前置）
-  ipcMain.handle(
-    WORKSPACE_PAPERS_IPC_CHANNELS.INGEST_RECORDS,
-    (_e, workspaceId: string, records: import('@asci/shared').PaperRecord[], sessionId: string) => {
-      const slug = resolveSlug(workspaceId)
-      const touched = workspacePaperStore.appendOrMerge(slug, records, sessionId)
-      if (touched.length > 0) {
-        emitPapersChanged(workspaceId, touched.map((e) => e.key), 'batchUpdate')
-      }
-      return touched
-    },
-  )
+
 
   // 占位（T9/T15/T16 实现）
-  ipcMain.handle(
-    WORKSPACE_PAPERS_IPC_CHANNELS.LINK_ZOTERO,
-    async (
-      _e,
-      workspaceId: string,
-      key: string,
-      opts: { tags?: string[]; targetTreeViewID?: string | null } = {},
-    ) => {
-      const slug = resolveSlug(workspaceId)
-      return performLinkZotero(slug, workspaceId, key, opts)
-    },
-  )
+
   ipcMain.handle(WORKSPACE_PAPERS_IPC_CHANNELS.DOWNLOAD_PDF, async () => {
     throw new Error('downloadPdf 未实现 - 见 T15')
   })
@@ -239,19 +218,9 @@ export function registerPapersIpc(): void {
     },
   )
   // 把 paper 加入既有 set（幂等）
-  ipcMain.handle(
-    EVIDENCE_SETS_IPC_CHANNELS.ADD_PAPER,
-    (_e, input: EvidenceSetsAddPaperInput) => {
-      return addPaperToEvidenceSet(getObjectsDb(), input)
-    },
-  )
+
   // 新建 set + 同时挂 paper（自动建占位 note）
-  ipcMain.handle(
-    EVIDENCE_SETS_IPC_CHANNELS.CREATE_WITH_PAPER,
-    (_e, input: EvidenceSetsCreateWithPaperInput) => {
-      return createEvidenceSetWithPaper(getObjectsDb(), input)
-    },
-  )
+
   // 反查包含此 paper 的 evidence set 列表（Library 详情面板 CITED BY 区数据源）
   ipcMain.handle(
     EVIDENCE_SETS_IPC_CHANNELS.LIST_BY_PAPER,
@@ -267,13 +236,7 @@ export function registerPapersIpc(): void {
     },
   )
   // B5: 把综述自动建出的临时 set 提升为正式（persisted=1 + name + saved_at）
-  ipcMain.handle(
-    EVIDENCE_SETS_IPC_CHANNELS.PROMOTE_FROM_REVIEW,
-    (_e, input: EvidenceSetsPromoteFromReviewInput): EvidenceSetsPromoteFromReviewResult => {
-      const { set } = promoteReviewEvidenceSet(getObjectsDb(), input)
-      return { setId: set.id, name: set.name ?? '', savedAt: set.savedAt ?? '' }
-    },
-  )
+
   // B5 follow-up: 重命名已保存的证据集（popover 已保存态的 Rename 按钮）
   ipcMain.handle(
     EVIDENCE_SETS_IPC_CHANNELS.RENAME,
@@ -291,16 +254,7 @@ export function registerPapersIpc(): void {
     },
   )
   // B5 follow-up: 综述兜底入口 —— review 没挂 set 时先解析再 promote；已挂则直接 promote/rename
-  ipcMain.handle(
-    EVIDENCE_SETS_IPC_CHANNELS.ENSURE_AND_PROMOTE_FROM_REVIEW,
-    (
-      _e,
-      input: EvidenceSetsEnsureAndPromoteFromReviewInput,
-    ): EvidenceSetsEnsureAndPromoteFromReviewResult => {
-      const { set } = ensureAndPromoteReviewEvidenceSet(getObjectsDb(), input)
-      return { setId: set.id, name: set.name ?? '', savedAt: set.savedAt ?? '' }
-    },
-  )
+
   // v0.2.x: 会话 Q&A 存为证据条目（添加到既有集合）
   ipcMain.handle(
     EVIDENCE_SETS_IPC_CHANNELS.ADD_CONVERSATION_MESSAGE,

@@ -295,7 +295,7 @@ export function InlinePreview(): React.ReactElement | null {
         {renderHeader(sanitizeText(currentPreview.record.title), 'PAPER', 'bg-info/10 text-info', true, false)}
         <PreviewErrorBoundary>
           <React.Suspense fallback={<div className="p-4 text-xs text-muted-foreground">{tCommon('loading')}</div>}>
-            <PaperDetailRenderer record={currentPreview.record} />
+            <PaperDetailRenderer record={currentPreview.record} readOnly />
           </React.Suspense>
         </PreviewErrorBoundary>
         {flashOverlay}
@@ -310,7 +310,7 @@ export function InlinePreview(): React.ReactElement | null {
         {renderHeader(sanitizeText(currentPreview.entry.title), 'PAPER', 'bg-info/10 text-info', true, false)}
         <PreviewErrorBoundary>
           <React.Suspense fallback={<div className="p-4 text-xs text-muted-foreground">{tCommon('loading')}</div>}>
-            <PaperEntryDetailPanel entry={currentPreview.entry} />
+            <PaperEntryDetailPanel entry={currentPreview.entry} readOnly />
           </React.Suspense>
         </PreviewErrorBoundary>
         {flashOverlay}
