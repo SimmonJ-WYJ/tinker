@@ -1,10 +1,10 @@
 # Tinker 科研退役执行记录
 
-基线 main `4ca339592668581c1dc36abc9097fc9bf0aa1650`。隔离分支 `refactor/tinker-general-product-cleanup`，原目录全部未提交改动保留。PR #19 是独立 Rust 多轮迁移草稿，本分支不混入其实现，也不声称生产已切换 Rust。
+起始基线 main `4ca339592668581c1dc36abc9097fc9bf0aa1650`。隔离分支 `refactor/tinker-general-product-cleanup`，原目录全部未提交改动保留。执行期间重新核实 PR #19 已由用户合并，main 为 `53c191d663e1733840aa6fa0475ca6494e98bce4`，通过正常 merge `2de0c30` 同步，零冲突。本批没有改写 Rust 源码，也不声称生产已切换 Rust。
 
 ## 批次 1：Tinker 身份与当前开发规则
 
-已改写当前 CLAUDE、CONTEXT、README 和开发入口文档。保留有效规则、当前 Tinker 仓库工作流、原作者及上游来源。完整旧科研 CONTEXT 归档到 [历史领域词汇](../history/ASCI-CONTEXT.md)，不再作为当前产品目标。
+已改写当前 CLAUDE、CONTEXT、README 和开发入口文档。当前 SDK/架构说明与运行代码对齐，完整旧 SDK 调查归档到 [历史 SDK 集成](../history/ASCI-agent-sdk-integration.md)，15 份专属科研规格加历史状态头且保持原路径与主体。旧科研资源链接指向不可变 Git 基线，避免成为断链或当前恢复指令。保留有效规则、当前 Tinker 仓库工作流、原作者及上游来源。完整旧科研 CONTEXT 归档到 [历史领域词汇](../history/ASCI-CONTEXT.md)，不再作为当前产品目标。
 
 新建项目/默认会话的身份文件使用 Tinker，保留 ambient CLAUDE 防护、运行时语言指令和兼容路径。仅在文件缺失时写入，已有用户/历史文件保持原样。本轮没有扫描或修改真实会话目录，没有改 seed/prune、数据库、登录、密钥和安装版。
 
@@ -63,8 +63,69 @@ Library 中已有 review/conversation 的引用和普通 free note 仍能操作�
 
 页面验证为真实 React/Jotai + happy-dom 与合成 main IPC 委托，不是原生 Electron 点击。实际点击验证保留的 review/conversation 引用与笔记保存，零 paper 入库。原生 GUI、Zotero、账户、真实模型/数据未验收。未引用的旧科研弹窗/图谱兼容源码仍有保留，不宣称全源码清场。
 
-## 后续与回滚
+## 批次 4：专属技能资源与统一退役策略
 
-其余专属技能分发在后续批次处理，本段不把它们写成已退役。历史对象/引用/导出、通用 PDF/媒体、兼容路径及许可证保持。
+追加删除经过逐目录依赖核对的 49 个专属技能目录，精确 402 文件、5,090,292 原始字节。与首五个工作流合计退役 54 个技能目录，保留 35 个通用与 10 个跨用途技能；完整清单见[逐目录清理表](./2026-11-10-scientific-skill-curation.md)。原有 root LICENSE/NOTICE 与五个保留技能 LICENSE.txt（共七路径）逐字节保持。
 
-各批独立提交，可按逆序 `git revert <commit>` 回滚源码。未替换安装版，当前运行版本不随本分支变化。最终提交/PR/CI 与后续批次结果以本报告补充及交付回复为准。
+54 项受信发布布局/指纹集中到 shared JSON，seed/copy/upgrade/discovery 使用同一策略。运行时仍只排除精确已知副本，未知/修改副本保持可用和原字节，不删除安装目录。元数据检查按每个精确布局预算，硬上限 64 条目、4 路径段、64KiB 单文件、512KiB 总正文；正文用 8KiB buffer，读取至发布字节数加一个哨兵字节，并保留 fd 身份/时间/大小及读取后布局复核。实际最大目录 35 条目、457,166 字节，不因一处额外附件而读它的正文。
+
+保留技能中四处对退役技能的可选建议已在三个文件中改为通用能力表述。EDA 内对外部 Python 库的示例保留，不将库 import 误判为已删技能目录依赖。不卸载通用 Python 或已安装外部库。
+
+| 最终验证 | 结果 |
+|---|---|
+| D 定向测试 | 15 通过，0 失败 |
+| 全仓 Bun（含最新 main 与全部清理） | 3400 通过，0 失败，391 文件，9150 断言 |
+| 类型 / lint / Electron build / diff | 全部通过，六 workspace 类型检查 |
+| 真实 Git 基线重建审计 | 54/54 发布指纹与布局通过，45 保留目录、七法律文件、统一策略及实际 mock SDK plugin 输入通过 |
+| 每布局异常/读取边界 | 已知与修改副本、额外附件/链接、有限读取与投影回归通过 |
+| 常规测试无 Git 历史 | 通过，使用合成正文及隔离子进程 digest 映射 |
+| 显式历史审计缺基线 | 明确 needs-history 退出 1，不自动 fetch 或静默 skip |
+| 独立资源/指纹/依赖审查 | 通过，无未关闭重要发现 |
+
+正常永久测试不保留被删科研正文，也不依赖浅克隆中未必存在的旧 Git 对象。合成 digest 映射验证布局/策略，不冒充真实原文 SHA-256；另用本机完整历史显式运行无映射的真实重建审计，二者分开记录。真实审计命令为：
+
+```sh
+bun apps/electron/src/main/lib/__tests__/fixtures/scientific-assets.fixture.ts --git-baseline
+```
+
+夹具自行使用合成目录。此命令需要本地 `4ca339592668581c1dc36abc9097fc9bf0aa1650` 对象，不读取用户技能目录或自动联网取历史。
+
+## 同步最新 main 后的 Rust 回归
+
+合入用户已合并的 `53c191d` 后，本分支相对该 main 的 `apps/tinker-rust` 源码差异为零。重新运行：
+
+| 检查 | 结果 |
+|---|---|
+| `cargo fmt -- --check` | 通过 |
+| Rust Lab Vite build | 通过 |
+| `cargo clippy --locked --all-targets -- -D warnings` | 通过 |
+| `cargo test --locked` | 141 顶层测试通过，0 失败，不重复累计子进程辅助测试 |
+
+首次 clippy 因新工作树缺少 `frontendDist` 报错；正常构建 Lab 前端后原命令通过，没有改 Rust 源码或压制检查。测试使用隔离目录、伪凭据和本机回环模拟服务，未运行线上模型或原生窗口。本批补测不能当作完整新栈产品/UI 验收。
+
+## 保留边界与后续
+
+- 当前 Electron/SDK 后端、会话/渠道/生图/文件/项目/登录和通用媒体仍保留，Rust 未替代的生产后端不退役。已有安装版没有被覆盖或重启。
+- 历史科研对象、schema、读取/导出、PDF/锚点和普通笔记保留，没有删除表或迁移真实会话。
+- `@asci/*`、`ASCI_*`、`.asci/.asci-dev`、协议名、app identifier、OAuth/deeplink 与许可证/原作者归属继续保留。外部 Google 同意页面/服务配置没有修改。
+- 未使用的旧科研 dialog、GraphModal/NodeInspector、科研服务/resource 源码有保留，处于未接入或兼容边界。没有声称全部科研源码、所有 ASCI 字符串或所有历史规格被删除。
+- 用户自建/修改资源、旧未知版本、已有 project CLAUDE/agents/MCP 不能凭名字销毁；SDK 自行发现边界仍存在。
+- 通用 Agent 在真实原生 SDK 中派活、原生 GUI、中英/主题手动切换、真实模型与媒体执行仍需验收。本批没有重做完整 MVP UI，没有模型费用、整机内存或速度改善的实测声明。
+
+## 本地证据与回滚
+
+发布前差异检查未发现新增凭据模式、用户数据或构建产物路径；LICENSE/NOTICE、保留技能法律文件、bun.lock 及相对最新 main 的 Rust 源码均零差异。原主工作区仍在 `codex/tinker-rust-foundation`，读取时有 63 个 dirty 条目，本批没有在那里修改源码或清理文件。
+
+完整日志保留于 `/private/tmp/tinker-cleanup-checks-20261110`，包括 identity/runtime/history/assets 与 final-rust 前缀。检查通过的命令为 `bun run typecheck`、`bun run lint`、`bun test`、`bun run electron:build`，Rust 的 fmt/clippy/test 及 Lab Vite build。运行时清除 ambient 服务变量，ASCI_CONFIG_HOME/ASCI_RUNTIMES_HOME 指向全新的合成目录，Cargo 复用已确认缓存；回环模拟采用正常权限路线，不读取凭据或触发付费调用。
+
+| 清理提交 | 作用 |
+|---|---|
+| `eab860e` | Tinker 身份与基础开发文档 |
+| `23b257f` | 科研运行接线退役、媒体独立控制 |
+| `64b52e3` / `e95a1b7` | 当前 SDK/架构说明、历史规格状态与源链接 |
+| `5cb68de` | 科研主动 UI/IPC 退役、历史与通用资料管理保留 |
+| `180a68f` | 追加 49 个专属技能及统一有界识别 |
+
+需要源码回滚时按依赖逆序 revert 对应清理提交，先资源再 UI 再运行接线，最后文档/身份。**不回滚用于同步用户 main 的 merge `2de0c30`，不撤销用户已合并的 Rust PR #19。** 不删除已有数据以消除回滚冲突。单个旧读模块尚有依赖时先保留并审查，而非删除整目录。
+
+远端分支为 `refactor/tinker-general-product-cleanup`，按正常 hooks 提交并仅交付 Draft PR。最终完整 head SHA、PR 与该 SHA 的 checks/status/Actions 以交付回复及 PR 审查评论为准；本报告记录本地证据，不将无 CI 记录称为通过。不合并、不部署、不安装。
