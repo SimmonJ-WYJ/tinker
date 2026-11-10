@@ -26,10 +26,12 @@
 - 不读取真实 channels.json、系统密钥、会话、账户或项目数据，不发真实模型请求，不安装/部署。不恢复科研能力。不写原 dirty 工作树。
 - 本轮可信宿主 profile 只允许 numeric loopback，禁 DNS/代理/重定向与外部地址。profile/model/revision 由宿主定义，renderer 只发送逻辑 ID，秘密不返回给 UI、日志、错误或持久化。
 - 模型配置接口本轮为可信 profile 注册、元数据发现和模型选择，不声称迁完真实渠道凭据 CRUD。前端原渠道设置中未迁移的修改/探测接口明确 unsupported，不回落真实旧服务。
+- DesktopRuntime caller root须由可信宿主预先在稳定父目录中durable创建，既有absolute非symlink目录；core不递归建caller祖先。每次open在namespace写入前确认root及直接parent，namespace/session自有目录链由core确认。
 - 原始 run DTO/schema、Lab 命令与历史 reader 兼容，不重写真实数据。新正式会话使用独立 `desktop-runtime-v1` 命名空间及锁。
 - 会话数量最多128，每会话最多128个请求记录，title最多1024 UTF-8字节，ID沿用64字节ASCII验证，时间戳为JS安全整数毫秒。现有输入/输出/事件/上下文上限保持，不裁剪冒充完整历史。
 - 同一session的create支持reuseDraft=true；sessions.update只变title/pinned/archived；删除先tombstone且停止该session，不能在执行中释放文件锁或删除仍活跃run。
 - 新 wire 版本1，单 JSONL frame最多4MiB，pending最多32，历史按序分页且每页最多2MiB序列化正文，正式旧API聚合最多16MiB，超限明确失败。任何 transport 错误不能自动重放副作用。
+- session的当前profile可随明确的新send切换，历史每turn绑定不改；空draft首发选另一渠道也可用。旧requestId重放不能回退当前profile或触发HTTP。
 - 请求身份冻结 session/request/profile/model/configRevision/input/effort，重放同一请求不再次调用 provider。失败、取消、中断不可作父链，重试新请求只继承最近成功祖先。
 - 未迁移的 tool/thinking/多模态、附件/目录/MCP/skills、coding、queue/fork/rewind/compact 等要明确拒绝，不丢参数后假成功。默认 UI 始终传的 `taskMode:search` 是文本模式元数据，不能错误拒绝普通发送；默认 effort high 必须有明确协议映射，不能忽略。
 - 请求取消后不接收晚到 delta，不接受迟到旧终态覆盖新请求。取消/拒绝不执行工具。本轮没有实际工具runner；模型返回工具块应明确 unsupported且执行计数为零，完整授权执行在M2。

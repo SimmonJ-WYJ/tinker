@@ -87,3 +87,5 @@ export * from './data-export.ts'
 
 // 证据驱动评分 v2 类型契约（extra.score；docs/specs/lit-scoring-agent-spec.md）
 export * from './paper-scoring.ts'
+
+export * from "./desktop-runtime.ts"

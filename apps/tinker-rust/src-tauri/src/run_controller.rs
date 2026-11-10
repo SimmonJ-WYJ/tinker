@@ -28,7 +28,10 @@ pub struct RunController {
 }
 impl RunController {
     pub fn open(root: impl AsRef<Path>) -> Result<Self, RunError> {
-        let store = RunStore::open(root)?;
+        Self::from_store(RunStore::open(root)?)
+    }
+    /// 正式服务在持锁的全局预检成功后才进入恢复阶段。
+    pub(crate) fn from_store(store: RunStore) -> Result<Self, RunError> {
         store.validate_all()?;
         let mut current = None;
         for id in store.ids()? {

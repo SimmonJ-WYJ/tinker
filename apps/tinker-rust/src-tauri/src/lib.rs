@@ -23,3 +23,6 @@ pub mod run_context;
 
 #[cfg(test)]
 mod run_context_tests;
+
+pub mod desktop_commands;
+pub mod desktop_runtime;
