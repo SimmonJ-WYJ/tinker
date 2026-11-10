@@ -438,6 +438,7 @@ fn profile_metadata_must_fit_public_frame() {
             .map(|m| tinker_rust_foundation::desktop_runtime::Model {
                 model_id: format!("model-{m}"),
                 label: "x".repeat(1024),
+                supported_efforts: Vec::new(),
             })
             .collect();
         p.push(profile);

@@ -25,9 +25,11 @@ fn directory_sync_failure_never_commits_session_or_calls_provider() {
                 models: vec![Model {
                     model_id: "model".into(),
                     label: "Model".into(),
+                    supported_efforts: Vec::new(),
                 }],
                 endpoint: format!("http://{}/chat", listener.local_addr().unwrap()),
                 key: "fake-secret".into(),
+                protocol: crate::chat_http::HttpProtocol::OpenaiChat,
             }]
         };
         let runtime = DesktopRuntime::open(&root, profiles()).unwrap();

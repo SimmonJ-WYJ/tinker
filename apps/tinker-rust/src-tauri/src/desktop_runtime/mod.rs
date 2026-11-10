@@ -201,8 +201,18 @@ impl Inner {
         match method {
             "runtime.describe" => {
                 let _: Empty = decode(params)?;
+                let efforts: Vec<_> = ["low", "medium", "high", "max"]
+                    .into_iter()
+                    .filter(|effort| {
+                        self.profiles.values().any(|p| {
+                            p.models
+                                .iter()
+                                .any(|m| m.supported_efforts.iter().any(|e| e == effort))
+                        })
+                    })
+                    .collect();
                 Ok(
-                    json!({"version":VERSION,"maxFrameBytes":MAX_FRAME_BYTES,"maxPending":MAX_PENDING,"maxPageBytes":MAX_PAGE_BYTES,"capabilities":["text","sessions","cancel","history"],"efforts":[]}),
+                    json!({"version":VERSION,"maxFrameBytes":MAX_FRAME_BYTES,"maxPending":MAX_PENDING,"maxPageBytes":MAX_PAGE_BYTES,"capabilities":["text","sessions","cancel","history"],"efforts":efforts}),
                 )
             }
             "profiles.list" => {

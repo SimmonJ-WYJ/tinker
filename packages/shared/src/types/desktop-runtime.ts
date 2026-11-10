@@ -14,15 +14,26 @@ export interface DesktopRequest<M extends DesktopMethod = DesktopMethod> {
 export type DesktopReply<T = unknown> =
   | { version: 1; id: string; result: T; error?: never }
   | { version: 1; id: string; result?: never; error: { code: string } }
-export interface DesktopModel { modelId: string; label: string }
+export type DesktopProtocol = 'openai-chat' | 'anthropic-messages'
+export interface DesktopModel { modelId: string; label: string; supportedEfforts: DesktopEffort[] }
 export interface DesktopProfile {
   profileId: string
   label: string
   configRevision: string
   models: DesktopModel[]
+  protocol: DesktopProtocol
 }
 /** 仅可信主进程/启动器拥有；不发送至renderer，不写进会话journal。 */
-export interface DesktopTrustedProfile extends DesktopProfile { endpoint: string; key: string }
+export interface DesktopTrustedProfile {
+  profileId: string
+  label: string
+  configRevision: string
+  models: { modelId: string; label: string; supportedEfforts?: DesktopEffort[] }[]
+  /** 旧可信配置缺省openai-chat；不接受renderer提供的能力声明。 */
+  protocol?: DesktopProtocol
+  endpoint: string
+  key: string
+}
 export type DesktopEffort = 'low' | 'medium' | 'high' | 'max'
 export interface DesktopSend {
   requestId: string
