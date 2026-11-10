@@ -7,6 +7,20 @@ use std::{
 };
 /// 受信任的同步实现；应轮询取消令牌并传播sink错误。宿主负责配置实现。
 pub trait RunProvider: Send + Sync {
+    fn execute_context(
+        &self,
+        context: &crate::run_context::RunContext,
+        cancelled: &AtomicBool,
+        emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
+    ) -> Result<(), RunError> {
+        match context.messages() {
+            [message] if message.role == crate::run_context::ChatRole::User => {
+                self.execute(&message.content, cancelled, emit)
+            }
+            _ => Err(RunError::ContextUnsupported),
+        }
+    }
+
     fn execute(
         &self,
         input: &str,

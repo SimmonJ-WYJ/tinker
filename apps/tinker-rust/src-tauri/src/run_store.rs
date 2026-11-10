@@ -11,26 +11,23 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct RunHeader {
-    protocol_version: u32,
-    run_id: String,
-    request_id: String,
-    provider_kind: ProviderKind,
-    scenario: OfflineScenario,
-    input: String,
-    created_order: u64,
-}
+#[path = "run_store_header.rs"]
+mod header;
+use crate::run_context::*;
+use header::*;
 #[derive(Debug, Clone)]
 pub(crate) struct StoredRun {
     pub snapshot: RunSnapshot,
     pub events: Vec<RunRecord>,
     pub log_bytes: usize,
+    pub lineage: RunLineage,
+    pub created_order: u64,
+    layout: u8,
 }
 #[derive(Debug)]
 pub struct RunStore {
     root: PathBuf,
+    context_root: PathBuf,
     _writer_lock: File,
 }
 impl RunStore {
@@ -52,7 +49,13 @@ impl RunStore {
             TryLockError::WouldBlock => RunError::StoreLocked,
             TryLockError::Error(_) => RunError::StoreIo,
         })?;
+        let context_root = root.join("context-v2");
+        ensure_dir(&context_root)?;
+        let context_root = context_root.canonicalize()?;
+        // 子目录自身同步不确认父目录中的新目录项；宿主启动前必须确认布局。
+        File::open(&root)?.sync_all()?;
         Ok(Self {
+            context_root,
             root,
             _writer_lock: lock,
         })
@@ -61,18 +64,26 @@ impl RunStore {
         Ok(self.entries()?.into_iter().map(|(_, id)| id).collect())
     }
     fn entries(&self) -> Result<Vec<(u64, String)>, RunError> {
-        ensure_dir(&self.root)?;
-        let mut ids = Vec::new();
-        for entry in fs::read_dir(&self.root)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "jsonl") {
+        let mut entries = Vec::new();
+        let mut all_ids = std::collections::HashSet::new();
+        for layout in [1, 2] {
+            let dir = self.directory(layout);
+            ensure_dir(dir)?;
+            let mut orders = std::collections::HashSet::new();
+            for entry in fs::read_dir(dir)? {
+                let path = entry?.path();
+                if path.extension().is_none_or(|v| v != "jsonl") {
+                    continue;
+                }
                 safe_file(&path)?;
                 let id = path
                     .file_stem()
-                    .and_then(|id| id.to_str())
+                    .and_then(|v| v.to_str())
                     .ok_or(RunError::UnsafePath)?;
                 validate_id(id)?;
+                if !all_ids.insert(id.to_owned()) {
+                    return Err(RunError::CorruptLog);
+                }
                 let file = File::open(&path)?;
                 if file.metadata()?.len() > MAX_LOG_BYTES as u64 {
                     return Err(RunError::RunLimitExceeded);
@@ -83,20 +94,116 @@ impl RunStore {
                 if line.last() != Some(&b'\n') || line.len() > MAX_HEADER_BYTES + 1 {
                     return Err(RunError::CorruptLog);
                 }
-                check_version(&line)?;
-                let header: RunHeader =
-                    serde_json::from_slice(&line).map_err(|_| RunError::CorruptLog)?;
-                if header.run_id != id || header.request_id != id || header.created_order == 0 {
+                let (header, _) = decode_header(&line, id, layout)?;
+                if !orders.insert(header.created_order) {
                     return Err(RunError::CorruptLog);
                 }
-                ids.push((header.created_order, id.to_owned()));
+                entries.push((header.created_order, layout, id.to_owned()));
             }
         }
-        ids.sort();
-        if ids.windows(2).any(|pair| pair[0].0 == pair[1].0) {
-            return Err(RunError::CorruptLog);
+        entries.sort();
+        Ok(entries
+            .into_iter()
+            .map(|(order, _, id)| (order, id))
+            .collect())
+    }
+    fn directory(&self, layout: u8) -> &Path {
+        if layout == 1 {
+            &self.root
+        } else {
+            &self.context_root
         }
-        Ok(ids)
+    }
+    pub(crate) fn find_location(&self, id: &str) -> Result<u8, RunError> {
+        ensure_dir(&self.root)?;
+        ensure_dir(&self.context_root)?;
+        match (
+            safe_file(&self.directory(1).join(format!("{id}.jsonl")))?,
+            safe_file(&self.directory(2).join(format!("{id}.jsonl")))?,
+        ) {
+            (true, true) => Err(RunError::CorruptLog),
+            (true, false) => Ok(1),
+            (false, true) => Ok(2),
+            (false, false) => Err(RunError::RunNotFound),
+        }
+    }
+    pub(crate) fn validate_all(&self) -> Result<(), RunError> {
+        for id in self.ids()? {
+            let run = self.load(&id)?;
+            if let RunLineage::Continuation { parent, .. } = &run.lineage {
+                let (_, _) = self.context_for(parent, run.created_order, &run.snapshot.input)?;
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn context_for(
+        &self,
+        parent: &ParentRunRef,
+        child_order: u64,
+        input: &str,
+    ) -> Result<(RunContext, ParentRunRef), RunError> {
+        let mut next = parent.clone();
+        let mut order = child_order;
+        let mut visited = std::collections::HashSet::new();
+        let mut turns = Vec::new();
+        let mut bytes = input.len();
+        loop {
+            if turns.len() >= MAX_CONTEXT_ANCESTORS {
+                return Err(RunError::ContextLimitExceeded);
+            }
+            if !visited.insert(next.run_id.clone()) {
+                return Err(RunError::CorruptLog);
+            }
+            let run = self.load(&next.run_id)?;
+            if run.snapshot.status != RunStatus::Completed || run.snapshot.recovery_required {
+                return Err(RunError::ContextParentNotCompleted);
+            }
+            if run.snapshot.sequence != next.sequence || run.created_order >= order {
+                return Err(RunError::CorruptLog);
+            }
+            bytes += run.snapshot.input.len() + run.snapshot.output.len();
+            if bytes > MAX_CONTEXT_BYTES {
+                return Err(RunError::ContextLimitExceeded);
+            }
+            turns.push((run.snapshot.input, run.snapshot.output));
+            order = run.created_order;
+            match run.lineage {
+                RunLineage::Standalone => break,
+                RunLineage::Continuation { parent, .. } => next = parent,
+            }
+        }
+        turns.reverse();
+        Ok((RunContext::from_turns(turns, input)?, parent.clone()))
+    }
+    pub(crate) fn continuation_context(
+        &self,
+        parent_id: &str,
+        input: &str,
+    ) -> Result<(RunContext, ParentRunRef), RunError> {
+        let run = self.load(parent_id)?;
+        let parent = ParentRunRef {
+            run_id: parent_id.into(),
+            sequence: run.snapshot.sequence,
+        };
+        self.context_for(&parent, u64::MAX, input)
+    }
+    pub(crate) fn create_continuation(
+        &self,
+        id: &str,
+        input: String,
+        scenario: OfflineScenario,
+        parent: ParentRunRef,
+    ) -> Result<StoredRun, RunError> {
+        validate_parent(&parent, id)?;
+        self.create_inner(
+            id,
+            input,
+            scenario,
+            RunLineage::Continuation {
+                parent,
+                policy_version: CONTEXT_POLICY_VERSION,
+            },
+        )
     }
     pub(crate) fn create(
         &self,
@@ -104,7 +211,21 @@ impl RunStore {
         input: String,
         scenario: OfflineScenario,
     ) -> Result<StoredRun, RunError> {
+        self.create_inner(id, input, scenario, RunLineage::Standalone)
+    }
+    fn create_inner(
+        &self,
+        id: &str,
+        input: String,
+        scenario: OfflineScenario,
+        lineage: RunLineage,
+    ) -> Result<StoredRun, RunError> {
         validate_id(id)?;
+        match self.find_location(id) {
+            Err(RunError::RunNotFound) => {}
+            Ok(_) => return Err(RunError::RequestConflict),
+            Err(e) => return Err(e),
+        }
         if input.len() > MAX_INPUT_BYTES {
             return Err(RunError::InputTooLarge);
         }
@@ -120,18 +241,27 @@ impl RunStore {
             input,
             created_order,
         };
-        let mut bytes = serde_json::to_vec(&header).map_err(|_| RunError::StoreIo)?;
+        let mut bytes = encode_header(&header, &lineage)?;
         if bytes.len() > MAX_HEADER_BYTES {
             return Err(RunError::InputTooLarge);
         }
         bytes.push(b'\n');
-        let path = self.log_path(id);
+        let layout = if matches!(lineage, RunLineage::Standalone) {
+            1
+        } else {
+            2
+        };
+        let path = self.directory(layout).join(format!("{id}.jsonl"));
         safe_file(&path)?;
         let mut file = options().write(true).create_new(true).open(&path)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
-        File::open(&self.root)?.sync_all()?;
+        File::open(self.directory(layout))?.sync_all()?;
+        let created_order = header.created_order;
         Ok(StoredRun {
+            lineage,
+            created_order,
+            layout,
             snapshot: snapshot_from_header(header),
             events: Vec::new(),
             log_bytes: bytes.len(),
@@ -139,10 +269,8 @@ impl RunStore {
     }
     pub(crate) fn load(&self, id: &str) -> Result<StoredRun, RunError> {
         validate_id(id)?;
-        let path = self.log_path(id);
-        if !safe_file(&path)? {
-            return Err(RunError::RunNotFound);
-        }
+        let layout = self.find_location(id)?;
+        let path = self.directory(layout).join(format!("{id}.jsonl"));
         let file = File::open(&path)?;
         if file.metadata()?.len() > MAX_LOG_BYTES as u64 {
             return Err(RunError::RunLimitExceeded);
@@ -163,17 +291,12 @@ impl RunStore {
         if header_line.len() > MAX_HEADER_BYTES {
             return Err(RunError::RunLimitExceeded);
         }
-        check_version(header_line)?;
-        let header: RunHeader =
-            serde_json::from_slice(header_line).map_err(|_| RunError::CorruptLog)?;
-        if header.run_id != id
-            || header.request_id != id
-            || header.input.len() > MAX_INPUT_BYTES
-            || header.created_order == 0
-        {
-            return Err(RunError::CorruptLog);
-        }
+        let (header, lineage) = decode_header(header_line, id, layout)?;
+        let created_order = header.created_order;
         let mut loaded = StoredRun {
+            lineage,
+            created_order,
+            layout,
             snapshot: snapshot_from_header(header),
             events: Vec::new(),
             log_bytes: bytes.len(),
@@ -234,7 +357,13 @@ impl RunStore {
         }
         let mut next = run.clone();
         apply_record(&mut next, record)?;
-        let path = self.log_path(&run.snapshot.run_id);
+        let layout = self.find_location(&run.snapshot.run_id)?;
+        if layout != run.layout {
+            return Err(RunError::CorruptLog);
+        }
+        let path = self
+            .directory(layout)
+            .join(format!("{}.jsonl", run.snapshot.run_id));
         if !safe_file(&path)? {
             return Err(RunError::StoreIo);
         }
@@ -247,13 +376,14 @@ impl RunStore {
         next.log_bytes += encoded.len();
         *run = next;
         // 快照是派生缓存；JSONL 已经同步落盘后，缓存失败不能推翻已提交事件。
-        let _ = self.cache_snapshot(&run.snapshot);
+        let _ = self.cache_snapshot(&run.snapshot, run.layout);
         Ok(())
     }
-    fn cache_snapshot(&self, snapshot: &RunSnapshot) -> Result<(), RunError> {
-        let target = self.root.join(format!("{}.json", snapshot.run_id));
+    fn cache_snapshot(&self, snapshot: &RunSnapshot, layout: u8) -> Result<(), RunError> {
+        let root = self.directory(layout);
+        let target = root.join(format!("{}.json", snapshot.run_id));
         safe_file(&target)?;
-        let temp = self.root.join(format!(
+        let temp = root.join(format!(
             ".snapshot-{}-{}",
             std::process::id(),
             NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
@@ -263,16 +393,13 @@ impl RunStore {
             serde_json::to_writer(&mut file, snapshot).map_err(|_| RunError::StoreIo)?;
             file.sync_all()?;
             fs::rename(&temp, target)?;
-            File::open(&self.root)?.sync_all()?;
+            File::open(root)?.sync_all()?;
             Ok(())
         })();
         if result.is_err() {
             let _ = fs::remove_file(temp);
         }
         result
-    }
-    fn log_path(&self, id: &str) -> PathBuf {
-        self.root.join(format!("{id}.jsonl"))
     }
 }
 fn snapshot_from_header(header: RunHeader) -> RunSnapshot {

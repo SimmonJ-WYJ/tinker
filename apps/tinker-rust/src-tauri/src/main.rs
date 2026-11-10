@@ -67,6 +67,7 @@ fn main() {
             recover_draft,
             history_commands::read_session_history,
             run_commands::start_lab_run,
+            run_commands::continue_lab_run,
             run_commands::cancel_lab_run,
             run_commands::read_lab_run
         ])

@@ -81,6 +81,31 @@ pub async fn start_lab_run(
     .map_err(|_| "runUnavailable")?
 }
 #[tauri::command]
+pub async fn continue_lab_run(
+    request_id: String,
+    parent_run_id: String,
+    input: String,
+    scenario: String,
+    state: tauri::State<'_, RunHostState>,
+) -> Result<RunSnapshot, &'static str> {
+    let scenario: OfflineScenario = scenario.parse().map_err(code)?;
+    if input.trim().is_empty() {
+        return Err("emptyInput");
+    }
+    let controller = state.controller()?;
+    let provider = state
+        .provider
+        .clone()
+        .unwrap_or_else(|| Arc::new(OfflineFixture::new(scenario)));
+    tauri::async_runtime::spawn_blocking(move || {
+        controller
+            .continue_with_provider(request_id, parent_run_id, input, scenario, provider)
+            .map_err(code)
+    })
+    .await
+    .map_err(|_| "runUnavailable")?
+}
+#[tauri::command]
 pub async fn cancel_lab_run(
     run_id: String,
     state: tauri::State<'_, RunHostState>,

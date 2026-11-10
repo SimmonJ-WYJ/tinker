@@ -1,4 +1,5 @@
 //! 可信宿主配置的文本Chat Completions；错误仅使用固定码，取消丢弃网络future。
+use crate::run_context::{RunContext, MAX_HTTP_REQUEST_BYTES};
 use crate::{
     run_provider::RunProvider,
     run_types::{RunError, MAX_EVENT_BYTES, MAX_OUTPUT_BYTES},
@@ -132,17 +133,25 @@ impl RunProvider for ChatHttpProvider {
         cancelled: &AtomicBool,
         emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
     ) -> Result<(), RunError> {
+        self.execute_context(&RunContext::single(input), cancelled, emit)
+    }
+    fn execute_context(
+        &self,
+        context: &RunContext,
+        cancelled: &AtomicBool,
+        emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
+    ) -> Result<(), RunError> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .map_err(|_| RunError::HttpTransport)?;
-        runtime.block_on(self.stream(input, cancelled, emit))
+        runtime.block_on(self.stream(context, cancelled, emit))
     }
 }
 impl ChatHttpProvider {
     async fn stream(
         &self,
-        input: &str,
+        context: &RunContext,
         cancelled: &AtomicBool,
         emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
     ) -> Result<(), RunError> {
@@ -166,9 +175,16 @@ impl ChatHttpProvider {
         }
         let client = builder.build().map_err(|_| RunError::HttpTransport)?;
         let deadline = tokio::time::Instant::now() + self.config.total;
-        let request = client.post(self.config.endpoint.clone()).bearer_auth(&self.config.key)
+        let body = serde_json::to_vec(&serde_json::json!({"model":self.config.model,"messages":context.messages(),"stream":true})).map_err(|_| RunError::HttpProtocol)?;
+        if body.len() > MAX_HTTP_REQUEST_BYTES {
+            return Err(RunError::ContextLimitExceeded);
+        }
+        let request = client
+            .post(self.config.endpoint.clone())
+            .bearer_auth(&self.config.key)
             .header("Accept", "text/event-stream")
-            .json(&serde_json::json!({"model":self.config.model,"messages":[{"role":"user","content":input}],"stream":true}));
+            .header("Content-Type", "application/json")
+            .body(body);
         let Some(response) = guarded(request.send(), cancelled, deadline, self.config.idle).await?
         else {
             return Ok(());
