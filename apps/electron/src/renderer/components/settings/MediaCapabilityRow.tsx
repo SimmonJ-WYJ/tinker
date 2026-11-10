@@ -169,4 +169,3 @@ function formatEta(seconds: number, t: ReturnType<typeof useT<'settings'>>['t'])
   const s = seconds % 60
   return t('zotero.asrProgress.etaCompound', { minutes: m, seconds: s })
 }
-
