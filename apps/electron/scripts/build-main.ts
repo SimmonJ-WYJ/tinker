@@ -47,7 +47,7 @@ const EXTERNALS = [
 ]
 
 const args = [
-  'src/main/index.ts',
+  'src/main/entry.ts',
   '--bundle',
   '--platform=node',
   '--format=cjs',

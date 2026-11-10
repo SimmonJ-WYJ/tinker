@@ -1,3 +1,4 @@
+import { DESKTOP_PREVIEW_STATUS_CHANNEL } from '@asci/shared'
 /**
  * Preload 脚本
  *
@@ -146,3 +147,6 @@ declare global {
     __INITIAL_THEME__: ResolvedTheme
   }
 }
+
+// 仅已通过主进程强隔离门控的预览跳过账户和外部遥测。
+contextBridge.exposeInMainWorld('__DESKTOP_RUNTIME_PREVIEW__', ipcRenderer.sendSync(DESKTOP_PREVIEW_STATUS_CHANNEL) === true)

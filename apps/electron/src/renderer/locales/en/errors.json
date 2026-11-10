@@ -67,5 +67,11 @@
     "providerAuthentication": "The model call returned 401: authentication for the selected provider was rejected. Check its URL, protocol, key and model access. This is not a Tinker account sign-in error. No automatic retry was made.",
     "providerAuthenticationTitle": "Provider authentication failed",
     "providerSettings": "Models & providers"
+  },
+  "desktopRuntime": {
+    "unsupported": "This operation is not available in the Rust text preview.",
+    "failed": "The Rust response could not finish. Your conversation has been preserved.",
+    "transport": "The Rust runtime disconnected. Reopen the preview to recover the conversation.",
+    "invalid": "The selected model or request is not available in the Rust preview."
   }
 }

@@ -1,5 +1,6 @@
 import { AgentFailureRecovery } from './AgentFailureRecovery'
-import { captureSendDraft, sendRecoveryDraftsAtom, forgetSendDraftAtom } from '@/atoms/send-recovery-atoms'
+import { observeAgentSend } from '@/lib/agent-send'
+import { captureSendDraft, sendRecoveryDraftsAtom } from '@/atoms/send-recovery-atoms'
 import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
 import conversationPlus from '@/assets/conversation/plus.svg'
 import { ConversationReasoningSelector } from './ConversationReasoningSelector.tsx'
@@ -562,17 +563,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
         startedAt: streamStartedAt,
         effort: resolveSessionEffort(),
       }
-      window.electronAPI.sendAgentMessage(input).then(() => {
-        if (!store.get(agentStreamErrorsAtom).has(sessionId)) store.set(forgetSendDraftAtom, {sessionId, draft: recoveryDraft})
-      }).catch((error) => {
-        setAgentStreamErrors(previous => new Map(previous).set(sessionId, error instanceof Error ? error.message : String(error)))
-        console.error('[AgentView] 自动发送配置消息失败:', error)
-        setStreamingStates((prev) => {
-          const map = new Map(prev)
-          map.delete(sessionId)
-          return map
-        })
-      })
+      void observeAgentSend(store,sessionId,streamStartedAt,window.electronAPI.sendAgentMessage(input),recoveryDraft)
     })
   }, [messagesLoaded, pendingPrompt, sessionId, agentChannelId, agentModelId, currentWorkspaceId, streaming, setPendingPrompt, setStreamingStates, setAgentStreamErrors, store])
 
@@ -883,6 +874,11 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (streaming && selectedImage) return
     // 上一条消息仍在处理中，直接追加发送
     if (streaming) {
+      // 已验证的文本预览不支持队列；在清空输入或注入乐观消息前拒绝。
+      if (window.__DESKTOP_RUNTIME_PREVIEW__ === true) {
+        toast.error(tErrors('desktopRuntime.unsupported'))
+        return
+      }
       // 流式追加时不处理附件（仅支持纯文本）
       if (pendingFiles.length > 0) {
         toast.info(tConversation('agent.toast.appendDuringStreaming.title'), {
@@ -1197,19 +1193,8 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
     // 版本引用已绑定到 input 与恢复快照；发送后不再把它显示成下一条草稿。
     if (selectedImage) setImageEditDrafts(previous => consumeImageEditDraft(previous, sessionId, selectedImage))
-    window.electronAPI.sendAgentMessage(input).then(() => {
-      if (!store.get(agentStreamErrorsAtom).has(sessionId)) store.set(forgetSendDraftAtom, {sessionId, draft: recoveryDraft})
-    }).catch((error) => {
-      console.error('[AgentView] 发送消息失败:', error)
-      setAgentStreamErrors(previous => new Map(previous).set(sessionId, error instanceof Error ? error.message : String(error)))
-      setStreamingStates((prev) => {
-        if (!prev.has(sessionId)) return prev
-        const map = new Map(prev)
-        map.delete(sessionId)
-        return map
-      })
-    })
-  }, [taskMode, inputContent, inputHtmlContent, tCommon, pendingFiles, pendingMentions, selectedImage, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
+    void observeAgentSend(store,sessionId,streamStartedAt,window.electronAPI.sendAgentMessage(input),recoveryDraft)
+  }, [taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 
   // 一键触发（如「找研究空白」）→ 直接派发 handleSend，不经输入框二段式回车。
   // textOverride 直接带正文，绕过 inputContent state 时序；写入后立即清空 atom 防重复发送。

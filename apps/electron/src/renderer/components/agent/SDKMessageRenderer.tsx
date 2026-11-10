@@ -1417,6 +1417,7 @@ function ErrorMessage({ message }: { message: SDKAssistantMessage }): React.Reac
             )}
             <div className="text-destructive">
               <MessageResponse>{contentText}</MessageResponse>
+              {message._desktopRuntimeStatus && contentText !== errorText && <p role="alert" className="mt-2">{errorText}</p>}
             </div>
           </div>
         </div>

@@ -101,3 +101,6 @@ export interface DesktopResults {
   'chat.cancel': DesktopTurn
   'chat.events': { turn: DesktopTurn; events: DesktopEvent[]; nextAfterSequence: number; hasMore: boolean }
 }
+
+/** 主进程确认的隔离预览状态；只读，不接收路径或执行参数。 */
+export const DESKTOP_PREVIEW_STATUS_CHANNEL = 'desktop-runtime:preview-status'

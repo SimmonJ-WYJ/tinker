@@ -7,6 +7,7 @@
  * 使用 useStore() 直接操作 atoms，避免 React 订阅。
  */
 
+import { acceptAgentAttempt } from '@/lib/agent-attempt'
 import { useEffect } from 'react'
 import { unstable_batchedUpdates } from 'react-dom'
 import { useStore } from 'jotai'
@@ -76,6 +77,10 @@ function payloadToLegacyEvents(payload: AgentStreamPayload): AgentEvent[] {
   if (payload.kind === 'asci_event') {
     const evt = payload.event
     switch (evt.type) {
+      case 'text_snapshot':
+        return [{ type: 'text_complete', text: evt.text, isIntermediate: false }, { type: 'model_resolved', model: evt.model }]
+      case 'text_delta':
+        return [{ type: 'text_delta', text: evt.text, turnId: evt.turnId }]
       case 'permission_request':
         return [{ type: 'permission_request', request: evt.request }]
       case 'permission_resolved':
@@ -394,6 +399,7 @@ export function useGlobalAgentListeners(): void {
       (streamEvent: AgentStreamEvent) => {
         unstable_batchedUpdates(() => {
         const { sessionId, payload } = streamEvent
+        if (!acceptAgentAttempt(store,sessionId,streamEvent.startedAt)) return
 
         // 如果收到未知会话的事件（跨工作区场景），立即刷新会话列表
         const knownSessions = store.get(agentSessionsAtom)
@@ -468,7 +474,7 @@ export function useGlobalAgentListeners(): void {
                 model: undefined,
                 // startedAt 留空：让 STREAM_COMPLETE 竞态保护跳过时间戳比较，
                 // 正常流程中 handleSend 已设置了正确的 startedAt，此 fallback 仅在极端情况下触发
-                startedAt: undefined,
+                startedAt: streamEvent.startedAt,
               }
               const next = applyAgentEvent(current, event)
               const map = new Map(prev)
@@ -687,6 +693,7 @@ export function useGlobalAgentListeners(): void {
     const cleanupComplete = window.electronAPI.onAgentStreamComplete(
       (data: AgentStreamCompletePayload) => {
         unstable_batchedUpdates(() => {
+        if (!acceptAgentAttempt(store,data.sessionId,data.startedAt)) return
         // 发送桌面通知（任务完成，始终播放提示音）
         const enabled = store.get(notificationsEnabledAtom)
         const soundEnabled = store.get(notificationSoundEnabledAtom)
@@ -761,7 +768,9 @@ export function useGlobalAgentListeners(): void {
             error_max_budget_usd: '任务被中断：已达到预算上限。',
             error_during_execution: '任务执行过程中发生错误。',
           }
-          const msg = messages[data.resultSubtype] ?? `任务异常结束（${data.resultSubtype}）`
+          const msg = window.__DESKTOP_RUNTIME_PREVIEW__ === true
+            ? i18n.t('desktopRuntime.failed', { ns: 'errors' })
+            : messages[data.resultSubtype] ?? `任务异常结束（${data.resultSubtype}）`
           toast.warning(msg)
         }
 
@@ -802,6 +811,7 @@ export function useGlobalAgentListeners(): void {
           window.electronAPI
             .listAgentSessions()
             .then((sessions) => {
+              if (!acceptAgentAttempt(store,data.sessionId,data.startedAt)) return
               store.set(agentSessionsAtom, sessions)
               // 从持久化 meta 对齐 stoppedByUser 状态
               store.set(stoppedByUserSessionsAtom, new Set<string>(
@@ -825,8 +835,9 @@ export function useGlobalAgentListeners(): void {
 
     // ===== 3. 流式错误 =====
     const cleanupError = window.electronAPI.onAgentStreamError(
-      (data: { sessionId: string; error: string }) => {
+      (data: { sessionId: string; startedAt?: number; error: string }) => {
         unstable_batchedUpdates(() => {
+        if (!acceptAgentAttempt(store,data.sessionId,data.startedAt)) return
         console.error('[GlobalAgentListeners] 流式错误:', data.error)
 
         // 存储错误消息
