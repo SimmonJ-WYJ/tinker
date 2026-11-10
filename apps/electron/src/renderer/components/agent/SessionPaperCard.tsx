@@ -20,7 +20,7 @@ export interface SimplePaperCardProps {
   /** 对应 session record；entry 的 title/authors/year 是占位时用 record 兜底显示 */
   record?: PaperRecord
   onOpenPreview: () => void
-  onLinkZotero: () => void
+  onLinkZotero?: () => void
   size?: 'compact' | 'expanded'
   /** 左侧多选 checkbox 节点（由父组件根据"是否可选"决定是否传入） */
   checkboxNode?: React.ReactNode
@@ -144,18 +144,18 @@ function SimplePaperCardImpl({ entry, record, onOpenPreview, onLinkZotero, size 
               >
                 <BookMarked className="!size-3.5" /> {t('sessionPapers.addedToZotero')}
               </span>
-            ) : (
+            ) : onLinkZotero ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="chip"
-                onClick={(e) => { e.stopPropagation(); onLinkZotero() }}
+                onClick={(e) => { e.stopPropagation(); onLinkZotero?.() }}
                 className={paperPrimaryButtonClassName}
               >
                 <Plus className="!size-3.5" />
                 {t('sessionPapers.addToZotero')}
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -171,6 +171,7 @@ function SimplePaperCardImpl({ entry, record, onOpenPreview, onLinkZotero, size 
  * 注意：若未来给卡片新增"影响渲染的非回调 prop"，必须同步加进比较器。
  */
 interface PaperCardCompareProps {
+  onLinkZotero?: () => void
   entry?: WorkspacePaperEntry
   record?: PaperRecord
   size?: 'compact' | 'expanded'
@@ -186,6 +187,7 @@ function paperCardPropsEqual(prev: PaperCardCompareProps, next: PaperCardCompare
     prev.size === next.size &&
     prev.isSelected === next.isSelected &&
     prev.showCheckbox === next.showCheckbox &&
+    Boolean(prev.onLinkZotero) === Boolean(next.onLinkZotero) &&
     prev.selectable === next.selectable
   )
 }
@@ -197,7 +199,7 @@ export interface RecordOnlyCardProps {
   record: PaperRecord
   size?: 'compact' | 'expanded'
   onOpenPreview: () => void
-  onLinkZotero: () => void
+  onLinkZotero?: () => void
   checkboxNode?: React.ReactNode
   isSelected?: boolean
   /** 是否显示 checkbox（默认 false，仅在多选模式下设为 true） */
@@ -277,16 +279,18 @@ function RecordOnlyCardImpl({ record, size = 'compact', onOpenPreview, onLinkZot
               <ExternalLink className="!size-3.5" />
               {t('sessionPapers.link')}
             </a>
+            {onLinkZotero && (
             <Button
               type="button"
               variant="ghost"
               size="chip"
-              onClick={(e) => { e.stopPropagation(); onLinkZotero() }}
+              onClick={(e) => { e.stopPropagation(); onLinkZotero?.() }}
               className={paperPrimaryButtonClassName}
             >
               <Plus className="!size-3.5" />
               {t('sessionPapers.addToZotero')}
             </Button>
+            )}
           </div>
         </div>
       </div>

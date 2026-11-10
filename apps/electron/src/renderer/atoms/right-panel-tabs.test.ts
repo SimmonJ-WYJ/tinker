@@ -87,12 +87,12 @@ describe('titleOfTarget', () => {
 })
 
 describe('upsertTab — Chrome 风累积', () => {
-  const base = (): SessionTabsState => ({ tabs: [...DEFAULT_TABS], activeId: 'session-papers' })
+  const base = (): SessionTabsState => ({ tabs: [...DEFAULT_TABS], activeId: 'session-files' })
 
   test('新 id 追加到末尾并激活', () => {
     const t: PreviewTarget = { kind: 'file', path: '/a.txt', ext: 'txt', size: 0 }
     const next = upsertTab(base(), tabIdOfTarget(t), 'file-preview', 'a.txt', t)
-    expect(next.tabs.map((x) => x.id)).toEqual(['session-files', 'session-papers', 'file-preview:/a.txt'])
+    expect(next.tabs.map((x) => x.id)).toEqual(['session-files', 'file-preview:/a.txt'])
     expect(next.activeId).toBe('file-preview:/a.txt')
   })
 
@@ -116,7 +116,7 @@ describe('upsertTab — Chrome 风累积', () => {
     const paperTabs = s.tabs.filter((t) => t.id === eId)
     expect(paperTabs).toHaveLength(1)
     expect(paperTabs[0]?.kind).toBe('paper-record')
-    expect(s.tabs).toHaveLength(3) // 2 默认 + 1 paper
+    expect(s.tabs).toHaveLength(2) // 1 默认 + 1 paper
   })
 
   test('同一文件再次打开 → 聚焦不新建', () => {
@@ -124,7 +124,7 @@ describe('upsertTab — Chrome 风累积', () => {
     let s = base()
     s = upsertTab(s, tabIdOfTarget(t), 'file-preview', 'a.txt', t)
     s = upsertTab(s, tabIdOfTarget(t), 'file-preview', 'a.txt', t)
-    expect(s.tabs).toHaveLength(3)
+    expect(s.tabs).toHaveLength(2)
   })
 })
 
@@ -139,8 +139,8 @@ describe('closeTab', () => {
 
   test('关闭 preview tab，激活相邻左 tab', () => {
     const next = closeTab(withFile(), 'file-preview:/a')
-    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'session-papers'])
-    expect(next.activeId).toBe('session-papers')
+    expect(next.tabs.map((t) => t.id)).toEqual(['session-files'])
+    expect(next.activeId).toBe('session-files')
   })
 
   test('默认 tab 不可关闭（no-op）', () => {
@@ -160,7 +160,7 @@ describe('closeTab', () => {
     }
     const next = closeTab(s, 'file-preview:/a')
     expect(next.activeId).toBe('file-preview:/b')
-    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'session-papers', 'file-preview:/b'])
+    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'file-preview:/b'])
   })
 })
 
@@ -176,7 +176,7 @@ describe('closeOtherTabs', () => {
       activeId: 'p3',
     }
     const next = closeOtherTabs(s, 'p2')
-    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'session-papers', 'p2'])
+    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'p2'])
     expect(next.activeId).toBe('p2')
   })
 })
@@ -193,7 +193,7 @@ describe('closeTabsToRight', () => {
       activeId: 'p3',
     }
     const next = closeTabsToRight(s, 'p1')
-    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'session-papers', 'p1'])
+    expect(next.tabs.map((t) => t.id)).toEqual(['session-files', 'p1'])
     // active 落在被关的 p3 上 → 回退到目标 p1
     expect(next.activeId).toBe('p1')
   })
@@ -210,7 +210,7 @@ describe('closeTabsToRight', () => {
 describe('isDefaultTabId / isPreviewKind', () => {
   test('isDefaultTabId', () => {
     expect(isDefaultTabId('session-files')).toBe(true)
-    expect(isDefaultTabId('session-papers')).toBe(true)
+    expect(isDefaultTabId('session-papers')).toBe(false)
     expect(isDefaultTabId('paper:doi:x')).toBe(false)
   })
   test('isPreviewKind', () => {
@@ -221,11 +221,11 @@ describe('isDefaultTabId / isPreviewKind', () => {
 })
 
 describe('rightPanelTabsBySessionAtom', () => {
-  test('未知会话返回 DEFAULT_TABS（papers 激活）', () => {
+  test('未知会话返回 DEFAULT_TABS（files 激活）', () => {
     const store = createStore()
     const state = store.get(rightPanelTabsBySessionAtom('s1'))
-    expect(state.tabs.map((t) => t.id)).toEqual(['session-files', 'session-papers'])
-    expect(state.activeId).toBe('session-papers')
+    expect(state.tabs.map((t) => t.id)).toEqual(['session-files'])
+    expect(state.activeId).toBe('session-files')
   })
 
   test('不同会话状态独立', () => {
@@ -234,31 +234,31 @@ describe('rightPanelTabsBySessionAtom', () => {
     const b = rightPanelTabsBySessionAtom('s2')
     const t: PreviewTarget = { kind: 'file', path: '/a', ext: '', size: 0 }
     store.set(a, upsertTab(store.get(a), tabIdOfTarget(t), 'file-preview', 'a', t))
-    expect(store.get(a).tabs).toHaveLength(3)
-    expect(store.get(b).tabs).toHaveLength(2)
+    expect(store.get(a).tabs).toHaveLength(2)
+    expect(store.get(b).tabs).toHaveLength(1)
   })
 })
 
 describe('replaceActiveTab — 兄弟导航原地切换（不新增 tab）', () => {
-  const base: SessionTabsState = { tabs: [...DEFAULT_TABS], activeId: 'session-papers' }
+  const base: SessionTabsState = { tabs: [...DEFAULT_TABS], activeId: 'session-files' }
 
   test('激活的是 preview tab → 原地替换槽位 + 改标题，不新增', () => {
     const s1 = upsertTab(base, 'paper:A', 'paper-detail', 'Paper A', rec({ doi: 'A', title: 'Paper A' }))
-    expect(s1.tabs).toHaveLength(3)
+    expect(s1.tabs).toHaveLength(2)
     expect(s1.activeId).toBe('paper:A')
     const s2 = replaceActiveTab(s1, 'paper:B', 'paper-detail', 'Paper B', rec({ doi: 'B', title: 'Paper B' }))
-    expect(s2.tabs).toHaveLength(3) // 没有新增
+    expect(s2.tabs).toHaveLength(2) // 没有新增
     expect(s2.activeId).toBe('paper:B')
     expect(s2.tabs.find((t) => t.id === 'paper:A')).toBeUndefined()
-    expect(s2.tabs[2]?.id).toBe('paper:B') // 占原 A 的末位
-    expect(s2.tabs[2]?.title).toBe('Paper B')
+    expect(s2.tabs[1]?.id).toBe('paper:B') // 占原 A 的末位
+    expect(s2.tabs[1]?.title).toBe('Paper B')
   })
 
   test('激活的是默认 tab → 退化为追加（默认 tab 不动）', () => {
     const s = replaceActiveTab(base, 'paper:A', 'paper-detail', 'Paper A', rec({ doi: 'A' }))
-    expect(s.tabs).toHaveLength(3)
+    expect(s.tabs).toHaveLength(2)
     expect(s.activeId).toBe('paper:A')
-    expect(s.tabs.filter((t) => isDefaultTabId(t.id))).toHaveLength(2)
+    expect(s.tabs.filter((t) => isDefaultTabId(t.id))).toHaveLength(1)
   })
 
   test('替换目标 id 已在别处 → 去重（保留当前槽位）', () => {
@@ -267,6 +267,6 @@ describe('replaceActiveTab — 兄弟导航原地切换（不新增 tab）', () 
     const r = replaceActiveTab(s, 'paper:A', 'paper-detail', 'A2', rec({ doi: 'A' }))
     expect(r.tabs.filter((t) => t.id === 'paper:A')).toHaveLength(1)
     expect(r.activeId).toBe('paper:A')
-    expect(r.tabs).toHaveLength(3) // 默认2 + 去重后的 A
+    expect(r.tabs).toHaveLength(2) // 默认1 + 去重后的 A
   })
 })

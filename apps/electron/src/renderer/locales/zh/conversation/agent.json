@@ -203,6 +203,7 @@
       "records": "查看执行记录",
       "actions": "{{count}} 项操作",
       "working": "正在执行任务"
-    }
+    },
+    "scientificReadOnly": "此科研工作流已退役，已保存结果仅供阅读。"
   }
 }

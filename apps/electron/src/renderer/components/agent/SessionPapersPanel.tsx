@@ -1,22 +1,4 @@
-/**
- * SessionPapersPanel — 检索论文结果（极简版）
- *
- * 数据：listSessionPapers 返回的 PaperRecord[] —— 本会话 Agent 检到的论文
- * 标注：每条 PaperRecord 通过 recordKey 关联到 workspace papers 的 entry，
- *       用于判断是否已加入 Zotero；其他标注字段 UI 层不暴露（由 Zotero 管理）
- * 交互：点击卡片 → 右侧 preview 显示详情
- *         · 已入 workspace（有 entry）→ PaperEntryDetailPanel + ◀ ▶ 兄弟导航
- *         · 仅 record（未入 workspace）→ PaperDetailRenderer，无副作用、不参与兄弟导航
- *       加入 Zotero 按钮 → 打开 ZoteroLinkDialog（单条）
- *       行内 checkbox 多选 → 底部批量栏 → ZoteroBatchLinkDialog（批量）
- *       标题右侧展开按钮 → 在大窗口平铺所有卡片，方便集中浏览
- *
- * 多选规则：
- *   · 已加入 Zotero 的行（entry.linkedZoteroKey 存在）不显示 checkbox，无法被选中
- *   · 其余行（无 entry 或 entry 未链 Zotero）均可选
- *   · 列表变化（如新批论文进来）时，自动剪掉已不存在的勾选 key
- *   · 批量提交后：成功的从选中态移除，失败的保留勾选用于重试
- */
+/** 旧会话论文只读兼容面板：保留筛选、选择、预览，禁止导入或启动科研任务。 */
 
 import * as React from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -24,9 +6,8 @@ import { BookText, FileText } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { workspacePapersAtom } from '@/atoms/workspace-papers-atoms'
 import { previewPaperSiblingsAtom } from '@/atoms/side-panel-layout'
-import { pendingAutoSendPromptAtom } from '@/atoms/starter-prompt-atoms.ts'
 import { useOpenInRightPanel } from '@/hooks/useOpenInRightPanel'
-import { currentAgentWorkspaceIdAtom, agentStreamingStatesAtom } from '@/atoms/agent-atoms'
+import { agentStreamingStatesAtom } from '@/atoms/agent-atoms'
 import {
   sessionPapersFilterFamilyAtom,
   sessionPapersSortFamilyAtom,
@@ -37,8 +18,6 @@ import {
   sessionPapersSelectedKeysFamilyAtom,
   sessionPapersPendingZoteroImportFamilyAtom,
 } from '@/atoms/session-papers-ui-atoms'
-import { ZoteroLinkDialog } from './ZoteroLinkDialog'
-import { ZoteroBatchLinkDialog, type BatchLinkItem } from './ZoteroBatchLinkDialog'
 import {
   applyFilter,
   applySort,
@@ -47,20 +26,19 @@ import {
 } from './session-papers-filter'
 import { recordKey } from './session-papers-utils'
 import { SessionPapersSelectionHeader } from './SessionPapersSelectionHeader'
-import { SessionPapersSelectionActions } from './SessionPapersSelectionActions'
 import { SessionPapersToolbar } from './SessionPapersToolbar'
 import { SessionPapersLiveBanner } from './SessionPapersLiveBanner'
 import { SessionPapersList, type SessionPapersListItem } from './SessionPapersList'
 import { computeStats } from './session-papers-stats'
 import type { PaperRecord, SessionPapersLive, WorkspacePaperEntry } from '@asci/shared'
 import { useT } from '@/hooks/useT'
-import { toast } from 'sonner'
 
 /** 兜底轮询间隔：主路径是 SESSION_PAPERS_CHANGED 事件推送，轮询只为事件丢失时补救 */
 const POLL_INTERVAL_MS = 30_000
 
 interface SessionPapersPanelProps {
   sessionId: string
+  readOnly?: true
 }
 
 /** 一行的选择身份：用于稳定标识可勾选行 */
@@ -79,13 +57,11 @@ function selectionKeyForRow(item: { entry?: WorkspacePaperEntry; record: PaperRe
 
 export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): React.ReactElement {
   const { t } = useT('conversation')
-  const { t: tLib } = useT('library')
   const [records, setRecords] = React.useState<PaperRecord[]>([])
   // 检索流式进度快照（retrieve 进行中才非 null；canonical 落地后文件被删自动清空）
   const [live, setLive] = React.useState<SessionPapersLive | null>(null)
   // 仅首次加载显示 loading 态；后台刷新（事件/轮询）不闪 loading
   const [initialLoading, setInitialLoading] = React.useState(true)
-  const [zoteroDialogEntry, setZoteroDialogEntry] = React.useState<WorkspacePaperEntry | null>(null)
   const [expanded, setExpanded] = React.useState(false)
   const [filter, setFilter] = useAtom(sessionPapersFilterFamilyAtom(sessionId))
   const [sortMode, setSortMode] = useAtom(sessionPapersSortFamilyAtom(sessionId))
@@ -95,17 +71,13 @@ export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): Reac
   const [selected, setSelected] = useAtom(
     sessionPapersSelectedKeysFamilyAtom(sessionId),
   )
-  // 对话内"批量导入 Zotero"待处理 recordKeys：由全局监听器写入，本面板挂载后消费
+  // 兼容旧内存状态；历史面板仅清理，不执行导入。
   const [pendingZoteroImport, setPendingZoteroImport] = useAtom(
     sessionPapersPendingZoteroImportFamilyAtom(sessionId),
   )
-  const [batchItems, setBatchItems] = React.useState<BatchLinkItem[] | null>(null)
-  const [batchPreparing, setBatchPreparing] = React.useState(false)
   const workspacePapers = useAtomValue(workspacePapersAtom)
-  const workspaceId = useAtomValue(currentAgentWorkspaceIdAtom)
   const openInRightPanel = useOpenInRightPanel()
   const setPaperSiblings = useSetAtom(previewPaperSiblingsAtom)
-  const setPendingAutoSend = useSetAtom(pendingAutoSendPromptAtom)
 
   const load = React.useCallback(async () => {
     if (!sessionId) return
@@ -247,26 +219,9 @@ export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): Reac
 
   const selectedCount = selected.size
 
-  // 找研究空白（0.4 Epic 1）：把勾选论文标题拼成指令预填到对话框，用户发送后由总控路由到
-  // research-gap 能力包；对照表产出后经 present_research_gap_table 事件自动打开右侧「研究空白」Tab。
-  const handleFindResearchGap = React.useCallback((): void => {
-    const titles = rowMeta
-      .filter((r) => selected.has(r.selectionKey))
-      .map((r) => r.merged.record?.title ?? r.merged.entry?.title ?? '')
-      .filter((t): t is string => Boolean(t))
-    const list = titles.map((t, i) => `${i + 1}. ${t}`).join('\n')
-    const msg = titles.length
-      ? `${t('sessionPapers.researchGapPrompt.intro', { count: titles.length })}\n${list}`
-      : t('sessionPapers.researchGapPrompt.introNoList')
-    // 直接派发（自动开跑），不再填入输入框等用户回车
-    setPendingAutoSend(msg)
-  }, [rowMeta, selected, setPendingAutoSend, t])
-
-  // 本会话 Agent 是否运行中——live 进度 banner 与「找研究空白」按钮共用这一真信号。
+  // 本会话 Agent 是否运行中，仅用于历史 live 进度 banner。
   const streamingStates = useAtomValue(agentStreamingStatesAtom)
   const agentRunning = streamingStates.get(sessionId)?.running ?? false
-  // 研究空白生成中 = Agent 运行中：button 转 loading + 禁用，完成（running=false）再激活
-  const researchGapBusy = agentRunning
 
   const exitMultiSelect = React.useCallback((): void => {
     setMultiSelectActive(false)
@@ -291,148 +246,10 @@ export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): Reac
     }
   }, [sessionId, setMultiSelectActive, setSelected])
 
-  // 用户主动把 record 回流到 workspace-papers，得到 entry 后打开 Zotero 弹窗
-  const ingestAndOpenZotero = React.useCallback(
-    async (record: PaperRecord) => {
-      if (!workspaceId) return
-      try {
-        const [entry] = await window.electronAPI.workspacePapers.ingestRecords(
-          workspaceId,
-          [record],
-          sessionId,
-        )
-        if (entry) setZoteroDialogEntry(entry)
-      } catch (err) {
-        console.error('[检索论文] 回流 workspace-papers 失败:', err)
-      }
-    },
-    [workspaceId, sessionId],
-  )
-
-  /**
-   * 批量加入 Zotero：先把 record-only 选中项回流为 workspace entries，
-   * 然后把所有 entries（含原本就存在的）打包给 ZoteroBatchLinkDialog 处理。
-   *
-   * 可选 selectionKeysOverride：跳过 selected state，用调用方提供的 key 集触发（用于
-   * asci-zotero MCP 触发的 IPC 路径，避免 React state batch 导致用旧 selected 值）。
-   */
-  const handleBatchAddToZotero = React.useCallback(async (selectionKeysOverride?: Set<string>) => {
-    const effective = selectionKeysOverride ?? selected
-    if (!workspaceId || effective.size === 0) {
-      if (!workspaceId) toast.error(t('sessionPapers.selection.noWorkspace'))
-      return
-    }
-    const selectedRows = rowMeta.filter((r) => effective.has(r.selectionKey) && r.selectable)
-    if (selectedRows.length === 0) return
-
-    setBatchPreparing(true)
-    try {
-      // 把已有 entry 的行直接收集；record-only 的批量 ingest 成 entries
-      const directItems: BatchLinkItem[] = []
-      const recordsToIngest: PaperRecord[] = []
-      const recordSelectionKeyByRecordKey = new Map<string, string>()
-
-      for (const r of selectedRows) {
-        if (r.row.kind === 'entry') {
-          directItems.push({ selectionKey: r.selectionKey, entry: r.row.entry })
-        } else {
-          recordsToIngest.push(r.row.record)
-          const k = recordKey(r.row.record)
-          if (k) recordSelectionKeyByRecordKey.set(k, r.selectionKey)
-          // 无 recordKey 的项：ingest 后无法回找映射，下面会兜底为"全部成功后无需保留"
-        }
-      }
-
-      let ingested: WorkspacePaperEntry[] = []
-      if (recordsToIngest.length > 0) {
-        try {
-          ingested = await window.electronAPI.workspacePapers.ingestRecords(
-            workspaceId,
-            recordsToIngest,
-            sessionId,
-          )
-        } catch (err) {
-          console.error('[Zotero 批量] 回流 workspace-papers 失败:', err)
-          toast.error(tLib('batchLinkDialog.ingestFailed'))
-          return
-        }
-      }
-
-      const ingestedItems: BatchLinkItem[] = ingested.map((entry) => {
-        // 用 entry.key 反查原 selectionKey；entry.key 与 recordKey 等价（参见 main 端规范化）
-        const sk = recordSelectionKeyByRecordKey.get(entry.key)
-        return { selectionKey: sk ?? `e:${entry.key}`, entry }
-      })
-
-      const allItems = [...directItems, ...ingestedItems]
-        // 已绑过 Zotero 的（理论不会进来，但兜底过滤一次）跳过
-        .filter((it) => !it.entry.linkedZoteroKey)
-
-      // 全部已链 Zotero 时静默退出 —— 不是错误状态，无需 toast
-      if (allItems.length === 0) return
-
-      setBatchItems(allItems)
-    } finally {
-      setBatchPreparing(false)
-    }
-  }, [workspaceId, selected, rowMeta, sessionId, t, tLib])
-
-  const handleBatchComplete = React.useCallback((failedSelectionKeys: string[]) => {
-    // 成功的从选中态移除，失败的保留以便重试
-    setSelected(new Set(failedSelectionKeys))
-    setBatchItems(null)
-  }, [])
-
-  /**
-   * 消费来自 asci-zotero MCP 工具的"批量导入"意图（issue #61）。
-   *
-   * IPC 监听器在全局常驻的 useGlobalAgentListeners 中（本面板只在 session-papers tab
-   * 激活时挂载，监听器若放面板内会随卸载丢失事件）。监听器把 recordKeys 写入常驻
-   * sessionPapersPendingZoteroImportFamilyAtom，本 effect 在面板挂载后读取并：
-   *   1. 先 load() 刷新 records（避免 process_search_results 刚写完 panel 还没轮询拉到）
-   *   2. 暂存待匹配的 recordKeys 到本地 pendingImport，并清空常驻 atom（一次性消费）
-   *   3. 下方 effect 在 rowMeta 更新后映射到 selectionKey 并调用 handleBatchAddToZotero
-   *
-   * 整体目标是把"对话内导入"收敛到与用户手点完全同一条 UI 链路。
-   */
-  const [pendingImport, setPendingImport] = React.useState<string[] | null>(null)
-
+  // 旧导入意图仅清除内存状态；打开历史不会启动已退役工作流。
   React.useEffect(() => {
-    if (!pendingZoteroImport || pendingZoteroImport.length === 0) return
-    const recordKeys = pendingZoteroImport
-    // 立刻清空常驻 atom，防止重复消费。
-    // 注意：不能用 cancelled 守卫——清空 atom 会让本 effect 因依赖变化重跑，
-    // React 先执行上一次 cleanup（置 cancelled=true），导致 load() 完成后 setPendingImport 被跳过，
-    // 映射 effect 永不触发、弹窗不出现。setState 在卸载后是 no-op，无需该守卫。
-    setPendingZoteroImport(null)
-    void load().finally(() => setPendingImport(recordKeys))
-  }, [pendingZoteroImport, setPendingZoteroImport, load])
-
-  React.useEffect(() => {
-    if (!pendingImport || pendingImport.length === 0) return
-    if (rowMeta.length === 0) return // 等 load() 完成 / records 渲染到 rowMeta
-
-    // 把 main 端给的 canonical recordKey 映射回本地 rowMeta 的 selectionKey
-    const matched = new Set<string>()
-    for (const k of pendingImport) {
-      for (const m of rowMeta) {
-        if (!m.selectable) continue
-        const candidate = m.row.kind === 'entry'
-          ? m.row.entry.key
-          : recordKey(m.row.record)
-        if (candidate === k) {
-          matched.add(m.selectionKey)
-          break
-        }
-      }
-    }
-    // 一旦消费 pendingImport 立刻清空，防止 rowMeta 变化引起重复触发
-    setPendingImport(null)
-    if (matched.size === 0) return
-    setSelected(matched)
-    // 不展开检索结果面板：用户只关心 Zotero 导入弹窗本身，背景展开反而干扰焦点
-    void handleBatchAddToZotero(matched)
-  }, [pendingImport, rowMeta, handleBatchAddToZotero])
+    if (pendingZoteroImport) setPendingZoteroImport(null)
+  }, [pendingZoteroImport, setPendingZoteroImport])
 
   // 兄弟列表 = 完整 sorted 列表（entries + records 同池），↑↓ 跨全表导航，
   // 计数器分母与「检索论文」总数一致。每个 item 必有 record，entry 可选。
@@ -489,13 +306,6 @@ export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): Reac
           }
           if (inDialog) setExpanded(false)
         }}
-        onLinkZotero={(item) => {
-          if (item.entry) {
-            setZoteroDialogEntry(item.entry)
-          } else if (item.record) {
-            void ingestAndOpenZotero(item.record)
-          }
-        }}
       />
     )
   }
@@ -531,30 +341,6 @@ export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): Reac
         {renderList(false)}
       </div>
 
-      {/* 选择态底部常驻动作条 */}
-      {multiSelectActive && (
-        <SessionPapersSelectionActions
-          selectedCount={selectedCount}
-          onAddToZoteroBatch={() => handleBatchAddToZotero()}
-          onFindResearchGap={handleFindResearchGap}
-          researchGapBusy={researchGapBusy}
-        />
-      )}
-
-      <ZoteroLinkDialog
-        open={!!zoteroDialogEntry}
-        onOpenChange={(o) => { if (!o) setZoteroDialogEntry(null) }}
-        entry={zoteroDialogEntry}
-      />
-
-      <ZoteroBatchLinkDialog
-        open={!!batchItems && batchItems.length > 0}
-        onOpenChange={(o) => { if (!o) setBatchItems(null) }}
-        items={batchItems ?? []}
-        workspaceId={workspaceId}
-        onComplete={handleBatchComplete}
-      />
-
       {/* 展开大窗口：平铺所有卡片，点击卡片 → preview + 自动关闭本 Dialog */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent
@@ -583,14 +369,6 @@ export function SessionPapersPanel({ sessionId }: SessionPapersPanelProps): Reac
           <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
             {renderList(true)}
           </div>
-          {multiSelectActive && (
-            <SessionPapersSelectionActions
-              selectedCount={selectedCount}
-              onAddToZoteroBatch={() => handleBatchAddToZotero()}
-              onFindResearchGap={handleFindResearchGap}
-              researchGapBusy={researchGapBusy}
-            />
-          )}
         </DialogContent>
       </Dialog>
     </div>

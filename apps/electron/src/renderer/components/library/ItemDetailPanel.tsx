@@ -13,8 +13,6 @@ import {
   Loader2,
   FileText,
   ExternalLink,
-  Share2,
-  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -23,11 +21,9 @@ import {
   libraryLoadingDetailAtom,
 } from '@/atoms/library-atoms'
 import { Button } from '@/components/ui/button'
-import { useOpenCitationGraph } from '@/components/citation-graph/useOpenCitationGraph'
 import { useT } from '@/hooks/useT'
 import { refreshPaperContainingSetsAtom } from '@/atoms/session-evidence-atoms'
 import type { CachedPaperMeta } from '@asci/core/zotero'
-import { AddToEvidenceSetDialog } from './dialogs/AddToEvidenceSetDialog'
 import { DeletedSourcePlaceholder } from './DeletedSourcePlaceholder'
 import { EvidenceSetDetailSheet } from './EvidenceSetDetailSheet'
 import { PaperContainingEvidenceSetsPanel } from './PaperContainingEvidenceSetsPanel'
@@ -59,7 +55,6 @@ export function ItemDetailPanel(): React.ReactElement {
   const selectedKey = useAtomValue(librarySelectedItemKeyAtom)
   const [detail, setDetail] = useAtom(libraryItemDetailAtom)
   const [loading, setLoading] = useAtom(libraryLoadingDetailAtom)
-  const openGraph = useOpenCitationGraph()
   // PDF 预览：附件探测结果由 PaperPdfReader 内部完成，这里只关心"是否找到"
   // 以决定走 PDF 分支还是 abstract 兜底分支
   const [pdfFound, setPdfFound] = React.useState<boolean | null>(null)
@@ -74,9 +69,8 @@ export function ItemDetailPanel(): React.ReactElement {
   const [pendingEvidenceScroll, setPendingEvidenceScroll] = useAtom(pendingEvidenceScrollAtom)
   // 持续高亮（与信号 atom 分离，scroll 完不清；切论文时通过 paperKey 比对自然失效）
   const activeEvidenceHighlight = useAtomValue(activeEvidenceHighlightAtom)
-  // CITED BY 区刷新信号：Add to evidence set 成功后写一次即可
+  // 普通笔记保存后刷新已有引用列表。
   const refreshContainingSets = useSetAtom(refreshPaperContainingSetsAtom)
-  const [addToEvidenceSetOpen, setAddToEvidenceSetOpen] = React.useState(false)
   // PDF "全屏" 展开状态：由顶部"打开 PDF"徽章按钮触发，下放给 PaperPdfReader 做受控状态。
   // PaperPdfReader 内部仍负责 Esc / 关闭按钮 / 背景遮罩 click，触发 onExpandedChange 回写本 atom。
   const [pdfExpanded, setPdfExpanded] = React.useState(false)
@@ -192,16 +186,6 @@ export function ItemDetailPanel(): React.ReactElement {
     )
   }
 
-  const canOpenGraph = Boolean(detail.doi) || Boolean(detail.title)
-
-  const handleOpenGraph = (): void => {
-    if (!canOpenGraph) return
-    openGraph({
-      seed: { doi: detail.doi || null, title: detail.title || null },
-      seedTitleHint: detail.title || null,
-    })
-  }
-
   const openExternal = (url: string): void => {
     window.electronAPI.openExternal(url).catch(console.error)
   }
@@ -314,35 +298,6 @@ export function ItemDetailPanel(): React.ReactElement {
         }
       />
 
-      {/* 操作按钮行：添加证据集 / 引用图谱 / DOI —— 紧贴简介，作为简介的一部分。
-          "添加证据集" 合并了原"添加笔记"+"加入证据集"两个入口；点击弹 dialog，
-          内含"加入已有 / 新建命名集合"两个 tab。底层 4 步事务一致：
-          note + evidence_set(1:1) + evidence_ref(paper→set) + set_ref。
-          划词浮按钮"记笔记"仍走 inline 编辑器（PendingNoteEditor），与本按钮并存。 */}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <Button
-          size="sm"
-          variant="default"
-          className="gap-1.5"
-          onClick={() => setAddToEvidenceSetOpen(true)}
-        >
-          <Plus className="!size-3.5" />
-          {t('detail.evidence.actions.addEvidenceSet')}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleOpenGraph}
-          disabled={!canOpenGraph}
-          title={canOpenGraph ? t('detail.openGraphTooltip') : t('detail.openGraphDisabledTooltip')}
-          className="gap-1.5"
-        >
-          <Share2 className="!size-3.5" />
-          {t('detail.openGraph')}
-        </Button>
-        {/* "在浏览器打开 DOI" 入口由顶部 DOI 徽章承担（位置即视觉，点击同样跳 https://doi.org/...），
-            这里不再重复一个 outline 按钮，避免与顶部徽章功能冗余。 */}
-      </div>
       </div>
 
       {/* 「添加笔记」inline 编辑器:渲染在主内容容器 **外** —
@@ -375,13 +330,6 @@ export function ItemDetailPanel(): React.ReactElement {
       <div className="pt-4 mt-2 border-t border-border">
         <PaperContainingEvidenceSetsPanel />
       </div>
-      <AddToEvidenceSetDialog
-        open={addToEvidenceSetOpen}
-        paperKey={detail.key}
-        paperTitle={detail.title}
-        onOpenChange={setAddToEvidenceSetOpen}
-        onSuccess={() => refreshContainingSets()}
-      />
       {/* NoteDetailDialog：摘要高亮点击 + notes 列表 NoteCard 点击共用此实例。
           B3/B4 后：body 走 IPC updateBody（纯用户备注，不再混 quote）；softDelete 走 IPC；
           已无 kind / hypothesisStatus 概念。 */}

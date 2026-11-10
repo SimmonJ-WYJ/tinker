@@ -31,7 +31,7 @@ export interface SessionPapersListProps {
   sessionId: string
   items: SessionPapersListItem[]
   onOpenPreview: (item: SessionPapersListItem) => void
-  onLinkZotero: (item: SessionPapersListItem) => void
+  onLinkZotero?: (item: SessionPapersListItem) => void
 }
 
 export function SessionPapersList({
@@ -90,7 +90,7 @@ export function SessionPapersList({
             isSelected={selectedKeys.has(item.key)}
             selectable={selectable}
             onOpenPreview={handleCardClick}
-            onLinkZotero={() => onLinkZotero(item)}
+            onLinkZotero={onLinkZotero ? () => onLinkZotero(item) : undefined}
           />
         ) : (
           <RecordOnlyCard
@@ -102,7 +102,7 @@ export function SessionPapersList({
             isSelected={selectedKeys.has(item.key)}
             selectable={selectable}
             onOpenPreview={handleCardClick}
-            onLinkZotero={() => onLinkZotero(item)}
+            onLinkZotero={onLinkZotero ? () => onLinkZotero(item) : undefined}
           />
         )
       })}

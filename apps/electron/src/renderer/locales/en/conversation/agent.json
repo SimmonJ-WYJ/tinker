@@ -203,6 +203,7 @@
       "records": "View activity",
       "actions": "{{count}} actions",
       "working": "Working on your request"
-    }
+    },
+    "scientificReadOnly": "This scientific workflow has been retired. Saved results are read-only."
   }
 }

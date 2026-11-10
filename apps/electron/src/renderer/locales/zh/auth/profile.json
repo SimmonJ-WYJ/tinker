@@ -15,21 +15,21 @@
   "noValue": "未填写",
   "dataLocality": {
     "title": "你的数据存在哪里",
-    "body": "研究数据（论文、笔记、证据集）仅保存在本机 ~/.asci/，不会上传，也不跨设备同步；在另一台设备登录时不会出现这些数据。"
+    "body": "本地对话历史、文件记录和笔记保存在本机 ~/.asci/，不会通过账户跨设备同步。使用模型或工具时，处理请求所需的输入可能会发送给相应服务。"
   },
   "deleteAccount": "断开 Google 账户",
-  "deleteAccountDescription": "撤销 Tinker 的 Google 授权并退出登录；不会删除 Google 账户，本地研究库保留。",
+  "deleteAccountDescription": "撤销 Tinker 的 Google 授权并退出登录；不会删除 Google 账户，本地数据保留。",
   "deleteConfirm": {
     "title": "断开 Google 账户",
     "description": "这会撤销 Tinker 的 Google 授权，之后可重新授权登录。",
     "impactServerData": "仅撤销应用授权，不会删除 Google 账户。",
-    "impactLocalKept": "本地研究库（论文、笔记、证据集）保留。",
+    "impactLocalKept": "本地数据（对话、文件和笔记）保留。",
     "impactLogout": "断开后将退出 Tinker 登录。",
     "acknowledge": "我了解断开后需重新授权登录。",
     "cancel": "取消",
     "confirm": "断开授权",
     "deleting": "正在断开…",
-    "success": "已断开 Google 授权，本地研究库保留。",
+    "success": "已断开 Google 授权，本地数据保留。",
     "error": "断开授权失败，请重试。"
   }
 }

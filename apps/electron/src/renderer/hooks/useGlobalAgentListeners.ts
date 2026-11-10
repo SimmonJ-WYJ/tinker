@@ -47,7 +47,6 @@ import {
   tabIdOfTarget,
   openResearchGapTab,
 } from '@/atoms/right-panel-tabs'
-import { sessionPapersPendingZoteroImportFamilyAtom } from '@/atoms/session-papers-ui-atoms'
 import { researchGapTablesBySessionAtom, appendResearchGapTable } from '@/atoms/research-gap-atoms'
 import { isSessionDeliverable, resolveAgainstCwd, extOf } from '@/lib/deliverable-path'
 import type { PreviewTarget } from '@/atoms/side-panel-layout'
@@ -621,20 +620,6 @@ export function useGlobalAgentListeners(): void {
               'Agent 已完成计划，等待你的审批',
               'exitPlanMode'
             )
-          } else if (event.type === 'litreview_present_directions_request') {
-            // lit-review Turn 1 ChoiceCard 请求入队（spec §5.4）
-            store.set(allPendingLitReviewDirectionsRequestsAtom, (prev) => {
-              const map = new Map(prev)
-              const current = map.get(sessionId) ?? []
-              map.set(sessionId, [...current, event.request])
-              return map
-            })
-            sendBlockingNotification(
-              sessionId,
-              'Agent 需要你选择综述方向',
-              'lit-review 已提议 3 个方向，等待你选择',
-              'exitPlanMode'
-            )
           } else if (event.type === 'litreview_present_directions_resolved') {
             // 用户已选择，移除 pending
             store.set(allPendingLitReviewDirectionsRequestsAtom, (prev) => {
@@ -659,20 +644,6 @@ export function useGlobalAgentListeners(): void {
               '研究空白对照表已生成',
               '已在右侧整理好对照表与洞察；关掉后可在对话中点结果卡片再打开',
               'exitPlanMode',
-            )
-          } else if (event.type === 'search_plan_request') {
-            // 检索方案确认请求入队（issue #435）
-            store.set(allPendingSearchPlanRequestsAtom, (prev) => {
-              const map = new Map(prev)
-              const current = map.get(sessionId) ?? []
-              map.set(sessionId, [...current, event.request])
-              return map
-            })
-            sendBlockingNotification(
-              sessionId,
-              'Agent 需要你确认检索方案',
-              'lit-search 已拟定检索方案，等待你确认',
-              'exitPlanMode'
             )
           } else if (event.type === 'search_plan_resolved') {
             // 用户已确认/调整/取消，移除 pending
@@ -896,25 +867,6 @@ export function useGlobalAgentListeners(): void {
         .catch(console.error)
     })
 
-    // ===== 4.5 对话内"批量导入 Zotero"：asci-zotero MCP 工具触发的 IPC =====
-    // 监听器必须常驻在此（永不销毁）：SessionPapersPanel 仅在 session-papers tab 激活时挂载，
-    // 若把监听器放在面板内，用户停在其它 tab 时 IPC 会被静默丢弃、弹窗不出现（#61 回归）。
-    // 收到事件后：激活该会话的 session-papers tab（挂载面板）+ 确保右栏可见 + 把 recordKeys
-    // 落到常驻 atom；面板挂载后读取该 atom 并复用既有 pendingImport → 弹窗链路。
-    const cleanupZoteroBatchImport = window.electronAPI.onZoteroOpenBatchImport(({ sessionId, recordKeys }) => {
-      // 激活该会话的 session-papers 默认 tab（恒存在、不可关闭）
-      store.set(rightPanelTabsBySessionAtom(sessionId), (prev) => ({ ...prev, activeId: 'session-papers' }))
-      // 确保右栏可见，否则弹窗所属面板不会被挂载
-      store.set(agentSidePanelOpenMapAtom, (prev) => {
-        if (prev.get(sessionId)) return prev
-        const map = new Map(prev)
-        map.set(sessionId, true)
-        return map
-      })
-      // 落到常驻 atom，等待面板（重新）挂载消费
-      store.set(sessionPapersPendingZoteroImportFamilyAtom(sessionId), recordKeys)
-    })
-
     // ===== 工作区论文库：当前工作区切换 + 后端 changed 事件 → 全量重载 =====
     const reloadWorkspacePapers = async () => {
       const wsId = store.get(currentAgentWorkspaceIdAtom)
@@ -1106,7 +1058,6 @@ export function useGlobalAgentListeners(): void {
       cleanupComplete()
       cleanupError()
       cleanupTitleUpdated()
-      cleanupZoteroBatchImport()
       cleanupWorkspacePapersChanged()
       cleanupWorkspaceSub()
       cleanupWorkspaceSessionSub()

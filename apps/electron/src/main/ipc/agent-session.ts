@@ -578,7 +578,7 @@ export function registerAgentSessionIpc(): void {
   ipcMain.handle(
     LITREVIEW_IPC_CHANNELS.RESPOND,
     async (event, response: LitReviewPresentDirectionsResponse): Promise<void> => {
-      const result = litReviewDirectionsService.respondPresentDirections(response)
+      const result = litReviewDirectionsService.respondPresentDirections({ requestId: response.requestId, choice: 'cancel' })
       if (result) {
         // 通知 renderer：请求已被本地 service 处理（resolved 流转给 SDK tool handler）
         event.sender.send(AGENT_IPC_CHANNELS.STREAM_EVENT, {
@@ -595,7 +595,7 @@ export function registerAgentSessionIpc(): void {
   ipcMain.handle(
     SEARCH_PLAN_IPC_CHANNELS.RESPOND,
     async (event, response: SearchPlanConfirmResponse): Promise<void> => {
-      const result = searchPlanService.respondConfirm(response)
+      const result = searchPlanService.respondConfirm({ requestId: response.requestId, choice: 'cancel' })
       if (result) {
         // 通知 renderer：请求已被本地 service 处理（resolved 流转给 SDK tool handler）
         event.sender.send(AGENT_IPC_CHANNELS.STREAM_EVENT, {
