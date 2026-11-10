@@ -1,5 +1,6 @@
 //! 单活动执行的线程控制；事件提交后才更新可见状态，终态拒绝晚到片段。
 use crate::{
+    run_context::{RunContext, RunLineage},
     run_provider::RunProvider,
     run_store::{RunStore, StoredRun},
     run_types::*,
@@ -28,6 +29,7 @@ pub struct RunController {
 impl RunController {
     pub fn open(root: impl AsRef<Path>) -> Result<Self, RunError> {
         let store = RunStore::open(root)?;
+        store.validate_all()?;
         let mut current = None;
         for id in store.ids()? {
             let mut run = store.load(&id)?;
@@ -59,6 +61,30 @@ impl RunController {
         scenario: OfflineScenario,
         provider: Arc<dyn RunProvider>,
     ) -> Result<RunSnapshot, RunError> {
+        self.start_inner(request_id, input, scenario, provider, None)
+    }
+    pub fn continue_with_provider(
+        &self,
+        request_id: String,
+        parent_run_id: String,
+        input: String,
+        scenario: OfflineScenario,
+        provider: Arc<dyn RunProvider>,
+    ) -> Result<RunSnapshot, RunError> {
+        validate_id(&parent_run_id)?;
+        if request_id == parent_run_id {
+            return Err(RunError::RequestConflict);
+        }
+        self.start_inner(request_id, input, scenario, provider, Some(parent_run_id))
+    }
+    fn start_inner(
+        &self,
+        request_id: String,
+        input: String,
+        scenario: OfflineScenario,
+        provider: Arc<dyn RunProvider>,
+        parent_id: Option<String>,
+    ) -> Result<RunSnapshot, RunError> {
         validate_id(&request_id)?;
         if input.trim().is_empty() {
             return Err(RunError::EmptyInput);
@@ -74,6 +100,7 @@ impl RunController {
                 .as_ref()
                 .is_some_and(|run| run.snapshot.run_id == request_id);
             let previous = if is_current {
+                inner.store.find_location(&request_id)?;
                 inner.current.clone()
             } else {
                 match inner.store.load(&request_id) {
@@ -87,7 +114,15 @@ impl RunController {
                     inner.blocked = true;
                     return Err(RunError::RecoveryRequired);
                 }
-                return if run.snapshot.input == input && run.snapshot.scenario == scenario {
+                let same_lineage = match (&run.lineage, &parent_id) {
+                    (RunLineage::Standalone, None) => true,
+                    (RunLineage::Continuation { parent, .. }, Some(id)) => parent.run_id == *id,
+                    _ => false,
+                };
+                return if run.snapshot.input == input
+                    && run.snapshot.scenario == scenario
+                    && same_lineage
+                {
                     Ok(run.snapshot)
                 } else {
                     Err(RunError::RequestConflict)
@@ -109,7 +144,22 @@ impl RunController {
             previous.join().map_err(|_| RunError::StoreIo)?;
         }
         let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
-        let mut run = match inner.store.create(&request_id, input.clone(), scenario) {
+        let (context, parent) = match parent_id {
+            Some(id) => {
+                let (context, parent) = inner.store.continuation_context(&id, &input)?;
+                (context, Some(parent))
+            }
+            None => (RunContext::single(&input), None),
+        };
+        let created = match parent {
+            Some(parent) => {
+                inner
+                    .store
+                    .create_continuation(&request_id, input.clone(), scenario, parent)
+            }
+            None => inner.store.create(&request_id, input.clone(), scenario),
+        };
+        let mut run = match created {
             Ok(run) => run,
             Err(error) => {
                 // 写入或同步失败可能留下已存在但未确认的元数据，须重启恢复后再执行。
@@ -139,7 +189,7 @@ impl RunController {
         let worker_id = request_id;
         let spawned = thread::Builder::new()
             .name("rust-run-provider".into())
-            .spawn(move || execute(weak, worker_id, input, provider, token));
+            .spawn(move || execute(weak, worker_id, context, provider, token));
         match spawned {
             Ok(worker) => {
                 *handle = Some(worker);
@@ -255,12 +305,12 @@ impl Drop for RunController {
 fn execute(
     inner: Weak<Mutex<Inner>>,
     id: String,
-    input: String,
+    context: RunContext,
     provider: Arc<dyn RunProvider>,
     token: Arc<AtomicBool>,
 ) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        provider.execute(&input, &token, &mut |text| {
+        provider.execute_context(&context, &token, &mut |text| {
             let state = inner.upgrade().ok_or(RunError::RecoveryRequired)?;
             let mut state = state.lock().map_err(|_| RunError::StoreIo)?;
             if token.load(Ordering::Acquire) {

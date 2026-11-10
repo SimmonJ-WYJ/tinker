@@ -104,6 +104,9 @@ pub enum RunError {
     HttpProtocol,
     HttpTimeout,
     HttpUnsupported,
+    ContextParentNotCompleted,
+    ContextLimitExceeded,
+    ContextUnsupported,
 }
 impl RunError {
     pub fn code(&self) -> &'static str {
@@ -132,6 +135,9 @@ impl RunError {
             Self::HttpProtocol => "httpProtocol",
             Self::HttpTimeout => "httpTimeout",
             Self::HttpUnsupported => "httpUnsupported",
+            Self::ContextParentNotCompleted => "contextParentNotCompleted",
+            Self::ContextLimitExceeded => "contextLimitExceeded",
+            Self::ContextUnsupported => "contextUnsupported",
         }
     }
 }
