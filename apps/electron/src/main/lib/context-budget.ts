@@ -4,7 +4,7 @@
  * 大模型感知不到自己的上下文余量——"窗口快满了"这个信号必须由 harness 注入。
  * 本模块从主循环 assistant 消息的 usage 估算当前上下文占用，跨过阈值（60% / 80%）
  * 时产出一段英文提醒，由 agent-orchestrator 的 PostToolUse hook 以 additionalContext
- * 注入到下一个 tool_result 之后（与语言锁同一注入点），引导模型从"精读论文"切换到
+ * 注入到下一个 tool_result 之后（与语言锁同一注入点），引导模型从"全文读取"切换到
  * "检索 + 锚点片段"的省上下文模式。
  *
  * 设计要点：
@@ -31,9 +31,8 @@ const THRESHOLDS: ReadonlyArray<{ ratio: number; build: (pct: number) => string 
     ratio: 0.6,
     build: (pct) =>
       `[Context budget] About ${pct}% of the context window is already consumed. ` +
-      'Prefer retrieval over reading from now on: papers_semantic_search / papers_search_keywords first; ' +
-      'deep-read only via anchored papers_read_context or a single papers_read_article_section. ' +
-      'Do not read whole documents (zotero_read_attachment) unless strictly unavoidable.',
+      'Prefer retrieval of relevant file sections or search snippets over reading entire documents. ' +
+      'Reuse the evidence already gathered and read additional material only when the task requires it.',
   },
   {
     ratio: 0.8,

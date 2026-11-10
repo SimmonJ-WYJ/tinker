@@ -36,33 +36,19 @@ import {
   type GetAttachmentPathInput,
 } from '../lib/zotero-library'
 import {
-  triggerZoteroPdfDiff,
-  startZoteroPdfAutoTrigger,
-  stopZoteroPdfAutoTrigger,
-} from '../lib/zotero-pdf-trigger'
-import {
   getParseStatusSummary,
-  startZoteroPdfParserWorker,
-  stopZoteroPdfParserWorker,
 } from '../lib/zotero-pdf-parser/index'
-import { generateAllStructuredTxt } from '../lib/zotero-structured-txt/index'
 import {
   getArticleConfig,
   getStatusSummary as getArticleStatusSummary,
-  regenerateAll as regenerateAllArticles,
-  retryAllFailed as retryAllFailedArticles,
-  setArticleConfig,
   setStatusChangedListener as setArticleStatusListener,
 } from '../lib/zotero-article-generator/index'
 import {
   getEmbeddingConfig,
   getEmbeddingStatusSummary,
-  rebuildAllEmbeddings,
-  setEmbeddingConfig,
   setEmbeddingStatusChangedListener,
 } from '../lib/zotero-embedding-index/index'
 import { getEmbeddingModelService } from '../lib/embedding-model-service'
-import { getMainWindow } from '../index'
 
 /** 注册 Zotero 集成 IPC 处理器 */
 export function registerZoteroIpc(): void {
@@ -99,31 +85,18 @@ export function registerZoteroIpc(): void {
     }
   })
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.SET_ENABLED, async (_event, enabled: boolean) => {
-    await updateSettings({ zoteroEnabled: enabled })
-
-    // 运行时联动 PDF 解析链路：toggle on 启动 worker + trigger，toggle off 停止
-    // 这样开关无需重启 ASCI 即生效，也不会留下"已停用但仍在轮询"的状态
-    if (enabled) {
-      const mainWindow = getMainWindow()
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        try {
-          await startZoteroPdfParserWorker()        // 扫 snapshot 把 pending 入队（idempotent）
-          startZoteroPdfAutoTrigger(mainWindow)      // 注册 listener（idempotent）
-          // manual diff 一次：成功会自动激活心跳；失败保持 dormant 等下次 focus
-          void triggerZoteroPdfDiff('manual').catch(err => {
-            console.warn('[Zotero PDF] toggle-on 后首次 diff 异常:', err)
-          })
-        } catch (err) {
-          console.warn('[Zotero PDF] toggle-on 时启动失败:', err)
-        }
-      }
-
-    } else {
-      stopZoteroPdfAutoTrigger()
-      stopZoteroPdfParserWorker()
-    }
-  })
+  const unavailable = (): never => { throw new Error('SCIENTIFIC_WORKFLOW_UNAVAILABLE: This scientific workflow has been retired. Existing data remains readable.') }
+  for (const channel of [
+    ZOTERO_IPC_CHANNELS.SET_ENABLED,
+    ZOTERO_IPC_CHANNELS.PDF_DIFF_NOW,
+    ZOTERO_IPC_CHANNELS.PDF_STRUCTURED_TXT_GENERATE_ALL,
+    ZOTERO_IPC_CHANNELS.ARTICLE_CONFIG_SET,
+    ZOTERO_IPC_CHANNELS.ARTICLE_RETRY_ALL,
+    ZOTERO_IPC_CHANNELS.ARTICLE_REGENERATE_ALL,
+    ZOTERO_IPC_CHANNELS.EMBED_CONFIG_SET,
+    ZOTERO_IPC_CHANNELS.EMBED_REBUILD_ALL,
+    ZOTERO_IPC_CHANNELS.EMBED_MODEL_DOWNLOAD,
+  ]) ipcMain.handle(channel, unavailable)
 
   ipcMain.handle(ZOTERO_IPC_CHANNELS.GET_DATA_DIR, () => {
     const settings = getSettings()
@@ -212,18 +185,13 @@ export function registerZoteroIpc(): void {
     },
   )
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.PDF_DIFF_NOW, async () => {
-    // 走 trigger 层统一入口（防重入 + 节流 + 日志），reason='manual'
-    return await triggerZoteroPdfDiff('manual')
-  })
+
 
   ipcMain.handle(ZOTERO_IPC_CHANNELS.PDF_PARSE_STATUS, () => {
     return getParseStatusSummary()
   })
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.PDF_STRUCTURED_TXT_GENERATE_ALL, async () => {
-    return generateAllStructuredTxt()
-  })
+
 
   // ===== Zotero PDF article 生成器（段落总结增强） =====
 
@@ -240,24 +208,15 @@ export function registerZoteroIpc(): void {
     return getArticleConfig()
   })
 
-  ipcMain.handle(
-    ZOTERO_IPC_CHANNELS.ARTICLE_CONFIG_SET,
-    async (_event, patch: Partial<import('@asci/shared').ZoteroArticleConfig>) => {
-      return setArticleConfig(patch)
-    },
-  )
+
 
   ipcMain.handle(ZOTERO_IPC_CHANNELS.ARTICLE_STATUS_SUMMARY, () => {
     return getArticleStatusSummary()
   })
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.ARTICLE_RETRY_ALL, async () => {
-    return retryAllFailedArticles()
-  })
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.ARTICLE_REGENERATE_ALL, async () => {
-    return regenerateAllArticles()
-  })
+
+
 
   // ===== Zotero 向量索引（语义检索）=====
 
@@ -283,34 +242,19 @@ export function registerZoteroIpc(): void {
     return getEmbeddingConfig()
   })
 
-  ipcMain.handle(
-    ZOTERO_IPC_CHANNELS.EMBED_CONFIG_SET,
-    (_event, patch: Partial<import('@asci/shared').ZoteroEmbeddingConfig>) => {
-      return setEmbeddingConfig(patch)
-    },
-  )
+
 
   ipcMain.handle(ZOTERO_IPC_CHANNELS.EMBED_STATUS_SUMMARY, () => {
     return getEmbeddingStatusSummary()
   })
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.EMBED_REBUILD_ALL, () => {
-    return rebuildAllEmbeddings()
-  })
+
 
   ipcMain.handle(ZOTERO_IPC_CHANNELS.EMBED_MODEL_STATUS, () => {
     return getEmbeddingModelService().getStatus()
   })
 
-  ipcMain.handle(ZOTERO_IPC_CHANNELS.EMBED_MODEL_DOWNLOAD, () => {
-    // 不 await：后台开始；渲染进程通过 EMBED_MODEL_STATUS_CHANGED 事件追进度
-    getEmbeddingModelService()
-      .startDownload()
-      .catch((err) => {
-        console.warn('[嵌入模型] 下载失败:', err)
-      })
-    return getEmbeddingModelService().getStatus()
-  })
+
 
   // ===== 媒体识别缓存 =====
 

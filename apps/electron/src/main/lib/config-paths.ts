@@ -1,3 +1,4 @@
+import { RETIRED_BUILTIN_PACK_IDS, RETIRED_WORKFLOW_SKILL_SLUGS } from '@asci/shared'
 import { getCandidateRoot, isTinkerCandidate } from './candidate-profile'
 /**
  * 配置路径工具
@@ -737,7 +738,7 @@ export function seedDefaultCapabilityPacks(): void {
     const entries = readdirSync(bundledDir, { withFileTypes: true })
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue
+      if (!entry.isDirectory() || RETIRED_BUILTIN_PACK_IDS.has(entry.name)) continue
 
       const source = join(bundledDir, entry.name)
       const target = join(userDir, entry.name)
@@ -842,7 +843,7 @@ export function seedDefaultSkills(): void {
     const entries = readdirSync(bundledDir, { withFileTypes: true })
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue
+      if (!entry.isDirectory() || RETIRED_WORKFLOW_SKILL_SLUGS.has(entry.name)) continue
 
       const source = join(bundledDir, entry.name)
       const target = join(userDir, entry.name)

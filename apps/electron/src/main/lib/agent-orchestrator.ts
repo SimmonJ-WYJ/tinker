@@ -1,3 +1,5 @@
+import { buildToolMentionContext } from './agent-tool-mentions.ts'
+import { createRuntimeSkillProjection, type RuntimeSkillProjection } from './runtime-skill-projection.ts'
 import { ImageTurnController, injectQueuedImageMessage } from '../mcp/image-turn-controller.ts'
 import { createImageTurnFactory } from '../mcp/image-turn-factory.ts'
 import { validateImageEditSelection } from '../mcp/image-edit-selection.ts'
@@ -84,10 +86,6 @@ import { seedBuiltinSubagents } from './subagent-registry-seed.ts'
 import { seedSkillsToRegistry } from './skill-registry-seed.ts'
 import { seedMcpServersToRegistry } from './mcp-registry-seed.ts'
 import { loadCapabilityPacks } from './capability-pack-loader.ts'
-import { loadPaperSearchEnv } from './paper-search-integration.ts'
-import { emitFilesystemAgents } from './emit-filesystem-agents.ts'
-import { emitMcpConfigFile } from './emit-mcp-config.ts'
-import { markClaudeProjectTrusted } from './mark-claude-project-trusted.ts'
 import {
   parseMcpInitSnapshot,
   listUnhealthyMcpServers,
@@ -112,11 +110,7 @@ import { createBatchedSpansSink, type SpansSinkStorage, type BatchedSpansSink } 
 import { getDb } from './objects/object-store.ts'
 import { queryEvidenceSetDetail } from './objects/query-service.ts'
 import { buildEvidenceSetContextBlock } from './evidence-set-context-block.ts'
-import {
-  maybePersistReviewFromMessages,
-  persistReviewsFromSessionCwd,
-} from './objects/review-persistence-service.ts'
-import { wrapSearchReportsInCwd } from './objects/review-html-wrapper.ts'
+
 import type { AuthService } from './auth-service.ts'
 import {
   extractApiError,
@@ -446,6 +440,7 @@ export class AgentOrchestrator {
     // 2.1 立即抢占会话槽位（在所有同步检查通过后、第一个 await 之前）
     // 防止 buildSdkEnv 等 await 期间并发调用绕过上方的检查，导致多条重复消息写入 JSONL
     // finally 块会通过 generation 匹配来安全清理，不影响正常流程
+    let runtimeSkills: RuntimeSkillProjection | undefined
     const runGeneration = nowMs()
     // 优先使用渲染进程传来的 startedAt（确保 STREAM_COMPLETE 竞态保护比较的是同一个值），
     // 否则用本地 runGeneration 作为回退（headless 模式等无渲染进程场景）
@@ -675,25 +670,16 @@ export class AgentOrchestrator {
         hasStickyWorkflow: Boolean(sessionMeta?.stickyCapabilityPackId),
       })
 
+      if (workspaceSlug && runtimePolicy.includeWorkspaceContext) runtimeSkills = createRuntimeSkillProjection(workspaceSlug, sessionId)
+
       let savedRuntimeProfile = sessionMeta?.runtimeProfile
 
       // 10. 构建 MCP 服务器配置 + 自定义工具
       // 注：OCR 走本机 PaddleOCR，不再需要往 Zotero MCP env 注入渠道凭据
-      const mcpServers = runtimePolicy.includeWorkspaceContext ? await buildMcpServers(
-        {
-          eventBus: this.eventBus,
-          authService: this.authService,
-          isPythonRuntimeReady: this.isPythonRuntimeReady(),
-          includeScientificServices: runtimePolicy.profile === 'research',
-        },
-        workspaceSlug,
-        sessionId,
-        {
-          model: resolvedModel,
-          baseUrl: endpoint.baseUrl,
-          apiKey: endpoint.apiKey,
-        },
-      ) : {}
+      const mcpServers = runtimePolicy.includeWorkspaceContext
+        ? await buildMcpServers({ isPythonRuntimeReady: this.isPythonRuntimeReady() }, workspaceSlug)
+        : {}
+
 
       // 合并外部注入的自定义 MCP 服务器（如飞书群聊工具）
       if (customMcpServers) {
@@ -721,8 +707,7 @@ export class AgentOrchestrator {
       if (runtimePolicy.profile === 'coding') mcpServers['asci-project'] = createProjectHtmlMcpServer(agentCwd) as unknown as Record<string, unknown>
 
       // 11. 构建动态上下文和最终 prompt
-      // 传入 sessionId 让 buildDynamicContext 注入 <session_paper_index>，
-      // 支持 issue #90 同会话多轮检索增量补充。
+      // 动态上下文只提供通用工作区能力与路径。
       const dynamicCtx = runtimePolicy.includeWorkspaceContext ? buildDynamicContext({
         workspaceName: workspace?.name,
         workspaceSlug,
@@ -731,21 +716,7 @@ export class AgentOrchestrator {
       }) : ''
 
       // 11.5 注入 mention 引用指令（Skill/MCP）— 仅影响 prompt，不影响持久化
-      let enrichedMessage = userMessage
-      if (mentionedSkills?.length || mentionedMcpServers?.length) {
-        const toolLines: string[] = ['用户在消息中明确引用了以下工具，请在本次回复中主动调用：']
-        for (const slug of mentionedSkills ?? []) {
-          const qualifiedName = workspaceSlug
-            ? `asci-workspace-${workspaceSlug}:${slug}`
-            : slug
-          toolLines.push(`- Skill: ${qualifiedName}（请立即调用此 Skill）`)
-        }
-        for (const name of mentionedMcpServers ?? []) {
-          toolLines.push(`- MCP 服务器: ${name}（请使用此 MCP 服务器的工具来完成任务）`)
-        }
-        enrichedMessage = `<mentioned_tools>\n${toolLines.join('\n')}\n</mentioned_tools>\n\n${userMessage}`
-        console.log(`[Agent 编排] 注入 mentioned_tools: ${mentionedSkills?.length ?? 0} skills, ${mentionedMcpServers?.length ?? 0} MCP`)
-      }
+      let enrichedMessage = buildToolMentionContext(userMessage, workspaceSlug, mentionedSkills, mentionedMcpServers)
 
       // 11.6 注入 <zotero_attachments>（PDF 绝对路径，Agent 通过 Read 工具访问；
       //       先注入，让下一步 <zotero-context> 的指令包裹在外面，阅读顺序上下文在前）
@@ -1076,7 +1047,7 @@ export class AgentOrchestrator {
       // Phase 3 A3: 在 builtin/skill/mcp seed 之前加载用户安装的 capability packs（reseed 模式）
       // 原因：builtin seed（优先级 0）可在 Registry 冲突策略中覆盖 pack 注册的同名 entry（优先级 2）
       //       Pack 内 skillRefs / mcpRefs 与 user-config 同名时，按优先级（user-config 1 > capability-pack 2）被覆盖
-      // 普通聊天、Coding 和通用附件引用不加载科研子 Agent。
+      // 简单问候不加载扩展；其它任务可以使用用户能力包。
       if (!runtimePolicy.includeSubagents) {
         this.subagentRegistry.unregister(e => e.source === 'capability-pack' || e.source === 'builtin')
       }
@@ -1103,9 +1074,6 @@ export class AgentOrchestrator {
         // 名展开成完整 `{ [name]: McpServerConfig }` 形态注入 scenarioAgent.def.mcpServers，
         // 规避 SDK 对 sub-agent.mcpServers string-form lookup 的不确定性（F1 跟进，G1 修复）。
         globalMcpServers: mcpServers,
-        // paper-search key 配置 → loader 为检索类 pack 注入"运行时数据源可用性"块，
-        // 让 lit-search planner 知道 semantic key 配没配，从而能执行条件化选源规则。
-        paperSearchEnv: loadPaperSearchEnv(),
       })
 
       if (modelNotices.length) {
@@ -1116,31 +1084,6 @@ export class AgentOrchestrator {
           fallbackModelId:first.fallbackModelId,agentCount:modelNotices.length,
           ...(modelNotices.some(n=>n.noClaudeActivated)?{noClaudeActivated:true}:{}),
         }})
-      }
-
-      // G3 文件式同步：把 registry 的 scenario Agent 同时写到 `<cwd>/.claude/agents/<name>.md`。
-      // SDK npm options.agents 被 claude binary CLI 在 Agent tool dispatch 路径里忽略；
-      // claude binary 只查文件式 `.claude/agents/`，必须双轨写入才能让 master 派发命中。
-      // 详见 emit-filesystem-agents.ts 顶部 doc。
-      //
-      // G5 修复：sub-agent dispatch 时是另一个 claude subprocess 不继承父级 master mcpServers，
-      // 文件式 frontmatter 又不支持 mcpServers 字段。按 Claude Code 项目级 MCP 约定写一份
-      // `<cwd>/.mcp.json`，让 sub-agent subprocess 从 cwd 自动 load，scenario 子上下文也能
-      // 调到 mcp__paper-search__* 等工具。详见 emit-mcp-config.ts 顶部 doc。
-      if (agentCwd && runtimePolicy.includeSubagents) {
-        const scenariosForFs = this.subagentRegistry
-          .list({ kind: 'subagent' })
-          .filter((e): e is typeof e & { kind: 'subagent' } => e.kind === 'subagent')
-          .map((e) => ({ name: e.name, def: e.def }))
-        emitFilesystemAgents(scenariosForFs, agentCwd)
-        emitMcpConfigFile(mcpServers, agentCwd)
-        // G5 修复 v2：claude binary 默认不信任项目级 `.mcp.json`，trust dialog 在 SDK
-        // 非交互模式下弹不出来。直接 patch ~/.claude.json 模拟用户已 trust，让
-        // sub-agent subprocess 启动时能 load .mcp.json 里的 MCP server。
-        markClaudeProjectTrusted({
-          cwd: agentCwd,
-          mcpServerNames: Object.keys(mcpServers),
-        })
       }
 
       // A4 phase4：解析当前 session 的粘滞能力包信息，注入到 master system prompt 作为路由优先信号。
@@ -1266,17 +1209,19 @@ export class AgentOrchestrator {
         // buildSystemPrompt 追加 ASCI 特有指令（角色定义、SubAgent 策略、工作区信息、
         // Capability Pack Routing 含 live scenario agents 清单）
         runtimeProfile: runtimePolicy.profile,
+        runtimeSkills,
         tools: runtimePolicy.tools,
         // Relay logs show unsupported server-side web_search_20250305. Host MCP
         // tools do not depend on a model vendor's server-tool implementation.
         ...(endpoint.baseUrl && !/^https:\/\/api\.anthropic\.com(?:\/|$)/i.test(endpoint.baseUrl ?? '') && { disallowedTools: ['WebSearch', 'WebFetch'] }),
         settingSources: runtimePolicy.includeWorkspaceContext ? ['project'] : [],
-        systemPrompt: !runtimePolicy.includeWorkspaceContext && runtimePolicy.profile !== 'research'
+        systemPrompt: runtimePolicy.profile === 'conversation'
           ? buildLeanSystemPrompt(runtimePolicy.profile, resolvedOutputLang, agentCwd)
           : {
           type: 'preset' as const,
           preset: 'claude_code' as const,
           append: buildSystemPrompt({
+            profile: runtimePolicy.profile === 'coding' ? 'coding' : 'general',
             workspaceName: workspace?.name,
             workspaceSlug,
             sessionId,
@@ -1301,7 +1246,7 @@ export class AgentOrchestrator {
         // 回退后 resume：从指定消息处继续（SDK 在同一 JSONL 内创建分支）
         ...(rewindResumeAt && { resumeSessionAt: rewindResumeAt }),
         ...(Object.keys(mcpServers).length > 0 && { mcpServers }),
-        ...(workspaceSlug && runtimePolicy.includeWorkspaceContext && { plugins: [{ type: 'local' as const, path: getAgentWorkspacePath(workspaceSlug) }] }),
+        ...(runtimeSkills && { plugins: [{ type: 'local' as const, path: runtimeSkills.path }] }),
         // 合并用户附加目录 + 工作区附加目录 + 工作区文件目录 + Zotero storage 根
         ...(() => {
           // 隔离命令只写当前项目；引用目录不自动升级成额外可写目录。
@@ -2053,72 +1998,6 @@ export class AgentOrchestrator {
             console.log(`[Agent 编排] Plan 模式：已注入计划确认建议`)
           }
 
-          // 综述实体化 hook：
-          //   1) cwd 模式（生产链路）：扫 session cwd 下 reviews/*.html，把本轮
-          //      新增的 html 落到 reviews 表（body_path 直接指向 skill 原文件）。
-          //      literature-review-result skill (v0.19.0+) 用 Write 工具落 html
-          //      fragment 文件 → 这里捞。
-          //   2) inline 模式（**扩展点 / 死代码兜底**）：扫 assistant 文本里
-          //      的 <asci-review-artifact> 块。synthesizer SubAgent 的 contract
-          //      已撤，当前无生产链路会触发它返回非 null；保留入口供未来某条
-          //      新链路复用，开销近零。
-          // 双通道并列触发；任意一边失败仅 warn 不影响 Agent 主路径，UI 仍走
-          // mockup atom（本版 UI 零侵入）。
-          console.log(
-            `[review-persistence] orchestrator hook 触发: session=${sessionId} cwd=${agentCwd ?? '(none)'} userMessage="${userMessage.slice(0, 60)}${userMessage.length > 60 ? '…' : ''}"`,
-          )
-          // 1) cwd 模式
-          if (agentCwd) {
-            try {
-              const cwdResults = persistReviewsFromSessionCwd(getDb(), {
-                agentSessionId: sessionId,
-                intent: userMessage,
-                sessionCwd: agentCwd,
-                runStartedAtMs: streamStartedAt,
-              })
-              for (const r of cwdResults) {
-                console.log(
-                  `[review-persistence] 🎉 cwd 模式 ${r.mode} review ${r.review.id} (title="${r.review.title}", session=${sessionId})`,
-                )
-                // review_generated 埋点（#426）：只采耗时与成功标记，不采标题/正文
-                telemetryService.track({
-                  event: TELEMETRY_EVENTS.REVIEW_GENERATED,
-                  props: { success: true, durationMs: Date.now() - streamStartedAt },
-                })
-              }
-            } catch (err) {
-              console.warn(`[review-persistence] cwd 模式失败（不影响 Agent 主路径）:`, err)
-            }
-          } else {
-            console.log(`[review-persistence] 跳过 cwd 模式：本 run 没有 agentCwd`)
-          }
-          // 1.5) searches/*.html 兜底包装：lit-search skill 直接 Write 裸 fragment，无
-          //      persistence 链路 → 「用默认应用打开」/ Finder 双击 / 应用内另开窗口都丢 CSS。
-          //      就地包成 self-contained 文档（与 reviews 共用 wrapper），幂等不重写。
-          if (agentCwd) {
-            try {
-              wrapSearchReportsInCwd(agentCwd, streamStartedAt)
-            } catch (err) {
-              console.warn(`[search-html-wrapper] cwd 包装失败（不影响 Agent 主路径）:`, err)
-            }
-          }
-          // 2) inline artifact 模式
-          try {
-            const finalMessages = getAgentSessionMessages(sessionId)
-            const result = maybePersistReviewFromMessages(getDb(), {
-              agentSessionId: sessionId,
-              intent: userMessage,
-              messages: finalMessages,
-            })
-            if (result) {
-              console.log(
-                `[review-persistence] 🎉 inline 模式 ${result.mode} review ${result.review.id} (title="${result.review.title}", session=${sessionId})`,
-              )
-            }
-          } catch (err) {
-            console.warn(`[review-persistence] inline 模式失败（不影响 Agent 主路径）:`, err)
-          }
-
           // 发送完成信号
           callbacks.onComplete(getAgentSessionMessages(sessionId), { startedAt: streamStartedAt, resultSubtype: capturedResultSubtype })
 
@@ -2303,6 +2182,7 @@ export class AgentOrchestrator {
       }
 
     } finally {
+      runtimeSkills?.dispose()
       // 兜底：将 debounce 窗口内未落盘的 subagent spans 强制写盘
       this.subagentSpansSink.flush()
       // 只在 generation 匹配时才清理，防止旧流的 finally 误删新流的注册

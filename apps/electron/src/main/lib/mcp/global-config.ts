@@ -13,7 +13,6 @@ import {
   getGlobalMcpPath,
   getAsrWeightsDir,
   getAsrCacheDir,
-  getPyCacheDir,
   getConfigEnvForChildren,
 } from '../config-paths.ts'
 import { readJsonFileSafe, writeJsonFileAtomic } from '../safe-file.ts'
@@ -23,12 +22,6 @@ import {
 } from './builtin-mcp-resolver.ts'
 import { getSettings } from '../settings-service.ts'
 import {
-  findUvBin,
-  getPaperSearchPackageDir,
-  loadPaperSearchEnv,
-} from '../paper-search-integration.ts'
-import {
-  getZoteroServerCjsPath,
   getOcrServerCjsPath,
   getAsrServerCjsPath,
 } from '../zotero-integration.ts'
@@ -113,24 +106,17 @@ export function composeMcpServers(): Record<string, ComposedMcpServerEntry> {
     getSettings: () => {
       const s = getSettings()
       return {
-        zoteroEnabled: s.zoteroEnabled ?? false,
         // OCR 默认 true（PaddleOCR 已内置打包，无下载成本）
         zoteroOcrEnabled: s.zoteroOcrEnabled ?? true,
         // ASR 默认 false（模型 ~1GB，要用户主动开启触发下载）
         zoteroAsrEnabled: s.zoteroAsrEnabled ?? false,
-        zoteroDataDir: s.zoteroDataDir,
       }
     },
-    findUvBin,
-    getZoteroServerCjsPath,
     getOcrServerCjsPath,
     getAsrServerCjsPath,
-    getPaperSearchPackageDir,
     getAsrWeightsDir,
     getAsrCacheDir,
-    getPyCacheDir,
     getConfigEnvForChildren,
-    loadPaperSearchEnv,
   }))
 
   const merged: Record<string, ComposedMcpServerEntry> = { ...userServers }

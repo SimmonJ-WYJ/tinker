@@ -10,7 +10,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { CapabilityPackManifest } from '@asci/shared'
+import { RETIRED_BUILTIN_PACK_IDS, CapabilityPackManifest } from '@asci/shared'
 import type { CapabilityPackListItem, CapabilityPackListResponse } from '@asci/shared'
 import { getCapabilityPacksDir } from './config-paths.ts'
 
@@ -19,7 +19,7 @@ import { getCapabilityPacksDir } from './config-paths.ts'
  * 暂以本地常量维护（另见 plan-terminal-skill-guard.LIT_SEARCH_PACK_ID / telemetry conversation-type）；
  * 新增内置包时同步此处。
  */
-const BUILTIN_PACK_IDS = new Set(['lit-search', 'lit-review'])
+const BUILTIN_PACK_IDS = RETIRED_BUILTIN_PACK_IDS
 
 /** 是否有可展示的面向用户摘要（任一语言非空） */
 export function hasUsableSummary(summaryI18n?: { zh?: string; en?: string }): boolean {
@@ -87,6 +87,8 @@ function scanPacksDir(): ScanEntry[] {
       })
       continue
     }
+
+    if (RETIRED_BUILTIN_PACK_IDS.has(parsed.data.packId)) continue
 
     result.push({
       packId: parsed.data.packId,

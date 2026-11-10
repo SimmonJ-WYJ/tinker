@@ -16,12 +16,14 @@
         "fallbackControl": "Cannot be toggled here",
         "zoteroDescription": "Zotero library and attachment access",
         "zoteroControl": "Toggle in Settings → Zotero",
-        "ocrDescription": "Local PaddleOCR image text recognition",
+        "ocrDescription": "Recognize text in images independently of library integrations.",
         "ocrControl": "Toggle in Settings → Zotero → Image OCR",
-        "asrDescription": "Local SenseVoice speech recognition",
+        "asrDescription": "Transcribe audio. The speech model downloads only when you enable this option.",
         "asrControl": "Toggle in Settings → Zotero → Speech recognition",
         "paperSearchDescription": "Parallel search across 22+ academic sources",
-        "paperSearchControl": "Auto-enabled when uv is ready"
+        "paperSearchControl": "Auto-enabled when uv is ready",
+        "ocrLabel": "Image recognition (OCR)",
+        "asrLabel": "Speech recognition (ASR)"
       },
       "row": {
         "edit": "Edit",

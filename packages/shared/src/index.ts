@@ -24,3 +24,5 @@ export * from "./agent/runtime-policy.ts"
 export * from './agent/image-request-authorization.ts'
 export * from './agent/image-reference-source.ts'
 export * from './constants/agent-history.ts'
+
+export { RETIRED_BUILTIN_PACK_IDS, RETIRED_WORKFLOW_SKILL_SLUGS } from './constants/retired-capabilities.ts'

@@ -20,7 +20,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { CapabilityPackManifest, isClaudeFamilyEnabled, hasAnyEnabledClaudeModel } from '@asci/shared'
+import { RETIRED_BUILTIN_PACK_IDS, CapabilityPackManifest, isClaudeFamilyEnabled, hasAnyEnabledClaudeModel } from '@asci/shared'
 import type { CapabilityPackManifestType, PaperSearchEnvConfig, Channel, ClaudeModelFamily } from '@asci/shared'
 import type { AgentMcpServerSpec } from '@anthropic-ai/claude-agent-sdk'
 import { buildSubAgentOutputLanguageSection, expandPromptTemplates } from './agent-prompt-builder.ts'
@@ -192,6 +192,8 @@ export async function loadCapabilityPacks(
       console.warn(`[CapabilityPackLoader] manifest 校验失败：${manifestPath}`, parsed.error.issues)
       continue
     }
+
+    if (RETIRED_BUILTIN_PACK_IDS.has(parsed.data.packId)) continue
 
     // 能力包恒为启用（Codex 风不可禁用，#414 CP-6）：校验通过即注册，无启停门控。
 

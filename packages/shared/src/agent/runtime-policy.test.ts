@@ -12,20 +12,20 @@ test('fresh greetings use a tool-free conversation without implicit project cont
 })
 test('never drop existing session context or explicitly referenced capabilities for a greeting', () => {
  for (const extra of [{ hasScientificReferences: true }, { hasStickyWorkflow: true }]) {
-  expect(selectRuntimePolicy({ message: 'hello', mode: 'search', ...extra }).profile).toBe('research')
+  expect(selectRuntimePolicy({ message: 'hello', mode: 'search', ...extra }).profile).toBe('general')
  }
 })
-test('coding keeps executable tools but avoids implicit scientific MCP and plugin context', () => {
+test('coding keeps executable tools and generic capability context', () => {
  const p = selectRuntimePolicy({ message: 'Fix the login bug', mode: 'coding' })
  expect(p.profile).toBe('coding')
  expect(p.tools).toContain('Bash')
  expect(p.tools).toContain('Read')
- expect(p.includeWorkspaceContext).toBe(false)
- expect(p.includeSubagents).toBe(false)
+ expect(p.includeWorkspaceContext).toBe(true)
+ expect(p.includeSubagents).toBe(true)
 })
-test('specialist references, paper workflows and compaction preserve the established workflow', () => {
+test('scientific wording uses ordinary coding or general task policies', () => {
  for (const message of ['分析这篇论文', 'write a literature review']) {
-  expect(selectRuntimePolicy({ message, mode: 'coding' }).profile).toBe('research')
+  expect(selectRuntimePolicy({ message, mode: 'coding' }).profile).toBe('coding')
  }
  expect(selectRuntimePolicy({ message: 'Use the project skill', mode: 'coding', hasReferences: true }).profile).toBe('coding')
  expect(selectRuntimePolicy({ message: 'hello, now delete the project', mode: 'search' }).profile).toBe('general')
@@ -45,17 +45,17 @@ test('context diagnostics report bytes rather than pretend to report billed toke
 })
 test('conversation follow-ups stay lean; a real task can upgrade without losing session history', () => {
  expect(selectRuntimePolicy({ message: '你好', mode: 'search', hasHistory: true, previousProfile: 'conversation' }).profile).toBe('conversation')
- expect(selectRuntimePolicy({ message: 'search recent papers', mode: 'search', hasHistory: true, previousProfile: 'conversation' }).profile).toBe('research')
- expect(selectRuntimePolicy({ message: 'hello', mode: 'search', hasHistory: true, previousProfile: 'research' }).profile).toBe('research')
+ expect(selectRuntimePolicy({ message: 'search recent papers', mode: 'search', hasHistory: true, previousProfile: 'conversation' }).profile).toBe('general')
+ expect(selectRuntimePolicy({ message: 'hello', mode: 'search', hasHistory: true, previousProfile: 'research' }).profile).toBe('general')
 })
 
-test('general tasks use executable tools without the scientific workspace', () => {
+test('general tasks use executable tools and generic workspace context', () => {
  for (const message of ['Write a business plan', '分析销售数据', 'Summarize this PDF', 'Search hotels in Shanghai', 'What is your model?']) {
   const p = selectRuntimePolicy({ message, mode: 'search' })
   expect(p.profile).toBe('general')
   expect(p.tools).toContain('WebSearch')
   expect(p.tools).toContain('Read')
-  expect(p.includeWorkspaceContext).toBe(false)
+  expect(p.includeWorkspaceContext).toBe(true)
  }
 })
 test('generic coding PDF and compaction do not trigger scientific workflow', () => {
@@ -68,9 +68,9 @@ test('explicit capabilities survive without adopting a scientific identity', () 
  expect(p.includeWorkspaceContext).toBe(true)
  expect(p.tools).toContain('Read')
  expect(p.tools).toContain('Skill')
- expect(p.includeSubagents).toBe(false)
- expect(selectRuntimePolicy({ message: 'Summarize these sources', hasScientificReferences: true }).profile).toBe('research')
- expect(selectRuntimePolicy({ message: 'continue', previousProfile: 'research', hasHistory: true }).profile).toBe('research')
+ expect(p.includeSubagents).toBe(true)
+ expect(selectRuntimePolicy({ message: 'Summarize these sources', hasScientificReferences: true }).profile).toBe('general')
+ expect(selectRuntimePolicy({ message: 'continue', previousProfile: 'research', hasHistory: true }).profile).toBe('general')
  expect(selectRuntimePolicy({ message: 'Write a sales email', previousProfile: 'research', hasHistory: true }).profile).toBe('general')
 })
 test('general prompt defines broad work and keeps permission boundaries', () => {

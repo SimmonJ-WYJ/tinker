@@ -110,3 +110,10 @@ describe('createContextBudgetTracker', () => {
     expect(t.consumeReminder()).toContain('63%')
   })
 })
+
+it('budget reminders retain generic evidence guidance without retired scientific tool routes', () => {
+ const tracker = createContextBudgetTracker(1000)
+ tracker.observe({ type: 'assistant', message: { usage: { input_tokens: 650 } } })
+ const reminder = tracker.consumeReminder()
+ expect(reminder).not.toMatch(/papers_|zotero|lit-review|paper-search/)
+})
