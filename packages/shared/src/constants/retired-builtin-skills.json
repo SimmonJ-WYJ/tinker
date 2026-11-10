@@ -1,0 +1,683 @@
+{
+  "anndata": {
+    "hash": "68870651be58bba8e7cde898ea43d341173d205a13e02cbd7253d1f58f3ea413",
+    "files": {
+      "SKILL.md": 10232,
+      "references/best_practices.md": 12106,
+      "references/concatenation.md": 10504,
+      "references/data_structure.md": 8744,
+      "references/io_operations.md": 9456,
+      "references/manipulation.md": 11866
+    }
+  },
+  "arboreto": {
+    "hash": "dd956695e565766ed6886d088ccd6c6f153e3900c963eb24a394d76b2019db4f",
+    "files": {
+      "SKILL.md": 6947,
+      "references/algorithms.md": 4361,
+      "references/basic_inference.md": 3811,
+      "references/distributed_computing.md": 6734,
+      "scripts/basic_grn_inference.py": 2969
+    }
+  },
+  "astropy": {
+    "hash": "c4b4b50f9fdfee3b0b0c4460aad80fa925d0e258e53bab4e2cbea386fc3f211c",
+    "files": {
+      "SKILL.md": 11552,
+      "references/coordinates.md": 7111,
+      "references/cosmology.md": 6482,
+      "references/fits.md": 8670,
+      "references/tables.md": 9385,
+      "references/time.md": 9083,
+      "references/units.md": 3766,
+      "references/wcs_and_other_modules.md": 8515
+    }
+  },
+  "biopython": {
+    "hash": "5e7bcba6757e906ec7eec6bf366a67c1776e75216ab73e63bcac4706ea2bdce1",
+    "files": {
+      "SKILL.md": 13847,
+      "references/advanced.md": 14033,
+      "references/alignment.md": 8953,
+      "references/blast.md": 12649,
+      "references/databases.md": 11506,
+      "references/phylogenetics.md": 13835,
+      "references/sequence_io.md": 7274,
+      "references/structure.md": 12998
+    }
+  },
+  "bioservices": {
+    "hash": "f344bb13239a5864bc36ba7014b87c315dbcbe49bac76d8107c1f6e17b0f4329",
+    "files": {
+      "SKILL.md": 9965,
+      "references/identifier_mapping.md": 17551,
+      "references/services_reference.md": 12566,
+      "references/workflow_patterns.md": 20126,
+      "scripts/batch_id_converter.py": 10892,
+      "scripts/compound_cross_reference.py": 11289,
+      "scripts/pathway_analysis.py": 9547,
+      "scripts/protein_analysis_workflow.py": 12449
+    }
+  },
+  "cirq": {
+    "hash": "03ed94578865c77fd2077456d6e8e5745488c1f52ee2da2cf62516829e92e0e8",
+    "files": {
+      "SKILL.md": 10666,
+      "references/building.md": 5916,
+      "references/experiments.md": 15487,
+      "references/hardware.md": 11519,
+      "references/noise.md": 13362,
+      "references/simulation.md": 8238,
+      "references/transformation.md": 10141
+    }
+  },
+  "clinical-decision-support": {
+    "hash": "bced45bf27f9ac19e06c712463ab6f69f2916692112bbbbd168607e59345e8dc",
+    "files": {
+      "SKILL.md": 26423,
+      "assets/biomarker_report_template.tex": 13326,
+      "assets/clinical_pathway_template.tex": 8325,
+      "assets/cohort_analysis_template.tex": 12601,
+      "assets/color_schemes.tex": 7029,
+      "assets/example_gbm_cohort.md": 9316,
+      "assets/recommendation_strength_guide.md": 11322,
+      "assets/treatment_recommendation_template.tex": 18843,
+      "references/README.md": 5021,
+      "references/biomarker_classification.md": 29270,
+      "references/clinical_decision_algorithms.md": 21393,
+      "references/evidence_synthesis.md": 33342,
+      "references/outcome_analysis.md": 24628,
+      "references/patient_cohort_analysis.md": 16551,
+      "references/treatment_recommendations.md": 19647,
+      "scripts/biomarker_classifier.py": 13315,
+      "scripts/build_decision_tree.py": 15891,
+      "scripts/create_cohort_tables.py": 18023,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647,
+      "scripts/generate_survival_analysis.py": 15258,
+      "scripts/validate_cds_document.py": 12735
+    }
+  },
+  "clinical-reports": {
+    "hash": "fc414d65b0d946dde082ff46d2b0f920658a3f6199b951a5a6bf80536e9bcdd2",
+    "files": {
+      "SKILL.md": 39715,
+      "assets/case_report_template.md": 9771,
+      "assets/clinical_trial_csr_template.md": 9196,
+      "assets/clinical_trial_sae_template.md": 10565,
+      "assets/consult_note_template.md": 7345,
+      "assets/discharge_summary_template.md": 11984,
+      "assets/hipaa_compliance_checklist.md": 11804,
+      "assets/history_physical_template.md": 9266,
+      "assets/lab_report_template.md": 8478,
+      "assets/pathology_report_template.md": 6646,
+      "assets/quality_checklist.md": 9973,
+      "assets/radiology_report_template.md": 8009,
+      "assets/soap_note_template.md": 7297,
+      "references/README.md": 8563,
+      "references/case_report_guidelines.md": 18830,
+      "references/clinical_trial_reporting.md": 20354,
+      "references/data_presentation.md": 21068,
+      "references/diagnostic_reports_standards.md": 18384,
+      "references/medical_terminology.md": 15523,
+      "references/patient_documentation.md": 21273,
+      "references/peer_review_standards.md": 15481,
+      "references/regulatory_compliance.md": 17466,
+      "scripts/check_deidentification.py": 10710,
+      "scripts/compliance_checker.py": 2176,
+      "scripts/extract_clinical_data.py": 2635,
+      "scripts/format_adverse_events.py": 3049,
+      "scripts/generate_report_template.py": 4713,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647,
+      "scripts/terminology_validator.py": 4140,
+      "scripts/validate_case_report.py": 11540,
+      "scripts/validate_trial_report.py": 2871
+    }
+  },
+  "cobrapy": {
+    "hash": "45a7e2e7608d98002119a09e2c93d99c0c97505cda33631a1407678fc951d697",
+    "files": {
+      "SKILL.md": 12468,
+      "references/api_quick_reference.md": 16036,
+      "references/workflows.md": 21741
+    }
+  },
+  "datamol": {
+    "hash": "b476daaf7950af7de21abb8ce71d09a76fed9214ab10f8587815b966fce8a295",
+    "files": {
+      "SKILL.md": 18887,
+      "references/conformers_module.md": 5022,
+      "references/core_api.md": 4242,
+      "references/descriptors_viz.md": 7366,
+      "references/fragments_scaffolds.md": 5808,
+      "references/io_module.md": 4315,
+      "references/reactions_data.md": 6656
+    }
+  },
+  "deepchem": {
+    "hash": "fa0e4d5673faee826f64f162fc547928fe0ab2222045738e36428a94045f16bb",
+    "files": {
+      "SKILL.md": 17803,
+      "references/api_reference.md": 11597,
+      "references/workflows.md": 11800,
+      "scripts/graph_neural_network.py": 9742,
+      "scripts/predict_solubility.py": 6546,
+      "scripts/transfer_learning.py": 11353
+    }
+  },
+  "deeptools": {
+    "hash": "1693b01f2c80984c59d86e7c582b63bfe6ddab0d86ad67812314fca0a71127bd",
+    "files": {
+      "SKILL.md": 18003,
+      "assets/quick_reference.md": 1520,
+      "references/effective_genome_sizes.md": 3677,
+      "references/normalization_methods.md": 11082,
+      "references/tools_reference.md": 18891,
+      "references/workflows.md": 10963,
+      "scripts/validate_files.py": 6039,
+      "scripts/workflow_generator.py": 14130
+    }
+  },
+  "esm": {
+    "hash": "0355ee5be22476ede6328c796b04983e10498c030564ee2cd0935d07f1c8331d",
+    "files": {
+      "SKILL.md": 10580,
+      "references/esm-c-api.md": 15715,
+      "references/esm3-api.md": 11852,
+      "references/forge-api.md": 17615,
+      "references/workflows.md": 20667
+    }
+  },
+  "etetoolkit": {
+    "hash": "b0cf327caf6942d842c8ee0f4f12ab92f06e2224c8df09bda86245c4c58cb9ae",
+    "files": {
+      "SKILL.md": 17902,
+      "references/api_reference.md": 12736,
+      "references/visualization.md": 19529,
+      "references/workflows.md": 18933,
+      "scripts/quick_visualize.py": 7156,
+      "scripts/tree_operations.py": 8235
+    }
+  },
+  "flowio": {
+    "hash": "e504c806726352074eaba577c8f10dd6c062e6d3f1fd2d9d4445ee0223debb67",
+    "files": {
+      "SKILL.md": 16790,
+      "references/api_reference.md": 10481
+    }
+  },
+  "fluidsim": {
+    "hash": "2fbd797d2983b0e320bae60c1df4a342660d99062d47d9a4d6b055756d6a91d6",
+    "files": {
+      "SKILL.md": 9414,
+      "references/advanced_features.md": 9011,
+      "references/installation.md": 1204,
+      "references/output_analysis.md": 6027,
+      "references/parameters.md": 4936,
+      "references/simulation_workflow.md": 3862,
+      "references/solvers.md": 2419
+    }
+  },
+  "geniml": {
+    "hash": "90f3a1fca1f9185aa7e916bb1dba4cc04dc98b75be20e145e0d2e01de31f9fac",
+    "files": {
+      "SKILL.md": 10110,
+      "references/bedspace.md": 3869,
+      "references/consensus_peaks.md": 6337,
+      "references/region2vec.md": 2859,
+      "references/scembed.md": 5268,
+      "references/utilities.md": 8652
+    }
+  },
+  "gget": {
+    "hash": "1b3381df628dbacf17bbb448ee471a22f4be87947170baf08424d2da9528609a",
+    "files": {
+      "SKILL.md": 25106,
+      "references/database_info.md": 10210,
+      "references/module_reference.md": 17562,
+      "references/workflows.md": 25756,
+      "scripts/batch_sequence_analysis.py": 5978,
+      "scripts/enrichment_pipeline.py": 7201,
+      "scripts/gene_analysis.py": 5778
+    }
+  },
+  "gtars": {
+    "hash": "f4fc0311b1ecb98ec2bee05ca472ed4fb6642905de3f699048569bd6fcf4c3bd",
+    "files": {
+      "SKILL.md": 7824,
+      "references/cli.md": 5060,
+      "references/coverage.md": 3995,
+      "references/overlap.md": 3679,
+      "references/python-api.md": 4222,
+      "references/refget.md": 3165,
+      "references/tokenizers.md": 2444
+    }
+  },
+  "histolab": {
+    "hash": "9a3412e4057f841ccef54dfb78a7beab7593676b82fe4b1390c6c2e3d254fe52",
+    "files": {
+      "SKILL.md": 20171,
+      "references/filters_preprocessing.md": 12700,
+      "references/slide_management.md": 4701,
+      "references/tile_extraction.md": 11297,
+      "references/tissue_masks.md": 7232,
+      "references/visualization.md": 13970
+    }
+  },
+  "iso-13485-certification": {
+    "hash": "5c25ffe48c596f650de007073df656a57347fe2462c367a5ae9602048f9e38e9",
+    "files": {
+      "SKILL.md": 23268,
+      "assets/templates/procedures/CAPA-procedure-template.md": 15055,
+      "assets/templates/procedures/document-control-procedure-template.md": 18062,
+      "assets/templates/quality-manual-template.md": 20618,
+      "references/gap-analysis-checklist.md": 27586,
+      "references/iso-13485-requirements.md": 25697,
+      "references/mandatory-documents.md": 21428,
+      "references/quality-manual-guide.md": 26197,
+      "scripts/gap_analyzer.py": 15519
+    }
+  },
+  "latex-posters": {
+    "hash": "2d85e544541b0c6ce6357aa748fdb952e642449d3598ffbbab19ee2794736729",
+    "files": {
+      "SKILL.md": 59409,
+      "assets/baposter_template.tex": 7432,
+      "assets/beamerposter_template.tex": 7652,
+      "assets/poster_quality_checklist.md": 11172,
+      "assets/tikzposter_template.tex": 7887,
+      "references/README.md": 11654,
+      "references/latex_poster_packages.md": 17836,
+      "references/poster_content_guide.md": 20361,
+      "references/poster_design_principles.md": 22916,
+      "references/poster_layout_design.md": 22327,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647,
+      "scripts/review_poster.sh": 7939
+    }
+  },
+  "lit-search-report": {
+    "hash": "eed80d96c8db6c2df8d7723dc21d9914840bb538ae5d82c923740206c189fedd",
+    "files": {
+      "SKILL.md": 18802,
+      "render_report.py": 28870
+    }
+  },
+  "literature-review-result": {
+    "hash": "e0e78c1b44810b58ada78f287a49d6c8d174e9944113f7bea72e25a5f039bce9",
+    "files": {
+      "SKILL.md": 42064
+    }
+  },
+  "litreview": {
+    "hash": "44cc53fc807097bcfb00b556e650190273c1d7415d31adb1591dd00b17129baf",
+    "files": {
+      "SKILL.md": 16812,
+      "references/expansion-prompts.md": 4692,
+      "references/query-mapping.md": 12949
+    }
+  },
+  "matchms": {
+    "hash": "eab666d93d71287eaae1f349c934aebbb1da709b7a1eaade5157ac5b7671d715",
+    "files": {
+      "SKILL.md": 7030,
+      "references/filtering.md": 10038,
+      "references/importing_exporting.md": 10894,
+      "references/similarity.md": 12974,
+      "references/workflows.md": 22230
+    }
+  },
+  "medchem": {
+    "hash": "17f5589f21741cd1a1c1357e142966715c0983ef2aa723116f13039f94005118",
+    "files": {
+      "SKILL.md": 10173,
+      "references/api_guide.md": 12344,
+      "references/rules_catalog.md": 12512,
+      "scripts/filter_molecules.py": 15696
+    }
+  },
+  "molecular-dynamics": {
+    "hash": "adc3b29a95e4475e8339153042c22d2dd40983a222d6b30d9e62def7fc3b9b40",
+    "files": {
+      "SKILL.md": 14720,
+      "references/mdanalysis_analysis.md": 5643
+    }
+  },
+  "molfeat": {
+    "hash": "c4a061aeb63fb5af6931cd81fec4a2fddc5491c1f1881c69417f2e02c2165d03",
+    "files": {
+      "SKILL.md": 14831,
+      "references/api_reference.md": 11502,
+      "references/available_featurizers.md": 10709,
+      "references/examples.md": 17709
+    }
+  },
+  "neurokit2": {
+    "hash": "9b5985f23a9fed269a63c61b1f882988ada66296847a3c48a2478d4fb6f041f6",
+    "files": {
+      "SKILL.md": 12039,
+      "references/bio_module.md": 13099,
+      "references/complexity.md": 17352,
+      "references/ecg_cardiac.md": 10810,
+      "references/eda.md": 14733,
+      "references/eeg.md": 14306,
+      "references/emg.md": 12390,
+      "references/eog.md": 12271,
+      "references/epochs_events.md": 14793,
+      "references/hrv.md": 15493,
+      "references/ppg.md": 11168,
+      "references/rsp.md": 13946,
+      "references/signal_processing.md": 16652
+    }
+  },
+  "neuropixels-analysis": {
+    "hash": "fcfa5f092ce3ac79c6c4eb1b3f89ec330673a986b1c85b3a2f8ec7f67fd0ae12",
+    "files": {
+      "SKILL.md": 11583,
+      "assets/analysis_template.py": 9014,
+      "references/AI_CURATION.md": 8635,
+      "references/ANALYSIS.md": 9869,
+      "references/AUTOMATED_CURATION.md": 10033,
+      "references/MOTION_CORRECTION.md": 8670,
+      "references/PREPROCESSING.md": 6696,
+      "references/QUALITY_METRICS.md": 9454,
+      "references/SPIKE_SORTING.md": 7918,
+      "references/api_reference.md": 8153,
+      "references/plotting_guide.md": 10837,
+      "references/standard_workflow.md": 8646,
+      "scripts/compute_metrics.py": 5226,
+      "scripts/explore_recording.py": 5529,
+      "scripts/export_to_phy.py": 2477,
+      "scripts/neuropixels_pipeline.py": 13286,
+      "scripts/preprocess_recording.py": 4235,
+      "scripts/run_sorting.py": 2573
+    }
+  },
+  "paper-source-selection": {
+    "hash": "1e1212609f473153de52ee3e69c5a1174434101501cba9aa99c617236e0d6b75",
+    "files": {
+      "SKILL.md": 8984,
+      "resources/api-source-guide.md": 19405
+    }
+  },
+  "pennylane": {
+    "hash": "06e4b9d825414abdec2f744185d6303f6f258333cf5e97b4c122f3ab6d9ce5dd",
+    "files": {
+      "SKILL.md": 7415,
+      "references/advanced_features.md": 14984,
+      "references/devices_backends.md": 13079,
+      "references/getting_started.md": 5097,
+      "references/optimization.md": 16696,
+      "references/quantum_chemistry.md": 14438,
+      "references/quantum_circuits.md": 9395,
+      "references/quantum_ml.md": 14532
+    }
+  },
+  "phylogenetics": {
+    "hash": "9e8fd248b5e24e4b38688e75d350b4f0107fd553632189f591e23c3843a402b2",
+    "files": {
+      "SKILL.md": 13932,
+      "references/iqtree_inference.md": 5391,
+      "scripts/phylogenetic_analysis.py": 8954
+    }
+  },
+  "polars-bio": {
+    "hash": "c2c037bfed359509d05a294df0b0d42a505d437f6f10c688736adcbc0410bb7b",
+    "files": {
+      "SKILL.md": 14070,
+      "references/bioframe_migration.md": 7338,
+      "references/configuration.md": 4794,
+      "references/file_io.md": 12257,
+      "references/interval_operations.md": 12323,
+      "references/pileup_operations.md": 4922,
+      "references/sql_processing.md": 6131
+    }
+  },
+  "pptx-posters": {
+    "hash": "2d072780236c0a5aec2137064e9a5f9699adba85932012e68b11e2404970e5a9",
+    "files": {
+      "SKILL.md": 14164,
+      "assets/poster_html_template.html": 5643,
+      "assets/poster_quality_checklist.md": 11172,
+      "references/poster_content_guide.md": 20361,
+      "references/poster_design_principles.md": 22916,
+      "references/poster_layout_design.md": 22327,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647
+    }
+  },
+  "pydeseq2": {
+    "hash": "22425451619036183fdd3a29a1d48507ce7284247ff2efff14adec7e4c490ce2",
+    "files": {
+      "SKILL.md": 16184,
+      "references/api_reference.md": 7162,
+      "references/workflow_guide.md": 13026,
+      "scripts/run_deseq2_analysis.py": 11887
+    }
+  },
+  "pydicom": {
+    "hash": "48f555b1233df44a6c9e2f68a8cac8a61833b140c5ac7176138476732cd30a02",
+    "files": {
+      "SKILL.md": 13208,
+      "references/common_tags.md": 10246,
+      "references/transfer_syntaxes.md": 9627,
+      "scripts/anonymize_dicom.py": 5254,
+      "scripts/dicom_to_image.py": 6101,
+      "scripts/extract_metadata.py": 5686
+    }
+  },
+  "pylabrobot": {
+    "hash": "849d6c533ac9a5a39199c53124efbd226d10ea7f0d178f140132fc184b26cef7",
+    "files": {
+      "SKILL.md": 8217,
+      "references/analytical-equipment.md": 11935,
+      "references/hardware-backends.md": 12944,
+      "references/liquid-handling.md": 10206,
+      "references/material-handling.md": 13997,
+      "references/resources.md": 12263,
+      "references/visualization.md": 13560
+    }
+  },
+  "pyopenms": {
+    "hash": "b5f1866baef433d05fbbb3e03ab9db7d32bfdd51d0b192ff00835e1cb9e9f647",
+    "files": {
+      "SKILL.md": 5649,
+      "references/data_structures.md": 12390,
+      "references/feature_detection.md": 10539,
+      "references/file_io.md": 7716,
+      "references/identification.md": 11329,
+      "references/metabolomics.md": 13349,
+      "references/signal_processing.md": 9335
+    }
+  },
+  "pysam": {
+    "hash": "649df8d0fb4a6c721c6eec147908ca9a2210dd5b71f148612df552dcc61aca86",
+    "files": {
+      "SKILL.md": 10013,
+      "references/alignment_files.md": 8560,
+      "references/common_workflows.md": 15350,
+      "references/sequence_files.md": 11597,
+      "references/variant_files.md": 9487
+    }
+  },
+  "pytdc": {
+    "hash": "d2cd846f9acd5b2919f838ec847d7428cab3bfdaff013f46979f594dd1559417",
+    "files": {
+      "SKILL.md": 12720,
+      "references/datasets.md": 8792,
+      "references/oracles.md": 10051,
+      "references/utilities.md": 16045,
+      "scripts/benchmark_evaluation.py": 9238,
+      "scripts/load_and_split_data.py": 6350,
+      "scripts/molecular_generation.py": 11335
+    }
+  },
+  "qiskit": {
+    "hash": "69f75126cd19ba866697073b8631ef154daf335445434b2f36cc22a89fe52569",
+    "files": {
+      "SKILL.md": 8773,
+      "references/algorithms.md": 14455,
+      "references/backends.md": 9551,
+      "references/circuits.md": 3451,
+      "references/patterns.md": 13529,
+      "references/primitives.md": 6055,
+      "references/setup.md": 2041,
+      "references/transpilation.md": 7372,
+      "references/visualization.md": 7893
+    }
+  },
+  "qutip": {
+    "hash": "d6f0dd9b0030ac4b24739bfdd352d1fef708dcae38f87a96a1419613b8508c19",
+    "files": {
+      "SKILL.md": 9066,
+      "references/advanced.md": 11628,
+      "references/analysis.md": 9387,
+      "references/core_concepts.md": 5595,
+      "references/time_evolution.md": 7866,
+      "references/visualization.md": 8288
+    }
+  },
+  "rdkit": {
+    "hash": "2d9641ba4e5c32d0d5c43799efacb742360e1bc4c84cc3996922eb1d778b2a81",
+    "files": {
+      "SKILL.md": 20441,
+      "references/api_reference.md": 16789,
+      "references/descriptors_reference.md": 11779,
+      "references/smarts_patterns.md": 8143,
+      "scripts/molecular_properties.py": 7361,
+      "scripts/similarity_search.py": 9543,
+      "scripts/substructure_filter.py": 12351
+    }
+  },
+  "review-proposer": {
+    "hash": "3cf5432a4cf05d8470a009f1917e7646e87d3398cc14e6bb3b97bdcfd0670786",
+    "files": {
+      "SKILL.md": 11926
+    }
+  },
+  "rowan": {
+    "hash": "7cf337cd4e5c941e3f976fe5cd2e86da12f5032f7bb1d718144bf95837f5db00",
+    "files": {
+      "SKILL.md": 36930
+    }
+  },
+  "scanpy": {
+    "hash": "5011bc9c1cca1d5ce7bfe2160bbec6a8f3d2bca35eb06b678bcbc06d171d5322",
+    "files": {
+      "SKILL.md": 11341,
+      "assets/analysis_template.py": 9515,
+      "references/api_reference.md": 7415,
+      "references/plotting_guide.md": 9695,
+      "references/standard_workflow.md": 5529,
+      "scripts/qc_analysis.py": 6706
+    }
+  },
+  "scientific-writing": {
+    "hash": "4bd7bd96a04cad20493229c5778931787ab693dea27093e3d664b186c8ddc9b4",
+    "files": {
+      "SKILL.md": 33987,
+      "assets/REPORT_FORMATTING_GUIDE.md": 14173,
+      "assets/scientific_report.sty": 16643,
+      "assets/scientific_report_template.tex": 15638,
+      "references/citation_styles.md": 23705,
+      "references/figures_tables.md": 27883,
+      "references/imrad_structure.md": 26135,
+      "references/professional_report_formatting.md": 20620,
+      "references/reporting_guidelines.md": 25012,
+      "references/writing_principles.md": 27593,
+      "scripts/generate_image.py": 8815,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647
+    }
+  },
+  "scikit-bio": {
+    "hash": "6c6e1da90c9a9554392035ed4543b46c8b41f81fcfed0e45c29ccfeab5a0f70f",
+    "files": {
+      "SKILL.md": 14769,
+      "references/api_reference.md": 18564
+    }
+  },
+  "scvelo": {
+    "hash": "5c3ded9bd21caa8f455607e8ed724194a7ce9bf4c02150a6b6e08ec0ef4c3035",
+    "files": {
+      "SKILL.md": 10306,
+      "references/velocity_models.md": 5010,
+      "scripts/rna_velocity_workflow.py": 8072
+    }
+  },
+  "scvi-tools": {
+    "hash": "11716c016b2d35246aa3581b2fd99e82b0054f6d0a2ba9a6d3d4d74f615f2866",
+    "files": {
+      "SKILL.md": 7257,
+      "references/differential-expression.md": 14342,
+      "references/models-atac-seq.md": 9481,
+      "references/models-multimodal.md": 10570,
+      "references/models-scrna-seq.md": 9837,
+      "references/models-spatial.md": 11260,
+      "references/models-specialized.md": 10404,
+      "references/theoretical-foundations.md": 11723,
+      "references/workflows.md": 12508
+    }
+  },
+  "treatment-plans": {
+    "hash": "77f30ee2c2a4eecd7d0b7135bf3768bf9492bcf2304b508715e46af6cf23c8c8",
+    "files": {
+      "SKILL.md": 52771,
+      "assets/STYLING_QUICK_REFERENCE.md": 3912,
+      "assets/chronic_disease_management_plan.tex": 29371,
+      "assets/general_medical_treatment_plan.tex": 23289,
+      "assets/medical_treatment_plan.sty": 5404,
+      "assets/mental_health_treatment_plan.tex": 34509,
+      "assets/one_page_treatment_plan.tex": 5377,
+      "assets/pain_management_plan.tex": 33326,
+      "assets/perioperative_care_plan.tex": 30005,
+      "assets/quality_checklist.md": 15081,
+      "assets/rehabilitation_treatment_plan.tex": 30462,
+      "references/README.md": 16970,
+      "references/goal_setting_frameworks.md": 16554,
+      "references/intervention_guidelines.md": 19024,
+      "references/regulatory_compliance.md": 17565,
+      "references/specialty_specific_guidelines.md": 26678,
+      "references/treatment_plan_standards.md": 16643,
+      "scripts/check_completeness.py": 9919,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647,
+      "scripts/generate_template.py": 7490,
+      "scripts/timeline_generator.py": 12631,
+      "scripts/validate_treatment_plan.py": 12392
+    }
+  },
+  "venue-templates": {
+    "hash": "8f2cb9f8cb271eddb1fa519b27372b93cf772fa025363ff38ba16783707d13dc",
+    "files": {
+      "SKILL.md": 23382,
+      "assets/examples/cell_summary_example.md": 8877,
+      "assets/examples/medical_structured_abstract.md": 12074,
+      "assets/examples/nature_abstract_examples.md": 8954,
+      "assets/examples/neurips_introduction_example.md": 8779,
+      "assets/grants/nih_specific_aims.tex": 9082,
+      "assets/grants/nsf_proposal_template.tex": 13157,
+      "assets/journals/nature_article.tex": 6242,
+      "assets/journals/neurips_article.tex": 8925,
+      "assets/journals/plos_one.tex": 11713,
+      "assets/posters/beamerposter_academic.tex": 8495,
+      "references/cell_press_style.md": 14290,
+      "references/conferences_formatting.md": 17164,
+      "references/cs_conference_style.md": 15652,
+      "references/grants_requirements.md": 22873,
+      "references/journals_formatting.md": 17649,
+      "references/medical_journal_styles.md": 15963,
+      "references/ml_conference_style.md": 17838,
+      "references/nature_science_style.md": 13574,
+      "references/posters_guidelines.md": 17113,
+      "references/reviewer_expectations.md": 15837,
+      "references/venue_writing_styles.md": 12671,
+      "scripts/customize_template.py": 6875,
+      "scripts/generate_schematic.py": 5146,
+      "scripts/generate_schematic_ai.py": 32647,
+      "scripts/query_template.py": 8959,
+      "scripts/validate_format.py": 8766
+    }
+  }
+}

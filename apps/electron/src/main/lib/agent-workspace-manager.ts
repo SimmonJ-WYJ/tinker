@@ -1,6 +1,6 @@
 import { getWorkspacePluginName } from './agent-tool-mentions.ts'
-import { RETIRED_WORKFLOW_SKILL_SLUGS } from '@asci/shared'
-import { isKnownRetiredWorkflowSkill } from './retired-workflow-skills.ts'
+import { RETIRED_BUILTIN_SKILL_SLUGS } from '@asci/shared'
+import { isKnownRetiredBuiltinSkill } from './retired-builtin-skills.ts'
 import { t } from './i18n-main'
 /**
  * Agent 工作区管理器
@@ -162,7 +162,7 @@ function copyDefaultSkills(workspaceSlug: string): void {
 
   try {
     const allEntries = readdirSync(defaultDir, { withFileTypes: true })
-    const entries = allEntries.filter((e) => !isHiddenEntry(e.name) && !RETIRED_WORKFLOW_SKILL_SLUGS.has(e.name))
+    const entries = allEntries.filter((e) => !isHiddenEntry(e.name) && !RETIRED_BUILTIN_SKILL_SLUGS.has(e.name))
     if (entries.length === 0) return
 
     mkdirSync(activeDir, { recursive: true })
@@ -326,7 +326,7 @@ export function upgradeDefaultSkillsInWorkspaces(): void {
     const entries = readdirSync(defaultDir, { withFileTypes: true })
     for (const entry of entries) {
       // 跳过隐藏条目（点号开头）
-      if (isHiddenEntry(entry.name) || RETIRED_WORKFLOW_SKILL_SLUGS.has(entry.name)) continue
+      if (isHiddenEntry(entry.name) || RETIRED_BUILTIN_SKILL_SLUGS.has(entry.name)) continue
       if (!entry.isDirectory()) continue
       const sourcePath = join(defaultDir, entry.name)
       const version = parseSkillVersion(sourcePath)
@@ -618,7 +618,7 @@ function scanSkillsInDir(dir: string, enabled: boolean): SkillMeta[] {
       const isDir = entry.isDirectory() || (entry.isSymbolicLink() && statSync(join(dir, entry.name)).isDirectory())
       if (!isDir) continue
 
-      if (isKnownRetiredWorkflowSkill(join(dir, entry.name), entry.name)) continue
+      if (isKnownRetiredBuiltinSkill(join(dir, entry.name), entry.name)) continue
       const skillMdPath = join(dir, entry.name, 'SKILL.md')
       if (!existsSync(skillMdPath)) continue
 

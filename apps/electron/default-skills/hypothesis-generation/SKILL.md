@@ -291,8 +291,5 @@ Ensure all generated hypotheses meet these standards:
 
 ### Related Skills
 
-When preparing hypothesis-driven research for publication, consult the **venue-templates** skill for writing style guidance:
-- `venue_writing_styles.md` - Master guide comparing styles across venues
-- Venue-specific guides for Nature/Science, Cell Press, medical journals, and ML/CS conferences
-- `reviewer_expectations.md` - What reviewers look for when evaluating research hypotheses
+When preparing hypothesis-driven research for publication, consult the target venue's current author guidelines for writing style, formatting, and reviewer expectations. Use the local `hypothesis_report_template.tex` for the initial report structure.
 
