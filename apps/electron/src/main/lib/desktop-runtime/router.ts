@@ -99,7 +99,7 @@ export class DesktopRouter {
       if (turn.sessionId!==input.sessionId || turn.requestId!==active.requestId || turn.startedAt!==startedAt) throw new Error('DESKTOP_PROTOCOL')
       latestTurn = turn
       const user = projectHistory([turn]).sdkMessages[0]!
-      emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,startedAt,payload:{kind:'sdk_message',message:user}})
+      emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,requestId:active.requestId,startedAt,payload:{kind:'sdk_message',message:user}})
       let afterSequence = 0
       while (activeStatus(turn)) {
         const page = await this.client.request('chat.events',{sessionId:input.sessionId,requestId:active.requestId,afterSequence,limit:128})
@@ -107,12 +107,12 @@ export class DesktopRouter {
         latestTurn = page.turn
         const resync = active.resync === true
         if(resync) {
-          emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,startedAt,payload:{kind:'asci_event',event:{type:'text_snapshot',text:page.turn.assistantMessage,model:page.turn.modelId}}})
+          emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,requestId:active.requestId,startedAt,payload:{kind:'asci_event',event:{type:'text_snapshot',text:page.turn.assistantMessage,model:page.turn.modelId}}})
           active.resync=false
         }
         for (const event of page.events) {
           if (event.sequence <= afterSequence) throw new Error('DESKTOP_PROTOCOL')
-          if (!resync && event.kind==='delta' && event.text) emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,startedAt,payload:{kind:'asci_event',event:{type:'text_delta',text:event.text,turnId:turn.runId}}})
+          if (!resync && event.kind==='delta' && event.text) emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,requestId:active.requestId,startedAt,payload:{kind:'asci_event',event:{type:'text_delta',text:event.text,turnId:turn.runId}}})
           afterSequence = event.sequence
         }
         // turn 是最新完整快照，可能领先当前事件页。恢复后从它的序号继续，
@@ -125,9 +125,9 @@ export class DesktopRouter {
       }
       const history = await this.history(input.sessionId)
       const final = projectHistory([turn]).sdkMessages[1]
-      if(final) emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,startedAt,payload:{kind:'sdk_message',message:final}})
-      if(turn.status==='failed'||turn.status==='interrupted') emit(AGENT_IPC_CHANNELS.STREAM_ERROR,{sessionId:input.sessionId,startedAt,error:t('errors.desktopRuntime.failed')})
-      emit(AGENT_IPC_CHANNELS.STREAM_COMPLETE,{sessionId:input.sessionId,startedAt,messages:history.messages,stoppedByUser:turn.status==='cancelled',resultSubtype:turn.status==='completed'?'success':'error_during_execution'})
+      if(final) emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,requestId:active.requestId,startedAt,payload:{kind:'sdk_message',message:final}})
+      if(turn.status==='failed'||turn.status==='interrupted') emit(AGENT_IPC_CHANNELS.STREAM_ERROR,{sessionId:input.sessionId,requestId:active.requestId,startedAt,error:t('errors.desktopRuntime.failed')})
+      emit(AGENT_IPC_CHANNELS.STREAM_COMPLETE,{sessionId:input.sessionId,requestId:active.requestId,startedAt,messages:history.messages,stoppedByUser:turn.status==='cancelled',resultSubtype:turn.status==='completed'?'success':'error_during_execution'})
       if(turn.status==='failed'||turn.status==='interrupted') throw new Error('DESKTOP_RESPONSE_FAILED')
     } catch (error) {
       const code = error instanceof Error ? error.message : ''
@@ -136,11 +136,11 @@ export class DesktopRouter {
         // 无法继续核对运行状态时终止拥有的 sidecar，不能留下不可见的执行。
         if(activeStatus(latestTurn)) this.client.close()
         const partial = projectHistory([{...latestTurn,...(activeStatus(latestTurn)?{status:'interrupted' as const,errorCode:'transportError'}:{})}]).sdkMessages[1]
-        if(partial) emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,startedAt,payload:{kind:'sdk_message',message:partial}})
+        if(partial) emit(AGENT_IPC_CHANNELS.STREAM_EVENT,{sessionId:input.sessionId,requestId:active.requestId,startedAt,payload:{kind:'sdk_message',message:partial}})
       }
       const message = t(code.startsWith('DESKTOP_') ? 'errors.desktopRuntime.transport' : 'errors.desktopRuntime.invalid')
-      emit(AGENT_IPC_CHANNELS.STREAM_ERROR,{sessionId:input.sessionId,startedAt,error:message})
-      emit(AGENT_IPC_CHANNELS.STREAM_COMPLETE,{sessionId:input.sessionId,startedAt,resultSubtype:'error_during_execution'})
+      emit(AGENT_IPC_CHANNELS.STREAM_ERROR,{sessionId:input.sessionId,requestId:active.requestId,startedAt,error:message})
+      emit(AGENT_IPC_CHANNELS.STREAM_COMPLETE,{sessionId:input.sessionId,requestId:active.requestId,startedAt,resultSubtype:'error_during_execution'})
       // IPC reject 让原 UI 保留原始发送草稿。
       throw new Error(message)
     }

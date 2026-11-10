@@ -1313,7 +1313,9 @@ export interface StopTaskInput {
  * Agent 流式事件（主进程 → 渲染进程推送）
  */
 export interface AgentStreamEvent {
-  /** Rust 预览事件的请求归属，过滤迟到旧流。 */
+  /** 本地发送入口生成的不透明请求身份；旧 SDK 事件可不提供。 */
+  requestId?: string
+  /** 实际开始时间，不用于请求排序。 */
   startedAt?: number
   /** 会话 ID */
   sessionId: string
@@ -1329,11 +1331,13 @@ export interface AgentStreamEvent {
  */
 export interface AgentStreamCompletePayload {
   sessionId: string
+  /** 本地请求身份，缺省时保持旧 SDK / 外部启动兼容。 */
+  requestId?: string
   /** 已持久化的完整消息列表 */
   messages?: AgentMessage[]
   /** 是否由用户手动中止 */
   stoppedByUser?: boolean
-  /** 本轮流式开始时间戳（用于区分新旧流，防止旧流的 complete 事件重置新流状态） */
+  /** 本轮实际流式开始时间戳（不作为单调请求序号） */
   startedAt?: number
   /** SDK result 消息的 subtype（success / error_max_turns / error_max_budget_usd / error_during_execution 等） */
   resultSubtype?: string

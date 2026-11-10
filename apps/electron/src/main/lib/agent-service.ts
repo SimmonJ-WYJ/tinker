@@ -119,6 +119,7 @@ export async function runAgent(
         if (!webContents.isDestroyed()) {
           webContents.send(AGENT_IPC_CHANNELS.STREAM_ERROR, {
             sessionId: input.sessionId,
+            requestId: input.requestId,
             error,
           })
         }
@@ -127,6 +128,7 @@ export async function runAgent(
         if (!webContents.isDestroyed()) {
           webContents.send(AGENT_IPC_CHANNELS.STREAM_COMPLETE, {
             sessionId: input.sessionId,
+            requestId: input.requestId,
             messages,
             stoppedByUser: opts?.stoppedByUser ?? false,
             startedAt: opts?.startedAt,

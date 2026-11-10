@@ -65,8 +65,14 @@ async function run():Promise<void> {
  console.log('[模型菜单]',await evaluate('document.body.innerText'))
  await click(`[...document.querySelectorAll('[role="menuitem"],[role="option"],button')].find(e=>e.textContent?.includes('Synthetic B'))`)
  await wait(150)
- await send('SECOND synthetic request')
+ // 只替换本测试 renderer 的 Date，验证真实 nowMs 回拨；不改变系统时钟。
+ await evaluate(`window.__qa.realDate=window.Date;window.__qa.rollback=window.__qa.complete[0].startedAt-60000;window.Date=new Proxy(window.Date,{construct(Target,args){return args.length?Reflect.construct(Target,args):new Target(window.__qa.rollback)},get(Target,key){return key==='now'?()=>window.__qa.rollback:Reflect.get(Target,key)}});true`)
+ try {await send('SECOND synthetic request')} finally {await evaluate('window.Date=window.__qa.realDate;delete window.__qa.realDate;true')}
+
  await until('window.__qa.complete.length===2','second_complete')
+ if(!await evaluate<boolean>('window.__qa.complete[1].startedAt < window.__qa.complete[0].startedAt && !!window.__qa.complete[0].requestId && !!window.__qa.complete[1].requestId && window.__qa.complete[0].requestId!==window.__qa.complete[1].requestId'))throw new Error('QA_ROLLBACK_IDENTITY')
+ await until(`!document.querySelector('[aria-label="Stop generation"]')`,'rollback_complete_state')
+ console.log('[验收通过] 真实renderer时钟回拨与独立requestId完成')
  await wait(200)
  if((await history()).length!==4)throw new Error('QA_SECOND_HISTORY')
  writeFileSync(join(output,'ui-runtime-two-turns.png'),(await win.webContents.capturePage()).toPNG())

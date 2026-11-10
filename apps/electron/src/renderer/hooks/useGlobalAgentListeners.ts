@@ -399,7 +399,7 @@ export function useGlobalAgentListeners(): void {
       (streamEvent: AgentStreamEvent) => {
         unstable_batchedUpdates(() => {
         const { sessionId, payload } = streamEvent
-        if (!acceptAgentAttempt(store,sessionId,streamEvent.startedAt)) return
+        if (!acceptAgentAttempt(store,sessionId,streamEvent.requestId)) return
 
         // 如果收到未知会话的事件（跨工作区场景），立即刷新会话列表
         const knownSessions = store.get(agentSessionsAtom)
@@ -693,7 +693,7 @@ export function useGlobalAgentListeners(): void {
     const cleanupComplete = window.electronAPI.onAgentStreamComplete(
       (data: AgentStreamCompletePayload) => {
         unstable_batchedUpdates(() => {
-        if (!acceptAgentAttempt(store,data.sessionId,data.startedAt)) return
+        if (!acceptAgentAttempt(store,data.sessionId,data.requestId)) return
         // 发送桌面通知（任务完成，始终播放提示音）
         const enabled = store.get(notificationsEnabledAtom)
         const soundEnabled = store.get(notificationSoundEnabledAtom)
@@ -714,13 +714,13 @@ export function useGlobalAgentListeners(): void {
         // STREAM_COMPLETE 表示后端已完全结束 — 立即标记 running: false
         // 同时将所有未完成的工具活动标记为已完成，防止 subagent spinner 继续转动
         // （complete 事件只清除 retrying，保持 running: true 以防竞态）
-        // 竞态保护：通过 startedAt 区分新旧流，防止旧流的 complete 事件重置新流的 running 状态
+        // 竞态保护：整个回调已按 requestId 核对归属；旧 SDK 缺失时间元数据时保留原行为
         store.set(agentStreamingStatesAtom, (prev) => {
           const current = prev.get(data.sessionId)
           if (!current || !current.running) {
             return prev
           }
-          if (current.startedAt != null && (data.startedAt == null || current.startedAt > data.startedAt)) {
+          if (data.requestId === undefined && current.startedAt != null && (data.startedAt == null || current.startedAt > data.startedAt)) {
             return prev
           }
           const map = new Map(prev)
@@ -811,7 +811,7 @@ export function useGlobalAgentListeners(): void {
           window.electronAPI
             .listAgentSessions()
             .then((sessions) => {
-              if (!acceptAgentAttempt(store,data.sessionId,data.startedAt)) return
+              if (!acceptAgentAttempt(store,data.sessionId,data.requestId)) return
               store.set(agentSessionsAtom, sessions)
               // 从持久化 meta 对齐 stoppedByUser 状态
               store.set(stoppedByUserSessionsAtom, new Set<string>(
@@ -835,9 +835,9 @@ export function useGlobalAgentListeners(): void {
 
     // ===== 3. 流式错误 =====
     const cleanupError = window.electronAPI.onAgentStreamError(
-      (data: { sessionId: string; startedAt?: number; error: string }) => {
+      (data: { sessionId: string; requestId?: string; startedAt?: number; error: string }) => {
         unstable_batchedUpdates(() => {
-        if (!acceptAgentAttempt(store,data.sessionId,data.startedAt)) return
+        if (!acceptAgentAttempt(store,data.sessionId,data.requestId)) return
         console.error('[GlobalAgentListeners] 流式错误:', data.error)
 
         // 存储错误消息
