@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development task-by-task。每个任务先行为红绿测试、再独立规格/质量审查。相关任务合成一个可用闭环后才发布 Draft PR。
 
-**状态**：用户已授权规划后直接实施。基线 main `5683b781cc46ab631f73c7e84c735dcb9fb58021`，PR #19/#20 已合并。只读设计在本机检查目录 milestone-design.md，下面为执行事实源。
+**状态**：M1实现及本机验收完成，三项任务独立审查通过。默认未切换，M2/M3未完成。用户已授权规划后直接实施。基线 main `5683b781cc46ab631f73c7e84c735dcb9fb58021`，PR #19/#20 已合并。只读设计在本机检查目录 milestone-design.md，下面为执行事实源。
 
 **Goal:** 在原正式 UI 中，以明确 opt-in 的 Rust 进程承接文本会话、模型选择、多轮流式、取消、错误和历史重启恢复，并用同一 Rust application service 绑定 Tauri handler。
 
@@ -35,6 +35,8 @@
 - 请求身份冻结 session/request/profile/model/configRevision/input/effort，重放同一请求不再次调用 provider。失败、取消、中断不可作父链，重试新请求只继承最近成功祖先。
 - 未迁移的 tool/thinking/多模态、附件/目录/MCP/skills、coding、queue/fork/rewind/compact 等要明确拒绝，不丢参数后假成功。默认 UI 始终传的 `taskMode:search` 是文本模式元数据，不能错误拒绝普通发送；默认 effort high 必须有明确协议映射，不能忽略。
 - 请求取消后不接收晚到 delta，不接受迟到旧终态覆盖新请求。取消/拒绝不执行工具。本轮没有实际工具runner；模型返回工具块应明确 unsupported且执行计数为零，完整授权执行在M2。
+- renderer保留有界的最新请求归属，终态清理后仍能拒绝旧请求回调。旧ERROR/COMPLETE和旧发送Promise都不能修改新请求的错误、草稿、running或其它终态副作用，无startedAt的旧调用保持兼容。
+- 本轮文本预览不开放deliverables文件资源，避免提前实现将再次迁移的文件服务；正式界面静态资源按可信构建目录放行，真实产物协议留M2统一接入。
 - 面向用户新增说明/error走en/zh i18n，注释与日志中文，不用any，不加第二套状态库，不批量改内部ASCI标识。源码软500/硬800行，按域拆分。
 - 每任务独立提交/审查，无重要未修问题才下一任务。最终Rust/Bun/类型/lint/构建与实际可行界面验证，无CI记录不称通过。正常hooks，安全分支/Draft PR，不强推/合并/安装。
 
@@ -76,13 +78,13 @@ result/error严格二选一，未知版本/字段/方法/ID/超限报固定码�
 **Consumes:** 既有RunController/RunStore/context-v2/ChatHttpProvider、合成trusted profiles。Task1先以既有OpenAI文本跑通服务，effort/public协议选择的出站映射由紧随Task2完成，Task3前必须过对应门槛；Task1不能声称已支持原UI发送。
 **Produces:** `DesktopRuntime::open(root, profiles)` 及固定wire `dispatch`，真实stdout/stdio binary，同coreTauri状态及handler。实现者在首个测试前固定精确API并同步TS/Rust contract，不擅改上述wire方法语义。
 
-- [ ] 明确session journal与run日志的事实源关系：先持久化不可变请求绑定与用户输入再启动run；启动前写入失败不调用provider。中间崩溃保留请求为interrupted/不确定，不自动重放。RunStore中输入/父链与绑定不一致拒绝。索引/缓存可重建，不让两个独立JSON都自认事实源。
-- [ ] RED：session create/list/update/draft重用、不同会话历史隔离；请求绑定冲突；真实进程两轮与重启第三轮mock HTTP捕获1/3/5条角色消息，Unicode保留。
-- [ ] 实现bounded元数据/请求journal、单写锁、每会话复用控制器、最多16活跃会话，迟到终态归属与重启恢复，不在每个请求open而interrupt活跃run。
-- [ ] RED并实现：同时send只一次provider；更换input/model/revision/effort冲突；失败/取消部分输出保存；进程kill后interrupted；坏/截断/未来schema、安全路径和存储失败先拒绝。
-- [ ] 真实进程测试：未知/超大/截断frame、错误reply ID、stdout不混日志、EOF关闭、慢provider期间cancel快速返回，父进程断开不留模型请求、无自动重发。stdin不提供任意路径/命令执行。
-- [ ] Tauri真实invoke(MockRuntime)调用同服务；对非法参数同错误码；旧Lab tests继续通过。
-- [ ] 运行Rust fmt/test/clippy，记录实际红绿/计数和各故障窗口未测项，独立review后Root提交。
+- [x] 明确session journal与run日志的事实源关系：先持久化不可变请求绑定与用户输入再启动run；启动前写入失败不调用provider。中间崩溃保留请求为interrupted/不确定，不自动重放。RunStore中输入/父链与绑定不一致拒绝。索引/缓存可重建，不让两个独立JSON都自认事实源。
+- [x] RED：session create/list/update/draft重用、不同会话历史隔离；请求绑定冲突；真实进程两轮与重启第三轮mock HTTP捕获1/3/5条角色消息，Unicode保留。
+- [x] 实现bounded元数据/请求journal、单写锁、每会话复用控制器、最多16活跃会话，迟到终态归属与重启恢复，不在每个请求open而interrupt活跃run。
+- [x] RED并实现：同时send只一次provider；更换input/model/revision/effort冲突；失败/取消部分输出保存；进程kill后interrupted；坏/截断/未来schema、安全路径和存储失败先拒绝。
+- [x] 真实进程测试：未知/超大/截断frame、错误reply ID、stdout不混日志、EOF关闭、慢provider期间cancel快速返回，父进程断开不留模型请求、无自动重发。stdin不提供任意路径/命令执行。
+- [x] Tauri真实invoke(MockRuntime)调用同服务；对非法参数同错误码；旧Lab tests继续通过。
+- [x] 运行Rust fmt/test/clippy，记录实际红绿/计数和各故障窗口未测项，独立review后Root提交。
 
 ## Task 2：两种文本协议与 effort 映射
 
@@ -91,11 +93,11 @@ result/error严格二选一，未知版本/字段/方法/ID/超限报固定码�
 **Consumes:** Task1 trusted profile registry与request/effort不可变绑定。
 **Produces:** `openai-chat` 与 `anthropic-messages` 文本provider均可选，明确capability。仅codec/私有provider工厂扩展，不触及renderer。
 
-- [ ] RED：两模型/两协议真实loopback请求、正确路径/auth/角色/system字段、provider不支持effort或字段先拒绝；默认high及可支持effort真实出站，不静默忽略。
-- [ ] Anthropic按官方Messages streaming的message_start→content_block_*→message_delta→message_stop验证状态，ping可忽略，文本增量UTF-8按字节分片可重组。非文本/tool/thinking块明确unsupported；error/非成功stop/truncated不伪装完成。
-- [ ] 复用已验证取消/总120秒与idle15秒上限、域名禁用/loopback宿主范围、HTTP错误脱敏；测试并发取消、错误body/key反射、超时断流和socket清理，工具执行计数始终0。
-- [ ] 官方协议参考：[Claude streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)、[Messages](https://platform.claude.com/docs/en/api/messages)。只引用协议，不调用真实服务。
-- [ ] Rust tests/fmt/clippy通过且review后提交。
+- [x] RED：两模型/两协议真实loopback请求、正确路径/auth/角色/system字段、provider不支持effort或字段先拒绝；默认high及可支持effort真实出站，不静默忽略。
+- [x] Anthropic按官方Messages streaming的message_start→content_block_*→message_delta→message_stop验证状态，ping可忽略，文本增量UTF-8按字节分片可重组。非文本/tool/thinking块明确unsupported；error/非成功stop/truncated不伪装完成。
+- [x] 复用已验证取消/总120秒与idle15秒上限、域名禁用/loopback宿主范围、HTTP错误脱敏；测试并发取消、错误body/key反射、超时断流和socket清理，工具执行计数始终0。
+- [x] 官方协议参考：[Claude streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)、[Messages](https://platform.claude.com/docs/en/api/messages)。只引用协议，不调用真实服务。
+- [x] Rust tests/fmt/clippy通过且review后提交。
 
 ## Task 3：正式 Electron UI 的隔离 opt-in 路由与消息投影
 
@@ -104,23 +106,31 @@ result/error严格二选一，未知版本/字段/方法/ID/超限报固定码�
 **Consumes:** Task1/2 wire、sidecar binary及trusted synthetic profiles。正式 session list/create/messages/sdkMessages/update/delete/send/stop必须一致路由，不能只改send让历史仍读旧后端。
 **Produces:** 原UI+preload+main IPC→真实Rust进程→mock HTTP→持久历史→原UI，关闭opt-in回旧SDK。所有新业务归Rust，TS只适配。
 
-- [ ] RED：默认不启用且旧IPC回归通过；packaged、缺root/配置/binary、非新命名空间、外部目标或异常配置不能启用。路径由主进程可信配置选定，renderer不能执行binary/改env/root。
-- [ ] 在独立preview设置域初始化可选profile/model默认值，保持原设置接口与用户随后选择；不触及真实配置。平台偏好本轮可复用旧服务的隔离root实现，不能将这写成Rust配置存储已全部替代。
-- [ ] Rust分支必须先分派，不执行旧sticky/context写入或SDK，未迁移操作不fallback。未迁移read/write明确unsupported，有语义安全的既有平台/独立root读服务保留且记录。
-- [ ] profile元数据从Rust经原listChannels结构返回，至少2模型可选；未知profile/model/disabled/revision冲突拒绝；渠道凭据CRUD不调用旧decrypt/keychain。
-- [ ] 同一history投影生成旧AgentMessage和SDKMessage，稳定UUID防重，user/assistant/terminal状态与durable记录一致。新增typed ASCI text_delta映射到现有applyAgentEvent，终态仅一个完整assistant，不反复推同UUID快照。
-- [ ] STREAM_COMPLETE在history已可读后发送并保持startedAt；cancel stoppedByUser；固定错误恢复running且部分内容存在；旧进程/旧请求的晚到事件不能盖掉新流。sidecarexit/坏帧/超时清pending/停止poll，不自动重启重发。
-- [ ] queue先明确unsupported，原有optimistic queue/draft恢复不得永久卡住；coding、工具、附件/目录、MCP/skill、非支持override拒绝不静默丢弃。保留原UI源，必须修改的listener/行为helper做最小共享适配且默认旧路径回归。
-- [ ] 真实sidecar+localserver的main/preload委托集成，原AgentView/AgentMessages显示Unicode增量/两轮/失败/取消/重开。native Electron可用时用独立owned进程、独立userData和合成fixture实际页面验收/截图，不触碰现有App；阻碍如实记录，不绕过权限。
-- [ ] 全仓Bun/type/lint/Electronbuild，Rust回归适当，独立review通过后提交。
+- [x] RED：默认不启用且旧IPC回归通过；packaged、缺root/配置/binary、非新命名空间、外部目标或异常配置不能启用。路径由主进程可信配置选定，renderer不能执行binary/改env/root。
+- [x] 在独立preview设置域初始化可选profile/model默认值，保持原设置接口与用户随后选择；不触及真实配置。平台偏好本轮可复用旧服务的隔离root实现，不能将这写成Rust配置存储已全部替代。
+- [x] Rust分支必须先分派，不执行旧sticky/context写入或SDK，未迁移操作不fallback。未迁移read/write明确unsupported，有语义安全的既有平台/独立root读服务保留且记录。
+- [x] profile元数据从Rust经原listChannels结构返回，至少2模型可选；未知profile/model/disabled/revision冲突拒绝；渠道凭据CRUD不调用旧decrypt/keychain。
+- [x] 同一history投影生成旧AgentMessage和SDKMessage，稳定UUID防重，user/assistant/terminal状态与durable记录一致。新增typed ASCI text_delta映射到现有applyAgentEvent，终态仅一个完整assistant，不反复推同UUID快照。
+- [x] STREAM_COMPLETE在history已可读后发送并保持startedAt；cancel stoppedByUser；固定错误恢复running且部分内容存在；旧进程/旧请求的晚到事件不能盖掉新流。sidecarexit/坏帧/超时清pending/停止poll，不自动重启重发。
+- [x] queue先明确unsupported，原有optimistic queue/draft恢复不得永久卡住；coding、工具、附件/目录、MCP/skill、非支持override拒绝不静默丢弃。保留原UI源，必须修改的listener/行为helper做最小共享适配且默认旧路径回归。
+- [x] 真实sidecar+localserver的main/preload委托集成，原AgentView/AgentMessages显示Unicode增量/两轮/失败/取消/重开。native Electron可用时用独立owned进程、独立userData和合成fixture实际页面验收/截图，不触碰现有App；阻碍如实记录，不绕过权限。
+- [x] 全仓Bun/type/lint/Electronbuild，Rust回归适当，独立review通过后提交。
 
 ## Task 4：整体验收、兼容矩阵与 Draft 交付
 
-- [ ] 执行真进程两协议/两模型、1/3/5上下文、多会话、重放、取消/拒工具、失败/kill/恢复与默认旧路径回归，收敛首次发现后重跑受影响项。
-- [ ] 原UI组件/CSS差异清单与可行原生/模拟证据，区分Electron UI、Tauri MockRuntime、原生Tauri未测。未使用的接口不说已迁完。
-- [ ] 更新tracked report，列明actual路径/default路径、尚未迁移功能及M2入口、准确命令/计数/log、凭据与数据保护/回滚；不改README/CLAUDE无关规则。
-- [ ] 格式/类型/lint/fullBun/Cargo/Electron构建、敏感diff审查、独立全分支review与simplify；通过后正常fetch+merge最新main，再push安全分支/Draft，核实完整head/CI状态，PR后review回帖收尾。
+- [x] 执行真进程两协议/两模型、1/3/5上下文、多会话、重放、取消/拒工具、失败/kill/恢复与默认旧路径回归，收敛首次发现后重跑受影响项。
+- [x] 原UI组件/CSS差异清单与可行原生/模拟证据，区分Electron UI、Tauri MockRuntime、原生Tauri未测。未使用的接口不说已迁完。
+- [x] 更新tracked report，列明actual路径/default路径、尚未迁移功能及M2入口、准确命令/计数/log、凭据与数据保护/回滚；不改README/CLAUDE无关规则。
+- [x] 格式/类型/lint/fullBun/Cargo/Electron构建、敏感diff审查、独立全分支review与simplify；发布继续使用正常fetch+merge最新main、push安全分支/Draft、核实完整head/CI状态和PR后review回帖流程，实际远端状态以PR记录为准。
 
 ## 回滚与完成定义
 
 停用opt-in即可回原默认backend；新命名空间保持给新版读取，不以删除它解决回滚。旧用户数据/安装版从未被切换。本轮只有正式UI→Rust实际进程、同coreTauriinvoke及上述恢复/取消都实测，才称M1完成；若nativeGUI不可用则单列未验收，不说完整产品可替换。M2/M3未完时保留Electron/SDK。
+
+## 已完成阶段证据（持续更新）
+
+- Task 1：`36480123eb068b38e8f7e27d5865609f2ff90c01`。Rust session facade、持久化绑定、JSONL进程、Tauri共用handler已实现。171项Rust回归、fmt/clippy通过，独立规格与质量审查通过。恢复全局只读预检、目录同步重试及精确分页预算的审查发现均有修复和回归。
+- Task 2：`696cdc684ef25811d6a61126ae7efccdee7cb3a3`。两种文本协议、可信模型effort声明与真实出站字段已实现。最终186项Rust回归、fmt/clippy、共享类型与定向lint通过，独立复审通过。Anthropic多顶层delta修复有真实HTTP和runtime进程红绿测试。
+- 上述测试使用合成数据、伪凭据与本机回环服务。Tauri为真实handler的MockRuntime调用，尚非原生窗口。正式UI接线与验收证据见Task 3，不把上述核心测试外推为整套产品替换。
+
+- Task 3：`9e9c790d84bc5036d46b462f87cd3466f1914cf7`。原正式UI经真实preload/main/Rust/本机HTTP完成发送、多轮、两模型、失败草稿恢复、取消、运行中刷新、整进程重开及中英/主题。47项focused/215断言通过，R1–R6与EOF审查问题均修复并复审通过。最终全仓3436 Bun、186 Rust、6 workspace类型、lint通过，完整Electron构建通过。正常hook将Electron workspace版本由0.1.617增至0.1.618，无安装包或默认切换。详见[验收报告](../reports/2026-11-10-rust-desktop-runtime.md)。
