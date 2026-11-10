@@ -35,7 +35,7 @@
 - 请求身份冻结 session/request/profile/model/configRevision/input/effort，重放同一请求不再次调用 provider。失败、取消、中断不可作父链，重试新请求只继承最近成功祖先。
 - 未迁移的 tool/thinking/多模态、附件/目录/MCP/skills、coding、queue/fork/rewind/compact 等要明确拒绝，不丢参数后假成功。默认 UI 始终传的 `taskMode:search` 是文本模式元数据，不能错误拒绝普通发送；默认 effort high 必须有明确协议映射，不能忽略。
 - 请求取消后不接收晚到 delta，不接受迟到旧终态覆盖新请求。取消/拒绝不执行工具。本轮没有实际工具runner；模型返回工具块应明确 unsupported且执行计数为零，完整授权执行在M2。
-- renderer保留有界的最新请求归属，终态清理后仍能拒绝旧请求回调。旧ERROR/COMPLETE和旧发送Promise都不能修改新请求的错误、草稿、running或其它终态副作用，无startedAt的旧调用保持兼容。
+- renderer显式登记有界的opaque requestId，终态清理后仍拒绝带归属的旧请求回调。startedAt只用于真实时间，不参与身份排序，时钟回拨或相等仍可发送。旧ERROR/COMPLETE和旧发送Promise不能修改新请求的错误、草稿、running及终态副作用，无身份的旧SDK/external调用保持原兼容。
 - 本轮文本预览不开放deliverables文件资源，避免提前实现将再次迁移的文件服务；正式界面静态资源按可信构建目录放行，真实产物协议留M2统一接入。
 - 面向用户新增说明/error走en/zh i18n，注释与日志中文，不用any，不加第二套状态库，不批量改内部ASCI标识。源码软500/硬800行，按域拆分。
 - 每任务独立提交/审查，无重要未修问题才下一任务。最终Rust/Bun/类型/lint/构建与实际可行界面验证，无CI记录不称通过。正常hooks，安全分支/Draft PR，不强推/合并/安装。
@@ -133,4 +133,5 @@ result/error严格二选一，未知版本/字段/方法/ID/超限报固定码�
 - Task 2：`696cdc684ef25811d6a61126ae7efccdee7cb3a3`。两种文本协议、可信模型effort声明与真实出站字段已实现。最终186项Rust回归、fmt/clippy、共享类型与定向lint通过，独立复审通过。Anthropic多顶层delta修复有真实HTTP和runtime进程红绿测试。
 - 上述测试使用合成数据、伪凭据与本机回环服务。Tauri为真实handler的MockRuntime调用，尚非原生窗口。正式UI接线与验收证据见Task 3，不把上述核心测试外推为整套产品替换。
 
-- Task 3：`9e9c790d84bc5036d46b462f87cd3466f1914cf7`。原正式UI经真实preload/main/Rust/本机HTTP完成发送、多轮、两模型、失败草稿恢复、取消、运行中刷新、整进程重开及中英/主题。47项focused/215断言通过，R1–R6与EOF审查问题均修复并复审通过。最终全仓3436 Bun、186 Rust、6 workspace类型、lint通过，完整Electron构建通过。正常hook将Electron workspace版本由0.1.617增至0.1.618，无安装包或默认切换。详见[验收报告](../reports/2026-11-10-rust-desktop-runtime.md)。
+- Task 3：`9e9c790d84bc5036d46b462f87cd3466f1914cf7`。原正式UI经真实preload/main/Rust/本机HTTP完成发送、多轮、两模型、失败草稿恢复、取消、运行中刷新、整进程重开及中英/主题。R1–R6与EOF问题有修复和回归。
+- PR后修复：`e1344fddc3d232d6151a362b633408a244b3526f`。独立requestId替代时间戳排序，五个UI入口、迟到回调、默认SDK可选元数据和无身份legacy兼容均有回归。实际renderer回拨时钟后仍正常完成，没有改系统时间。最终54项focused/333断言、全仓3443 Bun、186 Rust、六workspace类型、lint及完整Electron构建通过，独立复审和simplify通过。正常hook将Electron workspace版本由0.1.617增至0.1.618，无安装包或默认切换。详见[验收报告](../reports/2026-11-10-rust-desktop-runtime.md)。

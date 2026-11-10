@@ -42,6 +42,7 @@
 | 会话服务与进程 | 36480123eb068b38e8f7e27d5865609f2ff90c01 | 171项Rust通过，独立SpecPass/QualityApprove |
 | 文本协议与effort | 696cdc684ef25811d6a61126ae7efccdee7cb3a3 | 最终186项Rust通过，独立SpecPass/QualityApprove |
 | 原正式UI与Rust接线 | 9e9c790d84bc5036d46b462f87cd3466f1914cf7 | 原生闭环、47项focused、独立SpecPass/QualityApprove |
+| PR后请求归属修复 | e1344fddc3d232d6151a362b633408a244b3526f | 独立requestId、54项focused、时钟回拨原生验证及复审通过 |
 
 Task1审查发现并修复了启动全局只读预检顺序、目录持久化同步及失败重试、2MiB边界预算，补有行为回归。Task2审查发现并修复了Anthropic多个message_delta的兼容性，真实HTTP和真实runtime进程先红后绿。usage-only/null更新保留已确认的正常stop，冲突stop仍失败。
 
@@ -60,6 +61,7 @@ Task1审查发现并修复了启动全局只读预检顺序、目录持久化同
 - 运行中刷新renderer，恢复当前完整文本快照再接增量。终态为11条稳定消息，无重复UUID。
 - 退出整个owned Electron及Rust，再以同一合成根重开。原保存标签、模型选择及11条历史恢复，不自动重发模型。
 - 中文深色与英文浅色重开检查通过。截图等待入场动画稳定后采集。
+- 测试入口只在renderer临时模拟Date构造与Date.now回拨，实际捕获第二次startedAt小于第一次、requestId不同且原UI正常完成。shim在finally恢复，没有修改系统时间。
 
 原生模拟共5次HTTP，模型A后切B，所有请求真实携带high，角色数量为`[1,3,5,5,5]`，失败和取消未进入成功父链。11条消息是5条user、5条assistant和1条真实host取消注释，没有伪造SDK结果、session来源、token或费用。
 
@@ -86,20 +88,21 @@ bun apps/electron/scripts/ui-runtime-acceptance.ts /absolute/Electron /absolute/
 
 | 检查 | 实际结果 | 本机日志 |
 |---|---|---|
-| 全仓`bun test` | 3436 pass，0 fail，9337断言，400文件 | final-bun.log |
-| 全仓`bun run typecheck` | 六个workspace exit 0 | final-typecheck.log |
-| 全仓`bun run lint` | exit 0 | final-lint.log |
-| `bun run electron:build` | exit 0，正常hook版本变更后再构建 | final-electron-build.log / final-electron-build-versioned.log |
+| 全仓`bun test` | 3443 pass，0 fail，9454断言，400文件 | pr21-final-bun.log |
+| 全仓`bun run typecheck` | 六个workspace exit 0 | pr21-final-typecheck.log |
+| 全仓`bun run lint` | exit 0 | pr21-final-lint.log |
+| `bun run electron:build` | exit 0，含正常hook版本变更及PR后修复 | pr21-final-build.log |
 | Rust `cargo test` | 186个顶层测试通过，0失败，不重复计算子进程filtered测试 | final-rust.log |
 | Rust fmt / clippy all-targets `-D warnings` | exit 0 | final-fmt.log / final-clippy.log |
-| 最终定向UI/适配测试 | 47 pass，215断言，11文件 | ui-runtime-review-focused-final.log |
-| 最新原生自动化 | exit 0，5次合成HTTP | ui-runtime-review-r6-native.log / review-r6/ui-runtime-http.json |
+| 最终定向UI/适配测试 | 54 pass，333断言，11文件 | ui-runtime-pr21-focused.log |
+| 最新原生自动化 | exit 0，5次合成HTTP，含实际renderer时钟回拨 | ui-runtime-pr21-native.log / pr21-identity/ui-runtime-http.json |
 | 独立规格及质量审查 | R1–R6和EOF问题关闭，SpecPass / QualityApprove | task-3-review.md |
+| PR后审查 | 时钟回拨P2修复复审通过，未发现其它重要问题 | pr21-review.md |
 | 全分支simplify复盘 | approve，无必须修改项 | simplify-runtime.md |
 
 Rust命令均使用`--manifest-path apps/tinker-rust/src-tauri/Cargo.toml`。clippy参数为`--all-targets -- -D warnings`，fmt为`cargo fmt ... -- --check`。本机日志全部位于`/private/tmp/tinker-runtime-checks-20261110`。运行时剥离ambient服务变量，ASCI配置和runtime指向新建测试根，Cargo复用既有target。回环/原生验证使用正常工具权限，没有绕过拒绝。
 
-正常提交hook把Electron workspace由0.1.617增至0.1.618，其他相关workspace也按正常hook更新。截图取自提交前冻结的同一功能源码，版本hook仅改变package版本，随后完整构建重新通过。没有制作或替换安装包。
+正常提交hook把Electron workspace由0.1.617增至0.1.618，其他相关workspace也按正常hook更新。最新截图取自PR后请求归属修复的冻结源码，随后完整构建重新通过。Rust源码在该修复中没有变化，186项Rust结果对应相同Rust源码。没有制作或替换安装包。
 
 ### 审查后补齐的边界
 
@@ -108,7 +111,8 @@ Rust命令均使用`--manifest-path apps/tinker-rust/src-tauri/Cargo.toml`。cli
 | 重载最新快照与事件分页 | 游标推进到完整快照sequence，超过128个delta的积压及后续增量均只出现一次 |
 | 所有失败Promise | polling/history的合法storeIo等错误也拒绝发送，关闭失效sidecar，不留不可见执行 |
 | 文件资源 | 全部deliverables资源拒绝，只允许可信构建资源，不经链接暴露私有根或其它文件 |
-| 新旧请求归属 | 保留有界最新attempt，旧EVENT/ERROR/COMPLETE和旧Promise不污染新请求，含新请求已结束后 |
+| 新旧请求归属 | 显式登记有界独立requestId，带归属的旧EVENT/ERROR/COMPLETE和旧Promise不污染新请求，含新请求已结束后。无身份的旧SDK/external路径保持原兼容 |
+| 时钟回拨及相等时钟 | startedAt只表示真实时间，不再参与身份排序。五个本地入口捕获同一个opaque ID，成功、失败、回拨、相等时钟及重复点击均有回归 |
 | 工作区兼容目录 | 使用真实`.asci/.asci-dev`，实际preload low/high读写在启动与重开验证 |
 | 旧workspace索引迁移 | 在任何旧reader前预检main、tmp、bak候选，拒绝v1、future、畸形和不安全slug，owned外部sentinel及原索引不变 |
 | stdout EOF | 残缺frame后EOF立即失败，不等下一次请求超时，不重放 |
@@ -117,7 +121,7 @@ Rust命令均使用`--manifest-path apps/tinker-rust/src-tauri/Cargo.toml`。cli
 
 ### 正式页面证据
 
-![原正式UI的两轮Rust会话](assets/rust-runtime-original-ui.png)
+![原正式UI的两轮Rust会话，第二次时间较早为受控renderer回拨验证](assets/rust-runtime-original-ui.png)
 
 ![重开后中文深色、部分失败与取消状态](assets/rust-runtime-restored-zh-dark.png)
 
