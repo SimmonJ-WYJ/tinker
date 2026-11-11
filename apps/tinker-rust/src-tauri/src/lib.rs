@@ -26,3 +26,5 @@ mod run_context_tests;
 
 pub mod desktop_commands;
 pub mod desktop_runtime;
+
+pub mod formal_platform;

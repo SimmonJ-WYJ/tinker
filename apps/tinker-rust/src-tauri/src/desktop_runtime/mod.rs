@@ -1,6 +1,6 @@
 //! 正式会话服务；stdio与Tauri共同调用，秘密仅由可信宿主注入。
 mod execution;
-mod profile;
+pub(crate) mod profile;
 pub mod protocol;
 mod session;
 mod store;
