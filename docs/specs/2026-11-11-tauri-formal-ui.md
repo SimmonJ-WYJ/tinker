@@ -70,3 +70,13 @@ Tauri 原生 Rust 平台服务提供设置、主题/语言、合成用户档案�
 - `closeReady(generation, closeToken, committedRevision)` 只做不可逆取消/drain/join，并保存 native receipt；它本身不关闭窗口。同 token 重试返回 pending/最终结果，不重复回收。准备期拒绝可由确认后的 `abortClose` 恢复；已过期/已取消的同一 token 的 abort 确认幂等。不可逆取消失败以 `closeFailed` 区分，后台仍回收 host/mock，保留失败 receipt。
 - 只有已确认成功的同 generation/token/revision 才能执行窄 `closeWindow`，此最后授权没有 renderer deadline。closeReady 等待超时后 renderer 保持冻结，晚到结果不会自动关闭。用户再次通过原生窗口关闭或 Quit 请求，可查询同 token；若仍 pending/失败则留窗，成功后才重新明确授权 closeWindow。未知提交期间 reload 不执行；不把已回收的 host 假装恢复可用。
 - 上述协议故障注入与 Tauri mock-runtime/真实 actor 测试不等同于 WKWebView 原生 UI 验收；Task5 须单独验证窗口关闭、菜单与交互。
+
+## Task5：原生 QA 隔离与构建配置校验
+
+正式与 QA binary 复用 `formal_launch`，两入口显式传不同 identifier；在创建 Builder、窗口和数据之前拒绝配置串用。Tauri 2.10 的 context 宏按配置目录加载默认文件，因此两个直接 Cargo 构建脚本均显式设置 TAURI_CONFIG，不能只相信宏的文件名参数。
+
+`formal-native-qa` 是仅 macOS 的可选 feature，独立 `tinker-formal-native-qa` binary 与 `com.tinker.formal-native-qa` identifier。只有 QA 入口传入 ready callback，普通入口即便 all-features 编译也不启动控制器；普通交付构建不启用该 feature。公开 WKWebView evaluateJavaScript/takeSnapshot 仅用于本进程原 React renderer 的合成验收，无新增 renderer IPC 或网络控制端点。
+
+QA evidence 必须是 canonical `/private/tmp/tinker-tauri-checks-*/native-qa/<batch>` 目录。原合成 profile 仍受 TrustedRoot 独立 marker 校验。测试目录中 command.json/result-N.json 为有界本地验收协议（至多256个动作、30分钟）；eval、snapshot、records、focus、fullscreen、window、reload、close 只作用于 owned main window。截图固定 snapshot-N.png，不接收任意输出路径。可用 `scripts/native-qa-command.py` 提交动作；build-native-qa.ts 只构建 QA，禁止把 QA binary 作为普通包交付。
+
+本轮在 macOS 26.5.1 arm64 使用真实编辑器输入、Send/Stop、模型/effort/设置 DOM 控件，结合 native fullscreen/CloseRequested、owned HTTP 元数据与 journal/进程重启验收。DOM 事件不是系统鼠标自动化；不承诺跨引擎像素一致。更多故障注入、>128 backlog 和真实产品未迁移能力必须在验收报告中区分通过与未运行。

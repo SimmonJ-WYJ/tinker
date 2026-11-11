@@ -35,3 +35,8 @@ pub mod formal_mock;
 
 pub mod formal_commands;
 pub mod formal_menu;
+
+#[cfg(feature = "formal-preview")]
+pub mod formal_launch;
+#[cfg(all(feature = "formal-native-qa", target_os = "macos"))]
+pub mod formal_native_qa;
