@@ -6,7 +6,7 @@
  * ExitPlanMode、lit-review / search-plan 响应、待处理请求、Agent Teams、
  * Agent 附件、文件系统操作、工作区文件变化通知。
  */
-import { ipcRenderer, webUtils } from 'electron'
+import type { PlatformTransport } from '../transport.ts'
 import { AGENT_IPC_CHANNELS, LITREVIEW_IPC_CHANNELS, SEARCH_PLAN_IPC_CHANNELS } from '@asci/shared'
 import type { LitReviewPresentDirectionsResponse, SearchPlanConfirmResponse } from '@asci/shared'
 import type {
@@ -57,7 +57,7 @@ import type {
   PreviewDownloadPdfResult,
   DownloadPdfLocalResult,
 } from '@asci/shared'
-import { subscribe } from '../helpers'
+import { subscribe } from '../helpers.ts'
 
 export interface AgentApi {
   // ===== Agent 会话管理相关 =====
@@ -367,386 +367,388 @@ export interface AgentApi {
   searchWorkspaceFiles: (rootPath: string, query: string, limit?: number, additionalPaths?: string[]) => Promise<FileSearchResult>
 }
 
-export const agentApi: AgentApi = {
-  // Agent 会话管理
-  listAgentSessions: () => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_SESSIONS)
-  },
-
-  createAgentSession: (title?: string, channelId?: string, workspaceId?: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.CREATE_SESSION, title, channelId, workspaceId)
-  },
-
-  getOrCreateDraftAgentSession: (channelId?: string, workspaceId?: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_OR_CREATE_DRAFT_SESSION, channelId, workspaceId)
-  },
-
-  getAgentSessionMessages: (id: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_MESSAGES, id)
-  },
-
-  getAgentSessionSDKMessages: (id: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_SDK_MESSAGES, id)
-  },
-
-  updateAgentSessionTitle: (id: string, title: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_TITLE, id, title)
-  },
-
-  deleteAgentSession: (id: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.DELETE_SESSION, id)
-  },
-
-  togglePinAgentSession: (id: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TOGGLE_PIN, id)
-  },
-
-  toggleArchiveAgentSession: (id: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TOGGLE_ARCHIVE, id)
-  },
-
-  searchAgentSessionMessages: (query: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SEARCH_MESSAGES, query)
-  },
-
-  forkAgentSession: (input: ForkSessionInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.FORK_SESSION, input)
-  },
-
-  rewindSession: (input: RewindSessionInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.REWIND_SESSION, input)
-  },
-
-  sendAgentMessage: (input: AgentSendInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SEND_MESSAGE, input)
-  },
-
-  stopAgent: (sessionId: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.STOP_AGENT, sessionId)
-  },
-
-  // Agent 队列消息
-  queueAgentMessage: (input: AgentQueueMessageInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.QUEUE_MESSAGE, input)
-  },
-
-  // Agent 后台任务管理
-  getTaskOutput: (input: GetTaskOutputInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_TASK_OUTPUT, input)
-  },
-
-  stopTask: (input: StopTaskInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.STOP_TASK, input)
-  },
-
-  // Agent 工作区管理
-  listAgentWorkspaces: () => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_WORKSPACES)
-  },
-
-  createAgentWorkspace: (name: string, sourceSlug?: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.CREATE_WORKSPACE, name, sourceSlug)
-  },
-
-  updateAgentWorkspace: (id: string, updates: { name: string }) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.UPDATE_WORKSPACE, id, updates)
-  },
-
-  deleteAgentWorkspace: (id: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.DELETE_WORKSPACE, id)
-  },
-
-  reorderAgentWorkspaces: (orderedIds: string[]) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.REORDER_WORKSPACES, orderedIds)
-  },
-
-  // 工作区能力（MCP + Skill）
-  getWorkspaceCapabilities: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_CAPABILITIES, workspaceSlug)
-  },
-
-  getGlobalMcpConfig: () => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_MCP_CONFIG)
-  },
-
-  saveGlobalMcpConfig: (config: GlobalMcpConfig) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SAVE_MCP_CONFIG, config)
-  },
-
-  onMcpGlobalChanged: (callback: () => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.MCP_GLOBAL_CHANGED, callback)
-  },
-
-  testMcpServer: (name: string, entry: import('@asci/shared').McpServerEntry) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TEST_MCP_SERVER, name, entry) as Promise<{ success: boolean; message: string }>
-  },
-
-  getWorkspaceSkills: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_SKILLS, workspaceSlug)
-  },
-
-  getWorkspaceSkillsDir: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_SKILLS_DIR, workspaceSlug)
-  },
-
-  deleteWorkspaceSkill: (workspaceSlug: string, skillSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.DELETE_SKILL, workspaceSlug, skillSlug)
-  },
-
-  toggleWorkspaceSkill: (workspaceSlug: string, skillSlug: string, enabled: boolean) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.TOGGLE_SKILL, workspaceSlug, skillSlug, enabled)
-  },
-
-  batchToggleSkillsByCategory: (
-    req: import('@asci/shared').BatchToggleSkillsByCategoryInput,
-  ): Promise<import('@asci/shared').BatchToggleSkillsByCategoryResult> => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.BATCH_TOGGLE_SKILL_BY_CATEGORY, req)
-  },
-
-  getOtherWorkspaceSkills: (currentSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_OTHER_WORKSPACE_SKILLS, currentSlug)
-  },
-
-  importSkillFromWorkspace: (targetSlug: string, sourceSlug: string, skillSlug: string) => {
-    return ipcRenderer.invoke(
-      AGENT_IPC_CHANNELS.IMPORT_SKILL_FROM_WORKSPACE,
-      targetSlug,
-      sourceSlug,
-      skillSlug,
-    )
-  },
-
-  updateSkillFromSource: (targetSlug: string, skillSlug: string) => {
-    return ipcRenderer.invoke(
-      AGENT_IPC_CHANNELS.UPDATE_SKILL_FROM_SOURCE,
-      targetSlug,
-      skillSlug,
-    )
-  },
-
-  listSessionPapers: (sessionId: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_SESSION_PAPERS, sessionId) as Promise<{
-      records: PaperRecord[]
-      filePath: string
-    }>
-  },
-
-  onSessionPapersChanged: (callback: (event: SessionPapersChangedEvent) => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.SESSION_PAPERS_CHANGED, callback)
-  },
-
-  getSessionPapersLive: (sessionId: string) => {
-    return ipcRenderer.invoke(
-      AGENT_IPC_CHANNELS.GET_SESSION_PAPERS_LIVE,
-      sessionId,
-    ) as Promise<SessionPapersLive | null>
-  },
-
-  onAgentStreamEvent: (callback: (event: AgentStreamEvent) => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.STREAM_EVENT, callback)
-  },
-
-  onZoteroOpenBatchImport: (callback: (payload: ZoteroOpenBatchImportPayload) => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.ZOTERO_OPEN_BATCH_IMPORT, callback)
-  },
-
-  onAgentStreamComplete: (callback: (data: AgentStreamCompletePayload) => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.STREAM_COMPLETE, callback)
-  },
-
-  onAgentStreamError: (callback: (data: { sessionId: string; requestId?: string; startedAt?: number; error: string }) => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.STREAM_ERROR, callback)
-  },
-
-  // 标题自动更新通知
-  onAgentTitleUpdated: (callback: (data: { sessionId: string; title: string }) => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.TITLE_UPDATED, callback)
-  },
-
-  // Agent 权限系统
-  respondPermission: (response: PermissionResponse) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.PERMISSION_RESPOND, response)
-  },
-
-  getPermissionMode: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_PERMISSION_MODE, workspaceSlug)
-  },
-
-  setPermissionMode: (workspaceSlug: string, mode: ASCIPermissionMode) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SET_PERMISSION_MODE, workspaceSlug, mode)
-  },
-
-  getReasoningEffort: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_REASONING_EFFORT, workspaceSlug)
-  },
-
-  setReasoningEffort: (workspaceSlug: string, effort: AgentEffort) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SET_REASONING_EFFORT, workspaceSlug, effort)
-  },
-
-  // AskUserQuestion 交互式问答
-  respondAskUser: (response: AskUserResponse) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.ASK_USER_RESPOND, response)
-  },
-
-  // ExitPlanMode 计划审批
-  respondExitPlanMode: (response: ExitPlanModeResponse) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.EXIT_PLAN_MODE_RESPOND, response)
-  },
-
-  // lit-review present_directions (spec §5.4 Turn 1 ChoiceCard)
-  respondLitReviewPresentDirections: (response: LitReviewPresentDirectionsResponse) => {
-    return ipcRenderer.invoke(LITREVIEW_IPC_CHANNELS.RESPOND, response)
-  },
-
-  // lit-search present_search_plan 检索方案确认 (issue #435)
-  respondSearchPlan: (response: SearchPlanConfirmResponse) => {
-    return ipcRenderer.invoke(SEARCH_PLAN_IPC_CHANNELS.RESPOND, response)
-  },
-
-  // 待处理请求恢复
-  getPendingRequests: () => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_PENDING_REQUESTS)
-  },
-
-  // Agent Teams 数据
-  getAgentTeamData: (sdkSessionId: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_TEAM_DATA, sdkSessionId)
-  },
-
-  getAgentOutput: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_AGENT_OUTPUT, filePath)
-  },
-
-  // 工作区文件变化通知
-  onCapabilitiesChanged: (callback: () => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.CAPABILITIES_CHANGED, callback)
-  },
-
-  onWorkspaceFilesChanged: (callback: () => void) => {
-    return subscribe(AGENT_IPC_CHANNELS.WORKSPACE_FILES_CHANGED, callback)
-  },
-
-  // Agent 附件
-  saveFilesToAgentSession: (input: AgentSaveFilesInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SAVE_FILES_TO_SESSION, input)
-  },
-
-  saveFilesToWorkspaceFiles: (input: AgentSaveWorkspaceFilesInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SAVE_FILES_TO_WORKSPACE, input)
-  },
-
-  listRecentWorkspaceFiles: (input: ListRecentWorkspaceFilesInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_RECENT_WORKSPACE_FILES, input) as Promise<ListRecentWorkspaceFilesOutput>
-  },
-
-  getWorkspaceFilesPath: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_WORKSPACE_FILES_PATH, workspaceSlug)
-  },
-
-  openFolderDialog: () => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.OPEN_FOLDER_DIALOG)
-  },
-
-  attachWorkspaceDirectory: (input: WorkspaceAttachDirectoryInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.ATTACH_WORKSPACE_DIRECTORY, input)
-  },
-
-  detachWorkspaceDirectory: (input: WorkspaceAttachDirectoryInput) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.DETACH_WORKSPACE_DIRECTORY, input)
-  },
-
-  getWorkspaceDirectories: (workspaceSlug: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_WORKSPACE_DIRECTORIES, workspaceSlug)
-  },
-
-  // Agent 文件系统操作
-  getAgentSessionPath: (workspaceId: string, sessionId: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.GET_SESSION_PATH, workspaceId, sessionId)
-  },
-
-  listDirectory: (dirPath: string, options?: ListDirectoryOptions) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_DIRECTORY, dirPath, options)
-  },
-
-  deleteFile: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.DELETE_FILE, filePath)
-  },
-
-  openFile: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.OPEN_FILE, filePath)
-  },
-
-  showInFolder: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SHOW_IN_FOLDER, filePath)
-  },
-
-  previewFile: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_FILE, filePath)
-  },
-
-  reviewReparseCitations: (bodyPath: string) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.REVIEW_REPARSE_CITATIONS, bodyPath),
-
-  statFile: (filePath) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.STAT_FILE, filePath),
-
-  previewOpenHtml: (filePath) => ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_OPEN_HTML, filePath),
-  previewReadText: (filePath, maxBytes) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_READ_TEXT, filePath, maxBytes),
-
-  previewReadBinary: (filePath) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_READ_BINARY, filePath),
-
-  previewParseNotebook: (filePath) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_PARSE_NOTEBOOK, filePath),
-
-  previewParseOffice: (filePath) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_PARSE_OFFICE, filePath),
-
-  previewDownloadPdf: (input) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.PREVIEW_DOWNLOAD_PDF, input),
-
-  downloadPdfLocal: (input) =>
-    ipcRenderer.invoke(AGENT_IPC_CHANNELS.DOWNLOAD_PDF_LOCAL, input),
-
-  renameFile: (filePath: string, newName: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.RENAME_FILE, filePath, newName)
-  },
-
-  moveFile: (filePath: string, targetDir: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.MOVE_FILE, filePath, targetDir)
-  },
-
-  listAttachedDirectory: (dirPath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.LIST_ATTACHED_DIRECTORY, dirPath)
-  },
-
-  openAttachedFile: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.OPEN_ATTACHED_FILE, filePath)
-  },
-
-  showAttachedInFolder: (filePath: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SHOW_ATTACHED_IN_FOLDER, filePath)
-  },
-
-  renameAttachedFile: (filePath: string, newName: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.RENAME_ATTACHED_FILE, filePath, newName)
-  },
-
-  moveAttachedFile: (filePath: string, targetDir: string) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.MOVE_ATTACHED_FILE, filePath, targetDir)
-  },
-
-  checkPathsType: (paths: string[]) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.CHECK_PATHS_TYPE, paths)
-  },
-
-  getPathForFile: (file: File) => {
-    return webUtils.getPathForFile(file)
-  },
-
-  searchWorkspaceFiles: (rootPath: string, query: string, limit = 20, additionalPaths?: string[]) => {
-    return ipcRenderer.invoke(AGENT_IPC_CHANNELS.SEARCH_WORKSPACE_FILES, rootPath, query, limit, additionalPaths)
-  },
+export function createAgentApi(transport: PlatformTransport): AgentApi {
+  return {
+    // Agent 会话管理
+    listAgentSessions: () => {
+      return transport.invoke(AGENT_IPC_CHANNELS.LIST_SESSIONS)
+    },
+
+    createAgentSession: (title?: string, channelId?: string, workspaceId?: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.CREATE_SESSION, title, channelId, workspaceId)
+    },
+
+    getOrCreateDraftAgentSession: (channelId?: string, workspaceId?: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_OR_CREATE_DRAFT_SESSION, channelId, workspaceId)
+    },
+
+    getAgentSessionMessages: (id: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_MESSAGES, id)
+    },
+
+    getAgentSessionSDKMessages: (id: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_SDK_MESSAGES, id)
+    },
+
+    updateAgentSessionTitle: (id: string, title: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.UPDATE_TITLE, id, title)
+    },
+
+    deleteAgentSession: (id: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.DELETE_SESSION, id)
+    },
+
+    togglePinAgentSession: (id: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.TOGGLE_PIN, id)
+    },
+
+    toggleArchiveAgentSession: (id: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.TOGGLE_ARCHIVE, id)
+    },
+
+    searchAgentSessionMessages: (query: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SEARCH_MESSAGES, query)
+    },
+
+    forkAgentSession: (input: ForkSessionInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.FORK_SESSION, input)
+    },
+
+    rewindSession: (input: RewindSessionInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.REWIND_SESSION, input)
+    },
+
+    sendAgentMessage: (input: AgentSendInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SEND_MESSAGE, input)
+    },
+
+    stopAgent: (sessionId: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.STOP_AGENT, sessionId)
+    },
+
+    // Agent 队列消息
+    queueAgentMessage: (input: AgentQueueMessageInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.QUEUE_MESSAGE, input)
+    },
+
+    // Agent 后台任务管理
+    getTaskOutput: (input: GetTaskOutputInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_TASK_OUTPUT, input)
+    },
+
+    stopTask: (input: StopTaskInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.STOP_TASK, input)
+    },
+
+    // Agent 工作区管理
+    listAgentWorkspaces: () => {
+      return transport.invoke(AGENT_IPC_CHANNELS.LIST_WORKSPACES)
+    },
+
+    createAgentWorkspace: (name: string, sourceSlug?: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.CREATE_WORKSPACE, name, sourceSlug)
+    },
+
+    updateAgentWorkspace: (id: string, updates: { name: string }) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.UPDATE_WORKSPACE, id, updates)
+    },
+
+    deleteAgentWorkspace: (id: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.DELETE_WORKSPACE, id)
+    },
+
+    reorderAgentWorkspaces: (orderedIds: string[]) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.REORDER_WORKSPACES, orderedIds)
+    },
+
+    // 工作区能力（MCP + Skill）
+    getWorkspaceCapabilities: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_CAPABILITIES, workspaceSlug)
+    },
+
+    getGlobalMcpConfig: () => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_MCP_CONFIG)
+    },
+
+    saveGlobalMcpConfig: (config: GlobalMcpConfig) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SAVE_MCP_CONFIG, config)
+    },
+
+    onMcpGlobalChanged: (callback: () => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.MCP_GLOBAL_CHANGED, callback)
+    },
+
+    testMcpServer: (name: string, entry: import('@asci/shared').McpServerEntry) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.TEST_MCP_SERVER, name, entry) as Promise<{ success: boolean; message: string }>
+    },
+
+    getWorkspaceSkills: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_SKILLS, workspaceSlug)
+    },
+
+    getWorkspaceSkillsDir: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_SKILLS_DIR, workspaceSlug)
+    },
+
+    deleteWorkspaceSkill: (workspaceSlug: string, skillSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.DELETE_SKILL, workspaceSlug, skillSlug)
+    },
+
+    toggleWorkspaceSkill: (workspaceSlug: string, skillSlug: string, enabled: boolean) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.TOGGLE_SKILL, workspaceSlug, skillSlug, enabled)
+    },
+
+    batchToggleSkillsByCategory: (
+      req: import('@asci/shared').BatchToggleSkillsByCategoryInput,
+    ): Promise<import('@asci/shared').BatchToggleSkillsByCategoryResult> => {
+      return transport.invoke(AGENT_IPC_CHANNELS.BATCH_TOGGLE_SKILL_BY_CATEGORY, req)
+    },
+
+    getOtherWorkspaceSkills: (currentSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_OTHER_WORKSPACE_SKILLS, currentSlug)
+    },
+
+    importSkillFromWorkspace: (targetSlug: string, sourceSlug: string, skillSlug: string) => {
+      return transport.invoke(
+        AGENT_IPC_CHANNELS.IMPORT_SKILL_FROM_WORKSPACE,
+        targetSlug,
+        sourceSlug,
+        skillSlug,
+      )
+    },
+
+    updateSkillFromSource: (targetSlug: string, skillSlug: string) => {
+      return transport.invoke(
+        AGENT_IPC_CHANNELS.UPDATE_SKILL_FROM_SOURCE,
+        targetSlug,
+        skillSlug,
+      )
+    },
+
+    listSessionPapers: (sessionId: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.LIST_SESSION_PAPERS, sessionId) as Promise<{
+        records: PaperRecord[]
+        filePath: string
+      }>
+    },
+
+    onSessionPapersChanged: (callback: (event: SessionPapersChangedEvent) => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.SESSION_PAPERS_CHANGED, callback)
+    },
+
+    getSessionPapersLive: (sessionId: string) => {
+      return transport.invoke(
+        AGENT_IPC_CHANNELS.GET_SESSION_PAPERS_LIVE,
+        sessionId,
+      ) as Promise<SessionPapersLive | null>
+    },
+
+    onAgentStreamEvent: (callback: (event: AgentStreamEvent) => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.STREAM_EVENT, callback)
+    },
+
+    onZoteroOpenBatchImport: (callback: (payload: ZoteroOpenBatchImportPayload) => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.ZOTERO_OPEN_BATCH_IMPORT, callback)
+    },
+
+    onAgentStreamComplete: (callback: (data: AgentStreamCompletePayload) => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.STREAM_COMPLETE, callback)
+    },
+
+    onAgentStreamError: (callback: (data: { sessionId: string; requestId?: string; startedAt?: number; error: string }) => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.STREAM_ERROR, callback)
+    },
+
+    // 标题自动更新通知
+    onAgentTitleUpdated: (callback: (data: { sessionId: string; title: string }) => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.TITLE_UPDATED, callback)
+    },
+
+    // Agent 权限系统
+    respondPermission: (response: PermissionResponse) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.PERMISSION_RESPOND, response)
+    },
+
+    getPermissionMode: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_PERMISSION_MODE, workspaceSlug)
+    },
+
+    setPermissionMode: (workspaceSlug: string, mode: ASCIPermissionMode) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SET_PERMISSION_MODE, workspaceSlug, mode)
+    },
+
+    getReasoningEffort: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_REASONING_EFFORT, workspaceSlug)
+    },
+
+    setReasoningEffort: (workspaceSlug: string, effort: AgentEffort) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SET_REASONING_EFFORT, workspaceSlug, effort)
+    },
+
+    // AskUserQuestion 交互式问答
+    respondAskUser: (response: AskUserResponse) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.ASK_USER_RESPOND, response)
+    },
+
+    // ExitPlanMode 计划审批
+    respondExitPlanMode: (response: ExitPlanModeResponse) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.EXIT_PLAN_MODE_RESPOND, response)
+    },
+
+    // lit-review present_directions (spec §5.4 Turn 1 ChoiceCard)
+    respondLitReviewPresentDirections: (response: LitReviewPresentDirectionsResponse) => {
+      return transport.invoke(LITREVIEW_IPC_CHANNELS.RESPOND, response)
+    },
+
+    // lit-search present_search_plan 检索方案确认 (issue #435)
+    respondSearchPlan: (response: SearchPlanConfirmResponse) => {
+      return transport.invoke(SEARCH_PLAN_IPC_CHANNELS.RESPOND, response)
+    },
+
+    // 待处理请求恢复
+    getPendingRequests: () => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_PENDING_REQUESTS)
+    },
+
+    // Agent Teams 数据
+    getAgentTeamData: (sdkSessionId: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_TEAM_DATA, sdkSessionId)
+    },
+
+    getAgentOutput: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_AGENT_OUTPUT, filePath)
+    },
+
+    // 工作区文件变化通知
+    onCapabilitiesChanged: (callback: () => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.CAPABILITIES_CHANGED, callback)
+    },
+
+    onWorkspaceFilesChanged: (callback: () => void) => {
+      return subscribe(transport, AGENT_IPC_CHANNELS.WORKSPACE_FILES_CHANGED, callback)
+    },
+
+    // Agent 附件
+    saveFilesToAgentSession: (input: AgentSaveFilesInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SAVE_FILES_TO_SESSION, input)
+    },
+
+    saveFilesToWorkspaceFiles: (input: AgentSaveWorkspaceFilesInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SAVE_FILES_TO_WORKSPACE, input)
+    },
+
+    listRecentWorkspaceFiles: (input: ListRecentWorkspaceFilesInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.LIST_RECENT_WORKSPACE_FILES, input) as Promise<ListRecentWorkspaceFilesOutput>
+    },
+
+    getWorkspaceFilesPath: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_WORKSPACE_FILES_PATH, workspaceSlug)
+    },
+
+    openFolderDialog: () => {
+      return transport.invoke(AGENT_IPC_CHANNELS.OPEN_FOLDER_DIALOG)
+    },
+
+    attachWorkspaceDirectory: (input: WorkspaceAttachDirectoryInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.ATTACH_WORKSPACE_DIRECTORY, input)
+    },
+
+    detachWorkspaceDirectory: (input: WorkspaceAttachDirectoryInput) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.DETACH_WORKSPACE_DIRECTORY, input)
+    },
+
+    getWorkspaceDirectories: (workspaceSlug: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_WORKSPACE_DIRECTORIES, workspaceSlug)
+    },
+
+    // Agent 文件系统操作
+    getAgentSessionPath: (workspaceId: string, sessionId: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.GET_SESSION_PATH, workspaceId, sessionId)
+    },
+
+    listDirectory: (dirPath: string, options?: ListDirectoryOptions) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.LIST_DIRECTORY, dirPath, options)
+    },
+
+    deleteFile: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.DELETE_FILE, filePath)
+    },
+
+    openFile: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.OPEN_FILE, filePath)
+    },
+
+    showInFolder: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SHOW_IN_FOLDER, filePath)
+    },
+
+    previewFile: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_FILE, filePath)
+    },
+
+    reviewReparseCitations: (bodyPath: string) =>
+      transport.invoke(AGENT_IPC_CHANNELS.REVIEW_REPARSE_CITATIONS, bodyPath),
+
+    statFile: (filePath) =>
+      transport.invoke(AGENT_IPC_CHANNELS.STAT_FILE, filePath),
+
+    previewOpenHtml: (filePath) => transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_OPEN_HTML, filePath),
+    previewReadText: (filePath, maxBytes) =>
+      transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_READ_TEXT, filePath, maxBytes),
+
+    previewReadBinary: (filePath) =>
+      transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_READ_BINARY, filePath),
+
+    previewParseNotebook: (filePath) =>
+      transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_PARSE_NOTEBOOK, filePath),
+
+    previewParseOffice: (filePath) =>
+      transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_PARSE_OFFICE, filePath),
+
+    previewDownloadPdf: (input) =>
+      transport.invoke(AGENT_IPC_CHANNELS.PREVIEW_DOWNLOAD_PDF, input),
+
+    downloadPdfLocal: (input) =>
+      transport.invoke(AGENT_IPC_CHANNELS.DOWNLOAD_PDF_LOCAL, input),
+
+    renameFile: (filePath: string, newName: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.RENAME_FILE, filePath, newName)
+    },
+
+    moveFile: (filePath: string, targetDir: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.MOVE_FILE, filePath, targetDir)
+    },
+
+    listAttachedDirectory: (dirPath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.LIST_ATTACHED_DIRECTORY, dirPath)
+    },
+
+    openAttachedFile: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.OPEN_ATTACHED_FILE, filePath)
+    },
+
+    showAttachedInFolder: (filePath: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SHOW_ATTACHED_IN_FOLDER, filePath)
+    },
+
+    renameAttachedFile: (filePath: string, newName: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.RENAME_ATTACHED_FILE, filePath, newName)
+    },
+
+    moveAttachedFile: (filePath: string, targetDir: string) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.MOVE_ATTACHED_FILE, filePath, targetDir)
+    },
+
+    checkPathsType: (paths: string[]) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.CHECK_PATHS_TYPE, paths)
+    },
+
+    getPathForFile: (file: File) => {
+      return transport.getPathForFile(file)
+    },
+
+    searchWorkspaceFiles: (rootPath: string, query: string, limit = 20, additionalPaths?: string[]) => {
+      return transport.invoke(AGENT_IPC_CHANNELS.SEARCH_WORKSPACE_FILES, rootPath, query, limit, additionalPaths)
+    },
+  }
 }

@@ -5,7 +5,7 @@
  * PDF diff / 解析状态、structured txt 生成，以及嵌套的 library（文献库只读）、
  * article（段落总结）、embedding（向量索引）子接口。
  */
-import { ipcRenderer } from 'electron'
+import type { PlatformTransport } from '../transport.ts'
 import { ZOTERO_IPC_CHANNELS } from '@asci/shared'
 import type {
   ZoteroArticleConfig,
@@ -29,7 +29,7 @@ import type {
   ZoteroGetItemResult,
   GetAttachmentPathResult,
 } from '@asci/core/zotero'
-import { subscribe } from '../helpers'
+import { subscribe } from '../helpers.ts'
 
 export interface ZoteroApi {
   /** 探测 Zotero 桌面版运行状态 */
@@ -110,65 +110,67 @@ export interface ZoteroApi {
   }
 }
 
-export const zoteroApi: ZoteroApi = {
-  ping: (): Promise<ZoteroPingStatus> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.PING),
-  detectInstall: (): Promise<ZoteroInstallStatus> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.DETECT_INSTALL),
-  launchApp: (): Promise<ZoteroLaunchResult> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LAUNCH_APP),
-  setEnabled: (enabled: boolean): Promise<void> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.SET_ENABLED, enabled),
-  getDataDir: (): Promise<string | null> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.GET_DATA_DIR),
-  setDataDir: (dir: string | null): Promise<void> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.SET_DATA_DIR, dir),
-  getInstallPath: (): Promise<string | null> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.GET_INSTALL_PATH),
-  setInstallPath: (path: string | null) => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.SET_INSTALL_PATH, path),
-  validateInstallPath: (path: string): Promise<ZoteroValidatePathResult> =>
-    ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.VALIDATE_INSTALL_PATH, path),
-  browseInstallPath: (): Promise<string | null> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.BROWSE_INSTALL_PATH),
-  runPdfDiff: (): Promise<ZoteroPdfDiffResult> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.PDF_DIFF_NOW),
-  getPdfParseStatus: (): Promise<ZoteroPdfParseStatusSummary> => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.PDF_PARSE_STATUS),
-  generateStructuredTxtAll: (): Promise<ZoteroStructuredTxtGenerationResult> =>
-    ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.PDF_STRUCTURED_TXT_GENERATE_ALL),
-  library: {
-    listCollections: () => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_LIST_COLLECTIONS),
-    searchItems: (input) => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_SEARCH_ITEMS, input),
-    getCollectionItems: (input) => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_COLLECTION_ITEMS, input),
-    getItem: (input) => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_ITEM, input),
-    getAttachmentPath: (input) => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_ATTACHMENT_PATH, input),
-    readPdfAsBase64: (input) => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_READ_PDF_BASE64, input),
-    getSelectedTarget: () => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_SELECTED_TARGET),
-    listCollectionTargets: () => ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.LIB_LIST_COLLECTION_TARGETS),
-  },
-  article: {
-    getConfig: (): Promise<ZoteroArticleConfig> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_CONFIG_GET),
-    setConfig: (patch: Partial<ZoteroArticleConfig>): Promise<ZoteroArticleConfig> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_CONFIG_SET, patch),
-    getStatus: (): Promise<ZoteroPdfArticleStatusSummary> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_STATUS_SUMMARY),
-    retryAll: (): Promise<number> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_RETRY_ALL),
-    regenerateAll: (): Promise<number> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_REGENERATE_ALL),
-    onStatusChanged: (cb: (status: ZoteroPdfArticleStatusSummary) => void) => {
-      return subscribe(ZOTERO_IPC_CHANNELS.ARTICLE_STATUS_CHANGED, cb)
+export function createZoteroApi(transport: PlatformTransport): ZoteroApi {
+  return {
+    ping: (): Promise<ZoteroPingStatus> => transport.invoke(ZOTERO_IPC_CHANNELS.PING),
+    detectInstall: (): Promise<ZoteroInstallStatus> => transport.invoke(ZOTERO_IPC_CHANNELS.DETECT_INSTALL),
+    launchApp: (): Promise<ZoteroLaunchResult> => transport.invoke(ZOTERO_IPC_CHANNELS.LAUNCH_APP),
+    setEnabled: (enabled: boolean): Promise<void> => transport.invoke(ZOTERO_IPC_CHANNELS.SET_ENABLED, enabled),
+    getDataDir: (): Promise<string | null> => transport.invoke(ZOTERO_IPC_CHANNELS.GET_DATA_DIR),
+    setDataDir: (dir: string | null): Promise<void> => transport.invoke(ZOTERO_IPC_CHANNELS.SET_DATA_DIR, dir),
+    getInstallPath: (): Promise<string | null> => transport.invoke(ZOTERO_IPC_CHANNELS.GET_INSTALL_PATH),
+    setInstallPath: (path: string | null) => transport.invoke(ZOTERO_IPC_CHANNELS.SET_INSTALL_PATH, path),
+    validateInstallPath: (path: string): Promise<ZoteroValidatePathResult> =>
+      transport.invoke(ZOTERO_IPC_CHANNELS.VALIDATE_INSTALL_PATH, path),
+    browseInstallPath: (): Promise<string | null> => transport.invoke(ZOTERO_IPC_CHANNELS.BROWSE_INSTALL_PATH),
+    runPdfDiff: (): Promise<ZoteroPdfDiffResult> => transport.invoke(ZOTERO_IPC_CHANNELS.PDF_DIFF_NOW),
+    getPdfParseStatus: (): Promise<ZoteroPdfParseStatusSummary> => transport.invoke(ZOTERO_IPC_CHANNELS.PDF_PARSE_STATUS),
+    generateStructuredTxtAll: (): Promise<ZoteroStructuredTxtGenerationResult> =>
+      transport.invoke(ZOTERO_IPC_CHANNELS.PDF_STRUCTURED_TXT_GENERATE_ALL),
+    library: {
+      listCollections: () => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_LIST_COLLECTIONS),
+      searchItems: (input) => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_SEARCH_ITEMS, input),
+      getCollectionItems: (input) => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_COLLECTION_ITEMS, input),
+      getItem: (input) => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_ITEM, input),
+      getAttachmentPath: (input) => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_ATTACHMENT_PATH, input),
+      readPdfAsBase64: (input) => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_READ_PDF_BASE64, input),
+      getSelectedTarget: () => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_GET_SELECTED_TARGET),
+      listCollectionTargets: () => transport.invoke(ZOTERO_IPC_CHANNELS.LIB_LIST_COLLECTION_TARGETS),
     },
-  },
-  embedding: {
-    getConfig: (): Promise<ZoteroEmbeddingConfig> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.EMBED_CONFIG_GET),
-    setConfig: (patch: Partial<ZoteroEmbeddingConfig>): Promise<ZoteroEmbeddingConfig> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.EMBED_CONFIG_SET, patch),
-    getStatus: (): Promise<ZoteroEmbeddingStatusSummary> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.EMBED_STATUS_SUMMARY),
-    rebuildAll: (): Promise<number> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.EMBED_REBUILD_ALL),
-    onStatusChanged: (cb: (status: ZoteroEmbeddingStatusSummary) => void) => {
-      return subscribe(ZOTERO_IPC_CHANNELS.EMBED_STATUS_CHANGED, cb)
+    article: {
+      getConfig: (): Promise<ZoteroArticleConfig> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_CONFIG_GET),
+      setConfig: (patch: Partial<ZoteroArticleConfig>): Promise<ZoteroArticleConfig> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_CONFIG_SET, patch),
+      getStatus: (): Promise<ZoteroPdfArticleStatusSummary> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_STATUS_SUMMARY),
+      retryAll: (): Promise<number> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_RETRY_ALL),
+      regenerateAll: (): Promise<number> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.ARTICLE_REGENERATE_ALL),
+      onStatusChanged: (cb: (status: ZoteroPdfArticleStatusSummary) => void) => {
+        return subscribe(transport, ZOTERO_IPC_CHANNELS.ARTICLE_STATUS_CHANGED, cb)
+      },
     },
-    getModelStatus: (): Promise<ZoteroEmbeddingModelStatus> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.EMBED_MODEL_STATUS),
-    downloadModel: (): Promise<ZoteroEmbeddingModelStatus> =>
-      ipcRenderer.invoke(ZOTERO_IPC_CHANNELS.EMBED_MODEL_DOWNLOAD),
-    onModelStatusChanged: (cb: (status: ZoteroEmbeddingModelStatus) => void) => {
-      return subscribe(ZOTERO_IPC_CHANNELS.EMBED_MODEL_STATUS_CHANGED, cb)
+    embedding: {
+      getConfig: (): Promise<ZoteroEmbeddingConfig> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.EMBED_CONFIG_GET),
+      setConfig: (patch: Partial<ZoteroEmbeddingConfig>): Promise<ZoteroEmbeddingConfig> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.EMBED_CONFIG_SET, patch),
+      getStatus: (): Promise<ZoteroEmbeddingStatusSummary> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.EMBED_STATUS_SUMMARY),
+      rebuildAll: (): Promise<number> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.EMBED_REBUILD_ALL),
+      onStatusChanged: (cb: (status: ZoteroEmbeddingStatusSummary) => void) => {
+        return subscribe(transport, ZOTERO_IPC_CHANNELS.EMBED_STATUS_CHANGED, cb)
+      },
+      getModelStatus: (): Promise<ZoteroEmbeddingModelStatus> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.EMBED_MODEL_STATUS),
+      downloadModel: (): Promise<ZoteroEmbeddingModelStatus> =>
+        transport.invoke(ZOTERO_IPC_CHANNELS.EMBED_MODEL_DOWNLOAD),
+      onModelStatusChanged: (cb: (status: ZoteroEmbeddingModelStatus) => void) => {
+        return subscribe(transport, ZOTERO_IPC_CHANNELS.EMBED_MODEL_STATUS_CHANGED, cb)
+      },
     },
-  },
+  }
 }

@@ -5,7 +5,7 @@
  * 数据导出、应用设置、遥测、主题、Onboarding / Concept Spotlight、代理配置、
  * 自动更新、GitHub Release、菜单转发、快速任务窗口。
  */
-import { ipcRenderer } from 'electron'
+import type { PlatformTransport } from '../transport.ts'
 import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, ATTACHMENT_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, DATA_EXPORT_IPC_CHANNELS } from '@asci/shared'
 import type { ExportMyDataResult } from '@asci/shared'
 import { TELEMETRY_IPC_CHANNELS } from '@asci/shared'
@@ -29,14 +29,14 @@ import type {
   TelemetryCaptureSignalRequest,
   TelemetryConsentState,
 } from '@asci/shared'
-import { USER_PROFILE_IPC_CHANNELS, SETTINGS_IPC_CHANNELS, THEME_IPC_CHANNELS } from '../../types'
-import type { UserProfile, AppSettings, QuickTaskSubmitInput, QuickTaskOpenSessionData, ResolvedTheme } from '../../types'
-import { QUICK_TASK_IPC_CHANNELS } from '../../types'
-import { ONBOARDING_SPOTLIGHT_IPC_CHANNELS } from '../../types/onboarding-spotlight'
-import type { OnboardingSpotlightState, SpotlightStep } from '../../types/onboarding-spotlight'
-import { CONCEPT_SPOTLIGHT_IPC_CHANNELS } from '../../types/concept-spotlight'
-import type { ConceptTourKey, ConceptSpotlightState } from '../../types/concept-spotlight'
-import { subscribe } from '../helpers'
+import { USER_PROFILE_IPC_CHANNELS, SETTINGS_IPC_CHANNELS, THEME_IPC_CHANNELS } from '../../types/index.ts'
+import type { UserProfile, AppSettings, QuickTaskSubmitInput, QuickTaskOpenSessionData, ResolvedTheme } from '../../types/index.ts'
+import { QUICK_TASK_IPC_CHANNELS } from '../../types/index.ts'
+import { ONBOARDING_SPOTLIGHT_IPC_CHANNELS } from '../../types/onboarding-spotlight.ts'
+import type { OnboardingSpotlightState, SpotlightStep } from '../../types/onboarding-spotlight.ts'
+import { CONCEPT_SPOTLIGHT_IPC_CHANNELS } from '../../types/concept-spotlight.ts'
+import type { ConceptTourKey, ConceptSpotlightState } from '../../types/concept-spotlight.ts'
+import { subscribe } from '../helpers.ts'
 
 export interface CoreApi {
   getContextRecord: (sessionId: string) => Promise<import('@asci/shared').ContextRecord>
@@ -257,261 +257,259 @@ export interface CoreApi {
   onQuickTaskOpenSession: (callback: (data: QuickTaskOpenSessionData) => void) => () => void
 }
 
-export const coreApi: CoreApi = {
-  getContextRecord: (id) => ipcRenderer.invoke('context:read', id),
-  saveContextPins: (id, pins) => ipcRenderer.invoke('context:pins', id, pins),
-  getWindowChromeState: () => ipcRenderer.sendSync('window:chrome-state'),
-  onWindowChromeChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: { platform: string; fullscreen: boolean }): void => callback(state)
-    ipcRenderer.on('window:chrome-changed', listener)
-    return () => ipcRenderer.removeListener('window:chrome-changed', listener)
-  },
-  // 运行时
-  getRuntimeStatus: () => {
-    return ipcRenderer.invoke(IPC_CHANNELS.GET_RUNTIME_STATUS)
-  },
-
-  getGitRepoStatus: (dirPath: string) => {
-    return ipcRenderer.invoke(IPC_CHANNELS.GET_GIT_REPO_STATUS, dirPath)
-  },
-
-  // 通用工具
-  openExternal: (url: string) => {
-    return ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url)
-  },
-
-  // 渠道管理
-  listChannels: () => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.LIST)
-  },
-
-  createChannel: (input: ChannelCreateInput) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.CREATE, input)
-  },
-
-  updateChannel: (id: string, input: ChannelUpdateInput) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.UPDATE, id, input)
-  },
-
-  deleteChannel: (id: string) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.DELETE, id)
-  },
-
-  decryptApiKey: (channelId: string) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.DECRYPT_KEY, channelId)
-  },
-
-  testChannel: (channelId: string) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.TEST, channelId)
-  },
-
-  testChannelDirect: (input: FetchModelsInput) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.TEST_DIRECT, input)
-  },
-
-  fetchModels: (input: FetchModelsInput) => {
-    return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.FETCH_MODELS, input)
-  },
-
-  // 附件管理
-  saveAttachment: (input: AttachmentSaveInput) => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.SAVE_ATTACHMENT, input)
-  },
-
-  readAttachment: (localPath: string) => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.READ_ATTACHMENT, localPath)
-  },
-
-  saveImageAs: (localPath: string, defaultFilename: string) => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.SAVE_IMAGE_AS, localPath, defaultFilename)
-  },
-
-  saveResourceFileAs: (resourceRelativePath: string, defaultFilename: string) => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.SAVE_RESOURCE_FILE_AS, resourceRelativePath, defaultFilename)
-  },
-
-  deleteAttachment: (localPath: string) => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.DELETE_ATTACHMENT, localPath)
-  },
-
-  openFileDialog: () => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.OPEN_FILE_DIALOG)
-  },
-
-  extractAttachmentText: (localPath: string) => {
-    return ipcRenderer.invoke(ATTACHMENT_IPC_CHANNELS.EXTRACT_ATTACHMENT_TEXT, localPath)
-  },
-
-  // 用户档案
-  getUserProfile: () => {
-    return ipcRenderer.invoke(USER_PROFILE_IPC_CHANNELS.GET)
-  },
-
-  updateUserProfile: (updates: Partial<UserProfile>) => {
-    return ipcRenderer.invoke(USER_PROFILE_IPC_CHANNELS.UPDATE, updates)
-  },
-
-  // 数据导出（DO-2）
-  exportMyData: () => {
-    return ipcRenderer.invoke(DATA_EXPORT_IPC_CHANNELS.EXPORT_MY_DATA)
-  },
-
-  // 应用设置
-  getSettings: () => {
-    return ipcRenderer.invoke(SETTINGS_IPC_CHANNELS.GET)
-  },
-
-  updateSettings: (updates: Partial<AppSettings>) => {
-    return ipcRenderer.invoke(SETTINGS_IPC_CHANNELS.UPDATE, updates)
-  },
-
-  updateSettingsSync: (updates: Partial<AppSettings>) => {
-    return ipcRenderer.sendSync(SETTINGS_IPC_CHANNELS.UPDATE_SYNC, updates)
-  },
-
-  // 遥测
-  telemetryTrack: (request: TelemetryTrackRequest) => {
-    return ipcRenderer.invoke(TELEMETRY_IPC_CHANNELS.TRACK, request)
-  },
-
-  telemetryCaptureSignal: (request: TelemetryCaptureSignalRequest) => {
-    return ipcRenderer.invoke(TELEMETRY_IPC_CHANNELS.CAPTURE_SIGNAL, request)
-  },
-
-  telemetryGetConsentState: () => {
-    return ipcRenderer.invoke(TELEMETRY_IPC_CHANNELS.GET_CONSENT_STATE)
-  },
-
-  // dev 联调逃生口：启动期 sendSync 问主进程「是否允许真实上报」（env || dev 开关），
-  // 比直接读 process.env 多覆盖了设置页的 dev 开关。
-  telemetryForceSend: ipcRenderer.sendSync(TELEMETRY_IPC_CHANNELS.REAL_SEND_ALLOWED) === true,
-
-  // 主题
-  resolveTheme: () => {
-    return ipcRenderer.sendSync(THEME_IPC_CHANNELS.RESOLVE) as ResolvedTheme
-  },
-  onThemeChanged: (callback: (state: ResolvedTheme) => void) => {
-    return subscribe(THEME_IPC_CHANNELS.CHANGED, callback)
-  },
-
-  // Onboarding Spotlight 引导
-  getOnboardingSpotlight: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.GET) as Promise<OnboardingSpotlightState | null>
-  },
-
-  bootstrapOnboardingSpotlight: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.BOOTSTRAP) as Promise<OnboardingSpotlightState | null>
-  },
-
-  startOnboardingSpotlight: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.START) as Promise<OnboardingSpotlightState>
-  },
-
-  advanceOnboardingSpotlight: (opts: { from: SpotlightStep; fromSubStage: number }) => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.ADVANCE, opts) as Promise<OnboardingSpotlightState>
-  },
-
-  skipOnboardingSpotlightSubStage: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.SKIP_SUB_STAGE) as Promise<OnboardingSpotlightState>
-  },
-
-  completeOnboardingSpotlight: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.COMPLETE) as Promise<OnboardingSpotlightState>
-  },
-
-  skipOnboardingSpotlight: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.SKIP) as Promise<OnboardingSpotlightState>
-  },
-
-  restartOnboardingSpotlight: () => {
-    return ipcRenderer.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.RESTART) as Promise<OnboardingSpotlightState>
-  },
-
-  onOnboardingSpotlightChanged: (callback: (state: OnboardingSpotlightState) => void) => {
-    return subscribe(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.CHANGED, callback)
-  },
-
-  // Concept Spotlight 引导（证据集 / 论文 notes）
-  getConceptSpotlightState: () =>
-    ipcRenderer.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.GET_STATE) as Promise<ConceptSpotlightState>,
-
-  startConceptSpotlight: (opts) =>
-    ipcRenderer.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.START, opts) as Promise<ConceptSpotlightState>,
-
-  advanceConceptSpotlight: (opts) =>
-    ipcRenderer.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.ADVANCE, opts) as Promise<ConceptSpotlightState>,
-
-  skipConceptSpotlight: (opts) =>
-    ipcRenderer.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.SKIP, opts) as Promise<ConceptSpotlightState>,
-
-  completeConceptSpotlight: (opts) =>
-    ipcRenderer.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.COMPLETE, opts) as Promise<ConceptSpotlightState>,
-
-  restartConceptSpotlight: (opts) =>
-    ipcRenderer.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.RESTART, opts) as Promise<ConceptSpotlightState>,
-
-  onConceptSpotlightChanged: (callback) => {
-    return subscribe(CONCEPT_SPOTLIGHT_IPC_CHANNELS.CHANGED, callback)
-  },
-
-  // 代理配置
-  getProxySettings: () => {
-    return ipcRenderer.invoke(PROXY_IPC_CHANNELS.GET_SETTINGS)
-  },
-
-  updateProxySettings: (config: ProxyConfig) => {
-    return ipcRenderer.invoke(PROXY_IPC_CHANNELS.UPDATE_SETTINGS, config)
-  },
-
-  detectSystemProxy: () => {
-    return ipcRenderer.invoke(PROXY_IPC_CHANNELS.DETECT_SYSTEM)
-  },
-
-  // 自动更新（仅版本检测，不自动下载/安装）
-  updater: {
-    checkForUpdates: () => ipcRenderer.invoke('updater:check'),
-    getStatus: () => ipcRenderer.invoke('updater:get-status'),
-    onStatusChanged: (callback) => {
-      return subscribe<Parameters<typeof callback>[0]>('updater:status-changed', callback)
+export function createCoreApi(transport: PlatformTransport): CoreApi {
+  return {
+    getContextRecord: (id) => transport.invoke('context:read', id),
+    saveContextPins: (id, pins) => transport.invoke('context:pins', id, pins),
+    getWindowChromeState: () => transport.readSync('window:chrome-state'),
+    onWindowChromeChanged: (callback) => subscribe(transport, 'window:chrome-changed', callback),
+    // 运行时
+    getRuntimeStatus: () => {
+      return transport.invoke(IPC_CHANNELS.GET_RUNTIME_STATUS)
     },
-  },
 
-  // GitHub Release
-  getLatestRelease: () => {
-    return ipcRenderer.invoke(GITHUB_RELEASE_IPC_CHANNELS.GET_LATEST_RELEASE)
-  },
+    getGitRepoStatus: (dirPath: string) => {
+      return transport.invoke(IPC_CHANNELS.GET_GIT_REPO_STATUS, dirPath)
+    },
 
-  listReleases: (options) => {
-    return ipcRenderer.invoke(GITHUB_RELEASE_IPC_CHANNELS.LIST_RELEASES, options)
-  },
+    // 通用工具
+    openExternal: (url: string) => {
+      return transport.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url)
+    },
 
-  getReleaseByTag: (tag) => {
-    return ipcRenderer.invoke(GITHUB_RELEASE_IPC_CHANNELS.GET_RELEASE_BY_TAG, tag)
-  },
+    // 渠道管理
+    listChannels: () => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.LIST)
+    },
 
-  onMenuCloseTab: (callback: () => void) => {
-    return subscribe('menu:close-tab', callback)
-  },
+    createChannel: (input: ChannelCreateInput) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.CREATE, input)
+    },
 
-  // ===== 快速任务窗口 =====
+    updateChannel: (id: string, input: ChannelUpdateInput) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.UPDATE, id, input)
+    },
 
-  submitQuickTask: (input: QuickTaskSubmitInput) => {
-    return ipcRenderer.invoke(QUICK_TASK_IPC_CHANNELS.SUBMIT, input)
-  },
+    deleteChannel: (id: string) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.DELETE, id)
+    },
 
-  hideQuickTask: () => {
-    return ipcRenderer.invoke(QUICK_TASK_IPC_CHANNELS.HIDE)
-  },
+    decryptApiKey: (channelId: string) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.DECRYPT_KEY, channelId)
+    },
 
-  reregisterGlobalShortcuts: () => {
-    return ipcRenderer.invoke(QUICK_TASK_IPC_CHANNELS.REREGISTER_GLOBAL_SHORTCUTS)
-  },
+    testChannel: (channelId: string) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.TEST, channelId)
+    },
 
-  onQuickTaskFocus: (callback: () => void) => {
-    return subscribe(QUICK_TASK_IPC_CHANNELS.FOCUS, callback)
-  },
+    testChannelDirect: (input: FetchModelsInput) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.TEST_DIRECT, input)
+    },
 
-  onQuickTaskOpenSession: (callback: (data: QuickTaskOpenSessionData) => void) => {
-    return subscribe('quick-task:open-session', callback)
-  },
+    fetchModels: (input: FetchModelsInput) => {
+      return transport.invoke(CHANNEL_IPC_CHANNELS.FETCH_MODELS, input)
+    },
+
+    // 附件管理
+    saveAttachment: (input: AttachmentSaveInput) => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.SAVE_ATTACHMENT, input)
+    },
+
+    readAttachment: (localPath: string) => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.READ_ATTACHMENT, localPath)
+    },
+
+    saveImageAs: (localPath: string, defaultFilename: string) => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.SAVE_IMAGE_AS, localPath, defaultFilename)
+    },
+
+    saveResourceFileAs: (resourceRelativePath: string, defaultFilename: string) => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.SAVE_RESOURCE_FILE_AS, resourceRelativePath, defaultFilename)
+    },
+
+    deleteAttachment: (localPath: string) => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.DELETE_ATTACHMENT, localPath)
+    },
+
+    openFileDialog: () => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.OPEN_FILE_DIALOG)
+    },
+
+    extractAttachmentText: (localPath: string) => {
+      return transport.invoke(ATTACHMENT_IPC_CHANNELS.EXTRACT_ATTACHMENT_TEXT, localPath)
+    },
+
+    // 用户档案
+    getUserProfile: () => {
+      return transport.invoke(USER_PROFILE_IPC_CHANNELS.GET)
+    },
+
+    updateUserProfile: (updates: Partial<UserProfile>) => {
+      return transport.invoke(USER_PROFILE_IPC_CHANNELS.UPDATE, updates)
+    },
+
+    // 数据导出（DO-2）
+    exportMyData: () => {
+      return transport.invoke(DATA_EXPORT_IPC_CHANNELS.EXPORT_MY_DATA)
+    },
+
+    // 应用设置
+    getSettings: () => {
+      return transport.invoke(SETTINGS_IPC_CHANNELS.GET)
+    },
+
+    updateSettings: (updates: Partial<AppSettings>) => {
+      return transport.invoke(SETTINGS_IPC_CHANNELS.UPDATE, updates)
+    },
+
+    updateSettingsSync: (updates: Partial<AppSettings>) => {
+      return transport.readSync(SETTINGS_IPC_CHANNELS.UPDATE_SYNC, updates)
+    },
+
+    // 遥测
+    telemetryTrack: (request: TelemetryTrackRequest) => {
+      return transport.invoke(TELEMETRY_IPC_CHANNELS.TRACK, request)
+    },
+
+    telemetryCaptureSignal: (request: TelemetryCaptureSignalRequest) => {
+      return transport.invoke(TELEMETRY_IPC_CHANNELS.CAPTURE_SIGNAL, request)
+    },
+
+    telemetryGetConsentState: () => {
+      return transport.invoke(TELEMETRY_IPC_CHANNELS.GET_CONSENT_STATE)
+    },
+
+    // dev 联调逃生口：启动期 sendSync 问主进程「是否允许真实上报」（env || dev 开关），
+    // 比直接读 process.env 多覆盖了设置页的 dev 开关。
+    telemetryForceSend: transport.readSync(TELEMETRY_IPC_CHANNELS.REAL_SEND_ALLOWED) === true,
+
+    // 主题
+    resolveTheme: () => {
+      return transport.readSync(THEME_IPC_CHANNELS.RESOLVE) as ResolvedTheme
+    },
+    onThemeChanged: (callback: (state: ResolvedTheme) => void) => {
+      return subscribe(transport, THEME_IPC_CHANNELS.CHANGED, callback)
+    },
+
+    // Onboarding Spotlight 引导
+    getOnboardingSpotlight: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.GET) as Promise<OnboardingSpotlightState | null>
+    },
+
+    bootstrapOnboardingSpotlight: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.BOOTSTRAP) as Promise<OnboardingSpotlightState | null>
+    },
+
+    startOnboardingSpotlight: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.START) as Promise<OnboardingSpotlightState>
+    },
+
+    advanceOnboardingSpotlight: (opts: { from: SpotlightStep; fromSubStage: number }) => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.ADVANCE, opts) as Promise<OnboardingSpotlightState>
+    },
+
+    skipOnboardingSpotlightSubStage: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.SKIP_SUB_STAGE) as Promise<OnboardingSpotlightState>
+    },
+
+    completeOnboardingSpotlight: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.COMPLETE) as Promise<OnboardingSpotlightState>
+    },
+
+    skipOnboardingSpotlight: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.SKIP) as Promise<OnboardingSpotlightState>
+    },
+
+    restartOnboardingSpotlight: () => {
+      return transport.invoke(ONBOARDING_SPOTLIGHT_IPC_CHANNELS.RESTART) as Promise<OnboardingSpotlightState>
+    },
+
+    onOnboardingSpotlightChanged: (callback: (state: OnboardingSpotlightState) => void) => {
+      return subscribe(transport, ONBOARDING_SPOTLIGHT_IPC_CHANNELS.CHANGED, callback)
+    },
+
+    // Concept Spotlight 引导（证据集 / 论文 notes）
+    getConceptSpotlightState: () =>
+      transport.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.GET_STATE) as Promise<ConceptSpotlightState>,
+
+    startConceptSpotlight: (opts) =>
+      transport.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.START, opts) as Promise<ConceptSpotlightState>,
+
+    advanceConceptSpotlight: (opts) =>
+      transport.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.ADVANCE, opts) as Promise<ConceptSpotlightState>,
+
+    skipConceptSpotlight: (opts) =>
+      transport.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.SKIP, opts) as Promise<ConceptSpotlightState>,
+
+    completeConceptSpotlight: (opts) =>
+      transport.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.COMPLETE, opts) as Promise<ConceptSpotlightState>,
+
+    restartConceptSpotlight: (opts) =>
+      transport.invoke(CONCEPT_SPOTLIGHT_IPC_CHANNELS.RESTART, opts) as Promise<ConceptSpotlightState>,
+
+    onConceptSpotlightChanged: (callback) => {
+      return subscribe(transport, CONCEPT_SPOTLIGHT_IPC_CHANNELS.CHANGED, callback)
+    },
+
+    // 代理配置
+    getProxySettings: () => {
+      return transport.invoke(PROXY_IPC_CHANNELS.GET_SETTINGS)
+    },
+
+    updateProxySettings: (config: ProxyConfig) => {
+      return transport.invoke(PROXY_IPC_CHANNELS.UPDATE_SETTINGS, config)
+    },
+
+    detectSystemProxy: () => {
+      return transport.invoke(PROXY_IPC_CHANNELS.DETECT_SYSTEM)
+    },
+
+    // 自动更新（仅版本检测，不自动下载/安装）
+    updater: {
+      checkForUpdates: () => transport.invoke('updater:check'),
+      getStatus: () => transport.invoke('updater:get-status'),
+      onStatusChanged: (callback) => {
+        return subscribe<Parameters<typeof callback>[0]>(transport, 'updater:status-changed', callback)
+      },
+    },
+
+    // GitHub Release
+    getLatestRelease: () => {
+      return transport.invoke(GITHUB_RELEASE_IPC_CHANNELS.GET_LATEST_RELEASE)
+    },
+
+    listReleases: (options) => {
+      return transport.invoke(GITHUB_RELEASE_IPC_CHANNELS.LIST_RELEASES, options)
+    },
+
+    getReleaseByTag: (tag) => {
+      return transport.invoke(GITHUB_RELEASE_IPC_CHANNELS.GET_RELEASE_BY_TAG, tag)
+    },
+
+    onMenuCloseTab: (callback: () => void) => {
+      return subscribe(transport, 'menu:close-tab', callback)
+    },
+
+    // ===== 快速任务窗口 =====
+
+    submitQuickTask: (input: QuickTaskSubmitInput) => {
+      return transport.invoke(QUICK_TASK_IPC_CHANNELS.SUBMIT, input)
+    },
+
+    hideQuickTask: () => {
+      return transport.invoke(QUICK_TASK_IPC_CHANNELS.HIDE)
+    },
+
+    reregisterGlobalShortcuts: () => {
+      return transport.invoke(QUICK_TASK_IPC_CHANNELS.REREGISTER_GLOBAL_SHORTCUTS)
+    },
+
+    onQuickTaskFocus: (callback: () => void) => {
+      return subscribe(transport, QUICK_TASK_IPC_CHANNELS.FOCUS, callback)
+    },
+
+    onQuickTaskOpenSession: (callback: (data: QuickTaskOpenSessionData) => void) => {
+      return subscribe(transport, 'quick-task:open-session', callback)
+    },
+  }
 }
