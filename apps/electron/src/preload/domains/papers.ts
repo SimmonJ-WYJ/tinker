@@ -5,7 +5,7 @@
  * EvidenceSets、OutputFeedback、Reviews 反查、Papers 反查、引用图谱（citationGraph）。
  * 每个 namespace 各导出一个独立类型化片段。
  */
-import { ipcRenderer } from 'electron'
+import type { PlatformTransport } from '../transport.ts'
 import {
   WORKSPACE_PAPERS_IPC_CHANNELS,
   CITATION_GRAPH_IPC_CHANNELS,
@@ -91,7 +91,7 @@ import type {
   WorkspacePapersChangedEvent,
   PaperRecord,
 } from '@asci/shared'
-import { subscribe } from '../helpers'
+import { subscribe } from '../helpers.ts'
 
 /** 工作区论文库 */
 export interface WorkspacePapersApi {
@@ -245,106 +245,120 @@ export interface CitationGraphApi {
 }
 
 // 工作区论文库
-export const workspacePapersApi: WorkspacePapersApi = {
-  list: (workspaceId, filter) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.LIST, workspaceId, filter),
-  get: (workspaceId, key) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.GET, workspaceId, key),
-  update: (workspaceId, key, patch) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.UPDATE, workspaceId, key, patch),
-  batchUpdate: (workspaceId, keys, patch) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.BATCH_UPDATE, workspaceId, keys, patch),
-  linkZotero: (workspaceId, key, opts) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.LINK_ZOTERO, workspaceId, key, opts),
-  downloadPdf: (workspaceId, key, url) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.DOWNLOAD_PDF, workspaceId, key, url),
-  createNote: (workspaceId, key, initialContent) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.CREATE_NOTE, workspaceId, key, initialContent),
-  ingestRecords: (workspaceId, records, sessionId) =>
-    ipcRenderer.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.INGEST_RECORDS, workspaceId, records, sessionId),
-  onChanged: (cb) => {
-    return subscribe(WORKSPACE_PAPERS_IPC_CHANNELS.CHANGED_EVENT, cb)
-  },
+export function createWorkspacePapersApi(transport: PlatformTransport): WorkspacePapersApi {
+  return {
+    list: (workspaceId, filter) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.LIST, workspaceId, filter),
+    get: (workspaceId, key) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.GET, workspaceId, key),
+    update: (workspaceId, key, patch) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.UPDATE, workspaceId, key, patch),
+    batchUpdate: (workspaceId, keys, patch) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.BATCH_UPDATE, workspaceId, keys, patch),
+    linkZotero: (workspaceId, key, opts) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.LINK_ZOTERO, workspaceId, key, opts),
+    downloadPdf: (workspaceId, key, url) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.DOWNLOAD_PDF, workspaceId, key, url),
+    createNote: (workspaceId, key, initialContent) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.CREATE_NOTE, workspaceId, key, initialContent),
+    ingestRecords: (workspaceId, records, sessionId) =>
+      transport.invoke(WORKSPACE_PAPERS_IPC_CHANNELS.INGEST_RECORDS, workspaceId, records, sessionId),
+    onChanged: (cb) => {
+      return subscribe(transport, WORKSPACE_PAPERS_IPC_CHANNELS.CHANGED_EVENT, cb)
+    },
+  }
 }
 
 // Notes (v0.2 证据列表重构后)
-export const notesApi: NotesApi = {
-  createFromPaperHighlight: (input) =>
-    ipcRenderer.invoke(NOTES_IPC_CHANNELS.CREATE_FROM_PAPER_HIGHLIGHT, input),
-  createFromReviewHighlight: (input) =>
-    ipcRenderer.invoke(NOTES_IPC_CHANNELS.CREATE_FROM_REVIEW_HIGHLIGHT, input),
-  listByPaper: (input) => ipcRenderer.invoke(NOTES_IPC_CHANNELS.LIST_BY_PAPER, input),
-  listAll: (input) => ipcRenderer.invoke(NOTES_IPC_CHANNELS.LIST_ALL, input),
-  updateBody: (input) => ipcRenderer.invoke(NOTES_IPC_CHANNELS.UPDATE_BODY, input),
-  softDelete: (input) => ipcRenderer.invoke(NOTES_IPC_CHANNELS.SOFT_DELETE, input),
+export function createNotesApi(transport: PlatformTransport): NotesApi {
+  return {
+    createFromPaperHighlight: (input) =>
+      transport.invoke(NOTES_IPC_CHANNELS.CREATE_FROM_PAPER_HIGHLIGHT, input),
+    createFromReviewHighlight: (input) =>
+      transport.invoke(NOTES_IPC_CHANNELS.CREATE_FROM_REVIEW_HIGHLIGHT, input),
+    listByPaper: (input) => transport.invoke(NOTES_IPC_CHANNELS.LIST_BY_PAPER, input),
+    listAll: (input) => transport.invoke(NOTES_IPC_CHANNELS.LIST_ALL, input),
+    updateBody: (input) => transport.invoke(NOTES_IPC_CHANNELS.UPDATE_BODY, input),
+    softDelete: (input) => transport.invoke(NOTES_IPC_CHANNELS.SOFT_DELETE, input),
+  }
 }
 
 // EvidenceSets 聚合查询 + 关联操作
-export const evidenceSetsApi: EvidenceSetsApi = {
-  getDetail: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.GET_DETAIL, input),
-  listSummary: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.LIST_SUMMARY, input),
-  addPaper: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_PAPER, input),
-  createWithPaper: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.CREATE_WITH_PAPER, input),
-  listByPaper: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.LIST_BY_PAPER, input),
-  getLatestForSession: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.GET_LATEST_FOR_SESSION, input),
-  promoteFromReview: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.PROMOTE_FROM_REVIEW, input),
-  rename: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.RENAME, input),
-  createNamed: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.CREATE_NAMED, input),
-  ensureAndPromoteFromReview: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.ENSURE_AND_PROMOTE_FROM_REVIEW, input),
-  addConversationMessage: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_CONVERSATION_MESSAGE, input),
-  createWithConversationMessage: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.CREATE_WITH_CONVERSATION_MESSAGE, input),
-  previewConversation: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.PREVIEW_CONVERSATION, input),
-  listConversationTurns: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.LIST_CONVERSATION_TURNS, input),
-  addNote: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_NOTE, input),
-  removeNote: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.REMOVE_NOTE, input),
-  addEvidence: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_EVIDENCE, input),
-  removeEvidence: (input) =>
-    ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.REMOVE_EVIDENCE, input),
-  setTags: (input) => ipcRenderer.invoke(EVIDENCE_SETS_IPC_CHANNELS.SET_TAGS, input),
+export function createEvidenceSetsApi(transport: PlatformTransport): EvidenceSetsApi {
+  return {
+    getDetail: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.GET_DETAIL, input),
+    listSummary: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.LIST_SUMMARY, input),
+    addPaper: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_PAPER, input),
+    createWithPaper: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.CREATE_WITH_PAPER, input),
+    listByPaper: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.LIST_BY_PAPER, input),
+    getLatestForSession: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.GET_LATEST_FOR_SESSION, input),
+    promoteFromReview: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.PROMOTE_FROM_REVIEW, input),
+    rename: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.RENAME, input),
+    createNamed: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.CREATE_NAMED, input),
+    ensureAndPromoteFromReview: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.ENSURE_AND_PROMOTE_FROM_REVIEW, input),
+    addConversationMessage: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_CONVERSATION_MESSAGE, input),
+    createWithConversationMessage: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.CREATE_WITH_CONVERSATION_MESSAGE, input),
+    previewConversation: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.PREVIEW_CONVERSATION, input),
+    listConversationTurns: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.LIST_CONVERSATION_TURNS, input),
+    addNote: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_NOTE, input),
+    removeNote: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.REMOVE_NOTE, input),
+    addEvidence: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.ADD_EVIDENCE, input),
+    removeEvidence: (input) =>
+      transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.REMOVE_EVIDENCE, input),
+    setTags: (input) => transport.invoke(EVIDENCE_SETS_IPC_CHANNELS.SET_TAGS, input),
+  }
 }
 
 // OutputFeedback：助手输出 👍/👎 直观反馈采集（issue #477）
-export const outputFeedbackApi: OutputFeedbackApi = {
-  set: (input) => ipcRenderer.invoke(OUTPUT_FEEDBACK_IPC_CHANNELS.SET, input),
-  getForSession: (input) =>
-    ipcRenderer.invoke(OUTPUT_FEEDBACK_IPC_CHANNELS.GET_FOR_SESSION, input),
+export function createOutputFeedbackApi(transport: PlatformTransport): OutputFeedbackApi {
+  return {
+    set: (input) => transport.invoke(OUTPUT_FEEDBACK_IPC_CHANNELS.SET, input),
+    getForSession: (input) =>
+      transport.invoke(OUTPUT_FEEDBACK_IPC_CHANNELS.GET_FOR_SESSION, input),
+  }
 }
 
 // Reviews 辅助反查
-export const reviewsApi: ReviewsApi = {
-  resolveByBodyPath: (input) =>
-    ipcRenderer.invoke(REVIEWS_IPC_CHANNELS.RESOLVE_BY_BODY_PATH, input),
-  list: () => ipcRenderer.invoke(REVIEWS_IPC_CHANNELS.LIST),
+export function createReviewsApi(transport: PlatformTransport): ReviewsApi {
+  return {
+    resolveByBodyPath: (input) =>
+      transport.invoke(REVIEWS_IPC_CHANNELS.RESOLVE_BY_BODY_PATH, input),
+    list: () => transport.invoke(REVIEWS_IPC_CHANNELS.LIST),
+  }
 }
 
 // Papers 反查（综述引文 → Library 联动）
-export const papersApi: PapersApi = {
-  getByDoi: (input) => ipcRenderer.invoke(PAPERS_IPC_CHANNELS.GET_BY_DOI, input),
-  getById: (input) => ipcRenderer.invoke(PAPERS_IPC_CHANNELS.GET_BY_ID, input),
-  resolveZoteroKey: (input) =>
-    ipcRenderer.invoke(PAPERS_IPC_CHANNELS.RESOLVE_ZOTERO_KEY, input),
-  lookupDoiMetadata: (input) =>
-    ipcRenderer.invoke(PAPERS_IPC_CHANNELS.LOOKUP_DOI_METADATA, input),
+export function createPapersApi(transport: PlatformTransport): PapersApi {
+  return {
+    getByDoi: (input) => transport.invoke(PAPERS_IPC_CHANNELS.GET_BY_DOI, input),
+    getById: (input) => transport.invoke(PAPERS_IPC_CHANNELS.GET_BY_ID, input),
+    resolveZoteroKey: (input) =>
+      transport.invoke(PAPERS_IPC_CHANNELS.RESOLVE_ZOTERO_KEY, input),
+    lookupDoiMetadata: (input) =>
+      transport.invoke(PAPERS_IPC_CHANNELS.LOOKUP_DOI_METADATA, input),
+  }
 }
 
 // 引用图谱
-export const citationGraphApi: CitationGraphApi = {
-  build: (req) => ipcRenderer.invoke(CITATION_GRAPH_IPC_CHANNELS.BUILD, req),
-  cancel: (requestId) => ipcRenderer.invoke(CITATION_GRAPH_IPC_CHANNELS.CANCEL, requestId),
-  onStreamEvent: (cb) => {
-    return subscribe(CITATION_GRAPH_IPC_CHANNELS.STREAM_EVENT, cb)
-  },
-  clearCache: (input) => ipcRenderer.invoke(CITATION_GRAPH_IPC_CHANNELS.CLEAR_CACHE, input),
-  addToZotero: (input) => ipcRenderer.invoke(CITATION_GRAPH_IPC_CHANNELS.ADD_TO_ZOTERO, input),
+export function createCitationGraphApi(transport: PlatformTransport): CitationGraphApi {
+  return {
+    build: (req) => transport.invoke(CITATION_GRAPH_IPC_CHANNELS.BUILD, req),
+    cancel: (requestId) => transport.invoke(CITATION_GRAPH_IPC_CHANNELS.CANCEL, requestId),
+    onStreamEvent: (cb) => {
+      return subscribe(transport, CITATION_GRAPH_IPC_CHANNELS.STREAM_EVENT, cb)
+    },
+    clearCache: (input) => transport.invoke(CITATION_GRAPH_IPC_CHANNELS.CLEAR_CACHE, input),
+    addToZotero: (input) => transport.invoke(CITATION_GRAPH_IPC_CHANNELS.ADD_TO_ZOTERO, input),
+  }
 }

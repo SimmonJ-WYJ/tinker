@@ -1,7 +1,7 @@
 {
   "name": "@tinker/rust-desktop",
   "private": true,
-  "version": "0.0.9",
+  "version": "0.0.10",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5177 --strictPort",
@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "desktop:dev": "cargo tauri dev",
     "desktop:build": "cargo tauri build --debug",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1",
+    "formal:build": "cd ../electron && bunx vite build --config vite.formal.config.ts",
+    "formal:desktop:build": "bun run formal:build && bun scripts/build-formal.ts"
   },
   "dependencies": {
     "react": "18.3.1",

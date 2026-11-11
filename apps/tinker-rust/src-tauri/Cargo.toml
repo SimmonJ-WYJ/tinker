@@ -18,6 +18,25 @@ tokio = { version = "=1.51.0", features = ["rt", "time", "macros"] }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+formal-preview = []
+formal-native-qa = ["formal-preview", "dep:objc2", "dep:block2", "dep:objc2-foundation", "dep:objc2-app-kit", "dep:objc2-web-kit"]
 
 [dev-dependencies]
 tauri = { version = "2.10", features = ["test"] }
+
+[[bin]]
+name = "tinker-formal-preview"
+path = "src/bin/tinker-formal-preview.rs"
+required-features = ["formal-preview"]
+
+[[bin]]
+name = "tinker-formal-native-qa"
+path = "src/bin/tinker-formal-native-qa.rs"
+required-features = ["formal-native-qa"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "=0.6.4", optional = true }
+block2 = { version = "=0.6.2", optional = true }
+objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSString", "NSError", "NSDictionary", "NSData"] }
+objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSImage", "NSBitmapImageRep", "NSImageRep", "NSApplication", "NSMenu", "NSMenuItem"] }
+objc2-web-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit"] }

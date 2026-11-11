@@ -199,12 +199,15 @@ function AgentSettingsInitializer(): null {
           setCurrentWorkspaceId(workspaces[0]!.id)
         }
         setAgentSettingsReady(true)
+        window.__TAURI_FORMAL__?.hydrated('settings')
       }).catch((err) => {
         console.error(err)
+        window.__TAURI_FORMAL__?.hydrated('settings', err)
         setAgentSettingsReady(true) // 即使出错也标记就绪，避免永远阻塞
       })
     }).catch((err) => {
       console.error(err)
+      window.__TAURI_FORMAL__?.hydrated('settings', err)
       setAgentSettingsReady(true) // 即使出错也标记就绪，避免永远阻塞
     })
   }, [setAgentChannelId, setAgentModelId, setAgentChannelIds, setAgentWorkspaces, setCurrentWorkspaceId, setPermissionMode, setChannels, setChannelsLoaded, setAgentSettingsReady, setSidebarProjectFilesExpandedMap])
@@ -515,7 +518,8 @@ function TabStatePersistenceInitializer(): null {
       }
 
       console.log(`[TabRestore] 已恢复 ${validTabs.length} 个标签页（当前工作区可见 ${visibleTabs.length} 个）`)
-    }).catch((err) => console.error('[TabRestore] 恢复标签页失败:', err))
+    }).then(() => { window.__TAURI_FORMAL__?.hydrated('tabs') })
+      .catch((err) => { console.error('[TabRestore] 恢复标签页失败:', err); window.__TAURI_FORMAL__?.hydrated('tabs', err) })
       .finally(() => { restoredRef.current = true })
   }, [store])
 
@@ -540,6 +544,7 @@ function TabStatePersistenceInitializer(): null {
 
   // 自动保存：监听 tabsAtom / activeTabIdAtom / 工作区记忆变化，防抖写入 settings.json
   useEffect(() => {
+    if (window.__TAURI_FORMAL__) return
     let timer: ReturnType<typeof setTimeout> | null = null
 
     const buildTabState = (): PersistedTabState => ({
@@ -603,6 +608,7 @@ function ProjectFilesExpandedPersistenceInitializer(): null {
   const store = useStore()
 
   useEffect(() => {
+    if (window.__TAURI_FORMAL__) return
     let timer: ReturnType<typeof setTimeout> | null = null
 
     const save = (): void => {
@@ -650,11 +656,11 @@ if (isQuickTaskWindow) {
         <LanguageInitializer />
         <ThemeInitializer />
         <NotificationsInitializer />
-        <ZoteroSettingsInitializer />
-        <ZoteroStatusPollingInitializer />
+        {!window.__TAURI_FORMAL__ && <ZoteroSettingsInitializer />}
+        {!window.__TAURI_FORMAL__ && <ZoteroStatusPollingInitializer />}
         <AgentListenersInitializer />
-        <UpdaterInitializer />
-        <AsrWeightsInitializer />
+        {!window.__TAURI_FORMAL__ && <UpdaterInitializer />}
+        {!window.__TAURI_FORMAL__ && <AsrWeightsInitializer />}
         <TabStatePersistenceInitializer />
         <ProjectFilesExpandedPersistenceInitializer />
         <GlobalShortcuts />
