@@ -40,7 +40,7 @@ Tauri 原生 Rust 平台服务提供设置、主题/语言、合成用户档案�
 
 ### Task 3：原生会话适配与独立宿主
 
-新增 FormalAgentHost 持有会话 active/polling/generation，复用 DesktopRuntime 与既有投影契约，页面刷新不丢执行事实。固定 IPC/session/profile 映射与参数边界。GET_SDK_MESSAGES 恢复时须主动提供完整 text_snapshot、requestId 与后续增量，晚到响应不进入别的请求。host持有取消、退出、断流的生命周期。新增独立binary/config，启动 DesktopHostState(Some(...))，旧Lab/default不变。
+新增 FormalAgentHost 持有会话 active/polling/generation，复用 DesktopRuntime 与既有投影契约，页面刷新不丢执行事实。固定 IPC/session/profile 映射与参数边界。GET_SDK_MESSAGES 恢复时须主动提供完整 text_snapshot、requestId 与后续增量，晚到响应不进入别的请求。host持有取消、退出、断流的生命周期。新增独立binary/config，FormalHost 持有唯一 Arc<DesktopRuntime>，旧Lab 的 DesktopHostState(None) 与默认命令保持。新binary只注册受actor/generation/关闭边界约束的formal命令，不额外暴露可绕过这些边界的旧Lab通用命令。
 
 预览专用宿主内嵌受控 Rust numeric-loopback HTTP/SSE mock，稳定标记测试渠道/模型与逻辑configRevision，随机端口仅为宿主传输定位。这个fixture不属于核心provider，不访问真实服务。独立app无需Node/Electron/devserver。先测宿主真实服务门面、分页/刷新/重复/取消/失败/错误投影，未支持能力明确拒绝。
 
