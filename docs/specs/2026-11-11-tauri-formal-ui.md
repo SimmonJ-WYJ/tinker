@@ -61,3 +61,12 @@ Tauri 原生 Rust 平台服务提供设置、主题/语言、合成用户档案�
 ## 回滚与交付
 
 独立测试应用退出即可回到原 Electron，原数据从未迁入。可逐提交 revert 本批源码，新增隔离数据仅在明确识别且另获删除授权时清理。报告列实际测试、未运行范围、源 SHA、应用路径与哈希、签名公证状态、GitHub PR/CI、未迁移功能。不能称完整产品/真实服务/全部 UI 行为已验收。
+
+## Task4 审查修复：关闭与初始化失败契约
+
+- tabs/settings hydration 任一失败后，该 document 不再自动持久化；StrictMode 的迟到成功不能解除失败屏障。关闭/刷新仍须满足成功恢复与最新 Jotai flush。
+- attach/detach/恢复 attach 共用确认后推进的短控制队列。观察水位在实际发送 attach 时采样；history 等待 attach 确认，dispose 排入最后 detach。长 SEND 不进入该队列。
+- bootstrap 在途原生环境保留最新 revision/sequence，并在 baseline 到达后重放；entry 首屏读取同一更新后的缓存。
+- `closeReady(generation, closeToken, committedRevision)` 只做不可逆取消/drain/join，并保存 native receipt；它本身不关闭窗口。同 token 重试返回 pending/最终结果，不重复回收。准备期拒绝可由确认后的 `abortClose` 恢复；已过期/已取消的同一 token 的 abort 确认幂等。不可逆取消失败以 `closeFailed` 区分，后台仍回收 host/mock，保留失败 receipt。
+- 只有已确认成功的同 generation/token/revision 才能执行窄 `closeWindow`，此最后授权没有 renderer deadline。closeReady 等待超时后 renderer 保持冻结，晚到结果不会自动关闭。用户再次通过原生窗口关闭或 Quit 请求，可查询同 token；若仍 pending/失败则留窗，成功后才重新明确授权 closeWindow。未知提交期间 reload 不执行；不把已回收的 host 假装恢复可用。
+- 上述协议故障注入与 Tauri mock-runtime/真实 actor 测试不等同于 WKWebView 原生 UI 验收；Task5 须单独验证窗口关闭、菜单与交互。

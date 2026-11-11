@@ -15,12 +15,18 @@ export interface LifecycleParticipant<T> {
 }
 export function createLifecycle<T>(participant: LifecycleParticipant<T>) {
   let pending: Promise<void> | undefined
+  let committing: { token: string; revision: number } | undefined
   async function execute(action: 'close' | 'reload') {
     participant.freeze(true)
     const deadline = performance.now() + (participant.timeoutMs ?? 8000)
     const bounded = <V>(promise: Promise<V>) => withDeadline(promise, deadline - performance.now())
-    let token: string | undefined
+    let token = committing?.token
     try {
+      if (committing) {
+        // 未知提交不能 reload 或重新采集；原生 close 是用户再次授权查询同一事务。
+        if (action === 'close') await participant.finish(committing.token, committing.revision)
+        return
+      }
       await bounded(participant.hydrated)
       await bounded(participant.drain())
       if (action === 'close') token = await bounded(participant.begin())
@@ -30,14 +36,17 @@ export function createLifecycle<T>(participant: LifecycleParticipant<T>) {
         await bounded(participant.drain())
         if (JSON.stringify(value) !== JSON.stringify(participant.capture())) continue
         // 此处到 finish 调用不再 await，避免最后采样后留下交互空窗。
-        if (token) await participant.finish(token, revision)
+        if (token) { committing = { token, revision }; await participant.finish(token, revision) }
         else participant.reload()
         return
       }
       throw new Error('flushBusy')
     } catch (error) {
-      if (token) await withDeadline(participant.abort(token), 1000).catch(() => {})
-      participant.freeze(false)
+      let aborted = !token
+      if (token) {
+        try { await withDeadline(participant.abort(token), 1000); aborted = true; committing = undefined } catch { /* native 未确认恢复，不开放交互 */ }
+      }
+      if (aborted) participant.freeze(false)
       participant.failure(error)
     }
   }

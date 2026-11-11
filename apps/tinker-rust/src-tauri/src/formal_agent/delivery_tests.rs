@@ -364,3 +364,43 @@ fn projection_fault_partial_delivery_resync_replays_snapshot_error_and_complete(
             .all(|event| event.delivery_sequence > error_sequence));
     }
 }
+
+#[test]
+fn committed_cancel_failure_is_distinct_from_prepare_rejection_and_joins_actor() {
+    let (mut actor, _events, _mock, sid) = setup();
+    let _run = send(&mut actor, &sid, "cancel-failure", "[slow] 合成取消故障");
+    // 故障注入：执行中的 owner 记录损坏；真实 core 必须拒绝不存在的 request。
+    actor.entries.get_mut(&sid).unwrap().turn["requestId"] = json!("missing-request");
+    let (reply, ignored) = mpsc::sync_channel(1);
+    let ticket = actor
+        .handle(
+            Command::BeginClose {
+                generation: "document-1".into(),
+            },
+            &reply,
+        )
+        .unwrap()
+        .unwrap();
+    drop(ignored);
+    let (tx, rx) = mpsc::sync_channel(1);
+    let (reply, result) = mpsc::sync_channel(1);
+    tx.send(Message::Call(
+        Command::CloseReady {
+            generation: "document-1".into(),
+            close_token: ticket["closeToken"].as_str().unwrap().into(),
+            committed_revision: 0,
+        },
+        reply,
+    ))
+    .unwrap();
+    let worker = thread::spawn(move || actor.run(rx));
+    assert_eq!(
+        result
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap_err()
+            .0,
+        "closeFailed"
+    );
+    worker.join().unwrap();
+}

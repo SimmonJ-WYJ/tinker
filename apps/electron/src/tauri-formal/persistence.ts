@@ -16,6 +16,7 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
   let reject: (error: unknown) => void = () => {}
   const hydrated = new Promise<void>((yes, no) => { resolve = yes; reject = no })
   void hydrated.catch(() => {})
+  let hydrateFailed = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let frozen = false
   const capture = () => ({
@@ -23,11 +24,12 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
     sidebarProjectFilesExpandedByWorkspace: Object.fromEntries(store.get(sidebarProjectFilesExpandedMapAtom)),
   })
   const persist = async (value: ReturnType<typeof capture>) => {
+    if (hydrateFailed || ready.size !== 2) throw new Error('hydrateFailed')
     if (!transport.readSync('settings:update-sync', value)) await transport.invoke('settings:update', value)
     return transport.revision
   }
   const schedule = () => {
-    if (ready.size !== 2 || frozen) return
+    if (hydrateFailed || ready.size !== 2 || frozen) return
     clearTimeout(timer)
     timer = setTimeout(() => { void persist(capture()).catch(failure) }, 400)
   }
@@ -41,12 +43,22 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
     drain: () => transport.quiesce(), capture, persist,
     async begin() { return (await transport.command<{ closeToken: string }>('beginClose')).closeToken },
     async abort(closeToken) { await transport.command('abortClose', { closeToken }) },
-    async finish(closeToken, committedRevision) { await transport.command('closeReady', { closeToken, committedRevision }) },
+    async finish(closeToken, committedRevision) {
+      await transport.command('closeReady', { closeToken, committedRevision })
+      // 只有当前未超时的调用获得 drain/join 确认，才给予 native 最后关闭权。
+      await transport.command('closeWindow', { closeToken, committedRevision })
+    },
     reload() { window.location.reload() }, failure,
   })
   transport.onAction((action) => { void lifecycle.run(action) })
   window.addEventListener('keydown', (event) => {
     if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'r') || event.key === 'F5') { event.preventDefault(); event.stopImmediatePropagation(); void lifecycle.run('reload') }
   }, true)
-  return { hydrated(part, error) { if (error) reject(error); else { ready.add(part); if (ready.size === 2) { resolve(); schedule() } } } }
+  return { hydrated(part, error) {
+    // 一个 document 的任何初始化失败均为终态；StrictMode 迟到成功不能重新开放写入。
+    if (error !== undefined) { hydrateFailed = true; clearTimeout(timer); reject(error); return }
+    if (hydrateFailed) return
+    ready.add(part)
+    if (ready.size === 2) { resolve(); schedule() }
+  } }
 }

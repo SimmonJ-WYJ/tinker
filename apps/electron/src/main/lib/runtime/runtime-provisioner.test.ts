@@ -45,7 +45,8 @@ test('verify: 完整 + 版本匹配 → ready', async () => {
   const rp = new RuntimeProvisioner({ asciVersion: '1.0.0' })
   const status = await rp.verify()
   expect(status.phase).toBe('ready')
-})
+  // verify 顺序探测四个 binary，每个最多 5s；此用例只验证 ready，不规定总启动性能。
+}, 4 * 5000 + 5000)
 
 test('verify: .version 缺失 → error STAMP_MISSING', async () => {
   // 不调用 stageRuntimes，runtimes/ 整个不存在

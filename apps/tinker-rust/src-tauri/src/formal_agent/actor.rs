@@ -97,8 +97,11 @@ impl Actor {
                 Ok(Message::Call(command, reply)) => {
                     let result = self.handle(command, &reply);
                     if self.draining {
-                        let result =
-                            result.and_then(|_| self.cancel_all().map(|_| json!({"closed":true})));
+                        let result = result.and_then(|_| {
+                            self.cancel_all()
+                                .map(|_| json!({"closed":true}))
+                                .map_err(|_| DesktopError("closeFailed"))
+                        });
                         self.reject_waiters();
                         drop(self);
                         let _ = reply.send(result);

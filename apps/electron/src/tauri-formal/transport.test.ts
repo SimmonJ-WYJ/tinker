@@ -140,3 +140,82 @@ test('resume 的 COMPLETE 早于 RPC reply 时，刷新不能复用旧 history b
   const result = await refreshed; release()
   expect(result).toEqual(['sdk-2'])
 })
+
+test('bootstrap 在途环境按 revision/sequence 重放，旧事件不能覆盖新事实', async () => {
+  const f = fixture(); const original = f.bridge.request
+  f.bridge.request = async <T>(request: Record<string, unknown>): Promise<T> => {
+    const result = await original<Record<string, unknown>>(request)
+    if (request.command === 'bootstrap') {
+      f.emit({ kind: 'environment', sequence: 7, snapshot: { ...snapshot(), revision: 1, theme: { mode: 'system', isDark: true }, chrome: { platform: 'darwin', fullscreen: true } } })
+      f.emit({ kind: 'environment', sequence: 6, snapshot: snapshot() })
+      return { ...result, environmentSequence: 5 } as T
+    }
+    return result as T
+  }
+  const t = await createFormalTransport(f.bridge, (code) => code)
+  expect(t.readSync('theme:resolve')).toEqual({ mode: 'system', isDark: true })
+  expect(t.readSync('window:chrome-state')).toEqual({ platform: 'darwin', fullscreen: true })
+  expect(t.bootstrap.platformSnapshot.theme.isDark).toBe(true)
+  f.emit({ kind: 'environment', sequence: 8, snapshot: snapshot() })
+  f.emit({ kind: 'environment', sequence: 7, snapshot: snapshot() })
+  expect(t.revision).toBe(1)
+  expect(t.readSync('theme:resolve')).toEqual({ mode: 'system', isDark: true })
+})
+
+test('attach/detach/attach 等待真实确认，restore 不得越过初次 attach', async () => {
+  const f = fixture(); const original = f.bridge.request
+  let release = () => {}; let attached = false; let first = true
+  const dispatched: string[] = []
+  f.bridge.request = async <T>(request: Record<string, unknown>): Promise<T> => {
+    const name = String(request.command); dispatched.push(name)
+    if (name === 'attach' && first) { first = false; await new Promise<void>((resolve) => { release = resolve }) }
+    if (name === 'attach') attached = true
+    if (name === 'detach') attached = false
+    if (name === 'restore') expect(attached).toBe(true)
+    return original<T>(request)
+  }
+  const t = await createFormalTransport(f.bridge, (code) => code)
+  const off = streams.map((c) => t.subscribe(c, () => {}))
+  await tick(); off.forEach((fn) => fn()); streams.forEach((c) => t.subscribe(c, () => {}))
+  const history = t.invoke('agent:get-messages', 's')
+  await tick()
+  expect(dispatched).toEqual(['bootstrap', 'attach'])
+  release(); await history; await tick()
+  expect(dispatched.slice(0, 5)).toEqual(['bootstrap', 'attach', 'detach', 'attach', 'restore'])
+  expect(attached).toBe(true)
+  t.dispose(); await tick(); expect(attached).toBe(false)
+})
+
+test('attach 失败恢复和 dispose 的晚 ack 均经同一有序通道', async () => {
+  const f = fixture(); const original = f.bridge.request
+  let attempts = 0; let release = () => {}; let attached = false
+  f.bridge.request = async <T>(request: Record<string, unknown>): Promise<T> => {
+    if (request.command === 'attach') {
+      if (++attempts === 1) throw { code: 'hostBusy' }
+      await new Promise<void>((resolve) => { release = resolve }); attached = true
+    }
+    if (request.command === 'detach') attached = false
+    return original<T>(request)
+  }
+  const t = await createFormalTransport(f.bridge, (code) => code)
+  streams.forEach((c) => t.subscribe(c, () => {})); await tick()
+  expect(attempts).toBe(2)
+  t.dispose(); release(); await tick(); await tick()
+  expect(attached).toBe(false)
+})
+
+test('初次 attach 确认迟到时 history 仍有期限，恢复不能越过原控制请求', async () => {
+  const f = fixture(); const original = f.bridge.request
+  let release = () => {}; let first = true
+  f.bridge.request = async <T>(request: Record<string, unknown>): Promise<T> => {
+    if (request.command === 'attach' && first) { first = false; await new Promise<void>((resolve) => { release = resolve }) }
+    return original<T>(request)
+  }
+  const t = await createFormalTransport(f.bridge, (code) => code, { restoreTimeoutMs: 5 })
+  streams.forEach((c) => t.subscribe(c, () => {}))
+  const outcome = await Promise.race([t.invoke('agent:get-messages', 's').then(() => 'resolved', () => 'rejected'), new Promise<string>((resolve) => setTimeout(() => resolve('stuck'), 30))])
+  release(); await tick(); await tick()
+  expect(outcome).toBe('rejected')
+  expect(f.calls.some((c) => c.command === 'restore')).toBe(false)
+  t.dispose()
+})

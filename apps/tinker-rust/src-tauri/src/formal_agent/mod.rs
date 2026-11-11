@@ -34,6 +34,10 @@ impl PendingReply {
             .recv_timeout(timeout)
             .map_err(|_| DesktopError("transportTimeout"))?
     }
+    /// 不可逆关闭保留最终结果；只允许后台 drain 任务调用，不授权关闭窗口。
+    pub fn wait_final(self) -> Result<Value> {
+        self.rx.recv().map_err(|_| DesktopError("hostClosed"))?
+    }
     pub fn try_result(&self) -> Option<Result<Value>> {
         match self.rx.try_recv() {
             Ok(r) => Some(r),

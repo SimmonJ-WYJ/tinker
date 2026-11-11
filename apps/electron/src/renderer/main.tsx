@@ -518,8 +518,9 @@ function TabStatePersistenceInitializer(): null {
       }
 
       console.log(`[TabRestore] 已恢复 ${validTabs.length} 个标签页（当前工作区可见 ${visibleTabs.length} 个）`)
-    }).catch((err) => { console.error('[TabRestore] 恢复标签页失败:', err); window.__TAURI_FORMAL__?.hydrated('tabs', err) })
-      .finally(() => { restoredRef.current = true; window.__TAURI_FORMAL__?.hydrated('tabs') })
+    }).then(() => { window.__TAURI_FORMAL__?.hydrated('tabs') })
+      .catch((err) => { console.error('[TabRestore] 恢复标签页失败:', err); window.__TAURI_FORMAL__?.hydrated('tabs', err) })
+      .finally(() => { restoredRef.current = true })
   }, [store])
 
   // 各工作区 active tab 记忆：activeTabId 变化时按 tab 自身归属记录。

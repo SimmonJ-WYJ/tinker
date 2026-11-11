@@ -22,6 +22,7 @@ pub struct CloseGate {
     phase: Phase,
     timeout: Duration,
     sequence: u64,
+    aborted: Option<String>,
 }
 impl CloseGate {
     pub fn new(timeout: Duration) -> Result<Self> {
@@ -32,6 +33,7 @@ impl CloseGate {
             phase: Phase::Open,
             timeout,
             sequence: 0,
+            aborted: None,
         })
     }
     pub fn begin(&mut self, generation: &str, revision: u64) -> Result<CloseTicket> {
@@ -91,8 +93,13 @@ impl CloseGate {
         }
     }
     pub fn abort(&mut self, token: &str) -> Result<()> {
+        self.expire();
+        if matches!(self.phase, Phase::Open) && self.aborted.as_deref() == Some(token) {
+            return Ok(());
+        }
         match &self.phase {
             Phase::Preparing { ticket, .. } if ticket.close_token == token => {
+                self.aborted = Some(token.into());
                 self.phase = Phase::Open;
                 Ok(())
             }
@@ -102,6 +109,9 @@ impl CloseGate {
     /// 宿主timer调用；超时恢复Open，不能直接关窗。
     pub fn expire(&mut self) -> bool {
         if matches!(&self.phase,Phase::Preparing {started,..} if started.elapsed()>=self.timeout) {
+            if let Phase::Preparing { ticket, .. } = &self.phase {
+                self.aborted = Some(ticket.close_token.clone());
+            }
             self.phase = Phase::Open;
             true
         } else {
@@ -136,6 +146,16 @@ mod tests {
         assert!(g.begin("doc-a", 8).is_err());
         g.complete().unwrap();
         assert!(!g.allows_send());
+    }
+    #[test]
+    fn expired_and_repeated_abort_confirm_the_same_transaction_is_open() {
+        let mut gate = CloseGate::new(Duration::from_nanos(1)).unwrap();
+        let ticket = gate.begin("document-1", 1).unwrap();
+        assert!(gate.expire());
+        gate.abort(&ticket.close_token).unwrap();
+        gate.abort(&ticket.close_token).unwrap();
+        assert!(gate.allows_send());
+        assert!(gate.abort("unknown").is_err());
     }
     #[test]
     fn abort_timeout_and_stale_tokens_cannot_close_a_new_transaction() {

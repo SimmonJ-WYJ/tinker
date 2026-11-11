@@ -117,4 +117,3 @@ export function createDesktopApi(transport: PlatformTransport): ElectronAPI {
     oauth: createOAuthApi(transport),
   } satisfies ElectronAPI
 }
-

@@ -25,7 +25,7 @@ fn formal_handler_guards_window_generation_and_uses_original_path_abi() {
         .unwrap();
     pending.wait(std::time::Duration::from_secs(2)).unwrap();
     let app = mock_builder()
-        .manage(state)
+        .manage(state.clone())
         .invoke_handler(tauri::generate_handler![
             formal_commands::formal_request,
             formal_commands::formal_window
@@ -90,6 +90,30 @@ fn formal_handler_guards_window_generation_and_uses_original_path_abi() {
         }
     )
     .is_err());
+    assert_eq!(invoke(json!({"command":"closeWindow","generation":generation,"closeToken":"unknown","committedRevision":0})).unwrap_err()["code"], "invalidCloseToken");
+    let ticket = invoke(json!({"command":"beginClose","generation":generation})).unwrap();
+    let rejected = json!({"command":"closeReady","generation":generation,"closeToken":ticket["closeToken"],"committedRevision":123});
+    assert_eq!(invoke(rejected).unwrap_err()["code"], "revisionConflict");
+    assert!(state.host.lock().unwrap().is_some());
+    invoke(
+        json!({"command":"abortClose","generation":generation,"closeToken":ticket["closeToken"]}),
+    )
+    .unwrap();
+    let ticket = invoke(json!({"command":"beginClose","generation":generation})).unwrap();
+    let close = json!({"command":"closeReady","generation":generation,"closeToken":ticket["closeToken"],"committedRevision":boot["platformSnapshot"]["revision"]});
+    let result = invoke(close.clone()).unwrap();
+    assert_eq!(result["closed"], true);
+    // closeReady 回包丢失/迟到不会关窗；同 token 查询不重复 drain。
+    assert!(!state
+        .approved_close
+        .load(std::sync::atomic::Ordering::SeqCst));
+    assert!(state.host.lock().unwrap().is_none());
+    assert_eq!(invoke(close).unwrap(), result);
+    assert_eq!(invoke(json!({"command":"closeWindow","generation":"old","closeToken":ticket["closeToken"],"committedRevision":0})).unwrap_err()["code"], "staleGeneration");
+    assert_eq!(invoke(json!({"command":"closeWindow","generation":generation,"closeToken":"wrong","committedRevision":0})).unwrap_err()["code"], "invalidCloseToken");
+    assert!(!state
+        .approved_close
+        .load(std::sync::atomic::Ordering::SeqCst));
     drop(other);
     drop(window);
     drop(app);

@@ -38,3 +38,28 @@ test('hydrate 超时恢复窗口且稍后的 hydrate 不触发关闭', async () 
   expect(frozen).toBe(false); expect(errors).toBe(1)
   resolve(); await new Promise((yes) => setTimeout(yes, 0)); expect(closed).toBe(false)
 })
+
+test('提交结果未知且 abort 未确认时保持冻结；下一次 close 重试同 token 而不重复 flush', async () => {
+  let frozen = false; let begins = 0; let saves = 0; let finishes = 0; let failures = 0
+  const lifecycle = createLifecycle({
+    hydrated: Promise.resolve(), freeze: (v) => { frozen = v }, drain: async () => {}, capture: () => 1,
+    persist: async () => { saves++; return 8 }, begin: async () => { begins++; return 'committed-token' },
+    abort: async () => { throw Error('invalidCloseToken') },
+    finish: async (token, revision) => { expect(token).toBe('committed-token'); expect(revision).toBe(8); if (++finishes === 1) throw Error('transportTimeout') },
+    reload: () => { throw Error('不能刷新未知提交') }, failure: () => { failures++ },
+  })
+  await lifecycle.run('close')
+  expect(frozen).toBe(true); expect(failures).toBe(1)
+  await lifecycle.run('reload'); expect(finishes).toBe(1)
+  await lifecycle.run('close')
+  expect(finishes).toBe(2); expect(begins).toBe(1); expect(saves).toBe(1)
+})
+
+test('只有 native 确认 abort 后提交失败才能恢复交互并建立新事务', async () => {
+  let frozen = true; let begins = 0
+  const lifecycle = createLifecycle({ hydrated: Promise.resolve(), freeze: (v) => { frozen = v }, drain: async () => {}, capture: () => 1, persist: async () => 1,
+    begin: async () => `token-${++begins}`, abort: async () => {}, finish: async () => { throw Error('revisionConflict') }, reload: () => {}, failure: () => {},
+  })
+  await lifecycle.run('close'); expect(frozen).toBe(false)
+  await lifecycle.run('close'); expect(begins).toBe(2)
+})

@@ -21,8 +21,10 @@ test('malformed, wrong-ID, ambiguous and timed-out frames fail all pending witho
   await expect(fake('import sys\nsys.stdin.read()\n').request('sessions.list', {})).rejects.toThrow('DESKTOP_TRANSPORT')
 })
 
-test('partial frame then stdout EOF fails immediately while child remains alive', async () => {
-  const client = fake(`import os,sys\nsys.stdin.readline()\nos.write(1,b' {"version":1')\nos.close(1)\nsys.stdin.read()\n`, 30000)
+test.each([0, 3100])('partial frame then stdout EOF fails immediately after startup (%d ms injected)', async (startupDelayMs) => {
+  const client = fake(`import json,os,sys,time\ntime.sleep(${startupDelayMs / 1000})\nready=json.loads(sys.stdin.readline())\nprint(json.dumps({'version':1,'id':ready['id'],'result':{'profiles':[]}}),flush=True)\nsys.stdin.readline()\nos.write(1,b' {"version":1')\nos.close(1)\nsys.stdin.read()\n`, 30000)
+  // 真实协议 ready 将解释器冷启动与 EOF 时限分开；3s EOF 断言和本用例的 30s 请求超时保持不变。
+  expect(await client.request('profiles.list', {})).toEqual({ profiles: [] })
   let timer:ReturnType<typeof setTimeout>|undefined
   try {
     const outcome = await Promise.race([
@@ -32,4 +34,4 @@ test('partial frame then stdout EOF fails immediately while child remains alive'
     expect(outcome).toContain('DESKTOP_TRANSPORT')
     await expect(client.request('profiles.list', {})).rejects.toThrow('DESKTOP_TRANSPORT')
   } finally { clearTimeout(timer) }
-})
+}, 10000)

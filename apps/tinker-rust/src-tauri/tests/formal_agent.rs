@@ -810,3 +810,36 @@ fn failed_terminal_history_projection_rejects_send_and_respects_restore_pause() 
         }
     }
 }
+
+#[test]
+fn control_enqueue_order_survives_delayed_ack_consumers_and_restore_uses_final_attach() {
+    let (_root, host) = setup();
+    let generation = bootstrap(&host);
+    let session = create(&host, &generation);
+    let first = host
+        .command(
+            "main",
+            json!({"command":"attach","generation":generation,"observed":{}}),
+        )
+        .unwrap();
+    let detach = host
+        .command("main", json!({"command":"detach","generation":generation}))
+        .unwrap();
+    let last = host
+        .command(
+            "main",
+            json!({"command":"attach","generation":generation,"observed":{}}),
+        )
+        .unwrap();
+    // 故意逆序读取 ack，不能把真实 actor 的最终状态退回 detached。
+    assert_eq!(last.wait(Duration::from_secs(2)).unwrap()["attached"], true);
+    detach.wait(Duration::from_secs(2)).unwrap();
+    first.wait(Duration::from_secs(2)).unwrap();
+    let restored = call(
+        &host,
+        json!({"command":"restore","generation":generation,"sessionId":session,"observedDeliverySequence":0}),
+    );
+    assert!(restored["restoreToken"].is_string());
+    call(&host, json!({"command":"detach","generation":generation}));
+    assert_eq!(host.command("main", json!({"command":"restore","generation":generation,"sessionId":session,"observedDeliverySequence":0})).unwrap().wait(Duration::from_secs(2)).unwrap_err().0, "notReady");
+}
