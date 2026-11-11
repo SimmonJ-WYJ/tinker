@@ -373,6 +373,8 @@ impl Actor {
                 resync: !self.attached,
                 waiters: vec![reply.clone()],
                 settled: false,
+                terminal_stage: Default::default(),
+                terminal_error: None,
             },
         );
         Ok(None)

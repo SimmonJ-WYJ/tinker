@@ -204,8 +204,10 @@ fn a_slow_event_consumer_gets_final_snapshot_without_reattaching() {
     let mut previous = 0;
     let mut text = String::new();
     let mut complete = false;
-    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    let deadline = std::time::Instant::now() + Duration::from_secs(12);
     while std::time::Instant::now() < deadline {
+        // actor tick为10ms；持续逐个消费，避免一次快速排空掩盖终态饥饿。
+        std::thread::sleep(Duration::from_millis(30));
         if let Some(event) = h.next_event(Duration::from_millis(30)) {
             assert!(event.delivery_sequence > previous);
             previous = event.delivery_sequence;

@@ -23,12 +23,22 @@ use std::{
     },
     time::{Duration, Instant},
 };
+#[derive(Default, PartialEq)]
+pub(super) enum TerminalStage {
+    #[default]
+    SdkMessage,
+    Error,
+    Complete,
+}
 pub(super) struct Entry {
     pub turn: Value,
     pub cursor: u64,
     pub resync: bool,
     pub waiters: Vec<Reply>,
     pub settled: bool,
+    // 只保存下一条未入队终态，不因outbox背压重置已成功投递的阶段。
+    pub terminal_stage: TerminalStage,
+    pub terminal_error: Option<DesktopError>,
 }
 pub(super) struct TerminalReceipt {
     pub turn: Value,
@@ -364,6 +374,8 @@ impl Actor {
                 resync: true,
                 waiters: Vec::new(),
                 settled: true,
+                terminal_stage: TerminalStage::default(),
+                terminal_error: None,
             },
         );
     }
@@ -431,3 +443,7 @@ fn core_error(code: &str) -> DesktopError {
         _ => "runtimeUnavailable",
     })
 }
+
+#[cfg(test)]
+#[path = "delivery_tests.rs"]
+mod delivery_tests;
