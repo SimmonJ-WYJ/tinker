@@ -23,6 +23,21 @@ impl Actor {
         if self.draining {
             return Err(DesktopError("closing"));
         }
+        self.gate.expire();
+        if !self.gate.allows_send()
+            && (matches!(
+                c,
+                "agent:create-session"
+                    | "agent:get-or-create-draft-session"
+                    | "agent:update-title"
+                    | "agent:delete-session"
+                    | "agent:toggle-pin"
+                    | "agent:toggle-archive"
+            ) || (mutation.is_some()
+                && !matches!(c, "settings:update" | "settings:update-sync")))
+        {
+            return Err(DesktopError("closing"));
+        }
         if mutation.is_some() {
             return self
                 .platform
@@ -141,9 +156,16 @@ impl Actor {
                 Value::Null
             }
             "agent:get-session-path" => {
-                arity(&args, 1, 1)?;
-                let sid = string(&args, 0)?;
-                self.session(sid)?;
+                arity(&args, 1, 2)?;
+                let sid = string(&args, args.len() - 1)?;
+                let session = self.session(sid)?;
+                if args.len() == 2 {
+                    let workspace = optional(&args, 0)?;
+                    self.workspace(workspace.as_deref())?;
+                    if session["workspaceId"].as_str() != workspace.as_deref() {
+                        return Err(DesktopError("workspaceMismatch"));
+                    }
+                }
                 self.root.validate()?;
                 let parent = self.root.path().join("deliverables");
                 let path = parent.join(sid);

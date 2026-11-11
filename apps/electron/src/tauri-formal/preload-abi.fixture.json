@@ -1,0 +1,4 @@
+{
+  "path": { "channel": "agent:get-session-path", "args": ["local-mock-workspace-id", "session-1"] },
+  "settings": { "channel": "settings:update", "args": [{ "language": "zh" }] }
+}

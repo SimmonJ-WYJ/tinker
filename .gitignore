@@ -87,3 +87,6 @@ apps/electron/image-qa.mjs
 # Track UI translations; continue excluding user channel credentials.
 !apps/electron/src/renderer/locales/en/settings/channels.json
 !apps/electron/src/renderer/locales/zh/settings/channels.json
+
+# 独立正式 Tauri UI 构建产物
+apps/tinker-rust/formal-dist/

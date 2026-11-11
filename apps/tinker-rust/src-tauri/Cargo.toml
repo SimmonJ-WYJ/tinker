@@ -18,6 +18,12 @@ tokio = { version = "=1.51.0", features = ["rt", "time", "macros"] }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+formal-preview = []
 
 [dev-dependencies]
 tauri = { version = "2.10", features = ["test"] }
+
+[[bin]]
+name = "tinker-formal-preview"
+path = "src/bin/tinker-formal-preview.rs"
+required-features = ["formal-preview"]
