@@ -80,3 +80,11 @@ Tauri 原生 Rust 平台服务提供设置、主题/语言、合成用户档案�
 QA evidence 必须是 canonical `/private/tmp/tinker-tauri-checks-*/native-qa/<batch>` 目录。原合成 profile 仍受 TrustedRoot 独立 marker 校验。测试目录中 command.json/result-N.json 为有界本地验收协议（至多256个动作、30分钟）；eval、snapshot、records、focus、fullscreen、window、reload、close 只作用于 owned main window。截图固定 snapshot-N.png，不接收任意输出路径。可用 `scripts/native-qa-command.py` 提交动作；build-native-qa.ts 只构建 QA，禁止把 QA binary 作为普通包交付。
 
 本轮在 macOS 26.5.1 arm64 使用真实编辑器输入、Send/Stop、模型/effort/设置 DOM 控件，结合 native fullscreen/CloseRequested、owned HTTP 元数据与 journal/进程重启验收。DOM 事件不是系统鼠标自动化；不承诺跨引擎像素一致。更多故障注入、>128 backlog 和真实产品未迁移能力必须在验收报告中区分通过与未运行。
+
+### Task5 review 补证
+
+QA 现使用独立 `native-qa-dist` 与 `vite.native-qa.config.ts`，专用 entry 先 await 正式 entry，再加载同一默认 Jotai store 的有限 atom probe。原 App、CSS 和正常 formal-dist 不变。正式 UI 当前未挂载 SidebarProjectFilesSection，所以 projectFiles 的400ms退出持久化验收明确使用白盒atom注入，不声称有真实可点的面板toggle。
+
+LaunchProbe 仅由 QA binary 显式传入：文档初始化前安装有界 console/error/rejection/CSP 观察器；原生事件泵最多暂扣1024个真实 EventEnvelope 并计未读text_delta，再释放给同一个WebView。此计数位于native delivery边界，不把总chunk数或actor内部队列饱和推断为未读积压。固定旧generation/旧run envelope 用不同marker验证过滤。菜单Quit使用自身NSApplication/NSMenu公开performActionForItemAtIndex激活真实menu item，不直接调用公共close action冒充菜单。
+
+QA result-N.json 改为同目录create_new临时文件、完整写入/sync、rename原子发布，失败明确stderr诊断并停止driver。测试验证失败不会破坏已有完整receipt。early观察记录Zod allowsEval能力探测被现有CSP拒绝并catch回false，及未迁移论文/feedback读取的明确unsupported；不放宽CSP，不以假空数据消除错误。所有补证在Task5报告追加，不覆盖既有未运行历史。

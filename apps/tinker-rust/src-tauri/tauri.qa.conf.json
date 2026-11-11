@@ -5,7 +5,7 @@
   "version": "0.0.1",
   "identifier": "com.tinker.formal-native-qa",
   "build": {
-    "frontendDist": "../formal-dist",
+    "frontendDist": "../native-qa-dist",
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
     "devUrl": null

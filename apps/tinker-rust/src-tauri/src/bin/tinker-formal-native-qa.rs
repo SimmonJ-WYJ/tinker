@@ -3,6 +3,6 @@ fn main() {
     tinker_rust_foundation::formal_launch::run(
         tauri::generate_context!("tauri.qa.conf.json"),
         "com.tinker.formal-native-qa",
-        Some(tinker_rust_foundation::formal_native_qa::start),
+        Some(tinker_rust_foundation::formal_native_qa::hooks()),
     );
 }

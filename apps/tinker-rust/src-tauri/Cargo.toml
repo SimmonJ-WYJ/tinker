@@ -38,5 +38,5 @@ required-features = ["formal-native-qa"]
 objc2 = { version = "=0.6.4", optional = true }
 block2 = { version = "=0.6.2", optional = true }
 objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSString", "NSError", "NSDictionary", "NSData"] }
-objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSImage", "NSBitmapImageRep", "NSImageRep"] }
+objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSImage", "NSBitmapImageRep", "NSImageRep", "NSApplication", "NSMenu", "NSMenuItem"] }
 objc2-web-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit"] }

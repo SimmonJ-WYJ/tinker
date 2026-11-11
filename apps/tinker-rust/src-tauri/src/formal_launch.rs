@@ -27,10 +27,16 @@ fn environment(window: &tauri::WebviewWindow) -> HostEnvironment {
     )
     .expect("宿主平台固定")
 }
+#[derive(Clone, Copy)]
+pub struct LaunchProbe {
+    pub initialization_script: &'static str,
+    pub route_event: fn(&crate::formal_agent::protocol::EventEnvelope) -> bool,
+    pub ready: fn(tauri::WebviewWindow),
+}
 pub fn run(
     context: tauri::Context<tauri::Wry>,
     expected_identifier: &str,
-    ready: Option<fn(tauri::WebviewWindow)>,
+    probe: Option<LaunchProbe>,
 ) {
     validate_config(context.config(), expected_identifier)
         .expect("编译配置不匹配，拒绝创建窗口或数据");
@@ -41,6 +47,7 @@ pub fn run(
             let window = WebviewWindowBuilder::new(app,"main",WebviewUrl::App("index.html".into()))
                 .title("Tinker Formal Preview").inner_size(1400.0,900.0).min_inner_size(1024.0,720.0)
                 .title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
+                .initialization_script(probe.map(|p|p.initialization_script).unwrap_or(""))
                 .on_navigation(formal_commands::local_origin)
                 .on_new_window(|_,_| tauri::webview::NewWindowResponse::Deny)
                 .build()?;
@@ -80,7 +87,8 @@ pub fn run(
             let pump_state=state.clone();
             thread::Builder::new().name("formal-events".into()).spawn(move || loop {
                 let event = { let guard=pump_state.host.lock().expect("宿主锁"); let Some(host)=guard.as_ref() else {break}; host.next_event(Duration::ZERO) };
-                if let Some(event)=event { if handle.emit_to("main","formal:event",event).is_err() { break; } } else {thread::sleep(Duration::from_millis(5));}
+                if let Some(event)=event { if probe.is_some_and(|p| !(p.route_event)(&event)) {continue;}
+                    if handle.emit_to("main","formal:event",event).is_err() { break; } } else {thread::sleep(Duration::from_millis(5));}
             })?;
             // 原生环境单 lane：同 revision 的系统事实也按递增序号发布。
             let (tx,rx)=mpsc::sync_channel(1);
@@ -101,7 +109,7 @@ pub fn run(
                 WindowEvent::ThemeChanged(_) | WindowEvent::Resized(_) => {*latest_environment.lock().expect("环境锁")=Some(environment(&event_window)); let _=tx.try_send(());},
                 _=>{}
             });
-            if let Some(ready) = ready { ready(window.clone()); }
+            if let Some(probe) = probe { (probe.ready)(window.clone()); }
             Ok(())
         })
         .build(context)

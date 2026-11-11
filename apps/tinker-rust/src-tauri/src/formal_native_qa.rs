@@ -96,6 +96,15 @@ fn snapshot(window: &tauri::WebviewWindow, path: PathBuf) -> Result<Value, Strin
     rx.recv_timeout(Duration::from_secs(15))
         .map_err(|e| e.to_string())?
 }
+#[path = "formal_native_qa_support.rs"]
+mod support;
+pub fn hooks() -> crate::formal_launch::LaunchProbe {
+    crate::formal_launch::LaunchProbe {
+        initialization_script: include_str!("formal_native_qa_early.js"),
+        route_event: support::route,
+        ready: start,
+    }
+}
 pub fn start(window: tauri::WebviewWindow) {
     let dir = directory().expect("QA root must be owned temporary evidence directory");
     let _ = window.show();
@@ -122,6 +131,10 @@ pub fn start(window: tauri::WebviewWindow) {
             }
             last = sequence;
             let result = match command["action"].as_str().unwrap_or("") {
+                "hold" | "release" | "pump-state" | "stale" => {
+                    support::control(&window, command["action"].as_str().unwrap())
+                }
+                "menu-quit" => support::menu_quit(&window),
                 "eval" => evaluate(&window, command["script"].as_str().unwrap_or("").into()),
                 "snapshot" => snapshot(&window, dir.join(format!("snapshot-{sequence}.png"))),
                 "records" => Ok(json!(window
@@ -153,10 +166,10 @@ pub fn start(window: tauri::WebviewWindow) {
                 _ => Err("unknown QA action".into()),
             };
             let output = json!({"sequence":sequence,"result":result.as_ref().ok(),"error":result.err(),"pid":std::process::id()});
-            let _ = std::fs::write(
-                dir.join(format!("result-{sequence}.json")),
-                serde_json::to_vec_pretty(&output).unwrap(),
-            );
+            if let Err(error) = support::publish(&dir, sequence, &output) {
+                eprintln!("QA result publication failed at sequence {sequence}: {error}");
+                break;
+            }
         }
     });
 }
