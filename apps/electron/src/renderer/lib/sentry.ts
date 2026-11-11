@@ -36,6 +36,7 @@ export function isHmrReconcilerNoise(event: SentryEventLike): boolean {
 }
 
 export function initSentryRenderer(): void {
+  if (window.__DESKTOP_RUNTIME_PREVIEW__ === true) return
   // vite dev 默认不上报；ASCI_TELEMETRY_FORCE_SEND=1（经 preload 透出）可在 dev 下强制初始化以联调。
   // 打包产物 telemetryForceSend 恒 false；getIsDevMode() 仅启动时读取一次，运行期切 Debug 不影响本次会话（需重启）。
   const forceSend = window.electronAPI?.telemetryForceSend === true

@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use std::sync::Mutex;
 use tauri::Manager;
-use tinker_rust_foundation::run_commands;
+use tinker_rust_foundation::{desktop_commands, run_commands};
 use tinker_rust_foundation::{
     history_commands::{self, HistoryState},
     history_library::HISTORY_DIRECTORY,
@@ -58,9 +58,12 @@ fn main() {
                 .map(run_commands::RunHostState::new)
                 .unwrap_or_else(|_| run_commands::RunHostState::unavailable());
             app.manage(runs);
+            // 正式运行时须由可信宿主显式注入，旧Lab不读取任何profile秘密。
+            app.manage(desktop_commands::DesktopHostState(None));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            desktop_commands::desktop_runtime_request,
             snapshot,
             save_draft,
             submit_draft,

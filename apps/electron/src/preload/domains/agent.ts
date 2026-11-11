@@ -202,7 +202,7 @@ export interface AgentApi {
   onAgentStreamComplete: (callback: (data: AgentStreamCompletePayload) => void) => () => void
 
   /** 订阅 Agent 流式错误事件 */
-  onAgentStreamError: (callback: (data: { sessionId: string; error: string }) => void) => () => void
+  onAgentStreamError: (callback: (data: { sessionId: string; requestId?: string; startedAt?: number; error: string }) => void) => () => void
 
   /** 订阅 Agent 标题自动更新事件 */
   onAgentTitleUpdated: (callback: (data: { sessionId: string; title: string }) => void) => () => void
@@ -554,7 +554,7 @@ export const agentApi: AgentApi = {
     return subscribe(AGENT_IPC_CHANNELS.STREAM_COMPLETE, callback)
   },
 
-  onAgentStreamError: (callback: (data: { sessionId: string; error: string }) => void) => {
+  onAgentStreamError: (callback: (data: { sessionId: string; requestId?: string; startedAt?: number; error: string }) => void) => {
     return subscribe(AGENT_IPC_CHANNELS.STREAM_ERROR, callback)
   },
 

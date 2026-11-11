@@ -1,3 +1,4 @@
+import { DESKTOP_PREVIEW_STATUS_CHANNEL } from '@asci/shared'
 import { getCandidateRoot, isTinkerCandidate } from './lib/candidate-profile'
 import { closeChannelBridges } from './lib/channel-endpoint.ts'
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen, shell } from 'electron'
@@ -12,6 +13,8 @@ import { createGoogleAuthClient } from './lib/auth-google-client.ts'
 import { AuthService } from './lib/auth-service.ts'
 import { registerAuthIpc } from './ipc.ts'
 import { getConfigDir, isLoginEnabled } from './lib/config-paths.ts'
+
+ipcMain.on(DESKTOP_PREVIEW_STATUS_CHANNEL, event => { event.returnValue = false })
 
 if (isTinkerCandidate()) app.setPath('userData', join(getCandidateRoot(app.getPath('appData')), 'chromium'))
 

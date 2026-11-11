@@ -55,7 +55,8 @@ export function DevOnly({ children }: { children: React.ReactNode }): React.Reac
 declare const __LOGIN_ENABLED__: boolean
 
 /** 全局登录开关（渲染侧编译期常量）：默认开启，仅 `bun run dev:skip-login` 时为 false；生产打包恒 true。 */
-export const LOGIN_ENABLED: boolean = __LOGIN_ENABLED__
+declare global { interface Window { __DESKTOP_RUNTIME_PREVIEW__?: boolean } }
+export const LOGIN_ENABLED: boolean = __LOGIN_ENABLED__ && window.__DESKTOP_RUNTIME_PREVIEW__ !== true
 
 /** 登录门控包裹组件：未启用登录时渲染 null（dev:skip-login 构建被 tree-shaking 移除）。 */
 export function LoginEnabled({ children }: { children: React.ReactNode }): React.ReactElement | null {

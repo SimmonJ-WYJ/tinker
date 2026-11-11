@@ -2,9 +2,14 @@
 use crate::run_context::{RunContext, MAX_HTTP_REQUEST_BYTES};
 use crate::{
     run_provider::RunProvider,
-    run_types::{RunError, MAX_EVENT_BYTES, MAX_OUTPUT_BYTES},
+    run_types::{RunError, MAX_EVENT_BYTES},
 };
-use serde_json::Value;
+mod anthropic;
+mod openai;
+mod protocol;
+mod sse;
+pub use protocol::HttpProtocol;
+use sse::Sse;
 use std::{
     future::Future,
     sync::atomic::{AtomicBool, Ordering},
@@ -18,6 +23,8 @@ pub struct ChatHttpConfig {
     pins: Vec<std::net::SocketAddr>,
     total: Duration,
     idle: Duration,
+    protocol: HttpProtocol,
+    effort: Option<String>,
 }
 impl ChatHttpConfig {
     pub fn new(endpoint: String, key: String, model: String) -> Result<Self, RunError> {
@@ -80,7 +87,22 @@ impl ChatHttpConfig {
             model,
             total: Duration::from_secs(120),
             idle: Duration::from_secs(15),
+            protocol: HttpProtocol::OpenaiChat,
+            effort: None,
         })
+    }
+    /// 可信宿主选择codec；校验协议可映射的档位，绝不降档。
+    pub fn with_protocol(
+        mut self,
+        protocol: HttpProtocol,
+        effort: Option<&str>,
+    ) -> Result<Self, RunError> {
+        if effort.is_some_and(|e| !protocol.allowed_efforts().contains(&e)) {
+            return Err(RunError::HttpUnsupported);
+        }
+        self.protocol = protocol;
+        self.effort = effort.map(str::to_owned);
+        Ok(self)
     }
     /// 测试或可信宿主可收紧预算；最长两分钟，每次网络等待最长十五秒。
     pub fn with_timeouts(mut self, total: Duration, idle: Duration) -> Result<Self, RunError> {
@@ -175,16 +197,29 @@ impl ChatHttpProvider {
         }
         let client = builder.build().map_err(|_| RunError::HttpTransport)?;
         let deadline = tokio::time::Instant::now() + self.config.total;
-        let body = serde_json::to_vec(&serde_json::json!({"model":self.config.model,"messages":context.messages(),"stream":true})).map_err(|_| RunError::HttpProtocol)?;
+        let mut body = serde_json::json!({"model":self.config.model,"messages":context.messages(),"stream":true});
+        if self.config.protocol == HttpProtocol::AnthropicMessages {
+            body["max_tokens"] = serde_json::json!(4096);
+            if let Some(effort) = &self.config.effort {
+                body["output_config"] = serde_json::json!({"effort":effort});
+            }
+        } else if let Some(effort) = &self.config.effort {
+            body["reasoning_effort"] = serde_json::json!(effort);
+        }
+        let body = serde_json::to_vec(&body).map_err(|_| RunError::HttpProtocol)?;
         if body.len() > MAX_HTTP_REQUEST_BYTES {
             return Err(RunError::ContextLimitExceeded);
         }
-        let request = client
-            .post(self.config.endpoint.clone())
-            .bearer_auth(&self.config.key)
-            .header("Accept", "text/event-stream")
-            .header("Content-Type", "application/json")
-            .body(body);
+        let request = client.post(self.config.endpoint.clone());
+        let request = match self.config.protocol {
+            HttpProtocol::OpenaiChat => request.bearer_auth(&self.config.key),
+            HttpProtocol::AnthropicMessages => request
+                .header("x-api-key", &self.config.key)
+                .header("anthropic-version", "2023-06-01"),
+        }
+        .header("Accept", "text/event-stream")
+        .header("Content-Type", "application/json")
+        .body(body);
         let Some(response) = guarded(request.send(), cancelled, deadline, self.config.idle).await?
         else {
             return Ok(());
@@ -205,7 +240,7 @@ impl ChatHttpProvider {
         {
             return Err(RunError::HttpProtocol);
         }
-        let mut parser = Sse::default();
+        let mut parser = Sse::new(self.config.protocol);
         let mut bytes = 0usize;
         let mut secret = SecretGuard::new(&self.config.key);
         loop {
@@ -216,7 +251,7 @@ impl ChatHttpProvider {
             };
             let chunk = chunk.map_err(|_| RunError::HttpTransport)?;
             let Some(chunk) = chunk else {
-                if !parser.finished || !parser.data.is_empty() || !parser.line.is_empty() {
+                if !parser.complete() {
                     return Err(RunError::HttpProtocol);
                 }
                 return secret.finish(emit);
@@ -301,118 +336,4 @@ fn emit_safe_chunks(
         text = &text[end..];
     }
     Ok(())
-}
-#[derive(Default)]
-struct Sse {
-    line: Vec<u8>,
-    data: String,
-    frame_bytes: usize,
-    output: usize,
-    finished: bool,
-    skip_lf: bool,
-    first_line_seen: bool,
-}
-impl Sse {
-    fn push(
-        &mut self,
-        byte: u8,
-        emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
-    ) -> Result<bool, RunError> {
-        if self.skip_lf {
-            self.skip_lf = false;
-            if byte == b'\n' {
-                return Ok(false);
-            }
-        }
-        self.frame_bytes += 1;
-        if self.frame_bytes > 64 * 1024 {
-            return Err(RunError::RunLimitExceeded);
-        }
-        if byte != b'\n' && byte != b'\r' {
-            self.line.push(byte);
-            return Ok(false);
-        }
-        self.skip_lf = byte == b'\r';
-        let line = std::mem::take(&mut self.line);
-        let line = line.strip_suffix(b"\r").unwrap_or(&line);
-        let line = std::str::from_utf8(line).map_err(|_| RunError::HttpProtocol)?;
-        let line = if !self.first_line_seen {
-            self.first_line_seen = true;
-            line.strip_prefix('\u{feff}').unwrap_or(line)
-        } else {
-            line
-        };
-        if line.is_empty() {
-            self.frame_bytes = 0;
-            if self.data.is_empty() {
-                return Ok(false);
-            }
-            let data = std::mem::take(&mut self.data);
-            return self.frame(data.trim_end_matches('\n'), emit);
-        }
-        if let Some(data) = line.strip_prefix("data:") {
-            self.data.push_str(data.strip_prefix(' ').unwrap_or(data));
-            self.data.push('\n');
-        }
-        Ok(false)
-    }
-    fn frame(
-        &mut self,
-        data: &str,
-        emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
-    ) -> Result<bool, RunError> {
-        if data == "[DONE]" {
-            return Ok(true);
-        }
-        let value: Value = serde_json::from_str(data).map_err(|_| RunError::HttpProtocol)?;
-        let choices = value
-            .get("choices")
-            .and_then(Value::as_array)
-            .ok_or(RunError::HttpProtocol)?;
-        if choices.is_empty() {
-            return if value.get("usage").is_some() {
-                Ok(false)
-            } else {
-                Err(RunError::HttpProtocol)
-            };
-        }
-        if choices.len() != 1 {
-            return Err(RunError::HttpUnsupported);
-        }
-        let choice = &choices[0];
-        let delta = choice
-            .get("delta")
-            .and_then(Value::as_object)
-            .ok_or(RunError::HttpProtocol)?;
-        if delta.iter().any(|(key, value)| match key.as_str() {
-            "role" | "content" => false,
-            "refusal" | "tool_calls" | "function_call" => !value.is_null(),
-            _ => true,
-        }) {
-            return Err(RunError::HttpUnsupported);
-        }
-        if let Some(content) = delta.get("content") {
-            if !content.is_null() {
-                let text = content.as_str().ok_or(RunError::HttpUnsupported)?;
-                if self.finished && !text.is_empty() {
-                    return Err(RunError::HttpProtocol);
-                }
-                self.output += text.len();
-                if self.output > MAX_OUTPUT_BYTES || text.len() > MAX_EVENT_BYTES {
-                    return Err(RunError::RunLimitExceeded);
-                }
-                if !text.is_empty() {
-                    emit(text)?
-                }
-            }
-        }
-        if let Some(reason) = choice.get("finish_reason").filter(|v| !v.is_null()) {
-            match reason.as_str() {
-                Some("stop") => self.finished = true,
-                Some("length" | "content_filter") => return Err(RunError::HttpProtocol),
-                _ => return Err(RunError::HttpUnsupported),
-            }
-        }
-        Ok(false)
-    }
 }

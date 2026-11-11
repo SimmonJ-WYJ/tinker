@@ -190,6 +190,8 @@ export type SDKUserContentBlock =
 
 /** SDK assistant 消息 */
 export interface SDKAssistantMessage {
+  /** Rust 宿主持久终态；不是 SDK 会话来源或 token 用量。 */
+  _desktopRuntimeStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted'
   type: 'assistant'
   message: {
     content: SDKContentBlock[]
@@ -525,6 +527,8 @@ export type AgentEvent =
 
 /** ASCI 内部事件类型 */
 export type ASCIEvent =
+  | { type: 'text_snapshot'; text: string; model: string }
+  | { type: 'text_delta'; text: string; turnId?: string }
   | { type: 'permission_request'; request: PermissionRequest }
   | { type: 'permission_resolved'; requestId: string; behavior: 'allow' | 'deny' }
   | { type: 'ask_user_request'; request: AskUserRequest }
@@ -1134,6 +1138,8 @@ export type MentionKind = 'file' | 'dir' | 'zotero-item' | 'zotero-col' | 'evide
  * Agent 发送消息的输入参数
  */
 export interface AgentSendInput {
+  /** 可选稳定请求身份；Rust 预览用于幂等绑定。 */
+  requestId?: string
   /** 用户在结果卡选中的确定图片 ID；宿主按会话检查，不允许 latest。 */
   imageEditReferenceId?: string
   /** 输入框选择的任务意图；缺省保留原有调用行为。 */
@@ -1307,6 +1313,10 @@ export interface StopTaskInput {
  * Agent 流式事件（主进程 → 渲染进程推送）
  */
 export interface AgentStreamEvent {
+  /** 本地发送入口生成的不透明请求身份；旧 SDK 事件可不提供。 */
+  requestId?: string
+  /** 实际开始时间，不用于请求排序。 */
+  startedAt?: number
   /** 会话 ID */
   sessionId: string
   /** 事件数据（新格式） */
@@ -1321,11 +1331,13 @@ export interface AgentStreamEvent {
  */
 export interface AgentStreamCompletePayload {
   sessionId: string
+  /** 本地请求身份，缺省时保持旧 SDK / 外部启动兼容。 */
+  requestId?: string
   /** 已持久化的完整消息列表 */
   messages?: AgentMessage[]
   /** 是否由用户手动中止 */
   stoppedByUser?: boolean
-  /** 本轮流式开始时间戳（用于区分新旧流，防止旧流的 complete 事件重置新流状态） */
+  /** 本轮实际流式开始时间戳（不作为单调请求序号） */
   startedAt?: number
   /** SDK result 消息的 subtype（success / error_max_turns / error_max_budget_usd / error_during_execution 等） */
   resultSubtype?: string
