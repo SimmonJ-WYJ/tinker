@@ -1,0 +1,352 @@
+[
+  {
+    "name": "running",
+    "turns": [
+      {
+        "requestId": "contract",
+        "sessionId": "session-contract",
+        "profileId": "local-mock",
+        "modelId": "local-mock-a",
+        "userMessage": "你好",
+        "startedAt": 123,
+        "effort": "high",
+        "runId": "contract",
+        "userMessageId": "contract-user",
+        "assistantMessageId": "contract-assistant",
+        "configRevision": "local-mock-protocol-v1",
+        "assistantMessage": "你好🌱",
+        "status": "running",
+        "sequence": 3,
+        "errorCode": null
+      }
+    ],
+    "expected": {
+      "messages": [
+        {
+          "id": "contract-user",
+          "role": "user",
+          "content": "你好",
+          "createdAt": 123
+        }
+      ],
+      "sdkMessages": [
+        {
+          "type": "user",
+          "uuid": "contract-user",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好"
+              }
+            ]
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123
+        }
+      ]
+    }
+  },
+  {
+    "name": "completed",
+    "turns": [
+      {
+        "requestId": "contract",
+        "sessionId": "session-contract",
+        "profileId": "local-mock",
+        "modelId": "local-mock-a",
+        "userMessage": "你好",
+        "startedAt": 123,
+        "effort": "high",
+        "runId": "contract",
+        "userMessageId": "contract-user",
+        "assistantMessageId": "contract-assistant",
+        "configRevision": "local-mock-protocol-v1",
+        "assistantMessage": "你好🌱",
+        "status": "completed",
+        "sequence": 3,
+        "errorCode": null
+      }
+    ],
+    "expected": {
+      "messages": [
+        {
+          "id": "contract-user",
+          "role": "user",
+          "content": "你好",
+          "createdAt": 123
+        },
+        {
+          "id": "contract-assistant",
+          "role": "assistant",
+          "content": "你好🌱",
+          "createdAt": 123,
+          "model": "local-mock-a"
+        }
+      ],
+      "sdkMessages": [
+        {
+          "type": "user",
+          "uuid": "contract-user",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好"
+              }
+            ]
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123
+        },
+        {
+          "type": "assistant",
+          "uuid": "contract-assistant",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好🌱"
+              }
+            ],
+            "model": "local-mock-a"
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123,
+          "_channelModelId": "local-mock-a",
+          "_desktopRuntimeStatus": "completed"
+        }
+      ]
+    }
+  },
+  {
+    "name": "cancelled",
+    "turns": [
+      {
+        "requestId": "contract",
+        "sessionId": "session-contract",
+        "profileId": "local-mock",
+        "modelId": "local-mock-a",
+        "userMessage": "你好",
+        "startedAt": 123,
+        "effort": "high",
+        "runId": "contract",
+        "userMessageId": "contract-user",
+        "assistantMessageId": "contract-assistant",
+        "configRevision": "local-mock-protocol-v1",
+        "assistantMessage": "你好🌱",
+        "status": "cancelled",
+        "sequence": 3,
+        "errorCode": null
+      }
+    ],
+    "expected": {
+      "messages": [
+        {
+          "id": "contract-user",
+          "role": "user",
+          "content": "你好",
+          "createdAt": 123
+        },
+        {
+          "id": "contract-assistant",
+          "role": "assistant",
+          "content": "你好🌱",
+          "createdAt": 123,
+          "model": "local-mock-a"
+        }
+      ],
+      "sdkMessages": [
+        {
+          "type": "user",
+          "uuid": "contract-user",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好"
+              }
+            ]
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123
+        },
+        {
+          "type": "assistant",
+          "uuid": "contract-assistant",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好🌱"
+              }
+            ],
+            "model": "local-mock-a"
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123,
+          "_channelModelId": "local-mock-a",
+          "_desktopRuntimeStatus": "cancelled"
+        },
+        {
+          "type": "system",
+          "subtype": "asci_turn_stopped",
+          "uuid": "contract-stopped",
+          "_createdAt": 123
+        }
+      ]
+    }
+  },
+  {
+    "name": "failed",
+    "turns": [
+      {
+        "requestId": "contract",
+        "sessionId": "session-contract",
+        "profileId": "local-mock",
+        "modelId": "local-mock-a",
+        "userMessage": "你好",
+        "startedAt": 123,
+        "effort": "high",
+        "runId": "contract",
+        "userMessageId": "contract-user",
+        "assistantMessageId": "contract-assistant",
+        "configRevision": "local-mock-protocol-v1",
+        "assistantMessage": "你好🌱",
+        "status": "failed",
+        "sequence": 3,
+        "errorCode": "httpProtocol"
+      }
+    ],
+    "expected": {
+      "messages": [
+        {
+          "id": "contract-user",
+          "role": "user",
+          "content": "你好",
+          "createdAt": 123
+        },
+        {
+          "id": "contract-assistant",
+          "role": "assistant",
+          "content": "你好🌱",
+          "createdAt": 123,
+          "model": "local-mock-a"
+        }
+      ],
+      "sdkMessages": [
+        {
+          "type": "user",
+          "uuid": "contract-user",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好"
+              }
+            ]
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123
+        },
+        {
+          "type": "assistant",
+          "uuid": "contract-assistant",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好🌱"
+              }
+            ],
+            "model": "local-mock-a"
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123,
+          "_channelModelId": "local-mock-a",
+          "_desktopRuntimeStatus": "failed",
+          "error": {
+            "message": "responseFailed",
+            "errorType": "httpProtocol"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "interrupted",
+    "turns": [
+      {
+        "requestId": "contract",
+        "sessionId": "session-contract",
+        "profileId": "local-mock",
+        "modelId": "local-mock-a",
+        "userMessage": "你好",
+        "startedAt": 123,
+        "effort": "high",
+        "runId": "contract",
+        "userMessageId": "contract-user",
+        "assistantMessageId": "contract-assistant",
+        "configRevision": "local-mock-protocol-v1",
+        "assistantMessage": "你好🌱",
+        "status": "interrupted",
+        "sequence": 3,
+        "errorCode": null
+      }
+    ],
+    "expected": {
+      "messages": [
+        {
+          "id": "contract-user",
+          "role": "user",
+          "content": "你好",
+          "createdAt": 123
+        },
+        {
+          "id": "contract-assistant",
+          "role": "assistant",
+          "content": "你好🌱",
+          "createdAt": 123,
+          "model": "local-mock-a"
+        }
+      ],
+      "sdkMessages": [
+        {
+          "type": "user",
+          "uuid": "contract-user",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好"
+              }
+            ]
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123
+        },
+        {
+          "type": "assistant",
+          "uuid": "contract-assistant",
+          "message": {
+            "content": [
+              {
+                "type": "text",
+                "text": "你好🌱"
+              }
+            ],
+            "model": "local-mock-a"
+          },
+          "parent_tool_use_id": null,
+          "_createdAt": 123,
+          "_channelModelId": "local-mock-a",
+          "_desktopRuntimeStatus": "interrupted",
+          "error": {
+            "message": "responseFailed",
+            "errorType": "INTERRUPTED"
+          }
+        }
+      ]
+    }
+  }
+]
