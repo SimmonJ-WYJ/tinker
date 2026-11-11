@@ -187,12 +187,15 @@ impl Settings {
             .active_tab_id
             .as_ref()
             .is_some_and(|id| !seen.contains(id))
-            || tabs
-                .active_tab_id_by_workspace
-                .iter()
-                .any(|(ws, id)| ws != DEFAULT_WORKSPACE_ID || !seen.contains(id))
         {
             return Err(invalid());
+        }
+        // 原 UI 关闭标签后仍保留工作区记忆；仅当前激活标签必须存在。
+        for (workspace, id) in &tabs.active_tab_id_by_workspace {
+            if workspace != DEFAULT_WORKSPACE_ID {
+                return Err(invalid());
+            }
+            identifier(id)?;
         }
         self.onboarding_spotlight.validate()?;
         self.concept_spotlight.validate()?;

@@ -105,6 +105,115 @@ fn settings_profile_workspace_and_last_tab_patch_survive_restart() {
     );
 }
 #[test]
+fn closing_last_tab_preserves_workspace_memory_after_restart() {
+    assert_closed_tab_memory_survives_restart(false);
+}
+#[test]
+fn closing_nonactive_tab_preserves_workspace_memory_after_restart() {
+    assert_closed_tab_memory_survives_restart(true);
+}
+fn assert_closed_tab_memory_survives_restart(keep_active_tab: bool) {
+    let (root, p) = setup();
+    let workspace_id = "local-mock-workspace-id";
+    let closed_id = if keep_active_tab {
+        "c".repeat(128)
+    } else {
+        "tab-last".into()
+    };
+    let closed_tab = json!({"id":closed_id,"type":"agent","sessionId":"session-closed","title":"关闭标签","workspaceId":workspace_id});
+    let remaining = if keep_active_tab {
+        vec![
+            json!({"id":"tab-keep","type":"agent","sessionId":"session-keep","title":"保留标签","workspaceId":workspace_id}),
+        ]
+    } else {
+        vec![]
+    };
+    let active_id = if keep_active_tab {
+        json!("tab-keep")
+    } else {
+        Value::Null
+    };
+    let mut initial_tabs = remaining.clone();
+    initial_tabs.push(closed_tab);
+    update(
+        &p,
+        "before-close",
+        0,
+        json!({"tabState":{"tabs":initial_tabs,"activeTabId":if keep_active_tab { active_id.clone() } else { json!(closed_id) },"activeTabIdByWorkspace":{workspace_id:closed_id}}}),
+    );
+    let tab_state = json!({"tabs":remaining,"activeTabId":active_id,"activeTabIdByWorkspace":{workspace_id:closed_id}});
+    let reply = p
+        .invoke(req(
+            "settings:update",
+            json!([{"tabState":tab_state}]),
+            Some(("after-close", 1)),
+        ))
+        .unwrap();
+    assert_eq!(reply.revision, 2);
+    assert_eq!(reply.value["tabState"], tab_state);
+    assert_eq!(
+        serde_json::to_value(reply.snapshot.unwrap()).unwrap()["settings"]["tabState"],
+        tab_state
+    );
+    assert_eq!(read(&p, "settings:get", json!([]))["tabState"], tab_state);
+    drop(p);
+    let p = open(&root);
+    let snapshot = serde_json::to_value(p.bootstrap().unwrap()).unwrap();
+    assert_eq!(snapshot["revision"], 2);
+    assert_eq!(snapshot["settings"]["tabState"], tab_state);
+    assert_eq!(read(&p, "settings:get", json!([]))["tabState"], tab_state);
+}
+#[test]
+fn workspace_tab_memory_rejects_malformed_ids_unknown_workspaces_and_excess_entries() {
+    let (root, p) = setup();
+    let initial = serde_json::to_value(p.bootstrap().unwrap()).unwrap();
+    let mut invalid_memory = vec![
+        json!({"unknown-workspace":"tab-closed"}),
+        json!({"local-mock-workspace-id":"tab-closed","unknown-workspace":"tab-other"}),
+    ];
+    for id in [
+        "".into(),
+        "c".repeat(129),
+        "../tab".into(),
+        "tab/closed".into(),
+        "标签".into(),
+        "tab\nclosed".into(),
+    ] {
+        invalid_memory.push(json!({"local-mock-workspace-id":id}));
+    }
+    for memory in invalid_memory {
+        assert_eq!(
+            p.invoke(req(
+                "settings:update",
+                json!([{"tabState":{"tabs":[],"activeTabId":null,"activeTabIdByWorkspace":memory}}]),
+                Some(("invalid-memory", 0)),
+            ))
+            .unwrap_err()
+            .0,
+            "invalidParams"
+        );
+    }
+    assert_eq!(
+        p.invoke(req(
+            "settings:update",
+            json!([{"tabState":{"tabs":[],"activeTabId":"tab-closed","activeTabIdByWorkspace":{"local-mock-workspace-id":"tab-closed"}}}]),
+            Some(("invalid-active", 0)),
+        ))
+        .unwrap_err()
+        .0,
+        "invalidParams"
+    );
+    assert_eq!(
+        serde_json::to_value(p.bootstrap().unwrap()).unwrap(),
+        initial
+    );
+    drop(p);
+    assert_eq!(
+        serde_json::to_value(open(&root).bootstrap().unwrap()).unwrap(),
+        initial
+    );
+}
+#[test]
 fn revision_and_mutation_identity_are_durable_and_conflicts_recover() {
     let (root, p) = setup();
     let request = req(
