@@ -1,0 +1,208 @@
+{
+  "sourceSha": "29349f4109de44b7aceb49f57083cc7bf2c6c9fe",
+  "baselineMain": "63fdde632dcb625df1f5736d9f7ea5270f5de547",
+  "bun": {
+    "passed": 3481,
+    "failed": 0,
+    "files": 409
+  },
+  "rust": {
+    "topLevelPassed": 248,
+    "failed": 0,
+    "targets": 28,
+    "filteredFixtureInvocations": 11
+  },
+  "checks": [
+    {
+      "name": "rust",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "apps/tinker-rust/src-tauri/Cargo.toml",
+        "--all-targets",
+        "--features",
+        "formal-native-qa",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit": 0,
+      "seconds": 174.31
+    },
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "apps/tinker-rust/src-tauri/Cargo.toml",
+        "--check"
+      ],
+      "exit": 0,
+      "seconds": 0.4
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--manifest-path",
+        "apps/tinker-rust/src-tauri/Cargo.toml",
+        "--all-targets",
+        "--features",
+        "formal-native-qa",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit": 0,
+      "seconds": 18.03
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "bun",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "seconds": 10.39
+    },
+    {
+      "name": "eslint",
+      "command": [
+        "bunx",
+        "eslint",
+        "apps/electron/src/preload",
+        "apps/electron/src/tauri-formal",
+        "apps/electron/src/renderer/main.tsx"
+      ],
+      "exit": 0,
+      "seconds": 0.67
+    },
+    {
+      "name": "electron-build",
+      "command": [
+        "bun",
+        "run",
+        "electron:build"
+      ],
+      "exit": 0,
+      "seconds": 8.53
+    }
+  ],
+  "package": {
+    "identifier": "com.tinker.formal-preview",
+    "version": "0.0.1",
+    "binarySha256": "450eefea1a9d6625c4bd174edb26af3a4eadc7467aac2589587d846cf9216973",
+    "binaryBytes": 50092480,
+    "qaSymbols": false,
+    "qaProbeStrings": false,
+    "strictSignatureExit": 0,
+    "resourcesMatch": {
+      "LICENSE": true,
+      "NOTICE": true
+    }
+  },
+  "nativeSupplement": {
+    "status": "APPROVED_AFTER_INDEPENDENT_REREVIEW",
+    "originalChecksPreserved": true,
+    "passes": {
+      "unreadBacklog": {
+        "beforeReloadDeltas": 133,
+        "beforeReleaseDeltas": 165,
+        "boundary": "actual native delivery envelopes withheld from renderer, not actor queue saturation",
+        "evidence": "supplement-isolation/supplement-results.json"
+      },
+      "staleGenerationAndRun": {
+        "independentHighSequence": 620,
+        "oldGenerationUsesCurrentRun": true,
+        "currentGenerationUsesCompletedOldRun": true,
+        "markersAbsent": true
+      },
+      "sameRequestReplay": {
+        "result": {
+          "ok": true
+        },
+        "httpBefore": 1,
+        "httpAfter": 1,
+        "exactOutputOccurrences": 1
+      },
+      "projectFilesPersistence": {
+        "method": "QA-only same-store atom injection; original UI does not mount toggle",
+        "elapsedSeconds": 0.273656875,
+        "nativeMenu": "NSMenu.performActionForItemAtIndex Quit Tinker index0",
+        "reopenedValue": true,
+        "evidence": [
+          "supplement-final/project-menu.json",
+          "supplement-final/platform-after-menu.json",
+          "supplement-isolation/result-2.json"
+        ]
+      },
+      "startupClassification": {
+        "installedBeforeModules": true,
+        "fatalErrors": 0,
+        "resourceErrors": 0,
+        "unhandledRejections": 0,
+        "csp": "Zod allowsEval new Function capability probe, caught and returns false; CSP unchanged",
+        "consoleErrors": "explicit unsupported workspace-paper/output-feedback reads",
+        "reloadWarning": "Tauri old-document callback ID missing while async operation continues; recovery still exact"
+      },
+      "localUnsupported": [
+        {
+          "code": null,
+          "error": "This operation is not available in the Rust text preview.",
+          "name": "openFileDialog"
+        },
+        {
+          "code": null,
+          "error": "This operation is not available in the Rust text preview.",
+          "name": "openFolderDialog"
+        }
+      ]
+    },
+    "conditionalUnrun": [
+      "native write-failure/close-timeout injection",
+      "background session switch during run",
+      "system appearance change"
+    ],
+    "ownedProcessesRemaining": [],
+    "sourceCommit": "29349f4109de44b7aceb49f57083cc7bf2c6c9fe",
+    "ordinaryPackageNeedsRebuild": false,
+    "ordinaryPackageVerifiedSource": "29349f4109de44b7aceb49f57083cc7bf2c6c9fe"
+  },
+  "css": {
+    "formal": [
+      {
+        "name": "main-Dc_j9N7B.css",
+        "bytes": 188697,
+        "sha256": "b3a9a6267c7dfb153f42b88bd39b751c17ae9f3c6acbb87fa69ba657c99c2bba"
+      },
+      {
+        "name": "PdfRenderer-CEiOz_m0.css",
+        "bytes": 279841,
+        "sha256": "39858dfe570bb6683ebfa4a6cfff18a19e0a1dd97a15d6ceb87815300ac03c1f"
+      }
+    ],
+    "electron": [
+      {
+        "name": "PdfRenderer-CEiOz_m0.css",
+        "bytes": 279841,
+        "sha256": "39858dfe570bb6683ebfa4a6cfff18a19e0a1dd97a15d6ceb87815300ac03c1f"
+      },
+      {
+        "name": "index-Dc_j9N7B.css",
+        "bytes": 188697,
+        "sha256": "b3a9a6267c7dfb153f42b88bd39b751c17ae9f3c6acbb87fa69ba657c99c2bba"
+      }
+    ]
+  },
+  "limitations": [
+    "No real provider or credentials",
+    "No full MVP or production switch",
+    "No native write-failure/close-timeout injection",
+    "No background session switch or OS appearance change",
+    "No memory reduction or pixel-parity claim",
+    "Ad-hoc, not notarized"
+  ]
+}
