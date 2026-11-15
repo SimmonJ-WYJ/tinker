@@ -2,6 +2,176 @@
 use super::*;
 use crate::run_context::ParentRunRef;
 #[test]
+fn tool_journal_result_complete_encoded_boundaries() {
+    for fragment in ["x", "é", "\u{0001}", "\"\\\n"] {
+        for call_id in ["call-0".into(), "c".repeat(64)] {
+            let mut bounded = result_at_encoded_limit(
+                ToolResult {
+                    call_id,
+                    ..result(0, ToolOutcome::Succeeded)
+                },
+                fragment,
+            );
+            assert!(bounded.content.len() <= MAX_TOOL_RESULT_BYTES);
+            assert_eq!(bounded.validate(), Ok(()));
+            bounded.content.push('x');
+            assert_eq!(
+                serde_json::to_vec(&bounded).unwrap().len(),
+                MAX_TOOL_RESULT_BYTES + 1
+            );
+            assert_eq!(bounded.validate(), Err(RunError::ToolLimit), "{fragment:?}");
+            bounded.content.pop();
+            bounded.content.pop();
+            assert_eq!(bounded.validate(), Ok(()));
+        }
+    }
+    let mut raw = result(0, ToolOutcome::Succeeded);
+    raw.content = "é".repeat(MAX_TOOL_RESULT_BYTES / 2 + 1);
+    assert!(raw.content.len() > MAX_TOOL_RESULT_BYTES);
+    assert_eq!(raw.validate(), Err(RunError::ToolLimit));
+}
+#[test]
+fn tool_journal_context_rejects_encoded_result_overflow() {
+    for fragment in ["é", "\u{0001}", "\"\\\n"] {
+        let mut bounded = result_at_encoded_limit(result(0, ToolOutcome::Succeeded), fragment);
+        let context = |result| ToolContext {
+            messages: vec![
+                TranscriptMessage::User {
+                    text: "question".into(),
+                },
+                TranscriptMessage::Assistant {
+                    round: 0,
+                    text: String::new(),
+                    call: Some(call(0)),
+                },
+                TranscriptMessage::Tool { result },
+            ],
+        };
+        assert_eq!(context(bounded.clone()).validate(), Ok(()));
+        bounded.content.push('x');
+        assert_eq!(context(bounded).validate(), Err(RunError::ToolLimit));
+    }
+}
+#[test]
+fn tool_journal_load_rejects_encoded_result_overflow() {
+    let t = Temp::new();
+    let s = RunStore::open(&t.0).unwrap();
+    let mut r = create(&s, "one", 1);
+    pending(&s, &mut r, 0);
+    resolve(&s, &mut r, PermissionDecision::Granted);
+    add(
+        &s,
+        &mut r,
+        ToolRecordKind::ToolStarted {
+            call_id: "call-0".into(),
+        },
+    );
+    let prefix = fs::read(t.log("one")).unwrap();
+    for fragment in ["é", "\u{0001}", "\"\\\n"] {
+        let bounded = result_at_encoded_limit(result(0, ToolOutcome::Succeeded), fragment);
+        let mut record = ToolRecord {
+            version: 1,
+            run_id: "one".into(),
+            sequence: r.snapshot.sequence + 1,
+            event: ToolRecordKind::ToolFinished { result: bounded },
+        };
+        let write_record = |record: &ToolRecord| {
+            let mut bytes = prefix.clone();
+            let encoded = serde_json::to_vec(record).unwrap();
+            assert!(encoded.len() < MAX_EVENT_BYTES);
+            bytes.extend(encoded);
+            bytes.push(b'\n');
+            fs::write(t.log("one"), bytes).unwrap();
+        };
+        write_record(&record);
+        assert_eq!(
+            s.load_tool_run("one").unwrap().snapshot.sequence,
+            record.sequence
+        );
+        if let ToolRecordKind::ToolFinished { result } = &mut record.event {
+            result.content.push('x');
+        }
+        write_record(&record);
+        assert_eq!(s.load_tool_run("one").unwrap_err(), RunError::CorruptLog);
+    }
+}
+#[test]
+fn tool_journal_duplicate_event_fields_are_rejected() {
+    let mut accepted = Vec::new();
+    let events = [
+        r#"{"kind":"started"}"#,
+        r#"{"kind":"roundStarted","round":0}"#,
+        r#"{"kind":"textDelta","round":0,"text":"x"}"#,
+        r#"{"kind":"roundFinished","round":0,"call":{"round":0,"callId":"call-0","name":"workspace_list","arguments":{"path":"a.txt"}}}"#,
+        r#"{"kind":"permissionRequested","ticket":{"permissionId":"p-one-0","runId":"one","call":{"round":0,"callId":"call-0","name":"workspace_list","arguments":{"path":"a.txt"}},"workspaceRevision":"synthetic-v1","expiresAtMs":123}}"#,
+        r#"{"kind":"permissionResolved","receipt":{"permissionId":"p-one-0","decision":"granted","sequence":6}}"#,
+        r#"{"kind":"toolStarted","callId":"call-0"}"#,
+        r#"{"kind":"toolFinished","result":{"callId":"call-0","outcome":"succeeded","content":"ok"}}"#,
+        r#"{"kind":"terminated","status":"failed","errorCode":"toolFailed","closedCall":{"callId":"call-0","outcome":"failed","content":"error"}}"#,
+    ];
+    for event in events {
+        assert!(serde_json::from_str::<ToolRecordKind>(event).is_ok());
+        // 在每个字段前注入同名 null；末值保持合法，必须在规范化前拒绝。
+        for (i, _) in event.match_indices("\":") {
+            let start = event[..i].rfind('"').unwrap();
+            let key = &event[start..i + 2];
+            let duplicate = format!("{}{}null,{}", &event[..start], key, &event[start..]);
+            if serde_json::from_str::<ToolRecordKind>(&duplicate).is_ok() {
+                accepted.push(duplicate);
+            }
+        }
+    }
+    let duplicate_kind = r#"{"kind":"roundStarted","kind":"started"}"#;
+    if serde_json::from_str::<ToolRecordKind>(duplicate_kind).is_ok() {
+        accepted.push(duplicate_kind.into());
+    }
+    assert!(
+        accepted.is_empty(),
+        "accepted duplicate fields: {accepted:?}"
+    );
+}
+#[test]
+fn tool_journal_load_rejects_duplicate_record_and_binding_fields() {
+    let t = Temp::new();
+    let s = RunStore::open(&t.0).unwrap();
+    let mut r = create(&s, "one", 1);
+    pending(&s, &mut r, 0);
+    resolve(&s, &mut r, PermissionDecision::Granted);
+    add(
+        &s,
+        &mut r,
+        ToolRecordKind::ToolStarted {
+            call_id: "call-0".into(),
+        },
+    );
+    add(
+        &s,
+        &mut r,
+        ToolRecordKind::ToolFinished {
+            result: result(0, ToolOutcome::Succeeded),
+        },
+    );
+    let original = fs::read_to_string(t.log("one")).unwrap();
+    let lines: Vec<_> = original.lines().collect();
+    let mut accepted = Vec::new();
+    for line_index in 1..lines.len() {
+        let line = lines[line_index];
+        for (i, _) in line.match_indices("\":") {
+            let start = line[..i].rfind('"').unwrap();
+            let key = &line[start..i + 2];
+            let duplicate = format!("{}{}null,{}", &line[..start], key, &line[start..]);
+            let mut changed = lines.clone();
+            changed[line_index] = &duplicate;
+            fs::write(t.log("one"), format!("{}\n", changed.join("\n"))).unwrap();
+            match s.load_tool_run("one") {
+                Err(error) => assert_eq!(error, RunError::CorruptLog, "{duplicate}"),
+                Ok(_) => accepted.push(duplicate),
+            }
+        }
+    }
+    assert!(accepted.is_empty(), "accepted duplicate rows: {accepted:?}");
+}
+#[test]
 fn tool_journal_cross_version_context_counts_encoded_metadata() {
     let t = Temp::new();
     let s = RunStore::open(&t.0).unwrap();
@@ -238,8 +408,7 @@ fn tool_journal_result_and_terminal_fit_at_encoded_log_boundary() {
     fs::write(t.log("one"), bytes).unwrap();
     let mut r = s.load_tool_run("one").unwrap();
     add(&s, &mut r, started.event);
-    let mut result = result(0, ToolOutcome::Succeeded);
-    result.content = "\u{0001}".repeat(2500);
+    let result = result_at_encoded_limit(result(0, ToolOutcome::Succeeded), "\u{0001}");
     add(&s, &mut r, ToolRecordKind::ToolFinished { result });
     add(
         &s,

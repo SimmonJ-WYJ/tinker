@@ -56,14 +56,13 @@ pub enum ToolRecordKind {
 }
 #[derive(Deserialize)]
 #[serde(
-    remote = "ToolRecordKind",
     tag = "kind",
     rename_all = "camelCase",
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
 enum ToolRecordWire {
-    Started,
+    Started {},
     RoundStarted {
         round: u8,
     },
@@ -98,14 +97,26 @@ enum ToolRecordWire {
 }
 impl<'de> Deserialize<'de> for ToolRecordKind {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = serde_json::Value::deserialize(deserializer)?;
-        // serde 的 internally-tagged unit variant 会忽略额外字段，显式补齐严格契约。
-        if value.get("kind").and_then(|v| v.as_str()) == Some("started")
-            && value.as_object().is_none_or(|m| m.len() != 1)
-        {
-            return Err(serde::de::Error::custom("unexpected started fields"));
-        }
-        ToolRecordWire::deserialize(value).map_err(serde::de::Error::custom)
+        // 直接解码保留重复键；空结构体 variant 同样拒绝 Started 的额外字段。
+        Ok(match ToolRecordWire::deserialize(deserializer)? {
+            ToolRecordWire::Started {} => Self::Started,
+            ToolRecordWire::RoundStarted { round } => Self::RoundStarted { round },
+            ToolRecordWire::TextDelta { round, text } => Self::TextDelta { round, text },
+            ToolRecordWire::RoundFinished { round, call } => Self::RoundFinished { round, call },
+            ToolRecordWire::PermissionRequested { ticket } => Self::PermissionRequested { ticket },
+            ToolRecordWire::PermissionResolved { receipt } => Self::PermissionResolved { receipt },
+            ToolRecordWire::ToolStarted { call_id } => Self::ToolStarted { call_id },
+            ToolRecordWire::ToolFinished { result } => Self::ToolFinished { result },
+            ToolRecordWire::Terminated {
+                status,
+                error_code,
+                closed_call,
+            } => Self::Terminated {
+                status,
+                error_code,
+                closed_call,
+            },
+        })
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

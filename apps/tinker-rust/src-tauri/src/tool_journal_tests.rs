@@ -112,6 +112,20 @@ fn result(round: u8, outcome: ToolOutcome) -> ToolResult {
         content: "synthetic result".into(),
     }
 }
+fn result_at_encoded_limit(mut result: ToolResult, fragment: &str) -> ToolResult {
+    result.content.clear();
+    let available = MAX_TOOL_RESULT_BYTES - serde_json::to_vec(&result).unwrap().len();
+    let fragment_bytes = serde_json::to_vec(fragment).unwrap().len() - 2;
+    result.content = fragment.repeat(available / fragment_bytes);
+    result
+        .content
+        .push_str(&"x".repeat(available % fragment_bytes));
+    assert_eq!(
+        serde_json::to_vec(&result).unwrap().len(),
+        MAX_TOOL_RESULT_BYTES
+    );
+    result
+}
 fn complete(s: &RunStore, r: &mut StoredToolRun, round: u8) {
     add(s, r, ToolRecordKind::RoundStarted { round });
     add(
@@ -462,8 +476,17 @@ fn tool_journal_encoded_result_budget_and_reserved_terminal_slots() {
         s.append_tool_record(&mut r, ToolRecordKind::ToolFinished { result: too_large }),
         Err(RunError::RunLimitExceeded)
     );
-    let mut bounded = result(0, ToolOutcome::Succeeded);
-    bounded.content = "\u{0001}".repeat(2500);
+    let mut escaped = result(0, ToolOutcome::Succeeded);
+    escaped.content = "\u{0001}".repeat(2500);
+    let before = r.snapshot.clone();
+    let before_bytes = fs::read(t.log("one")).unwrap();
+    assert_eq!(
+        s.append_tool_record(&mut r, ToolRecordKind::ToolFinished { result: escaped }),
+        Err(RunError::ToolLimit)
+    );
+    assert_eq!(r.snapshot, before);
+    assert_eq!(fs::read(t.log("one")).unwrap(), before_bytes);
+    let bounded = result_at_encoded_limit(result(0, ToolOutcome::Succeeded), "\u{0001}");
     add(&s, &mut r, ToolRecordKind::ToolFinished { result: bounded });
     add(
         &s,

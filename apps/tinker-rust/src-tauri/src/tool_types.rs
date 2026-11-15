@@ -187,7 +187,12 @@ impl ToolCall {
 impl ToolResult {
     pub fn validate(&self) -> Result<(), RunError> {
         validate_id(&self.call_id).map_err(|_| RunError::ToolArguments)?;
-        if self.content.len() > MAX_TOOL_RESULT_BYTES {
+        if self.content.len() > MAX_TOOL_RESULT_BYTES
+            || serde_json::to_vec(self)
+                .map_err(|_| RunError::ToolLimit)?
+                .len()
+                > MAX_TOOL_RESULT_BYTES
+        {
             return Err(RunError::ToolLimit);
         }
         Ok(())
