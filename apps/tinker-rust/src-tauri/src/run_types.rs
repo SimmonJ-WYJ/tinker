@@ -107,6 +107,14 @@ pub enum RunError {
     ContextParentNotCompleted,
     ContextLimitExceeded,
     ContextUnsupported,
+    ToolUnsupported,
+    ToolArguments,
+    ToolLimit,
+    PermissionNotFound,
+    PermissionConflict,
+    PermissionExpired,
+    RunTimeout,
+    ToolFailed,
 }
 impl RunError {
     pub fn code(&self) -> &'static str {
@@ -138,6 +146,14 @@ impl RunError {
             Self::ContextParentNotCompleted => "contextParentNotCompleted",
             Self::ContextLimitExceeded => "contextLimitExceeded",
             Self::ContextUnsupported => "contextUnsupported",
+            Self::ToolUnsupported => "toolUnsupported",
+            Self::ToolArguments => "toolArguments",
+            Self::ToolLimit => "toolLimit",
+            Self::PermissionNotFound => "permissionNotFound",
+            Self::PermissionConflict => "permissionConflict",
+            Self::PermissionExpired => "permissionExpired",
+            Self::RunTimeout => "runTimeout",
+            Self::ToolFailed => "toolFailed",
         }
     }
 }

@@ -15,6 +15,8 @@ static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 mod header;
 use crate::run_context::*;
 use header::*;
+#[path = "tool_store.rs"]
+mod tools;
 #[derive(Debug, Clone)]
 pub(crate) struct StoredRun {
     pub snapshot: RunSnapshot,
@@ -28,7 +30,10 @@ pub(crate) struct StoredRun {
 pub struct RunStore {
     root: PathBuf,
     context_root: PathBuf,
+    tools_root: PathBuf,
     _writer_lock: File,
+    #[cfg(test)]
+    pub(crate) fail_tool_sync: std::sync::atomic::AtomicBool,
 }
 impl RunStore {
     pub fn open(parent: impl AsRef<Path>) -> Result<Self, RunError> {
@@ -55,9 +60,12 @@ impl RunStore {
         // 子目录自身同步不确认父目录中的新目录项；宿主启动前必须确认布局。
         File::open(&root)?.sync_all()?;
         Ok(Self {
+            tools_root: root.join("tools-v3"),
             context_root,
             root,
             _writer_lock: lock,
+            #[cfg(test)]
+            fail_tool_sync: std::sync::atomic::AtomicBool::new(false),
         })
     }
     pub(crate) fn ids(&self) -> Result<Vec<String>, RunError> {
@@ -66,8 +74,12 @@ impl RunStore {
     fn entries(&self) -> Result<Vec<(u64, String)>, RunError> {
         let mut entries = Vec::new();
         let mut all_ids = std::collections::HashSet::new();
-        for layout in [1, 2] {
+        let mut historical_orders = std::collections::HashSet::new();
+        for layout in [1, 2, 3] {
             let dir = self.directory(layout);
+            if layout == 3 && !self.tools_exist()? {
+                continue;
+            }
             ensure_dir(dir)?;
             let mut orders = std::collections::HashSet::new();
             for entry in fs::read_dir(dir)? {
@@ -94,11 +106,17 @@ impl RunStore {
                 if line.last() != Some(&b'\n') || line.len() > MAX_HEADER_BYTES + 1 {
                     return Err(RunError::CorruptLog);
                 }
-                let (header, _) = decode_header(&line, id, layout)?;
-                if !orders.insert(header.created_order) {
+                let order = if layout == 3 {
+                    let h = tools::decode_tool_header(&line, id)?;
+                    h.created_order
+                } else {
+                    decode_header(&line, id, layout)?.0.created_order
+                };
+                if !orders.insert(order) || (layout == 3 && historical_orders.contains(&order)) {
                     return Err(RunError::CorruptLog);
                 }
-                entries.push((header.created_order, layout, id.to_owned()));
+                historical_orders.insert(order);
+                entries.push((order, layout, id.to_owned()));
             }
         }
         entries.sort();
@@ -110,28 +128,36 @@ impl RunStore {
     fn directory(&self, layout: u8) -> &Path {
         if layout == 1 {
             &self.root
-        } else {
+        } else if layout == 2 {
             &self.context_root
+        } else {
+            &self.tools_root
         }
     }
     pub(crate) fn find_location(&self, id: &str) -> Result<u8, RunError> {
+        validate_id(id)?;
         ensure_dir(&self.root)?;
         ensure_dir(&self.context_root)?;
-        match (
-            safe_file(&self.directory(1).join(format!("{id}.jsonl")))?,
-            safe_file(&self.directory(2).join(format!("{id}.jsonl")))?,
-        ) {
-            (true, true) => Err(RunError::CorruptLog),
-            (true, false) => Ok(1),
-            (false, true) => Ok(2),
-            (false, false) => Err(RunError::RunNotFound),
+        let mut found = None;
+        for layout in [1, 2, 3] {
+            if layout == 3 && !self.tools_exist()? {
+                continue;
+            }
+            if safe_file(&self.directory(layout).join(format!("{id}.jsonl")))? {
+                if found.is_some() {
+                    return Err(RunError::CorruptLog);
+                }
+                found = Some(layout);
+            }
         }
+        found.ok_or(RunError::RunNotFound)
     }
     pub(crate) fn validate_all(&self) -> Result<(), RunError> {
+        // 全部布局预检完成后才允许调用方开始恢复；默认工具能力关闭。
+        self.validate_all_layouts()?;
         for id in self.ids()? {
-            let run = self.load(&id)?;
-            if let RunLineage::Continuation { parent, .. } = &run.lineage {
-                let (_, _) = self.context_for(parent, run.created_order, &run.snapshot.input)?;
+            if self.find_location(&id)? == 3 {
+                return Err(RunError::UnsupportedVersion);
             }
         }
         Ok(())
@@ -153,6 +179,9 @@ impl RunStore {
             }
             if !visited.insert(next.run_id.clone()) {
                 return Err(RunError::CorruptLog);
+            }
+            if self.find_location(&next.run_id)? == 3 {
+                return Err(RunError::ContextUnsupported);
             }
             let run = self.load(&next.run_id)?;
             if run.snapshot.status != RunStatus::Completed || run.snapshot.recovery_required {
@@ -180,6 +209,9 @@ impl RunStore {
         parent_id: &str,
         input: &str,
     ) -> Result<(RunContext, ParentRunRef), RunError> {
+        if self.find_location(parent_id)? == 3 {
+            return Err(RunError::ContextUnsupported);
+        }
         let run = self.load(parent_id)?;
         let parent = ParentRunRef {
             run_id: parent_id.into(),
@@ -270,6 +302,9 @@ impl RunStore {
     pub(crate) fn load(&self, id: &str) -> Result<StoredRun, RunError> {
         validate_id(id)?;
         let layout = self.find_location(id)?;
+        if layout == 3 {
+            return Err(RunError::UnsupportedVersion);
+        }
         let path = self.directory(layout).join(format!("{id}.jsonl"));
         let file = File::open(&path)?;
         if file.metadata()?.len() > MAX_LOG_BYTES as u64 {

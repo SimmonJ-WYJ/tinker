@@ -7,6 +7,23 @@ use std::{
 };
 /// 受信任的同步实现；应轮询取消令牌并传播sink错误。宿主负责配置实现。
 pub trait RunProvider: Send + Sync {
+    fn execute_tool_round(
+        &self,
+        _context: &crate::tool_types::ToolContext,
+        _tools: &[crate::tool_types::ToolSpec],
+        _cancelled: &AtomicBool,
+        _remaining: Duration,
+        _emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
+    ) -> Result<crate::tool_types::ToolRoundOutput, RunError> {
+        Err(RunError::ContextUnsupported)
+    }
+    fn validate_tool_result(
+        &self,
+        _result: &crate::tool_types::ToolResult,
+    ) -> Result<(), RunError> {
+        Ok(())
+    }
+
     fn execute_context(
         &self,
         context: &crate::run_context::RunContext,

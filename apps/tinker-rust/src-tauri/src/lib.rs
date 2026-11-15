@@ -40,3 +40,10 @@ pub mod formal_menu;
 pub mod formal_launch;
 #[cfg(all(feature = "formal-native-qa", target_os = "macos"))]
 pub mod formal_native_qa;
+
+#[cfg(test)]
+mod tool_journal_tests;
+
+mod tool_context;
+pub mod tool_journal;
+pub mod tool_types;

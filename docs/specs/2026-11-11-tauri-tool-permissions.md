@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` to implement this plan task-by-task. Root 已选择每任务新的implementer与独立review、单写者串行实施；无需重新询问执行方式或设计许可。每个任务同时遵守下列全局约束和冻结契约。
 
-**状态：** 设计/实施计划；2026-11-11；尚未实现或验收。  
+**状态：** Task1 已实现并完成核心测试（2026-11-15），待独立审查；Task2–4 尚未实现或验收。
 **关联：** 独立分支 `feat/tauri-tool-permission-loop`；PR22 已于2026-11-11 06:49:16 UTC合并，main=`e961d92911f7574ce38c1f8b11f402e255ff0250`。本设计源码调查来自PR22 head `873babe59f19e0e30c29db10397eb4365419feb6`；Root已正常fetch/merge上述main，当前HEAD=`2f3c517ab5e3aa5c93d07d81f78d184001039c68`，没有reset/覆盖工作。新工作不再是stacked PR。  
 **领域语言事实源：** `CONTEXT.md`、本 spec；前置成果 `docs/specs/2026-11-11-tauri-formal-ui.md`。不修改 README.md/CLAUDE.md。  
 **Goal：** 原 React 工作台内完成 OpenAI SSE 工具调用→真实权限决策→真实合成文件只读执行→tool result 回模型→最终答复/后续上下文/历史恢复。  
@@ -156,7 +156,7 @@ impl RunController {
 
 ### 存储/状态/取消的不可变规则
 
-1. v1与context-v2继续原严格schema与写法；新增私有 `runs-v1/tools-v3/`。header version3、record version1分别校验，不复用旧PROTOCOL_VERSION含义。旧方法遇工具run明确UnsupportedVersion。全局枚举必须包含三种layout，重复runID跨layout拒绝、created_order全局单调，不能用“旧ids只看旧目录”绕开预检。Task1默认disabled的RunController::open/from_store遇tools run须UnsupportedVersion且不恢复/执行；Task2增加工具aware开库供Task3 open_with_tools调用，必须保持全局预检全部通过后才恢复。对现v1/v2无文件重写。
+1. v1与context-v2继续原严格schema与写法；新增私有 `runs-v1/tools-v3/`。header version3、record version1分别校验，不复用旧PROTOCOL_VERSION含义。旧方法遇工具run明确UnsupportedVersion。全局枚举必须包含三种layout，重复runID跨layout拒绝、created_order全局单调，兼容既有v1/v2历史跨layout同order记录，继续按order/layout稳定排序；所有layout新建均为全局max+1，v3与任何layout同order拒绝。不能用“旧ids只看旧目录”绕开预检。Task1默认disabled的RunController::open/from_store遇tools run须UnsupportedVersion且不恢复/执行；Task2增加工具aware开库供Task3 open_with_tools调用，必须保持全局预检全部通过后才恢复。对现v1/v2无文件重写。
 2. tools-v3只在显式tools创建时初始化并sync父目录；打开纯text库不得自动新增该目录。目录存在时，启动预检必须读全工具日志/绑定关系，未预检完成不得追加恢复事件。新目录/文件使用既有symlink/hardlink拒绝和0600/0700策略。
 3. 状态：Queued→Started/Running；RoundStarted(round从0递增)→TextDelta*→RoundFinished。call=None意味着模型已Stop，下一事件只可Completed；call=Some必须唯一provider callId，然后PermissionRequested将run变WaitingInput。Granted→Running→ToolStarted→ToolFinished；Denied/Expired→Running→对应error ToolFinished（禁止ToolStarted）→下一RoundStarted。最多4次call，第5个模型round只能Stop。
 4. Terminated只接受Completed/Failed/Cancelled/Interrupted。Completed需要最后模型Stop、没有pending/unclosed call；Cancelled/Failed/Interrupted用一条Terminated事件原子关闭pending/granted/started call，closed_call必须身份匹配、outcome匹配，不伪造成功。终态后任何delta/decision/result拒绝。
@@ -176,12 +176,14 @@ impl RunController {
 **Consumes：** 现RunStore安全I/O/单writer锁、ParentRunRef、RunStatus、RunError；不依赖Task2任何类型。
 **Produces：** 上述所有tool_types/journal/context类型和RunStore方法；RunProvider默认execute_tool_round→ContextUnsupported、validate_tool_result→Ok。Task2直接消费，无重复DTO。
 
-- [ ] 写 `tool_journal_tests` 行为：两轮list/read与结果后Stop→Completed；保存/reopen后transcript完全相等；旧v1/v2字节fixtures仍严格读；legacy parent→tool child→tool grandchild关联正确；同round先text再call、两个round累计output只在各自transcript出现一次；tool parent不能喂legacy context。
-- [ ] 先运行 `cargo test --offline --manifest-path apps/tinker-rust/src-tauri/Cargo.toml tool_journal -- --test-threads=1`，预期新类型/方法未定义而失败，记录真实失败，不写预计结果当实测。
-- [ ] 实现冻结类型/strict wire、pure reducer、v3单锁I/O、全局预检及context转换。用以下输入/预期写table tests，不仅复制实现：`grant→deny`冲突、重复ToolStarted拒绝、wrong call结果拒绝、call未闭合Completed拒绝、terminal后delta拒绝、跨layout同ID拒绝、父sequence/order/cycle拒绝、513KiB context拒绝、截断最后行标recovery_required、完整非法行CorruptLog、sync失败不更新snapshot。
-- [ ] 写恢复测试：pending/granted/started三个snapshot经Interrupted closure均无pending，历史保留已提交text/call/result，未提交结果只显示interrupted。Task1不运行执行器，不能把“无自动重放”当端到端已证明。
-- [ ] 再运行上条targeted命令；运行 `cargo test --offline --manifest-path apps/tinker-rust/src-tauri/Cargo.toml -- --test-threads=1` 与 `cargo fmt --manifest-path apps/tinker-rust/src-tauri/Cargo.toml -- --check`。预期全部通过且旧text契约未改；记录测试数/exit code。
-- [ ] 自审新增v3是否影响纯text开库/目录；更新progress实际结果，交Root独立审查。该任务不注册新UI渠道、binary或tool runtime capability。由Root决定提交，实施者不自行推进下一任务。
+- [x] 写 `tool_journal_tests` 行为：两轮list/read与结果后Stop→Completed；保存/reopen后transcript完全相等；旧v1/v2字节fixtures仍严格读；legacy parent→tool child→tool grandchild关联正确；同round先text再call、两个round累计output只在各自transcript出现一次；tool parent不能喂legacy context。
+- [x] 先运行 `cargo test --offline --manifest-path apps/tinker-rust/src-tauri/Cargo.toml tool_journal -- --test-threads=1`，预期新类型/方法未定义而失败，记录真实失败，不写预计结果当实测。
+- [x] 实现冻结类型/strict wire、pure reducer、v3单锁I/O、全局预检及context转换。用以下输入/预期写table tests，不仅复制实现：`grant→deny`冲突、重复ToolStarted拒绝、wrong call结果拒绝、call未闭合Completed拒绝、terminal后delta拒绝、跨layout同ID拒绝、父sequence/order/cycle拒绝、513KiB context拒绝、截断最后行标recovery_required、完整非法行CorruptLog、sync失败不更新snapshot。
+- [x] 写恢复测试：pending/granted/started三个snapshot经Interrupted closure均无pending，历史保留已提交text/call/result，未提交结果只显示interrupted。Task1不运行执行器，不能把“无自动重放”当端到端已证明。
+- [x] 再运行上条targeted命令；运行 `cargo test --offline --manifest-path apps/tinker-rust/src-tauri/Cargo.toml -- --test-threads=1` 与 `cargo fmt --manifest-path apps/tinker-rust/src-tauri/Cargo.toml -- --check`。预期全部通过且旧text契约未改；记录测试数/exit code。
+- [x] 自审新增v3是否影响纯text开库/目录；更新progress实际结果，交Root独立审查。该任务不注册新UI渠道、binary或tool runtime capability。由Root决定提交，实施者不自行推进下一任务。
+
+**Task1 实测（2026-11-15）：** isolated offline Cargo targeted 21 passed；全 Rust suite 267 个顶层测试通过（26 targets，另有11次子进程fixture重复执行，不重复计数），exit 0；fmt/check 与 diff/check exit 0。两处 crate-private create/append 使用窄 `expect(dead_code)` 过渡，Task2 接线时必须删除。仅核心投影与合成日志验收，未运行工具执行器、原生 UI 或真实模型；独立审查尚待 Root。
 
 ## Task 2：实际HTTP rounds、权限控制器与合成文件执行
 
