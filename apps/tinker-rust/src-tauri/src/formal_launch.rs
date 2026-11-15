@@ -3,7 +3,9 @@ use crate::{
     formal_commands::{self, FormalState},
     formal_host::FormalHost,
     formal_menu,
-    formal_platform::{HostEnvironment, TrustedRoot, SYNTHETIC_PROFILE},
+    formal_platform::{
+        HostEnvironment, TrustedRoot, SYNTHETIC_PROFILE, SYNTHETIC_TOOLS, TOOLS_APPLICATION_ID,
+    },
 };
 use std::{
     sync::{atomic::Ordering, mpsc},
@@ -38,32 +40,51 @@ pub fn run(
     expected_identifier: &str,
     probe: Option<LaunchProbe>,
 ) {
+    run_mode(context, expected_identifier, probe, false)
+}
+pub fn run_tools(
+    context: tauri::Context<tauri::Wry>,
+    expected_identifier: &str,
+    probe: Option<LaunchProbe>,
+) {
+    assert_eq!(
+        expected_identifier, TOOLS_APPLICATION_ID,
+        "工具入口身份不匹配"
+    );
+    run_mode(context, expected_identifier, probe, true)
+}
+fn run_mode(
+    context: tauri::Context<tauri::Wry>,
+    expected_identifier: &str,
+    probe: Option<LaunchProbe>,
+    tools: bool,
+) {
     validate_config(context.config(), expected_identifier)
         .expect("编译配置不匹配，拒绝创建窗口或数据");
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![formal_commands::formal_request, formal_commands::formal_window])
         .on_menu_event(formal_menu::event)
         .setup(move |app| {
+            // QA 仅接受系统 tmp 的严格 marker 根；默认仅使用本 identifier 的 appData。
+            let (root, fresh) = if let Some(path) = std::env::var_os(if tools {"TINKER_TOOLS_PREVIEW_ROOT"} else {"TINKER_FORMAL_PREVIEW_ROOT"}) {
+                let path = std::path::PathBuf::from(path);
+                let fresh = !path.exists();
+                (if tools {if fresh {TrustedRoot::create_tools_temporary(&path)} else {TrustedRoot::open_tools_temporary(&path)}} else if fresh { TrustedRoot::create_temporary(&path) } else { TrustedRoot::open_temporary(&path) }?,fresh)
+            } else {
+                let parent = app.path().app_local_data_dir()?;
+                if !parent.exists() { let mut builder=std::fs::DirBuilder::new(); #[cfg(unix)] { use std::os::unix::fs::DirBuilderExt; builder.mode(0o700); } builder.create(&parent)?; }
+                let parent = parent.canonicalize()?;
+                let fresh = !parent.join(if tools {SYNTHETIC_TOOLS} else {SYNTHETIC_PROFILE}).exists();
+                (if tools {if fresh {TrustedRoot::create_tools_app_data(&parent)} else {TrustedRoot::open_tools_app_data(&parent)}} else if fresh {TrustedRoot::create_app_data(&parent)} else {TrustedRoot::open_app_data(&parent)}?,fresh)
+            };
             let window = WebviewWindowBuilder::new(app,"main",WebviewUrl::App("index.html".into()))
-                .title("Tinker Formal Preview").inner_size(1400.0,900.0).min_inner_size(1024.0,720.0)
+                .title(if tools {"Tinker Tools Preview"} else {"Tinker Formal Preview"}).inner_size(1400.0,900.0).min_inner_size(1024.0,720.0)
                 .title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
                 .initialization_script(probe.map(|p|p.initialization_script).unwrap_or(""))
                 .on_navigation(formal_commands::local_origin)
                 .on_new_window(|_,_| tauri::webview::NewWindowResponse::Deny)
                 .build()?;
-            // QA 仅接受系统 tmp 的严格 marker 根；默认仅使用本 identifier 的 appData。
-            let (root, fresh) = if let Some(path) = std::env::var_os("TINKER_FORMAL_PREVIEW_ROOT") {
-                let path = std::path::PathBuf::from(path);
-                let fresh = !path.exists();
-                (if fresh { TrustedRoot::create_temporary(&path) } else { TrustedRoot::open_temporary(&path) }?,fresh)
-            } else {
-                let parent = app.path().app_local_data_dir()?;
-                if !parent.exists() { let mut builder=std::fs::DirBuilder::new(); #[cfg(unix)] { use std::os::unix::fs::DirBuilderExt; builder.mode(0o700); } builder.create(&parent)?; }
-                let parent = parent.canonicalize()?;
-                let fresh = !parent.join(SYNTHETIC_PROFILE).exists();
-                (if fresh {TrustedRoot::create_app_data(&parent)} else {TrustedRoot::open_app_data(&parent)}?,fresh)
-            };
-            let host = FormalHost::open(&root,environment(&window))?;
+            let host = if tools {FormalHost::open_tools(&root,environment(&window))?} else {FormalHost::open(&root,environment(&window))?};
             if fresh {
                 // 预配置合成验收 profile：实际持久化 skip，不虚构真实服务已连接。
                 let boot = host.command("main",serde_json::json!({"command":"bootstrap"}))?.wait(Duration::from_secs(5))?;
@@ -144,6 +165,13 @@ mod tests {
             serde_json::from_str(include_str!("../tauri.formal.conf.json")).unwrap();
         let qa: tauri::Config =
             serde_json::from_str(include_str!("../tauri.qa.conf.json")).unwrap();
+        let tools: tauri::Config =
+            serde_json::from_str(include_str!("../tauri.tools.conf.json")).unwrap();
+        assert!(validate_config(&formal, TOOLS_APPLICATION_ID).is_err());
+        assert!(validate_config(&tools, TOOLS_APPLICATION_ID).is_ok());
+        assert!(validate_config(&tools, "com.tinker.formal-preview").is_err());
+        assert_eq!(tools.build.frontend_dist, formal.build.frontend_dist);
+        assert_eq!(tools.app.security.csp, formal.app.security.csp);
         assert!(validate_config(&lab, "com.tinker.formal-preview").is_err());
         assert!(validate_config(&qa, "com.tinker.formal-preview").is_err());
         assert!(validate_config(&formal, "com.tinker.formal-native-qa").is_err());

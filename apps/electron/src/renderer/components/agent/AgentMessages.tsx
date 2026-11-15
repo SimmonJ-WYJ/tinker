@@ -24,6 +24,7 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import type { MinimapItem } from '@/components/ai-elements/scroll-minimap'
+import { mergeToolRunMessages } from '@/hooks/tool-run-snapshot.ts'
 import { useSmoothStream } from '@asci/ui'
 import { CopyButton } from '@/components/common/CopyButton'
 import { formatMessageTime } from '@/components/common/format-message-time'
@@ -697,8 +698,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   const allSDKMessages = React.useMemo(() => {
     const persisted = persistedSDKMessages ?? []
     const live = liveMessages ?? []
-    const liveSet = new Set(live)
-    return [...persisted.filter(m => !liveSet.has(m)), ...live]
+    return mergeToolRunMessages(persisted, live)
   }, [persistedSDKMessages, liveMessages])
 
   // 压缩流程进行中（含收尾窗口：compact_boundary 已到但 result 未到）

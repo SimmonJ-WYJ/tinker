@@ -7,7 +7,7 @@ import { installPersistence } from './persistence.ts'
 import { i18n, setAppLanguage } from '../renderer/lib/i18n.ts'
 
 const translate = (code: string): string => {
-  const key = code === 'responseFailed' ? 'failed' : code === 'unsupported' ? 'unsupported' : ['invalidParams', 'runBusy', 'closing'].includes(code) ? 'invalid' : 'transport'
+  const key = ['permissionNotFound', 'permissionConflict', 'permissionExpired'].includes(code) ? 'permission' : code === 'responseFailed' ? 'failed' : code === 'unsupported' ? 'unsupported' : ['invalidParams', 'runBusy', 'closing'].includes(code) ? 'invalid' : 'transport'
   return i18n.t(`desktopRuntime.${key}`, { ns: 'errors' })
 }
 try {

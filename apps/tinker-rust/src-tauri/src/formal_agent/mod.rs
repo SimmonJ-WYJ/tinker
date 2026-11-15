@@ -2,8 +2,10 @@
 mod actor;
 mod channels;
 mod delivery;
+mod permissions;
 pub mod projection;
 pub mod protocol;
+mod tool_projection;
 use crate::{
     desktop_runtime::{
         protocol::{DesktopError, Result},

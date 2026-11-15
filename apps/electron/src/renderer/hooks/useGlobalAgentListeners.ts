@@ -7,6 +7,9 @@
  * 使用 useStore() 直接操作 atoms，避免 React 订阅。
  */
 
+import { payloadToLegacyEvents } from './agent-payload-events.ts'
+import { createAgentNotificationHelpers } from './agent-notification-helpers.ts'
+import { applyToolRunSnapshotAtom, clearToolRunPermissionsAtom } from './tool-run-snapshot-state.ts'
 import { acceptAgentAttempt } from '@/lib/agent-attempt'
 import { useEffect } from 'react'
 import { unstable_batchedUpdates } from 'react-dom'
@@ -41,16 +44,11 @@ import {
   clearQueuedMessageUuidsAtom,
 } from '@/atoms/agent-atoms'
 import {
-  rightPanelTabsBySessionAtom,
-  upsertTab,
-  kindOfTarget,
-  titleOfTarget,
-  tabIdOfTarget,
   openResearchGapTab,
+  rightPanelTabsBySessionAtom,
 } from '@/atoms/right-panel-tabs'
 import { researchGapTablesBySessionAtom, appendResearchGapTable } from '@/atoms/research-gap-atoms'
-import { isSessionDeliverable, resolveAgainstCwd, extOf } from '@/lib/deliverable-path'
-import type { PreviewTarget } from '@/atoms/side-panel-layout'
+import { isSessionDeliverable, resolveAgainstCwd } from '@/lib/deliverable-path'
 import {
   notificationsEnabledAtom,
   notificationSoundEnabledAtom,
@@ -62,254 +60,15 @@ import { workspacePapersAtom } from '@/atoms/workspace-papers-atoms'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { activeViewAtom } from '@/atoms/active-view'
 import type { AgentStreamState } from '@/atoms/agent-atoms'
-import type { NotificationSoundType } from '@/types/settings'
 import { toast } from 'sonner'
 import { i18n } from '@/lib/i18n'
-import type { AgentStreamEvent, AgentStreamCompletePayload, AgentEvent, AgentStreamPayload, SDKAssistantMessage, SDKUserMessage, SDKSystemMessage, SDKContentBlock, SDKUserContentBlock } from '@asci/shared'
-import { inferModelContextWindow, isSubagentToolUse, nowMs } from '@asci/shared'
+import type { AgentStreamEvent, AgentStreamCompletePayload } from '@asci/shared'
+import { isSubagentToolUse, nowMs } from '@asci/shared'
 
 // ============================================================================
 // Phase 1 临时兼容层：将 AgentStreamPayload 转换为旧 AgentEvent
 // Phase 2 将移除此转换，直接使用 SDKMessage 渲染
 // ============================================================================
-
-function payloadToLegacyEvents(payload: AgentStreamPayload): AgentEvent[] {
-  if (payload.kind === 'asci_event') {
-    const evt = payload.event
-    switch (evt.type) {
-      case 'text_snapshot':
-        return [{ type: 'text_complete', text: evt.text, isIntermediate: false }, { type: 'model_resolved', model: evt.model }]
-      case 'text_delta':
-        return [{ type: 'text_delta', text: evt.text, turnId: evt.turnId }]
-      case 'permission_request':
-        return [{ type: 'permission_request', request: evt.request }]
-      case 'permission_resolved':
-        return [{ type: 'permission_resolved', requestId: evt.requestId, behavior: evt.behavior }]
-      case 'ask_user_request':
-        return [{ type: 'ask_user_request', request: evt.request }]
-      case 'ask_user_resolved':
-        return [{ type: 'ask_user_resolved', requestId: evt.requestId }]
-      case 'exit_plan_mode_request':
-        return [{ type: 'exit_plan_mode_request', request: evt.request }]
-      case 'exit_plan_mode_resolved':
-        return [{ type: 'exit_plan_mode_resolved', requestId: evt.requestId }]
-      case 'litreview_present_directions_request':
-        return [{ type: 'litreview_present_directions_request', request: evt.request }]
-      case 'litreview_present_directions_resolved':
-        return [{ type: 'litreview_present_directions_resolved', requestId: evt.requestId }]
-      case 'search_plan_request':
-        return [{ type: 'search_plan_request', request: evt.request }]
-      case 'search_plan_resolved':
-        return [{ type: 'search_plan_resolved', requestId: evt.requestId }]
-      case 'research_gap_table':
-        return [{ type: 'research_gap_table', table: evt.table }]
-      case 'enter_plan_mode':
-        return [{ type: 'enter_plan_mode', sessionId: evt.sessionId }]
-      case 'model_resolved':
-        return [{ type: 'model_resolved', model: evt.model }]
-      case 'model_fallback_notice': {
-        // 子 Agent model 别名家族未激活的提示（纯 toast，无内部 AgentEvent 承载）
-        const msg = evt.noClaudeActivated
-          ? i18n.t('modelFallback.noClaudeActivated', { ns: 'common' })
-          : i18n.t(evt.agentCount ? 'modelFallback.summary' : 'modelFallback.aliasInactive', {
-              ns: 'common',
-              agentName: evt.agentName,
-              count: evt.agentCount,
-              family: evt.requestedFamily,
-              model: evt.fallbackModelId,
-            })
-        toast.warning(msg)
-        return []
-      }
-      case 'permission_mode_changed':
-        return [{ type: 'permission_mode_changed', mode: evt.mode }]
-      case 'resolved_language':
-        return [{ type: 'resolved_language', language: evt.language }]
-      case 'waiting_resume':
-        return [{ type: 'waiting_resume', message: evt.message }]
-      case 'resume_start':
-        return [{ type: 'resume_start', messageId: evt.messageId }]
-      case 'retry': {
-        const events: AgentEvent[] = []
-        if (evt.status === 'starting' && evt.attempt != null && evt.maxAttempts != null) {
-          events.push({ type: 'retrying', attempt: evt.attempt, maxAttempts: evt.maxAttempts, delaySeconds: evt.delaySeconds ?? 0, reason: evt.reason ?? '' })
-        }
-        if (evt.status === 'attempt' && evt.attemptData) {
-          events.push({ type: 'retry_attempt', attemptData: evt.attemptData })
-        }
-        if (evt.status === 'cleared') {
-          events.push({ type: 'retry_cleared' })
-        }
-        if (evt.status === 'failed' && evt.attemptData) {
-          events.push({ type: 'retry_failed', finalAttempt: evt.attemptData })
-        }
-        return events
-      }
-      default:
-        return []
-    }
-  }
-
-  // sdk_message → 转换为对应的 AgentEvent
-  const msg = payload.message
-
-  switch (msg.type) {
-    case 'assistant': {
-      const aMsg = msg as SDKAssistantMessage
-      if (aMsg.isReplay) return []
-      if (aMsg.error) {
-        // 错误已在主进程处理，这里仅作为 typed_error 透传
-        return [{ type: 'error', message: aMsg.error.message }]
-      }
-      const events: AgentEvent[] = []
-      for (const block of aMsg.message.content) {
-        if (block.type === 'text' && 'text' in block) {
-          events.push({ type: 'text_complete', text: (block as { text: string }).text, isIntermediate: false, parentToolUseId: aMsg.parent_tool_use_id ?? undefined })
-        } else if (block.type === 'tool_use') {
-          const tb = block as SDKContentBlock & { id: string; name: string; input: Record<string, unknown> }
-          const intent = (tb.input._intent as string | undefined)
-            ?? (tb.name === 'Bash' ? (tb.input.description as string | undefined) : undefined)
-          events.push({
-            type: 'tool_start',
-            toolName: tb.name,
-            toolUseId: tb.id,
-            input: tb.input,
-            intent,
-            displayName: tb.input._displayName as string | undefined,
-            parentToolUseId: aMsg.parent_tool_use_id ?? undefined,
-          })
-        }
-      }
-      // Usage（保留完整字段用于详细展示）
-      if (!aMsg.parent_tool_use_id && aMsg.message.usage) {
-        const u = aMsg.message.usage
-        const inputTokens = u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
-        // 流式过程中 SDK 不返回 contextWindow，按模型名推断一个默认值作为 fallback
-        const modelName = aMsg.message.model ?? aMsg._channelModelId
-        const fallbackWindow = modelName ? inferModelContextWindow(modelName) : undefined
-        events.push({
-          type: 'usage_update',
-          usage: {
-            inputTokens,
-            outputTokens: u.output_tokens,
-            cacheReadTokens: u.cache_read_input_tokens,
-            cacheCreationTokens: u.cache_creation_input_tokens,
-            ...(fallbackWindow ? { contextWindow: fallbackWindow } : {}),
-          },
-        })
-      }
-      return events
-    }
-
-    case 'user': {
-      const uMsg = msg as SDKUserMessage
-      if (uMsg.isReplay) return []
-      const events: AgentEvent[] = []
-      const contentBlocks = uMsg.message?.content ?? []
-      for (const block of contentBlocks) {
-        if (block.type === 'tool_result') {
-          const tb = block as SDKUserContentBlock & { tool_use_id: string; content?: unknown; is_error?: boolean }
-          const resultStr = typeof tb.content === 'string' ? tb.content : (tb.content != null ? JSON.stringify(tb.content) : '')
-          events.push({
-            type: 'tool_result',
-            toolUseId: tb.tool_use_id,
-            result: resultStr,
-            isError: tb.is_error ?? false,
-            parentToolUseId: uMsg.parent_tool_use_id ?? undefined,
-          })
-        }
-      }
-      return events
-    }
-
-    case 'result': {
-      const rMsg = msg as { subtype: string; usage?: { input_tokens: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }; total_cost_usd?: number; modelUsage?: Record<string, { contextWindow?: number }> }
-      const usage = rMsg.usage
-      // 优先用 SDK 返回的真实 contextWindow；非 Anthropic 渠道常常不带 modelUsage，
-      // 此时按 modelUsage 的 model 键（或缺省时回退）推断窗口大小
-      const modelUsageEntries = rMsg.modelUsage ? Object.entries(rMsg.modelUsage) : []
-      const sdkContextWindow = modelUsageEntries[0]?.[1]?.contextWindow
-      const sdkModelId = modelUsageEntries[0]?.[0]
-      const contextWindow = sdkContextWindow ?? (sdkModelId ? inferModelContextWindow(sdkModelId) : undefined)
-      return [{
-        type: 'complete',
-        stopReason: rMsg.subtype === 'success' ? 'end_turn' : 'error',
-        usage: usage ? {
-          inputTokens: usage.input_tokens + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0),
-          outputTokens: usage.output_tokens,
-          cacheReadTokens: usage.cache_read_input_tokens,
-          cacheCreationTokens: usage.cache_creation_input_tokens,
-          costUsd: rMsg.total_cost_usd,
-          contextWindow,
-        } : undefined,
-      }]
-    }
-
-    case 'system': {
-      const sMsg = msg as SDKSystemMessage
-      if (sMsg.subtype === 'compact_boundary') return [{ type: 'compact_complete' }]
-      if (sMsg.subtype === 'compacting') return [{ type: 'compacting' }]
-      if (sMsg.subtype === 'task_started' && sMsg.task_id) {
-        return [{ type: 'task_started', taskId: sMsg.task_id, description: sMsg.description ?? '', taskType: sMsg.task_type, toolUseId: sMsg.tool_use_id }]
-      }
-      if (sMsg.subtype === 'task_notification' && sMsg.task_id) {
-        return [{
-          type: 'task_notification',
-          taskId: sMsg.task_id,
-          status: (sMsg.status as 'completed' | 'failed' | 'stopped') ?? 'completed',
-          summary: sMsg.summary ?? '',
-          outputFile: sMsg.output_file,
-          toolUseId: sMsg.tool_use_id,
-          usage: sMsg.usage ? {
-            totalTokens: sMsg.usage.total_tokens ?? 0,
-            toolUses: sMsg.usage.tool_uses ?? 0,
-            durationMs: sMsg.usage.duration_ms ?? 0,
-          } : undefined,
-        }]
-      }
-      if (sMsg.subtype === 'task_progress' && sMsg.task_id) {
-        return [{
-          type: 'task_progress',
-          taskId: sMsg.task_id,
-          toolUseId: sMsg.tool_use_id ?? sMsg.task_id,
-          description: sMsg.description,
-          lastToolName: sMsg.last_tool_name,
-          usage: sMsg.usage ? {
-            totalTokens: sMsg.usage.total_tokens ?? 0,
-            toolUses: sMsg.usage.tool_uses ?? 0,
-            durationMs: sMsg.usage.duration_ms ?? 0,
-          } : undefined,
-        }]
-      }
-      return []
-    }
-
-    case 'tool_progress': {
-      const tpMsg = msg as { tool_use_id: string; elapsed_time_seconds?: number; task_id?: string }
-      return [{
-        type: 'task_progress',
-        toolUseId: tpMsg.tool_use_id,
-        elapsedSeconds: tpMsg.elapsed_time_seconds,
-        taskId: tpMsg.task_id,
-      }]
-    }
-
-    case 'prompt_suggestion': {
-      const psMsg = msg as { suggestion?: string }
-      if (psMsg.suggestion) return [{ type: 'prompt_suggestion', suggestion: psMsg.suggestion }]
-      return []
-    }
-
-    case 'tool_use_summary': {
-      const tusMsg = msg as { summary?: string; preceding_tool_use_ids?: string[] }
-      if (tusMsg.summary) return [{ type: 'tool_use_summary', summary: tusMsg.summary, precedingToolUseIds: tusMsg.preceding_tool_use_ids ?? [] }]
-      return []
-    }
-
-    default:
-      return []
-  }
-}
 
 export function useGlobalAgentListeners(): void {
   const store = useStore()
@@ -320,70 +79,7 @@ export function useGlobalAgentListeners(): void {
     // 仅活在本 effect（永不销毁）生命周期内；replay 消息已被 payloadToLegacyEvents 过滤，不会回放重开。
     const pendingDeliverableWrites = new Map<string, string>() // toolUseId → 原始 file_path
 
-    /** 在指定会话的右栏新建/聚焦一个文件预览 tab（与 useOpenInRightPanel 等价，store 版） */
-    const openDeliverableInRightPanel = (sessionId: string, fullPath: string): void => {
-      const target: PreviewTarget = {
-        kind: 'file',
-        path: fullPath,
-        ext: extOf(fullPath.split('/').pop() ?? fullPath),
-        size: 0, // 渲染器自行读文件；size 仅用于无 renderer 时的占位判断
-      }
-      store.set(rightPanelTabsBySessionAtom(sessionId), (prev) =>
-        upsertTab(prev, tabIdOfTarget(target), kindOfTarget(target), titleOfTarget(target), target),
-      )
-      // 确保右栏可见，否则新建的产物 tab 用户看不到
-      store.set(agentSidePanelOpenMapAtom, (prev) => {
-        if (prev.get(sessionId)) return prev
-        const map = new Map(prev)
-        map.set(sessionId, true)
-        return map
-      })
-    }
-
-    /** 构建导航到指定会话的回调 */
-    const makeNavigateToSession = (sessionId: string, sessionTitle: string) => () => {
-      const tabs = store.get(tabsAtom)
-      const sessions = store.get(agentSessionsAtom)
-      const session = sessions.find((s) => s.id === sessionId)
-      const result = openTab(tabs, {
-        type: 'agent',
-        sessionId,
-        title: sessionTitle,
-        workspaceId: session?.workspaceId,
-      })
-      store.set(tabsAtom, result.tabs)
-      store.set(activeTabIdAtom, result.activeTabId)
-      store.set(currentAgentSessionIdAtom, sessionId)
-      if (session?.workspaceId) {
-        store.set(currentAgentWorkspaceIdAtom, session.workspaceId)
-      }
-    }
-
-    /** 获取会话标题 */
-    const getSessionTitle = (sessionId: string): string => {
-      const sessions = store.get(agentSessionsAtom)
-      return sessions.find((s) => s.id === sessionId)?.title ?? '未命名会话'
-    }
-
-    /** 发送阻塞通知（带提示音 + 会话导航） */
-    const sendBlockingNotification = (sessionId: string, title: string, body: string, soundType: NotificationSoundType) => {
-      const enabled = store.get(notificationsEnabledAtom)
-      const soundEnabled = store.get(notificationSoundEnabledAtom)
-      const sounds = store.get(notificationSoundsAtom)
-      const sessionTitle = getSessionTitle(sessionId)
-      sendDesktopNotification(
-        title,
-        `[${sessionTitle}] ${body}`,
-        enabled,
-        {
-          force: true,
-          playSound: enabled && soundEnabled,
-          soundType,
-          sounds,
-          onNavigate: makeNavigateToSession(sessionId, sessionTitle),
-        }
-      )
-    }
+    const { makeNavigateToSession, getSessionTitle, sendBlockingNotification, openDeliverableInRightPanel } = createAgentNotificationHelpers(store)
     // ===== 0. 初始化：从持久化 meta 恢复 stoppedByUser 状态 =====
     window.electronAPI.listAgentSessions().then((sessions) => {
       const stoppedIds = new Set<string>(
@@ -400,6 +96,13 @@ export function useGlobalAgentListeners(): void {
         unstable_batchedUpdates(() => {
         const { sessionId, payload } = streamEvent
         if (!acceptAgentAttempt(store,sessionId,streamEvent.requestId)) return
+
+        if (payload.kind === 'asci_event' && payload.event.type === 'tool_run_snapshot') {
+          for (const request of store.set(applyToolRunSnapshotAtom, streamEvent)) {
+            sendBlockingNotification(sessionId, i18n.t('conversation:banner.permissionRequired'), request.toolName, 'permissionRequest')
+          }
+          return
+        }
 
         // 如果收到未知会话的事件（跨工作区场景），立即刷新会话列表
         const knownSessions = store.get(agentSessionsAtom)
@@ -572,7 +275,14 @@ export function useGlobalAgentListeners(): void {
               map.set(sessionId, event.suggestion)
               return map
             })
+          } else if (event.type === 'permission_resolved') {
+            store.set(allPendingPermissionRequestsAtom, (prev) => {
+              const current=prev.get(sessionId) ?? []
+              const next=current.filter(p=>p.requestId!==event.requestId)
+              return next.length===current.length ? prev : new Map(prev).set(sessionId,next)
+            })
           } else if (event.type === 'permission_request') {
+            if (store.get(allPendingPermissionRequestsAtom).get(sessionId)?.some(p=>p.requestId===event.request.requestId)) continue
             // 权限请求入队（统一通道，不区分当前/后台会话）
             store.set(allPendingPermissionRequestsAtom, (prev) => {
               const map = new Map(prev)
@@ -583,10 +293,8 @@ export function useGlobalAgentListeners(): void {
             // 桌面通知（带提示音 + 会话导航）
             sendBlockingNotification(
               sessionId,
-              '需要权限确认',
-              event.request.toolName
-                ? `Agent 请求使用工具: ${event.request.toolName}`
-                : 'Agent 需要你的权限确认',
+              i18n.t('conversation:banner.permissionRequired'),
+              event.request.toolName,
               'permissionRequest'
             )
           } else if (event.type === 'ask_user_request') {
@@ -694,6 +402,7 @@ export function useGlobalAgentListeners(): void {
       (data: AgentStreamCompletePayload) => {
         unstable_batchedUpdates(() => {
         if (!acceptAgentAttempt(store,data.sessionId,data.requestId)) return
+        store.set(clearToolRunPermissionsAtom, data)
         // 发送桌面通知（任务完成，始终播放提示音）
         const enabled = store.get(notificationsEnabledAtom)
         const soundEnabled = store.get(notificationSoundEnabledAtom)
@@ -838,6 +547,7 @@ export function useGlobalAgentListeners(): void {
       (data: { sessionId: string; requestId?: string; startedAt?: number; error: string }) => {
         unstable_batchedUpdates(() => {
         if (!acceptAgentAttempt(store,data.sessionId,data.requestId)) return
+        store.set(clearToolRunPermissionsAtom, data)
         console.error('[GlobalAgentListeners] 流式错误:', data.error)
 
         // 存储错误消息

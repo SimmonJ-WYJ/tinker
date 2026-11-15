@@ -7,7 +7,37 @@ use super::{
 use crate::desktop_runtime::protocol::{DesktopError, Result};
 use serde_json::{json, Value};
 use std::time::Instant;
+const MAX_DELETED_SUMMARY_BYTES: usize = 8192;
+const MAX_DELETED_BYTES: usize = 1024 * 1024;
+const MAX_DELETED_COUNT: usize = 128;
 impl Actor {
+    pub fn reserve_deleted_delivery(&self, sid: &str) -> Result<()> {
+        if !self.entries.contains_key(sid) {
+            return Ok(());
+        }
+        let mut count = 0;
+        let mut bytes = 0;
+        for e in self
+            .entries
+            .values()
+            .filter(|e| e.deleted_history.is_some())
+        {
+            count += 1;
+            bytes += serde_json::to_vec(&e.turn)
+                .map_err(|_| DesktopError("invalidReply"))?
+                .len();
+            bytes += serde_json::to_vec(&e.deleted_history)
+                .map_err(|_| DesktopError("invalidReply"))?
+                .len();
+        }
+        // 仅保存 <=64 字节身份、数值、枚举与空数组；8KiB 是包含全部元数据的预留。
+        if count >= MAX_DELETED_COUNT || bytes + MAX_DELETED_SUMMARY_BYTES > MAX_DELETED_BYTES {
+            Err(DesktopError("hostBusy"))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn emit(&mut self, channel: &str, payload: Value) -> bool {
         if !self.attached {
             return false;
@@ -72,7 +102,11 @@ impl Actor {
             e.resync = true;
             return Ok(false);
         }
-        let page=self.core("chat.events",json!({"sessionId":sid,"requestId":e.turn["requestId"],"afterSequence":e.cursor,"limit":128}))?;
+        let page = if e.deleted_history.is_some() {
+            json!({"turn":e.turn,"events":[]})
+        } else {
+            self.core("chat.eventsV2",json!({"sessionId":sid,"requestId":e.turn["requestId"],"afterSequence":e.cursor,"limit":128}))?
+        };
         let turn = page["turn"].clone();
         if turn["requestId"] != e.turn["requestId"]
             || turn["sessionId"] != sid
@@ -81,10 +115,13 @@ impl Actor {
             return Err(DesktopError("invalidReply"));
         }
         e.turn = turn;
-        let mut terminal_history = None;
+        self.register_permissions(&e.turn)?;
+        let mut terminal_history = e.deleted_history.clone();
         if !projection::active(&e.turn) && !e.settled {
             // SEND成功还须能读取其持久历史；不能先resolve再把投影失败变为流错误。
-            terminal_history = Some(self.history(sid)?);
+            if terminal_history.is_none() {
+                terminal_history = Some(self.history(sid)?);
+            }
             let outcome = if matches!(e.turn["status"].as_str(), Some("failed" | "interrupted")) {
                 Err(DesktopError("responseFailed"))
             } else {
@@ -99,7 +136,56 @@ impl Actor {
             e.resync = true;
             return Ok(false);
         }
-        if e.resync {
+        if e.deleted_history.is_some() {
+            if e.resync {
+                if !self.emit("agent:stream:event",projection::stream(&e.turn,json!({"kind":"asci_event","event":{"type":"tool_run_snapshot","sdkMessages":[],"activeText":"","pendingPermissions":[]}}))) {return Ok(false);}
+                e.resync = false;
+                e.cursor = e.turn["sequence"]
+                    .as_u64()
+                    .ok_or(DesktopError("invalidReply"))?;
+                e.terminal_stage = TerminalStage::Error;
+            }
+        } else if !e.turn["toolState"].is_null() {
+            let changed = e.cursor < e.turn["sequence"].as_u64().unwrap_or(0);
+            if !e.resync {
+                for event in page["events"]
+                    .as_array()
+                    .ok_or(DesktopError("invalidReply"))?
+                {
+                    let seq = event["sequence"]
+                        .as_u64()
+                        .ok_or(DesktopError("invalidReply"))?;
+                    if seq <= e.cursor {
+                        return Err(DesktopError("invalidReply"));
+                    }
+                    if let Some(payload) = super::tool_projection::event_payload(&e.turn, event) {
+                        if !self.emit("agent:stream:event", projection::stream(&e.turn, payload)) {
+                            e.resync = true;
+                            return Ok(false);
+                        }
+                    }
+                    e.cursor = seq;
+                }
+            }
+            // 有界完整快照覆盖提交消息、partial 与权限；背压后不能仅补 text 然后跳游标。
+            if e.resync || changed {
+                if !self.emit("agent:stream:event", projection::snapshot(&e.turn)) {
+                    e.resync = true;
+                    return Ok(false);
+                }
+                e.cursor = e.turn["sequence"]
+                    .as_u64()
+                    .ok_or(DesktopError("invalidReply"))?;
+                e.resync = false;
+                // snapshot 已提交此 run 的全部 SDK 消息，避免终态计划重复投递。
+                e.sdk_index = projection::history(std::slice::from_ref(&e.turn))["sdkMessages"]
+                    .as_array()
+                    .map_or(1, Vec::len);
+                if !projection::active(&e.turn) {
+                    e.terminal_stage = TerminalStage::Error;
+                }
+            }
+        } else if e.resync {
             if !self.emit("agent:stream:event", projection::snapshot(&e.turn)) {
                 return Ok(false);
             }
@@ -108,6 +194,7 @@ impl Actor {
                 .ok_or(DesktopError("invalidReply"))?;
             e.resync = false;
             e.terminal_stage = TerminalStage::SdkMessage;
+            e.sdk_index = 1;
         } else {
             for event in page["events"]
                 .as_array()
@@ -137,7 +224,10 @@ impl Actor {
         };
         if e.terminal_stage == TerminalStage::SdkMessage {
             let projected = projection::history(std::slice::from_ref(&e.turn));
-            if let Some(final_message) = projected["sdkMessages"].get(1) {
+            let messages = projected["sdkMessages"]
+                .as_array()
+                .ok_or(DesktopError("invalidReply"))?;
+            while let Some(final_message) = messages.get(e.sdk_index) {
                 if !self.emit(
                     "agent:stream:event",
                     projection::stream(
@@ -147,6 +237,7 @@ impl Actor {
                 ) {
                     return Ok(false);
                 }
+                e.sdk_index += 1;
             }
             e.terminal_stage = TerminalStage::Error;
         }
@@ -194,6 +285,9 @@ impl Actor {
         delivered
     }
     fn record_terminal(&mut self, sid: &str, e: &Entry) {
+        if e.deleted_history.is_some() {
+            return;
+        }
         self.terminal_receipts.insert(
             sid.into(),
             TerminalReceipt {

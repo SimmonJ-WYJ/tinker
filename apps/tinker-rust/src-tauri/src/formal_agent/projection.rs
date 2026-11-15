@@ -1,7 +1,10 @@
 //! 同一core turn的双历史投影；错误保留固定码，由transport做i18n。
 use serde_json::{json, Value};
 pub fn active(turn: &Value) -> bool {
-    matches!(turn["status"].as_str(), Some("queued" | "running"))
+    matches!(
+        turn["status"].as_str(),
+        Some("queued" | "running" | "waitingInput")
+    )
 }
 pub fn session(s: &Value) -> Value {
     let mut out = json!({"id":s["sessionId"],"title":s["title"],"channelId":s["profileId"],"pinned":s["pinned"],"archived":s["archived"],"createdAt":s["createdAt"],"updatedAt":s["updatedAt"]});
@@ -16,6 +19,13 @@ pub fn history(turns: &[Value]) -> Value {
     for t in turns {
         messages.push(json!({"id":t["userMessageId"],"role":"user","content":t["userMessage"],"createdAt":t["startedAt"]}));
         sdk.push(json!({"type":"user","uuid":t["userMessageId"],"message":{"content":[{"type":"text","text":t["userMessage"]}]},"parent_tool_use_id":null,"_createdAt":t["startedAt"]}));
+        if !t["toolState"].is_null() {
+            sdk.extend(super::tool_projection::messages(t));
+            if !active(t) {
+                messages.push(json!({"id":t["assistantMessageId"],"role":"assistant","content":t["assistantMessage"],"createdAt":t["startedAt"],"model":t["modelId"]}));
+            }
+            continue;
+        }
         if active(t) {
             continue;
         }
@@ -35,6 +45,12 @@ pub fn stream(turn: &Value, payload: Value) -> Value {
     json!({"sessionId":turn["sessionId"],"requestId":turn["requestId"],"startedAt":turn["startedAt"],"payload":payload})
 }
 pub fn snapshot(turn: &Value) -> Value {
+    if !turn["toolState"].is_null() {
+        return stream(
+            turn,
+            json!({"kind":"asci_event","event":super::tool_projection::snapshot(turn)}),
+        );
+    }
     stream(
         turn,
         json!({"kind":"asci_event","event":{"type":"text_snapshot","text":turn["assistantMessage"],"model":turn["modelId"]}}),

@@ -32,13 +32,17 @@ pub(super) fn validate_send(p: &Send) -> Result<()> {
     Ok(())
 }
 impl Inner {
-    fn turn(&self, b: &Binding) -> Result<Turn> {
+    pub(super) fn turn(&self, b: &Binding) -> Result<Turn> {
         let c = self
             .controllers
             .get(&b.request.session_id)
             .ok_or(DesktopError("sessionNotFound"))?;
         let snapshot = match c.read(Some(&b.request.request_id), 0, 1) {
             Ok(page) => Some(page.snapshot),
+            Err(RunError::UnsupportedVersion) => {
+                let t = c.read_tools(&b.request.request_id, 0, 1)?.snapshot;
+                return Ok(super::tools::project_tool_turn(b, &t));
+            }
             Err(RunError::RunNotFound) => None,
             Err(e) => return Err(e.into()),
         };
@@ -57,7 +61,7 @@ impl Inner {
                 .find(|b| b.request.request_id == p.request_id)
             {
                 return if b.request == p && b.config_revision == profile.config_revision {
-                    Ok(json!(self.turn(b)?))
+                    self.turn_reply(b)
                 } else {
                     Err(DesktopError("requestConflict"))
                 };
@@ -90,6 +94,18 @@ impl Inner {
         if active >= MAX_ACTIVE {
             return Err(DesktopError("activeLimit"));
         }
+        // 文本路径不能把工具祖先降级；在不可变 Bind 落盘前拒绝。
+        if !self.tools.contains_key(&p.profile_id) {
+            if let Some(parent) = &parent {
+                let c = self
+                    .controllers
+                    .get(&p.session_id)
+                    .ok_or(DesktopError("sessionNotFound"))?;
+                if c.read_tools(parent, 0, 1).is_ok() {
+                    return Err(DesktopError("contextUnsupported"));
+                }
+            }
+        }
         let binding = Binding {
             request: p.clone(),
             config_revision: profile.config_revision.clone(),
@@ -114,24 +130,35 @@ impl Inner {
             .get(&p.session_id)
             .ok_or(DesktopError("sessionNotFound"))?;
         // 绑定成功后即使start失败也禁止重放；未知执行窗口作为interrupted保留。
-        match parent {
-            Some(parent) => c.continue_with_provider(
+        if let Some(tool) = self.tools.get(&p.profile_id) {
+            c.start_tools(
                 p.request_id,
                 parent,
                 p.user_message,
-                OfflineScenario::Success,
                 provider,
-            ),
-            None => c.start_with_provider(
-                p.request_id,
-                p.user_message,
-                OfflineScenario::Success,
-                provider,
-            ),
-        }?;
-        Ok(json!(self.turn(&binding)?))
+                tool.executor.clone(),
+                tool.options.clone(),
+            )?;
+        } else {
+            match parent {
+                Some(parent) => c.continue_with_provider(
+                    p.request_id,
+                    parent,
+                    p.user_message,
+                    OfflineScenario::Success,
+                    provider,
+                ),
+                None => c.start_with_provider(
+                    p.request_id,
+                    p.user_message,
+                    OfflineScenario::Success,
+                    provider,
+                ),
+            }?;
+        }
+        self.turn_reply(&binding)
     }
-    pub(super) fn history(&self, p: History) -> Result<Value> {
+    pub(super) fn history(&self, p: History, v2: bool) -> Result<Value> {
         self.session(&p.session_id)?;
         if p.limit == 0 || p.limit > MAX_REQUESTS {
             return Err(DesktopError("invalidLimit"));
@@ -146,8 +173,11 @@ impl Inner {
         let mut turns = Vec::new();
         let mut next = p.after;
         for b in bindings.iter().skip(p.after).take(p.limit) {
-            let t = self.turn(b)?;
-            turns.push(t);
+            let t = self.turn_v2(b)?;
+            if !v2 && !t["toolState"].is_null() {
+                return Err(DesktopError("unsupportedVersion"));
+            }
+            turns.push(if v2 { t } else { json!(self.turn(b)?) });
             if serde_json::to_vec(
                 &json!({"turns":turns,"nextAfter":next+1,"hasMore":next+1<bindings.len()}),
             )
@@ -165,7 +195,7 @@ impl Inner {
         }
         Ok(json!({"turns":turns,"nextAfter":next,"hasMore":next<bindings.len()}))
     }
-    fn binding(&self, session: &str, request: &str) -> Result<&Binding> {
+    pub(super) fn binding(&self, session: &str, request: &str) -> Result<&Binding> {
         self.session(session)?;
         id(request)?;
         self.bindings
@@ -179,11 +209,11 @@ impl Inner {
             .controllers
             .get(&p.session_id)
             .ok_or(DesktopError("sessionNotFound"))?;
-        match c.cancel(&p.request_id) {
+        match self.cancel_run(c, &p.request_id) {
             Ok(_) | Err(RunError::RunNotFound) => {}
             Err(e) => return Err(e.into()),
         }
-        Ok(json!(self.turn(b)?))
+        self.turn_reply(b)
     }
     pub(super) fn events(&self, p: Events) -> Result<Value> {
         let b = self.binding(&p.session_id, &p.request_id)?;
@@ -240,9 +270,30 @@ impl Inner {
 pub(super) fn validate_store(
     store: &crate::run_store::RunStore,
     bindings: &[Binding],
+    tools: bool,
 ) -> Result<()> {
-    store.validate_all()?;
+    if tools {
+        store.validate_all_layouts()?;
+    } else {
+        store.validate_all()?;
+    }
     for id in store.ids()? {
+        if store.find_location(&id)? == 3 {
+            let run = store.load_tool_run(&id)?;
+            if run.snapshot.recovery_required {
+                return Err(DesktopError("recoveryRequired"));
+            }
+            let binding = bindings
+                .iter()
+                .find(|b| b.request.request_id == id)
+                .ok_or(DesktopError("bindingMismatch"))?;
+            if run.header.input != binding.request.user_message
+                || run.header.parent.as_ref().map(|p| &p.run_id) != binding.parent_run_id.as_ref()
+            {
+                return Err(DesktopError("bindingMismatch"));
+            }
+            continue;
+        }
         let run = store.load(&id)?;
         if run.snapshot.recovery_required {
             return Err(DesktopError("recoveryRequired"));
@@ -300,7 +351,7 @@ pub(super) fn finish_page(
 }
 
 // 一个事件页的turn与events来自同一次read，不混入随后到达的终态。
-fn project_turn(b: &Binding, snapshot: Option<crate::run_types::RunSnapshot>) -> Turn {
+pub(super) fn project_turn(b: &Binding, snapshot: Option<crate::run_types::RunSnapshot>) -> Turn {
     let (output, status, sequence, error_code) = match snapshot {
         Some(snapshot) => (
             snapshot.output,

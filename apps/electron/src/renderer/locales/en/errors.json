@@ -72,6 +72,7 @@
     "unsupported": "This operation is not available in the Rust text preview.",
     "failed": "The Rust response could not finish. Your conversation has been preserved.",
     "transport": "The Rust runtime disconnected. Reopen the preview to recover the conversation.",
-    "invalid": "The selected model or request is not available in the Rust preview."
+    "invalid": "The selected model or request is not available in the Rust preview.",
+    "permission": "This permission request is no longer active or a decision was already submitted. Refresh the session state."
   }
 }

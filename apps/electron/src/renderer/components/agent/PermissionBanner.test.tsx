@@ -131,3 +131,19 @@ describe('PermissionBanner 判定原因 tooltip', () => {
     expect(screen.queryByLabelText(/判定原因|Reason/i)).toBeNull()
   })
 })
+
+it('failed permission acknowledgement retains the request and reports the translated error', async () => {
+  const { fireEvent, waitFor } = await import('@testing-library/react')
+  const { spyOn } = await import('bun:test')
+  const { toast } = await import('sonner')
+  const error=spyOn(toast,'error').mockImplementation(()=>0)
+  const previous=window.electronAPI
+  const { createDesktopApi }=await import('../../../preload/api.ts')
+  window.electronAPI=createDesktopApi({invoke:async()=>{throw new Error('Synthetic permission expired')},readSync:<T,>()=>undefined as T,subscribe:()=>()=>{},getPathForFile:()=>''})
+  try {
+    setup({sessionId:'failure',toolName:'workspace_read'})
+    fireEvent.click(screen.getByRole('button',{name:/^Allow/}))
+    await waitFor(()=>expect(error).toHaveBeenCalled())
+    expect(screen.getByText('workspace_read')).toBeTruthy()
+  } finally {window.electronAPI=previous;error.mockRestore()}
+})

@@ -76,8 +76,11 @@
       "notebookEditGeneric": "Edit Notebook",
       "task": "Launch subtask: {{description}}",
       "taskGeneric": "Launch subtask",
-      "generic": "Use tool: {{tool}}"
-    }
+      "generic": "Use tool: {{tool}}",
+      "syntheticWorkspace": "Read synthetic workspace data"
+    },
+    "permissionRequired": "Permission required",
+    "responseFailed": "Could not submit permission decision"
   },
   "projectSwitcher": {
     "defaultName": "Default project"

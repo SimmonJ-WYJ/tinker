@@ -12,7 +12,7 @@ use crate::desktop_runtime::{
 };
 pub use launch::{
     local_mock_profiles, TrustedRoot, APPLICATION_ID, MOCK_CONFIG_REVISION, MOCK_KEY,
-    MOCK_PROFILE_ID, SYNTHETIC_PROFILE,
+    MOCK_PROFILE_ID, SYNTHETIC_PROFILE, SYNTHETIC_TOOLS, TOOLS_APPLICATION_ID,
 };
 use launch::{public_profiles, PublicProfile};
 use protocol::*;

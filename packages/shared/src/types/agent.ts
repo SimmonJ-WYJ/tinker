@@ -525,8 +525,16 @@ export type AgentEvent =
 
 // ===== ASCI 内部事件（SDK 不覆盖的场景） =====
 
+export interface ToolRunSnapshotEvent {
+  type: 'tool_run_snapshot'
+  sdkMessages: SDKMessage[]
+  activeText: string
+  pendingPermissions: PermissionRequest[]
+}
+
 /** ASCI 内部事件类型 */
 export type ASCIEvent =
+  | ToolRunSnapshotEvent
   | { type: 'text_snapshot'; text: string; model: string }
   | { type: 'text_delta'; text: string; turnId?: string }
   | { type: 'permission_request'; request: PermissionRequest }
