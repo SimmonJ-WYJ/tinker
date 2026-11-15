@@ -55,6 +55,19 @@ fn actual_actor_reload_pending_historical_reply_close_gate_and_full_history() {
         "staleGeneration"
     );
     command(json!({"command":"attach","generation":g2,"observed":{}})).unwrap();
+    let pending_restore = command(
+        json!({"command":"restore","generation":g2,"sessionId":s,"observedDeliverySequence":0}),
+    )
+    .unwrap();
+    let restored_user = &pending_restore["sdkMessages"][0];
+    let snapshot_user =
+        &pending_restore["activeSnapshot"]["currentSnapshot"]["payload"]["event"]["sdkMessages"][0];
+    assert_eq!(restored_user, snapshot_user);
+    assert_eq!(restored_user["_desktopRunId"], "actor-run");
+    command(
+        json!({"command":"resume","generation":g2,"restoreToken":pending_restore["restoreToken"]}),
+    )
+    .unwrap();
     let close = command(json!({"command":"beginClose","generation":g2})).unwrap();
     assert_eq!(
         command(response(g2, "p-actor-run-0")).unwrap_err().0,
@@ -93,13 +106,20 @@ fn actual_actor_reload_pending_historical_reply_close_gate_and_full_history() {
         "list_1"
     );
     let mut assistants = 0;
+    let mut live_users = 0;
     while let Some(event) = h.next_event(Duration::from_millis(20)) {
+        let message = &event.payload["payload"]["message"];
+        if message["uuid"] == "actor-run-user" {
+            assert_eq!(message, restored_user);
+            live_users += 1;
+        }
         if event.payload["payload"]["kind"] == "sdk_message"
             && event.payload["payload"]["message"]["type"] == "assistant"
         {
             assistants += 1;
         }
     }
+    assert!(live_users > 0);
     assert!(
         assistants > 0,
         "normal delivery must use original SDK message events as well as recovery snapshots"

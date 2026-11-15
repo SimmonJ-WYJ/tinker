@@ -1,0 +1,163 @@
+{
+  "turn": {
+    "requestId": "contract-tools",
+    "sessionId": "session-tools",
+    "runId": "contract-tools",
+    "userMessageId": "contract-tools-user",
+    "assistantMessageId": "contract-tools-assistant",
+    "userMessage": "Synthetic restore input 你好",
+    "assistantMessage": "Checking synthetic files",
+    "startedAt": 123,
+    "modelId": "local-tools-mock",
+    "status": "waitingInput",
+    "sequence": 5,
+    "toolState": {
+      "transcript": {
+        "messages": [
+          {
+            "kind": "user",
+            "text": "Synthetic restore input 你好"
+          },
+          {
+            "kind": "assistant",
+            "round": 0,
+            "text": "Checking synthetic files",
+            "call": {
+              "round": 0,
+              "callId": "list_1",
+              "name": "workspace_list",
+              "arguments": {
+                "path": "."
+              }
+            }
+          }
+        ]
+      },
+      "partialText": "",
+      "pending": {
+        "permissionId": "p-contract-tools-0",
+        "call": {
+          "name": "workspace_list",
+          "arguments": {
+            "path": "."
+          }
+        }
+      }
+    }
+  },
+  "history": {
+    "messages": [
+      {
+        "id": "contract-tools-user",
+        "role": "user",
+        "content": "Synthetic restore input 你好",
+        "createdAt": 123
+      }
+    ],
+    "sdkMessages": [
+      {
+        "type": "user",
+        "uuid": "contract-tools-user",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Synthetic restore input 你好"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "_createdAt": 123,
+        "_desktopRunId": "contract-tools"
+      },
+      {
+        "type": "assistant",
+        "uuid": "contract-tools-assistant-0",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Checking synthetic files"
+            },
+            {
+              "type": "tool_use",
+              "id": "contract-tools-tool-0",
+              "name": "workspace_list",
+              "input": {
+                "path": "—"
+              }
+            }
+          ],
+          "model": "local-tools-mock"
+        },
+        "parent_tool_use_id": null,
+        "_createdAt": 123,
+        "_desktopRunId": "contract-tools",
+        "_channelModelId": "local-tools-mock"
+      }
+    ]
+  },
+  "snapshot": {
+    "type": "tool_run_snapshot",
+    "sdkMessages": [
+      {
+        "type": "user",
+        "uuid": "contract-tools-user",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Synthetic restore input 你好"
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "_createdAt": 123,
+        "_desktopRunId": "contract-tools"
+      },
+      {
+        "type": "assistant",
+        "uuid": "contract-tools-assistant-0",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Checking synthetic files"
+            },
+            {
+              "type": "tool_use",
+              "id": "contract-tools-tool-0",
+              "name": "workspace_list",
+              "input": {
+                "path": "—"
+              }
+            }
+          ],
+          "model": "local-tools-mock"
+        },
+        "parent_tool_use_id": null,
+        "_createdAt": 123,
+        "_desktopRunId": "contract-tools",
+        "_channelModelId": "local-tools-mock"
+      }
+    ],
+    "activeText": "",
+    "pendingPermissions": [
+      {
+        "requestId": "p-contract-tools-0",
+        "sessionId": "session-tools",
+        "toolName": "workspace_list",
+        "toolPreview": {
+          "kind": "file",
+          "path": "—"
+        },
+        "description": "Read synthetic workspace data",
+        "descriptionI18n": {
+          "key": "banner.description.syntheticWorkspace"
+        },
+        "dangerLevel": "safe",
+        "canAlwaysAllow": false
+      }
+    ]
+  }
+}

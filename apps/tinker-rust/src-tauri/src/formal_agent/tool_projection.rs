@@ -89,9 +89,7 @@ pub fn messages(turn: &Value) -> Vec<Value> {
 }
 pub fn snapshot(turn: &Value) -> Value {
     let pending = &turn["toolState"]["pending"];
-    let mut sdk = vec![
-        json!({"type":"user","uuid":turn["userMessageId"],"message":{"content":[{"type":"text","text":turn["userMessage"]}]},"parent_tool_use_id":null,"_desktopRunId":turn["runId"],"_createdAt":turn["startedAt"]}),
-    ];
+    let mut sdk = vec![super::projection::user_message(turn)];
     sdk.extend(messages(turn));
     json!({"type":"tool_run_snapshot","sdkMessages":sdk,"activeText":if super::projection::active(turn) {turn["toolState"]["partialText"].clone()} else {json!("")},"pendingPermissions":if pending.is_null() {vec![]} else {vec![permission(turn,pending)]}})
 }

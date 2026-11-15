@@ -13,12 +13,20 @@ pub fn session(s: &Value) -> Value {
     }
     out
 }
+pub(super) fn user_message(turn: &Value) -> Value {
+    let mut message = json!({"type":"user","uuid":turn["userMessageId"],"message":{"content":[{"type":"text","text":turn["userMessage"]}]},"parent_tool_use_id":null,"_createdAt":turn["startedAt"]});
+    // 工具消息在历史、实时 SDK 与恢复快照中使用相同的显式身份；旧文本投影不变。
+    if !turn["toolState"].is_null() {
+        message["_desktopRunId"] = turn["runId"].clone();
+    }
+    message
+}
 pub fn history(turns: &[Value]) -> Value {
     let mut messages = Vec::new();
     let mut sdk = Vec::new();
     for t in turns {
         messages.push(json!({"id":t["userMessageId"],"role":"user","content":t["userMessage"],"createdAt":t["startedAt"]}));
-        sdk.push(json!({"type":"user","uuid":t["userMessageId"],"message":{"content":[{"type":"text","text":t["userMessage"]}]},"parent_tool_use_id":null,"_createdAt":t["startedAt"]}));
+        sdk.push(user_message(t));
         if !t["toolState"].is_null() {
             sdk.extend(super::tool_projection::messages(t));
             if !active(t) {

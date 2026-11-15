@@ -76,9 +76,24 @@ test('original hook deduplicates permission events and atomically reconciles too
     expect(store.get(agentStreamingStatesAtom).get('s')?.toolActivities[0]?.done).toBe(true)
     expect(store.get(agentStreamingStatesAtom).get('s')?.content).toBe('round partial')
     expect(notify).toHaveBeenCalledTimes(1)
+    const originalMessages=store.get(liveMessagesMapAtom)
+    const originalStreams=store.get(agentStreamingStatesAtom)
+    const originalPermissions=store.get(allPendingPermissionRequestsAtom)
+    await act(async()=>packet({...snapshot,activeText:'overwrite',pendingPermissions:[{...request,sessionId:'other'}]}))
+    expect(store.get(liveMessagesMapAtom)).toBe(originalMessages)
+    expect(store.get(agentStreamingStatesAtom)).toBe(originalStreams)
+    expect(store.get(allPendingPermissionRequestsAtom)).toBe(originalPermissions)
+    expect(notify).toHaveBeenCalledTimes(1)
     // 已删 session 不再出现在列表，仍接受精确 run 的终态清理；保留其他 run/session。
     const other={type:'assistant',uuid:'r-other-assistant-0',_desktopRunId:'r-other',parent_tool_use_id:null,message:{content:[]}}
-    store.set(liveMessagesMapAtom,new Map([['s',[...(store.get(liveMessagesMapAtom).get('s') ?? []),other]],['other',[other]]]))
+    const collision={...other,uuid:'r-assistant-0'}
+    const conflictingUser={...other,type:'user',uuid:'r-user'}
+    const electron={type:'user',uuid:'r-user',message:{content:[{type:'text',text:'Original Electron input'}]}}
+    store.set(liveMessagesMapAtom,new Map([['s',[...(store.get(liveMessagesMapAtom).get('s') ?? []),other,collision,conflictingUser,electron]],['other',[other]]]))
+    await act(async()=>packet(snapshot))
+    expect(store.get(liveMessagesMapAtom).get('s')).toContain(collision)
+    expect(store.get(liveMessagesMapAtom).get('s')).toContain(conflictingUser)
+    expect(store.get(liveMessagesMapAtom).get('s')).toContain(electron)
     const owned={...request,toolPreview:{kind:'file' as const,path:'notes/intro.txt'},dangerLevel:'safe' as const}
     store.set(allPendingPermissionRequestsAtom,new Map([['s',[owned,{...owned,requestId:'p-r-other-0'}]],['other',[{...owned,sessionId:'other',requestId:'other-p'}]]]))
     await act(async()=>{
@@ -87,7 +102,7 @@ test('original hook deduplicates permission events and atomically reconciles too
     })
     expect(store.get(allPendingPermissionRequestsAtom).get('s')?.map(p=>p.requestId)).toEqual(['p-r-other-0'])
     expect(store.get(allPendingPermissionRequestsAtom).get('other')).toHaveLength(1)
-    expect(store.get(liveMessagesMapAtom).get('s')).toEqual([other])
+    expect(store.get(liveMessagesMapAtom).get('s')).toEqual([other,collision,conflictingUser,electron])
     expect(store.get(liveMessagesMapAtom).get('other')).toEqual([other])
     expect(store.get(agentStreamingStatesAtom).get('s')?.running ?? false).toBe(false)
   } finally {cleanup();transport.dispose();notify.mockRestore();window.electronAPI=previousApi}

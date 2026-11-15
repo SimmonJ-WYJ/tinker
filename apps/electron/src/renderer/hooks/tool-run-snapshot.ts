@@ -13,16 +13,26 @@ function blocks(message: SDKMessage): Record<string, unknown>[] {
   if (!body || typeof body !== 'object' || !('content' in body) || !Array.isArray(body.content)) return []
   return body.content.filter((b: unknown): b is Record<string, unknown> => typeof b === 'object' && b !== null)
 }
+function messageIdentity(message: SDKMessage): string | undefined {
+  const value = message as Record<string, unknown>
+  return typeof value._desktopRunId === 'string' && value._desktopRunId.length > 0
+    && typeof value.uuid === 'string' && value.uuid.length > 0
+    ? JSON.stringify([value._desktopRunId, value.uuid]) : undefined
+}
 export function reconcileToolSnapshot(previous: ToolSnapshotState, run: string, snapshot: ToolRunSnapshotEvent): ToolSnapshotState {
-  const uuid = (m: SDKMessage): string | undefined => {
-    const value=(m as Record<string, unknown>).uuid
-    return typeof value === 'string' ? value : undefined
-  }
-  const incomingIds = new Set(snapshot.sdkMessages.map(uuid).filter((id): id is string => id !== undefined))
-  const ownedMessages = (m: SDKMessage) => (m as Record<string, unknown>)._desktopRunId === run || uuid(m) === `${run}-user` || (uuid(m) !== undefined && incomingIds.has(uuid(m)!))
-  const messages = [...previous.messages.filter(m => !ownedMessages(m)), ...snapshot.sdkMessages]
   const toolIds = new Set(Array.from({length:4}, (_, round) => `${run}-tool-${round}`))
   const permissionIds = new Set(Array.from({length:4}, (_, round) => `p-${run}-${round}`))
+  // 缺失或冲突身份不能授权破坏性替换，也不从裸 UUID 猜测旧 Electron 消息归属。
+  if (!run || snapshot.sdkMessages.some(message => (message as Record<string, unknown>)._desktopRunId !== run || messageIdentity(message) === undefined)) return previous
+  if (snapshot.pendingPermissions.some(permission => !permissionIds.has(permission.requestId))) return previous
+  // 消息归属正确仍不足以授权修改其他 run 的工具活动；先完整校验再写入。
+  if (snapshot.sdkMessages.some(message => blocks(message).some(block => {
+    if (block.type === 'tool_use') return typeof block.id !== 'string' || !toolIds.has(block.id)
+    if (block.type === 'tool_result') return typeof block.tool_use_id !== 'string' || !toolIds.has(block.tool_use_id)
+    return false
+  }))) return previous
+  const ownedMessages = (m: SDKMessage) => (m as Record<string, unknown>)._desktopRunId === run
+  const messages = [...previous.messages.filter(m => !ownedMessages(m)), ...snapshot.sdkMessages]
   const permissions = [...previous.permissions.filter(p => !permissionIds.has(p.requestId)), ...snapshot.pendingPermissions]
   const activities = previous.activities.filter(a => !toolIds.has(a.toolUseId))
   for (const message of snapshot.sdkMessages) {
@@ -41,15 +51,10 @@ export function reconcileToolSnapshot(previous: ToolSnapshotState, run: string, 
 
 /** 恢复与实时流可能包含不同对象的同一消息；仅 formal run 使用稳定身份去重。 */
 export function mergeToolRunMessages(persisted: SDKMessage[], live: SDKMessage[]): SDKMessage[] {
-  const identity = (message: SDKMessage): string | undefined => {
-    const value = message as Record<string, unknown>
-    return typeof value._desktopRunId === 'string' && typeof value.uuid === 'string'
-      ? JSON.stringify([value._desktopRunId, value.uuid]) : undefined
-  }
   const liveReferences = new Set(live)
-  const liveIds = new Set(live.map(identity).filter((id): id is string => id !== undefined))
+  const liveIds = new Set(live.map(messageIdentity).filter((id): id is string => id !== undefined))
   return [...persisted.filter(message => {
-    const id = identity(message)
+    const id = messageIdentity(message)
     return !liveReferences.has(message) && (id === undefined || !liveIds.has(id))
   }), ...live]
 }

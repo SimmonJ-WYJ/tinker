@@ -6,6 +6,8 @@ import { reconcileToolSnapshot } from './tool-run-snapshot.ts'
 export const applyToolRunSnapshotAtom = atom(null, (get, set, envelope: AgentStreamEvent): PermissionRequest[] => {
   const { sessionId, requestId, payload }=envelope
   if (payload.kind !== 'asci_event' || payload.event.type !== 'tool_run_snapshot' || !requestId) return []
+  // envelope 会话才是原子写入目标；外部权限不得借快照进入该会话或触发通知。
+  if (payload.event.pendingPermissions.some(permission => permission.sessionId !== sessionId)) return []
   const streams=get(agentStreamingStatesAtom)
   const current=streams.get(sessionId) ?? {running:true,content:'',toolActivities:[],teammates:[],startedAt:envelope.startedAt}
   const previous={messages:get(liveMessagesMapAtom).get(sessionId) ?? [],permissions:get(allPendingPermissionRequestsAtom).get(sessionId) ?? [],activities:current.toolActivities,content:current.content}
