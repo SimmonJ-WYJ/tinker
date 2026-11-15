@@ -287,41 +287,38 @@ fn cross_round_key_never_reaches_snapshots_or_disk() {
             let offset = request.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
             let body: serde_json::Value = serde_json::from_slice(&request[offset..]).unwrap();
             assert_eq!(body["parallel_tool_calls"], false);
-            if round > 0 {
-                let (name, path) = if round == 1 {
-                    ("workspace_list", "notes")
-                } else {
-                    ("workspace_read", "notes/intro.txt")
-                };
+            if round == 1 {
                 assert_eq!(
-                    body["messages"][round * 2 - 1]["tool_calls"],
-                    serde_json::json!([{"id":format!("c{round}"),"type":"function","function":{"name":name,"arguments":serde_json::to_string(&serde_json::json!({"path":path})).unwrap()}}])
+                    body["messages"][1],
+                    serde_json::json!({
+                        "role": "assistant",
+                        "content": "café 你好 fake-",
+                        "tool_calls": [{
+                            "id": "c1",
+                            "type": "function",
+                            "function": {
+                                "name": "workspace_list",
+                                "arguments": "{\"path\":\"notes\"}"
+                            }
+                        }]
+                    })
                 );
-                if round == 1 {
-                    assert_eq!(
-                        body["messages"][2]["content"],
-                        "notes/intro.txt\nnotes/steps.txt"
-                    );
-                }
-                assert_eq!(body["messages"][round * 2]["role"], "tool");
                 assert_eq!(
-                    body["messages"][round * 2]["tool_call_id"],
-                    format!("c{round}")
-                );
-            }
-            if round == 2 {
-                assert_eq!(
-                    body["messages"][4]["content"],
-                    "This is a synthetic workspace. Unicode fixture: café — 你好.\n"
+                    body["messages"][2],
+                    serde_json::json!({
+                        "role": "tool",
+                        "tool_call_id": "c1",
+                        "content": "notes/intro.txt\nnotes/steps.txt"
+                    })
                 );
             }
             seen.fetch_add(1, Ordering::SeqCst);
-            let delta = if round < 1 {
-                serde_json::json!({"content":"café 你好 fake-","tool_calls":[{"index":0,"id":format!("c{}",round+1),"type":"function","function":{"name":if round==0{"workspace_list"}else{"workspace_read"},"arguments":if round==0{"{\"path\":\"notes\"}"}else{"{\"path\":\"notes/intro.txt\"}"}}}]})
+            let delta = if round == 0 {
+                serde_json::json!({"content":"café 你好 fake-","tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"workspace_list","arguments":"{\"path\":\"notes\"}"}}]})
             } else {
                 serde_json::json!({"content":"key"})
             };
-            let frame = serde_json::json!({"choices":[{"index":0,"delta":delta,"finish_reason":if round<1{"tool_calls"}else{"stop"}}]});
+            let frame = serde_json::json!({"choices":[{"index":0,"delta":delta,"finish_reason":if round==0{"tool_calls"}else{"stop"}}]});
             let response =
                 format!("data: {frame}\n\ndata: [DONE]\n\n").replace("\"key\"", "\"\\u006bey\"");
             write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",response.len(),response).unwrap();
