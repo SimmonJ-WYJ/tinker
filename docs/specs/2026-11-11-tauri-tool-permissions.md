@@ -278,3 +278,14 @@ interface ToolRunSnapshotEvent {
 必须证据：deny/expired/cancel-before-start/wrong-run/stale-generation/unknown-tool/bad-args/storage-failure全部runner count=0；重复grant最多1；每个重启恢复runner与HTTP新增次数0；allow后HTTP真实收到对应tool result才给最终答案；follow-up完整保留工具关联；原权限卡与工具卡可操作且无重复/幽灵pending。
 
 回滚：退出新tools app，继续原M2/Electron；原目录从未迁入，新v3数据只由新tools app使用。不要用旧binary打开新profile；保留合成数据，清理另行授权。可按任务revert源码，不改生产默认。交付只称“OpenAI兼容协议、owned mock与合成只读工具的原UI闭环”，不称真实模型/任意工具/全产品完成。
+
+### Task2 实现接口补充（2026-11-15）
+
+`RunProvider` 增加向后兼容默认方法
+`validate_tool_context(&self, context: &ToolContext, tools: &[ToolSpec]) -> Result<(), RunError>`，
+默认 `Ok(())`。controller 在创建 v3 header 前调用，HTTP 实现检查协议、catalog、完整上下文
+及已知 key（含新 input）；不公开 key getter。工具 call 的 raw 参数和严格 JSON 解码后的 path
+在 HTTP round 返回之前检查，结果通过既定 `validate_tool_result` 检查后才提交 journal。
+现有 text API 不调用此 seam。合成工作区仅保留新建 fixture 的文件句柄；实际读取用
+Mutex 保护 seek/read，读后与编译期 fixture 字节比较，虚拟 path 从不成为 open 参数。
+工具 API 仅由显式 `RunController::open_with_tools` 启用；默认 Lab、Electron、DesktopRuntime 不变。

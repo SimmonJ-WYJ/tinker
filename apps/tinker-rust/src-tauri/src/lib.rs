@@ -47,3 +47,8 @@ mod tool_journal_tests;
 mod tool_context;
 pub mod tool_journal;
 pub mod tool_types;
+
+pub mod synthetic_workspace;
+
+mod tool_execution;
+mod tool_worker;

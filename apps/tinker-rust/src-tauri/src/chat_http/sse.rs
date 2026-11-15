@@ -12,6 +12,7 @@ pub(super) struct Sse {
 }
 enum Codec {
     OpenAi(OpenAi),
+    Tools(super::tool_openai::ToolOpenAi),
     Anthropic(Anthropic),
 }
 impl Sse {
@@ -29,11 +30,23 @@ impl Sse {
             },
         }
     }
+    pub(super) fn tools() -> Self {
+        let mut s = Self::new(HttpProtocol::OpenaiChat);
+        s.codec = Codec::Tools(Default::default());
+        s
+    }
+    pub(super) fn tool_output(&self) -> Result<crate::tool_types::ToolRoundOutput, RunError> {
+        match &self.codec {
+            Codec::Tools(c) => c.output(),
+            _ => Err(RunError::HttpUnsupported),
+        }
+    }
     pub(super) fn complete(&self) -> bool {
         self.line.is_empty()
             && self.data.is_empty()
             && match &self.codec {
                 Codec::OpenAi(c) => c.finished,
+                Codec::Tools(c) => c.complete(),
                 Codec::Anthropic(c) => c.finished,
             }
     }
@@ -74,6 +87,7 @@ impl Sse {
             let data = std::mem::take(&mut self.data);
             return match &mut self.codec {
                 Codec::OpenAi(c) => c.frame(data.trim_end_matches('\n'), emit),
+                Codec::Tools(c) => c.frame(data.trim_end_matches('\n'), emit),
                 Codec::Anthropic(c) => c.frame(&event, data.trim_end_matches('\n'), emit),
             };
         }

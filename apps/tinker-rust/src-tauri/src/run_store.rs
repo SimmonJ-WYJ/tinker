@@ -68,6 +68,11 @@ impl RunStore {
             fail_tool_sync: std::sync::atomic::AtomicBool::new(false),
         })
     }
+    pub(crate) fn next_created_order(&self) -> Result<u64, RunError> {
+        self.entries()?.last().map_or(Ok(1), |(order, _)| {
+            order.checked_add(1).ok_or(RunError::RunLimitExceeded)
+        })
+    }
     pub(crate) fn ids(&self) -> Result<Vec<String>, RunError> {
         Ok(self.entries()?.into_iter().map(|(_, id)| id).collect())
     }

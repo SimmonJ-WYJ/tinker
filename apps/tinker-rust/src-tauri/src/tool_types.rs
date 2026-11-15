@@ -143,6 +143,8 @@ impl ToolRunOptions {
         })
     }
 }
+/// 仅受信任的有界合成文件执行器；调用和结果提交共用生命周期锁。
+/// 必须迅速返回，不能在此接口接入网络、shell 或无界文件操作。
 pub trait ToolExecutor: Send + Sync {
     fn workspace_revision(&self) -> &str;
     fn catalog(&self) -> Vec<ToolSpec>;

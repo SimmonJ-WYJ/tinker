@@ -37,13 +37,6 @@ impl RunStore {
         }
         Ok(())
     }
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "Task2 will connect the tool controller; remove this expectation then"
-        )
-    )]
     pub(crate) fn create_tool_run(&self, header: ToolRunHeader) -> Result<StoredToolRun, RunError> {
         header.validate()?;
         self.validate_all_layouts()?;
@@ -124,13 +117,6 @@ impl RunStore {
         }
         Ok(run)
     }
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "Task2 will connect the tool controller; remove this expectation then"
-        )
-    )]
     pub(crate) fn append_tool_record(
         &self,
         run: &mut StoredToolRun,

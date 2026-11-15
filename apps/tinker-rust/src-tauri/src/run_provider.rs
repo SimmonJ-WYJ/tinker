@@ -5,8 +5,16 @@ use std::{
     thread,
     time::Duration,
 };
-/// 受信任的同步实现；应轮询取消令牌并传播sink错误。宿主负责配置实现。
+/// 受信任的同步实现；必须轮询取消令牌、遵守 remaining 总时限并立即传播 sink 错误。
+/// 取消或错误后不得继续提交片段或启动网络；宿主负责配置实现，不能注入不受信代码。
 pub trait RunProvider: Send + Sync {
+    fn validate_tool_context(
+        &self,
+        _context: &crate::tool_types::ToolContext,
+        _tools: &[crate::tool_types::ToolSpec],
+    ) -> Result<(), RunError> {
+        Ok(())
+    }
     fn execute_tool_round(
         &self,
         _context: &crate::tool_types::ToolContext,

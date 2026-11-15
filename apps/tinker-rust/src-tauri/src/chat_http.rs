@@ -8,6 +8,8 @@ mod anthropic;
 mod openai;
 mod protocol;
 mod sse;
+mod tool_openai;
+mod tool_stream;
 pub use protocol::HttpProtocol;
 use sse::Sse;
 use std::{
@@ -149,6 +151,33 @@ impl reqwest::dns::Resolve for RejectDns {
     }
 }
 impl RunProvider for ChatHttpProvider {
+    fn validate_tool_context(
+        &self,
+        context: &crate::tool_types::ToolContext,
+        tools: &[crate::tool_types::ToolSpec],
+    ) -> Result<(), RunError> {
+        self.preflight_tools(context, tools)
+    }
+    fn validate_tool_result(&self, result: &crate::tool_types::ToolResult) -> Result<(), RunError> {
+        result.validate()?;
+        self.check_tool_secret(&result.call_id)?;
+        self.check_tool_secret(&result.content)
+    }
+    fn execute_tool_round(
+        &self,
+        context: &crate::tool_types::ToolContext,
+        tools: &[crate::tool_types::ToolSpec],
+        cancelled: &AtomicBool,
+        remaining: Duration,
+        emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
+    ) -> Result<crate::tool_types::ToolRoundOutput, RunError> {
+        self.preflight_tools(context, tools)?;
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|_| RunError::HttpTransport)?;
+        runtime.block_on(self.stream_tools(context, tools, cancelled, remaining, emit))
+    }
     fn execute(
         &self,
         input: &str,
