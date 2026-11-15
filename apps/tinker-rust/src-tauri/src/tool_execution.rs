@@ -29,6 +29,17 @@ impl RunController {
     }
     pub(crate) fn from_store_with_tools(store: RunStore) -> Result<Self, RunError> {
         store.validate_all_layouts()?;
+        // 所有日志先只读检查，确认无恢复阻塞后才允许追加任何闭合记录。
+        for id in store.ids()? {
+            let blocked = if store.find_location(&id)? == 3 {
+                store.load_tool_run(&id)?.snapshot.recovery_required
+            } else {
+                store.load(&id)?.snapshot.recovery_required
+            };
+            if blocked {
+                return Err(RunError::RecoveryRequired);
+            }
+        }
         let mut current = None;
         for id in store.ids()? {
             if store.find_location(&id)? == 3 {
@@ -389,6 +400,11 @@ pub(crate) fn finish(inner: &mut Inner, result: Result<(), RunError>) -> Result<
     if is_terminal(a.run.snapshot.status) {
         return Ok(());
     }
+    let result = if result.is_ok() && Instant::now() >= a.deadline {
+        Err(RunError::RunTimeout)
+    } else {
+        result
+    };
     let (status, error) = match result {
         Ok(()) => (RunStatus::Completed, None),
         Err(e) => (RunStatus::Failed, Some(e.code().into())),
@@ -486,3 +502,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "tool_execution_regression_tests.rs"]
+mod regression_tests;

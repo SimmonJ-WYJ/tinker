@@ -148,7 +148,7 @@ impl RunStore {
             return Err(RunError::RunLimitExceeded);
         }
         let mut next = run.clone();
-        next.apply(record)?;
+        next.apply(record.clone())?;
         let committed = (|| {
             if self.find_location(&run.header.run_id)? != 3 {
                 return Err(RunError::CorruptLog);
@@ -167,6 +167,18 @@ impl RunStore {
                 return Err(RunError::StoreIo);
             }
             file.sync_data()?;
+            #[cfg(test)]
+            {
+                let event = match record.event {
+                    ToolRecordKind::ToolStarted { .. } => "started",
+                    ToolRecordKind::RoundFinished { call: None, .. } => "stopped",
+                    _ => "",
+                };
+                let mut delay = self.delay_tool_sync.lock().unwrap();
+                if delay.as_ref().is_some_and(|(target, _)| *target == event) {
+                    std::thread::sleep(delay.take().unwrap().1);
+                }
+            }
             Ok(())
         })();
         if let Err(e) = committed {

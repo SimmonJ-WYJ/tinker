@@ -25,6 +25,10 @@ pub trait RunProvider: Send + Sync {
     ) -> Result<crate::tool_types::ToolRoundOutput, RunError> {
         Err(RunError::ContextUnsupported)
     }
+    /// 纯校验累计可见输出；在 TextDelta 持久化和发布前调用。
+    fn validate_tool_output(&self, _output: &str) -> Result<(), RunError> {
+        Ok(())
+    }
     fn validate_tool_result(
         &self,
         _result: &crate::tool_types::ToolResult,

@@ -27,12 +27,20 @@ pub(crate) fn run(
             let mut inner = state.lock().map_err(|_| RunError::StoreIo)?;
             check(&inner, id, token)?;
             append(&mut inner, ToolRecordKind::RoundStarted { round })?;
+            check(&inner, id, token)?;
             active(&inner)?
                 .deadline
                 .saturating_duration_since(Instant::now())
         };
         let output = provider.execute_tool_round(&context, tools, token, remaining, &mut |text| {
             let mut inner = state.lock().map_err(|_| RunError::StoreIo)?;
+            check(&inner, id, token)?;
+            let mut candidate = active(&inner)?.run.snapshot.output.clone();
+            candidate.push_str(text);
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                provider.validate_tool_output(&candidate)
+            }))
+            .unwrap_or(Err(RunError::ProviderPanicked))?;
             check(&inner, id, token)?;
             append(
                 &mut inner,
@@ -60,6 +68,7 @@ pub(crate) fn run(
                 call: call.clone(),
             },
         )?;
+        check(&inner, id, token)?;
         let Some(call) = call else {
             return Ok(());
         };
@@ -95,6 +104,13 @@ pub(crate) fn run(
             std::thread::sleep(Duration::from_millis(5));
             inner = state.lock().map_err(|_| RunError::StoreIo)?;
         }
+        #[cfg(test)]
+        if let Some(gate) = inner.store.granted_gate.clone() {
+            drop(inner);
+            gate.0.wait();
+            gate.1.wait();
+            inner = state.lock().map_err(|_| RunError::StoreIo)?;
+        }
         check(&inner, id, token)?;
         let decision = active(&inner)?
             .run
@@ -113,6 +129,7 @@ pub(crate) fn run(
                     call_id: call.call_id.clone(),
                 },
             )?;
+            check(&inner, id, token)?;
             // 捕获受信任执行器 panic 于锁内，避免锁中毒后的盲执行。
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 executor.execute(&call, token)
@@ -140,7 +157,9 @@ pub(crate) fn run(
             provider.validate_tool_result(&result)
         }))
         .unwrap_or(Err(RunError::ToolFailed))?;
+        check(&inner, id, token)?;
         append(&mut inner, ToolRecordKind::ToolFinished { result })?;
+        check(&inner, id, token)?;
         // 已闭合 transcript 才能进入标准 context validator。
         let transcript = &active(&inner)?.run.snapshot.transcript;
         let start = context

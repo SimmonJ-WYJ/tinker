@@ -103,7 +103,7 @@ impl ToolOpenAi {
                 arguments: String::new(),
             });
             if let Some(id) = delta.id {
-                if !call.id.is_empty() {
+                if id.is_empty() || !call.id.is_empty() {
                     return Err(RunError::HttpProtocol);
                 }
                 call.id = id;
@@ -116,7 +116,7 @@ impl ToolOpenAi {
             }
             if let Some(function) = delta.function {
                 if let Some(name) = function.name {
-                    if !call.name.is_empty() {
+                    if name.is_empty() || !call.name.is_empty() {
                         return Err(RunError::HttpProtocol);
                     }
                     call.name = name;
@@ -175,6 +175,26 @@ mod tests {
     fn frame(delta: serde_json::Value, finish: Option<&str>) -> String {
         serde_json::json!({"choices":[{"index":0,"delta":delta,"finish_reason":finish}]})
             .to_string()
+    }
+    #[test]
+    fn empty_metadata_cannot_be_replaced() {
+        for field in ["id", "name", "type"] {
+            let mut call = serde_json::json!({"index":0,"id":"c1","type":"function","function":{"name":"workspace_read","arguments":"{\"path\":\"notes/intro.txt\"}"}});
+            if field == "name" {
+                call["function"]["name"] = "".into();
+            } else {
+                call[field] = "".into();
+            }
+            let mut p = ToolOpenAi::default();
+            assert!(
+                p.frame(
+                    &frame(serde_json::json!({"tool_calls":[call]}), None),
+                    &mut |_| Ok(())
+                )
+                .is_err(),
+                "{field}"
+            );
+        }
     }
     #[test]
     fn strict_protocol_rejects_ambiguous_and_incomplete_calls() {

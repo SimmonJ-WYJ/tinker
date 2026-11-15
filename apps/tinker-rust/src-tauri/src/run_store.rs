@@ -33,6 +33,10 @@ pub struct RunStore {
     tools_root: PathBuf,
     _writer_lock: File,
     #[cfg(test)]
+    pub(crate) delay_tool_sync: std::sync::Mutex<Option<(&'static str, std::time::Duration)>>,
+    #[cfg(test)]
+    pub(crate) granted_gate: Option<std::sync::Arc<(std::sync::Barrier, std::sync::Barrier)>>,
+    #[cfg(test)]
     pub(crate) fail_tool_sync: std::sync::atomic::AtomicBool,
 }
 impl RunStore {
@@ -66,6 +70,10 @@ impl RunStore {
             _writer_lock: lock,
             #[cfg(test)]
             fail_tool_sync: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            delay_tool_sync: std::sync::Mutex::new(None),
+            #[cfg(test)]
+            granted_gate: None,
         })
     }
     pub(crate) fn next_created_order(&self) -> Result<u64, RunError> {

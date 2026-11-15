@@ -158,6 +158,9 @@ impl RunProvider for ChatHttpProvider {
     ) -> Result<(), RunError> {
         self.preflight_tools(context, tools)
     }
+    fn validate_tool_output(&self, output: &str) -> Result<(), RunError> {
+        self.check_tool_secret(output)
+    }
     fn validate_tool_result(&self, result: &crate::tool_types::ToolResult) -> Result<(), RunError> {
         result.validate()?;
         self.check_tool_secret(&result.call_id)?;

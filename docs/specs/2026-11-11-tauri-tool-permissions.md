@@ -289,3 +289,11 @@ interface ToolRunSnapshotEvent {
 现有 text API 不调用此 seam。合成工作区仅保留新建 fixture 的文件句柄；实际读取用
 Mutex 保护 seek/read，读后与编译期 fixture 字节比较，虚拟 path 从不成为 open 参数。
 工具 API 仅由显式 `RunController::open_with_tools` 启用；默认 Lab、Electron、DesktopRuntime 不变。
+
+Task2 审查修复新增默认纯校验 seam：
+`validate_tool_output(&self, output: &str) -> Result<(), RunError>` 默认 Ok。
+工具 worker 在每个 TextDelta 写入前校验累计候选 output，HTTP 实现沿用私有已知
+key 检查，防止跨 round 拼接泄漏；锁内捕获校验 panic。旧文本 API 不调用此 seam。
+同步持久化不能被硬实时中断；成功返回后重新检查绝对 deadline，防止已耗尽
+预算后进入执行器、下一轮网络或接受 Completed。工具启动在任何恢复追加前
+拒绝任一布局的 recovery_required 日志；只读检查仍可返回该标志。
