@@ -45,6 +45,15 @@ Alternatives considered: renderer-only FIFO loses reload/recovery and durable ac
 New methods use strict camelCase DTOs with unknown-field rejection:
 
 ```ts
+interface ExistingSend {
+  requestId: string
+  sessionId: string
+  profileId: string
+  modelId: string
+  userMessage: string
+  startedAt: number
+  effort: string | null
+}
 interface BeginChain extends ExistingSend {}
 interface QueueInput {
   sessionId: string
