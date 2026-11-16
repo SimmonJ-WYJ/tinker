@@ -24,10 +24,7 @@ impl ToolContext {
         for message in &self.messages {
             match message {
                 TranscriptMessage::User { text } => {
-                    if pending.is_some()
-                        || (!expect_user && !stopped)
-                        || text.len() > MAX_INPUT_BYTES
-                    {
+                    if pending.is_some() || text.len() > MAX_INPUT_BYTES {
                         return Err(RunError::CorruptLog);
                     }
                     expect_user = false;
@@ -81,7 +78,20 @@ impl RunStore {
         child_order: u64,
         input: &str,
     ) -> Result<ToolContext, RunError> {
+        self.tool_context_policy(parent, child_order, input, None)
+    }
+    pub(crate) fn tool_context_policy(
+        &self,
+        parent: Option<&ParentRunRef>,
+        child_order: u64,
+        input: &str,
+        child: Option<(&str, u32)>,
+    ) -> Result<ToolContext, RunError> {
         validate_tool_input(input)?;
+        let mut redirected = child
+            .map(|(id, v)| self.redirect_edge(id, parent, v))
+            .transpose()?
+            .unwrap_or(false);
         let mut next = parent.cloned();
         let mut order = child_order;
         let mut visited = std::collections::HashSet::new();
@@ -93,7 +103,7 @@ impl RunStore {
             if !visited.insert(p.run_id.clone()) {
                 return Err(RunError::CorruptLog);
             }
-            let (status, recovery, sequence, created, messages, lineage) =
+            let (status, recovery, sequence, created, messages, lineage, policy) =
                 if self.find_location(&p.run_id)? == 3 {
                     let r = self.load_tool_run(&p.run_id)?;
                     (
@@ -103,12 +113,16 @@ impl RunStore {
                         r.header.created_order,
                         r.snapshot.transcript.messages,
                         r.header.parent,
+                        r.header.policy_version,
                     )
                 } else {
                     let r = self.load(&p.run_id)?;
-                    let lineage = match r.lineage {
-                        RunLineage::Standalone => None,
-                        RunLineage::Continuation { parent, .. } => Some(parent),
+                    let (lineage, policy) = match r.lineage {
+                        RunLineage::Standalone => (None, 1),
+                        RunLineage::Continuation {
+                            parent,
+                            policy_version,
+                        } => (Some(parent), policy_version),
                     };
                     (
                         r.snapshot.status,
@@ -126,15 +140,19 @@ impl RunStore {
                             },
                         ],
                         lineage,
+                        policy,
                     )
                 };
-            if status != RunStatus::Completed || recovery {
+            if (status != RunStatus::Completed && !(redirected && status == RunStatus::Cancelled))
+                || recovery
+            {
                 return Err(RunError::ContextParentNotCompleted);
             }
             if sequence != p.sequence || created >= order {
                 return Err(RunError::CorruptLog);
             }
             turns.push(messages);
+            redirected = self.redirect_edge(&p.run_id, lineage.as_ref(), policy)?;
             next = lineage;
             order = created;
         }

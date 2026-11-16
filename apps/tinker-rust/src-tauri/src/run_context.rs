@@ -2,6 +2,7 @@
 use crate::run_types::{validate_id, RunError};
 use serde::{Deserialize, Serialize};
 pub const CONTEXT_POLICY_VERSION: u32 = 1;
+pub(crate) const REDIRECT_POLICY_VERSION: u32 = 2;
 pub const MAX_CONTEXT_ANCESTORS: usize = 16;
 pub const MAX_CONTEXT_BYTES: usize = 512 * 1024;
 pub const MAX_HTTP_REQUEST_BYTES: usize = 4 * 1024 * 1024;
@@ -45,6 +46,28 @@ impl RunContext {
     }
     pub fn messages(&self) -> &[ChatMessage] {
         &self.messages
+    }
+    pub(crate) fn from_committed_turns(
+        turns: Vec<(String, String, bool)>,
+        input: &str,
+    ) -> Result<Self, RunError> {
+        // 只有已认证取消且无输出的祖先省略 assistant；成功祖先保持原协议投影。
+        let omitted: Vec<_> = turns
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, a, cancelled))| *cancelled && a.is_empty())
+            .map(|(i, _)| i * 2 + 1)
+            .collect();
+        let mut context =
+            Self::from_turns(turns.into_iter().map(|(u, a, _)| (u, a)).collect(), input)?;
+        context.messages = context
+            .messages
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| !omitted.contains(i))
+            .map(|(_, m)| m)
+            .collect();
+        Ok(context)
     }
     pub(crate) fn from_turns(turns: Vec<(String, String)>, input: &str) -> Result<Self, RunError> {
         if turns.len() > MAX_CONTEXT_ANCESTORS {

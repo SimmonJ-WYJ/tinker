@@ -91,6 +91,16 @@ impl Journal {
         parent: &Path,
         sync: impl Fn(&Path) -> Result<()>,
     ) -> Result<(Self, Vec<Record>)> {
+        Self::open_impl(parent, sync, false)
+    }
+    pub fn open_queue(parent: &Path, enabled: bool) -> Result<(Self, Vec<Record>)> {
+        Self::open_impl(parent, sync_directory, enabled)
+    }
+    fn open_impl(
+        parent: &Path,
+        sync: impl Fn(&Path) -> Result<()>,
+        queue_enabled: bool,
+    ) -> Result<(Self, Vec<Record>)> {
         if !parent.is_absolute() || !parent.is_dir() {
             return Err(DesktopError("invalidRoot"));
         }
@@ -140,11 +150,15 @@ impl Journal {
             }
             let value: serde_json::Value =
                 serde_json::from_slice(line).map_err(|_| DesktopError("corruptJournal"))?;
-            if value.get("version").and_then(|v| v.as_u64()) != Some(1) {
+            let version = value.get("version").and_then(|v| v.as_u64());
+            if version != Some(1) && !(queue_enabled && version == Some(2)) {
                 return Err(DesktopError("unsupportedVersion"));
             }
             let record: Record =
                 serde_json::from_value(value).map_err(|_| DesktopError("corruptJournal"))?;
+            if (record.version == 2) != matches!(&record.entry, Entry::Queue { .. }) {
+                return Err(DesktopError("corruptJournal"));
+            }
             if record.sequence != records.len() as u64 + 1 {
                 return Err(DesktopError("corruptJournal"));
             }
@@ -165,12 +179,23 @@ impl Journal {
             records,
         ))
     }
+    pub fn ensure_writable(&self) -> Result<()> {
+        if self.blocked {
+            Err(DesktopError("recoveryRequired"))
+        } else {
+            Ok(())
+        }
+    }
     pub fn append(&mut self, entry: Entry) -> Result<()> {
         if self.blocked {
             return Err(DesktopError("recoveryRequired"));
         }
         let record = Record {
-            version: VERSION,
+            version: if matches!(&entry, Entry::Queue { .. }) {
+                2
+            } else {
+                VERSION
+            },
             sequence: self.sequence + 1,
             entry,
         };

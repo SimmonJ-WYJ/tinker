@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development`, serial single-writer tasks, behavior red/green tests, independent task review, and final whole-branch review. User authorized continuing the existing migration plan without another execution-method confirmation.
 
-**Status:** Implementation authorized, baseline preflight complete. No queue implementation is claimed by this plan.
+**Status:** Task 1 core implementation is verified (364 Rust tests, fmt, clippy) and awaiting independent review; Task 2 host/UI integration and Task 3 native acceptance remain pending.
 **Baseline:** main `450df3a86ca9cfc64d4b8777c98a1311f5230d57`, after merged PR #24.
 **Goal:** Make the existing workbench's text FIFO queue, Option/Alt interrupt-send, Stop, reload, and restart history work through the Rust/Tauri runtime.
 **Architecture:** DesktopRuntime owns durable accepted queue intent and execution lineage in its existing journal. The existing native actor owns live scheduling and delivery. Keep initial send ownership separate from each execution run. Reuse original React components and IPC facade.
@@ -82,7 +82,7 @@ interface StopChain {
 - `chat.advanceQueue` accepts AdvanceQueue and returns ChainSnapshot. Bind/dequeue atomically before starting the next provider, using the preceding terminal execution's context.
 - `chat.stopChain` accepts StopChain and returns ChainSnapshot after start exclusion/cancellation is known. An early Stop for a valid session/expected initial request may record a bounded stop tombstone so a delayed Begin cannot start it. It cannot stop another chain.
 
-The Task1 report freezes the exact serialized QueueReceipt/ChainSnapshot definitions and error codes before Task2 starts. They must include chainId/sessionId/revision, active execution Turn, pending accepted message identities/text/order, closure reason, stable message UUID mapping, and badge-clear boundary. Keep existing Turn wire shape unchanged. Receipt disposition links run-log status rather than duplicating output truth. Use fixed errors without raw text/key/path leakage.
+The Task1 report freezes the exact serialized QueueReceipt/ChainSnapshot definitions and error codes before Task2 starts. They must include chainId/sessionId/revision, active execution reference, pending accepted message identities/text/order, closure reason, stable message UUID mapping, and badge-clear boundary. Keep existing Turn wire shape unchanged. Receipt disposition links run-log status rather than duplicating output truth. Use fixed errors without raw text/key/path leakage.
 
 Journal transitions must cover acceptance, atomic queued binding, chain closure, authenticated redirect edges and recovery. Version any required lineage extension explicitly. Existing nonqueue request replay and legacy readers retain their old behavior.
 
@@ -90,13 +90,13 @@ Journal transitions must cover acceptance, atomic queued binding, chain closure,
 
 **Files:** Existing `apps/tinker-rust/src-tauri/src/desktop_runtime/{mod,protocol,session,store,execution}.rs`, new focused queue modules beside them, narrowly required `run_context`, `run_store`, controller/tool context/journal helpers, and new integration tests `tests/desktop_queue.rs` / `tests/queue_redirect.rs`.
 **Consumes:** Existing immutable Send/bindings, RunController, RunStore, trusted profiles/tools, current cancellation and context bounds.
-**Produces:** The five frozen dispatch methods, opt-in constructor, durable queue/recovery semantics, exact serialized receipt/state contracts for Task2.
+**Produces:** The six frozen dispatch methods (including root-resolved read-only discovery), opt-in constructor, durable queue/recovery semantics, exact serialized receipt/state contracts for Task2.
 
-- [ ] RED: use existing `runtime.dispatch(json!({...}))` in a synthetic integration test. A queue-capable runtime is constructed through a test helper initially using the ordinary constructor. Assert `chat.beginChain`/`chat.queue` return success, enqueue B/C while A is blocked, and advancement sends A/B/C exactly once. Observe the missing-feature error before implementation.
-- [ ] Implement the opt-in constructor, strict DTOs, reducer/journal replay and methods. Pending text acceptance is synced before receipt, UUID conflict/retry behavior is durable. Do not duplicate editable input or bypass existing store preflight.
-- [ ] RED/GREEN: interrupt D while A is streaming or waiting on permission, then D/B/C. Confirm provider messages include A's committed input/partial transcript, all unresolved tool calls closed, no old tool replay. Ordinary continuation from generic Cancelled/Failed/Interrupted remains rejected.
-- [ ] Cover Stop-before-start versus Bind-before-Stop, delayed Stop for A after new chain B, repeated interrupts/UUIDs, queue quota/encoded overflow, storage failure, malformed/future/truncated journal, and restart after acceptance/binding/start. Restart produces zero HTTP/tool calls and preserves every accepted user UUID once.
-- [ ] Run focused RED/GREEN with recorded outputs, then full Rust all-features tests/fmt/clippy once. Commit with normal hooks and self-review. Save report and exact interface appendix for Task2.
+- [x] RED: use existing `runtime.dispatch(json!({...}))` in a synthetic integration test. A queue-capable runtime is constructed through a test helper initially using the ordinary constructor. Assert `chat.beginChain`/`chat.queue` return success, enqueue B/C while A is blocked, and advancement sends A/B/C exactly once. Observe the missing-feature error before implementation.
+- [x] Implement the opt-in constructor, strict DTOs, reducer/journal replay and methods. Pending text acceptance is synced before receipt, UUID conflict/retry behavior is durable. Do not duplicate editable input or bypass existing store preflight.
+- [x] RED/GREEN: interrupt D while A is streaming or waiting on permission, then D/B/C. Confirm provider messages include A's committed input/partial transcript, all unresolved tool calls closed, no old tool replay. Ordinary continuation from generic Cancelled/Failed/Interrupted remains rejected.
+- [x] Cover Stop-before-start versus Bind-before-Stop, delayed Stop for A after new chain B, repeated interrupts/UUIDs, queue quota/encoded overflow, storage failure, malformed/future/truncated journal, and restart after acceptance/binding/start. Restart produces zero HTTP/tool calls and preserves every accepted user UUID once.
+- [x] Run focused RED/GREEN with recorded outputs, then full Rust all-features tests/fmt/clippy once. Commit with normal hooks and self-review. Save report and exact interface appendix for Task2.
 
 Behavior test shape (reuse actual existing test harness fixtures, never invent a paid provider):
 
@@ -110,6 +110,106 @@ assert!(receipt.error.is_none());
 // Repeat the same call and compare its immutable acceptance identity.
 // Controlled provider records must contain B exactly once after A completes.
 ```
+
+
+## Task 1 frozen core interface (2026-11-16)
+
+Root resolved two implementation boundaries before Task 2: add the sixth read-only `chat.listChains` method for bounded cold-start discovery, and return `activeExecution` metadata instead of embedding a full Turn in queue snapshots. Existing `sessions.history`, `sessions.historyV2`, `chat.events`, `chat.eventsV2`, and Turn schemas are unchanged. Fetch the authoritative Turn through those APIs using the execution reference; verify its session/run/request identity and a sequence at least as recent as the reference.
+
+Only `DesktopRuntime::open_with_queueing(root, profiles, tool_bindings)` opts in. `open` and `open_with_tools` return `unknownMethod` for all six queue methods. All inputs deny unknown fields. `effort` remains required and nullable; optional query `uuid` may be omitted but cannot be null.
+
+```ts
+interface BeginChain {
+  requestId: string
+  sessionId: string
+  profileId: string
+  modelId: string
+  userMessage: string
+  startedAt: number
+  effort: string | null
+}
+interface QueueInput {
+  sessionId: string
+  chainId: string
+  uuid: string
+  userMessage: string
+  interrupt: boolean
+}
+interface QueueQuery { sessionId: string; chainId: string; uuid?: string }
+interface AdvanceQueue {
+  sessionId: string
+  chainId: string
+  expectedActiveRequestId: string
+  expectedQueueRevision: number
+}
+interface StopChain {
+  sessionId: string
+  chainId: string
+  reason: 'stop' | 'failure' | 'close' | 'delete'
+}
+type ChainClosure = 'stop' | 'failure' | 'close' | 'delete' | 'recovered' | 'completed'
+interface QueueReceipt {
+  sessionId: string
+  chainId: string
+  uuid: string
+  revision: number
+  order: number
+  userMessageId: string
+  acceptedAt: number
+}
+interface ExecutionRef {
+  sessionId: string
+  requestId: string
+  runId: string
+  status: 'queued' | 'running' | 'waitingInput' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+  sequence: number
+  startedAt: number
+}
+interface QueueMessage {
+  uuid: string
+  userMessage: string | null
+  interrupt: boolean
+  order: number
+  userMessageId: string
+  requestId: string | null
+  disposition: 'pending' | 'bound' | 'abandoned'
+  receipt: QueueReceipt
+}
+interface ChainSnapshot {
+  sessionId: string
+  chainId: string
+  revision: number
+  activeExecution: ExecutionRef | null
+  pending: string[]
+  messages: QueueMessage[]
+  closureReason: ChainClosure | null
+  badgeClearBoundary: number
+  receipt: QueueReceipt | null
+}
+interface ListChainsInput { sessionId: string }
+interface ListChainsResult {
+  chains: {
+    chainId: string
+    revision: number
+    closedReason: ChainClosure | null
+    activeRequestId: string | null
+  }[]
+}
+```
+
+`chat.beginChain(BeginChain)`, `chat.advanceQueue(AdvanceQueue)`, and `chat.stopChain(StopChain)` return ChainSnapshot. `chat.queue(QueueInput)` returns QueueReceipt. `chat.queueState(QueueQuery)` returns ChainSnapshot; its `receipt` is null unless an exact UUID is requested. `chat.listChains(ListChainsInput)` returns ListChainsResult. The list contains metadata only, including closed/recovered chains and bounded early-stop tombstones. It does not execute work.
+
+The chain ID is the initial request ID. A queued UUID becomes that turn's execution request/run ID when atomically bound. `userMessageId` is `${uuid}-user`, matching the unchanged Turn mapping. Receipts are immutable acceptance facts, including their acceptance revision and order; exact retries return the original receipt in every subsequent disposition. Snapshot `revision` is current. `messages` is acceptance order, while `pending` is execution order: FIFO for ordinary messages, with new interrupts placed at the head. Repeated interrupts before advance preserve every UUID and bind each message against its actual execution predecessor.
+
+Pending and abandoned `userMessage` values preserve exact accepted text. Bound message text is null in the queue projection and is read from the authoritative history Turn by `requestId`. `bound` is an execution binding, not a successful-run claim; consult RunStore status. An active reference remains available after closure; early-stop-only tombstones have null active references. `badgeClearBoundary` advances only when a Completed predecessor is consumed by advance, or a Completed final turn closes the chain. It does not count redirected cancellation. The host preserves the existing per-turn badge clearing behavior using completion events and this reconciliation boundary.
+
+New fixed error codes are `chainNotFound`, `chainClosed`, `staleQueue`, `queueLimit`, and `queuePayloadLimit`. Existing fixed errors remain in use: `unknownMethod`, `invalidEnvelope`, `unsupportedVersion`, `frameTooLarge`, `invalidParams`, `invalidId`, `emptyInput`, `inputTooLarge`, `invalidTime`, `sessionNotFound`, `profileNotFound`, `modelNotFound`, `unsupportedEffort`, `requestConflict`, `requestLimit`, `runBusy`, `activeLimit`, `pageLimit`, `storeIo`, `storeLocked`, `storageLimit`, `corruptJournal`, `unsafePath`, `recoveryRequired`, and existing RunError codes. Known-key reflection is rejected as existing `toolFailed`, before a queue payload or initial chain binding is journaled. Config revision mismatches are `requestConflict`. Exact accepted-payload retries are looked up before live-session gating, so deletion still permits the original metadata-only receipt; new acceptance, queueState, listChains, and history remain unavailable for deleted sessions. A stale advance must match both active request ID and revision. An exact old Stop can return its old closed snapshot but cannot target a newer chain.
+
+Journal v1 Session/Bind records remain unchanged. New queue entries use record version 2 and `entry.kind = "queue"`; strict transitions are `begin` (initial Binding), `accept` (QueueInput, QueueReceipt, predecessor, required nullable redirectAuthority), `bind` (sessionId, chainId, uuid, revision, acceptedAt, parent, nullable redirectSequence), and `close` (sessionId, chainId, revision, reason). Queued bindings reference accepted text rather than persisting another editable input copy. Every acceptance/binding/closure is synced before publication; uncertain journal writes or cancellation prevent further starts. Restart validates the entire journal and every session's run store before recovery writes, then closes remaining open chains as `recovered`; it never starts accepted work.
+
+Text redirected edges retain run-header protocol version 2 in `context-v2`, with `contextPolicyVersion: 2`; tools retain storage version 3 with `policyVersion: 2`. The exact child UUID, receipt-authorized predecessor, and terminal sequence are derived from the validated queue journal and imported before context validation. The host records `redirectAuthority: {receiptUuid, beforeSequence}` only when an interrupt is accepted against a nonterminal predecessor. A repeated pending interrupt may inherit exactly that earlier interrupt receipt authority for the same predecessor. Bind requires a later exact Cancelled sequence, and global preflight validates the pre-cancel sequence and origin receipt before recovery writes. A generic cancellation cannot gain authority from a later interrupt receipt. Policy 2 admits only that causally authorized Cancelled predecessor with closed tool calls. Later Completed descendants traverse the authenticated edge; ordinary policy 1 still requires Completed parents. Standalone controllers without the journal authority reject redirected lineage. No parent tool is replayed and no renderer context array is accepted. Empty cancelled assistant output is omitted without inventing content; Completed-empty assistant projection remains unchanged.
+
+Rollback uses the unchanged installed application and older clean synthetic roots. An ordinary constructor or old reader refuses a queue-enriched journal before recovery. Do not open new-schema data with an old binary, rewrite old logs, or delete synthetic evidence to simulate compatibility.
 
 ## Task 2: Native Actor and Original Workbench Queue Integration
 
@@ -142,3 +242,7 @@ assert!(receipt.error.is_none());
 Stop the independent preview and continue the unchanged installed Electron application. Revert this batch through reviewable commits. Queue-enriched synthetic data needs the new reader; old binaries must refuse new journal/lineage versions rather than mutate them. Do not delete that data or migrate real histories automatically.
 
 Real channel/credential CRUD, real providers, rich draft/attachment/image parity, general tools/shell/MCP, real project/filesystem authority, legacy-data import/export cutover and measured production rollout remain separate milestones. This queue stage must not claim those capabilities migrated.
+
+### Task 2 identity handoff
+
+The caller UUID, renderer optimistic bubble ID, and Turn `userMessageId` are separate identities. Task 2 must reconcile the exact accepted UUID through the receipt mapping rather than assume the optimistic ID equals `${uuid}-user`. A caller UUID equal to another turn's generated user/assistant message ID is permitted when it is not already an execution request UUID; for example UUID `b-user` maps to execution `b-user` and user message `b-user-user`, while UUID `b` maps to user message `b-user`. Keep the execution and message namespaces distinct, and never overwrite/drop a bubble based on that cross-namespace coincidence. An actual duplicate execution UUID with a different payload remains `requestConflict`.

@@ -105,7 +105,7 @@ impl RunController {
         if inner.blocked {
             return Err(RunError::RecoveryRequired);
         }
-        let (_, _, context) = prepare_context(&inner, parent, input)?;
+        let (_, _, context) = prepare_context(&inner, request_id, parent, input)?;
         provider.validate_tool_context(&context, &executor.catalog())
     }
     pub fn start_tools(
@@ -174,12 +174,13 @@ impl RunController {
             worker.join().map_err(|_| RunError::StoreIo)?;
         }
         inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
-        let (order, parent, context) = prepare_context(&inner, parent_run_id.as_deref(), &input)?;
+        let (order, parent, context) =
+            prepare_context(&inner, &request_id, parent_run_id.as_deref(), &input)?;
         let tools = executor.catalog();
         provider.validate_tool_context(&context, &tools)?;
         let header = ToolRunHeader {
             storage_version: 3,
-            policy_version: 1,
+            policy_version: inner.store.redirect_policy(&request_id),
             run_id: request_id.clone(),
             input,
             created_order: order,
@@ -527,6 +528,7 @@ mod regression_tests;
 /// 同一只读父链构造用于 Bind 前与真正创建 run 前，两次均按将分配的顺序校验。
 fn prepare_context(
     inner: &Inner,
+    child: &str,
     parent: Option<&str>,
     input: &str,
 ) -> Result<(u64, Option<ParentRunRef>, ToolContext), RunError> {
@@ -545,9 +547,18 @@ fn prepare_context(
             })
         })
         .transpose()?;
-    let context = inner
-        .store
-        .tool_context_for(parent.as_ref(), order, input)?;
+    let context = if inner.store.redirect_policy(child) == 1 {
+        inner
+            .store
+            .tool_context_for(parent.as_ref(), order, input)?
+    } else {
+        inner.store.tool_context_policy(
+            parent.as_ref(),
+            order,
+            input,
+            Some((child, inner.store.redirect_policy(child))),
+        )?
+    };
     Ok((order, parent, context))
 }
 

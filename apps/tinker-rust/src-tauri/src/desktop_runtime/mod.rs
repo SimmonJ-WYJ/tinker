@@ -2,6 +2,9 @@
 mod execution;
 pub(crate) mod profile;
 pub mod protocol;
+mod queue;
+mod queue_replay;
+mod queue_types;
 mod session;
 mod store;
 mod tools;
@@ -14,7 +17,7 @@ use serde_json::{json, Value};
 use session::{Binding, Entry};
 pub use session::{Session, Turn};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     path::Path,
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
@@ -26,6 +29,10 @@ pub struct DesktopRuntime {
 }
 struct Inner {
     journal: Journal,
+    queue_enabled: bool,
+    queue_blocked: bool,
+    chains: BTreeMap<String, queue_types::Chain>,
+    redirects: BTreeMap<String, BTreeMap<String, crate::run_context::ParentRunRef>>,
     profiles: BTreeMap<String, Profile>,
     tools: BTreeMap<String, TrustedToolBinding>,
     sessions: BTreeMap<String, Session>,
@@ -42,6 +49,21 @@ impl DesktopRuntime {
         root: impl AsRef<Path>,
         profiles: Vec<TrustedProfile>,
         bindings: Vec<TrustedToolBinding>,
+    ) -> Result<Self> {
+        Self::open_internal(root, profiles, bindings, false)
+    }
+    pub fn open_with_queueing(
+        root: impl AsRef<Path>,
+        profiles: Vec<TrustedProfile>,
+        tool_bindings: Vec<TrustedToolBinding>,
+    ) -> Result<Self> {
+        Self::open_internal(root, profiles, tool_bindings, true)
+    }
+    fn open_internal(
+        root: impl AsRef<Path>,
+        profiles: Vec<TrustedProfile>,
+        bindings: Vec<TrustedToolBinding>,
+        queue_enabled: bool,
     ) -> Result<Self> {
         if profiles.is_empty() || profiles.len() > 128 {
             return Err(DesktopError("invalidProfile"));
@@ -61,16 +83,23 @@ impl DesktopRuntime {
         {
             return Err(DesktopError("invalidProfile"));
         }
-        let (journal, records) = Journal::open(root.as_ref())?;
+        let (journal, records) = if queue_enabled {
+            Journal::open_queue(root.as_ref(), true)?
+        } else {
+            Journal::open(root.as_ref())?
+        };
         let mut inner = Inner {
             journal,
+            queue_enabled,
+            queue_blocked: false,
+            chains: BTreeMap::new(),
+            redirects: BTreeMap::new(),
             profiles: registry,
             tools,
             sessions: BTreeMap::new(),
             bindings: BTreeMap::new(),
             controllers: BTreeMap::new(),
         };
-        let mut requests = HashSet::new();
         for record in records {
             match record.entry {
                 Entry::Session { session } => {
@@ -105,33 +134,12 @@ impl DesktopRuntime {
                     inner.sessions.insert(session.session_id.clone(), session);
                 }
                 Entry::Bind { binding } => {
-                    execution::validate_send(&binding.request)?;
-                    id(&binding.config_revision)?;
-                    let s = inner.session(&binding.request.session_id)?;
-                    if binding.accepted_at <= s.updated_at
-                        || binding.accepted_at > MAX_SAFE_INTEGER
-                        || !requests.insert(binding.request.request_id.clone())
-                    {
-                        return Err(DesktopError("corruptJournal"));
-                    }
-                    let bindings = inner
-                        .bindings
-                        .get_mut(&binding.request.session_id)
-                        .ok_or(DesktopError("corruptJournal"))?;
-                    if bindings.len() >= MAX_REQUESTS
-                        || binding.parent_run_id.as_ref().is_some_and(|parent| {
-                            !bindings.iter().any(|b| b.request.request_id == *parent)
-                        })
-                    {
-                        return Err(DesktopError("corruptJournal"));
-                    }
-                    let session = inner
-                        .sessions
-                        .get_mut(&binding.request.session_id)
-                        .ok_or(DesktopError("corruptJournal"))?;
-                    session.updated_at = binding.accepted_at;
-                    session.profile_id = binding.request.profile_id.clone();
-                    bindings.push(binding);
+                    inner.apply_plain_binding(binding)?;
+                }
+                Entry::Queue { transition } => {
+                    inner
+                        .apply_queue(transition)
+                        .map_err(|_| DesktopError("corruptJournal"))?;
                 }
             }
         }
@@ -141,7 +149,12 @@ impl DesktopRuntime {
         }
         let mut stores = BTreeMap::new();
         for session_id in inner.sessions.keys() {
-            let run_store = RunStore::open(inner.journal.root.join(session_id))?;
+            let mut run_store = RunStore::open(inner.journal.root.join(session_id))?;
+            if let Some(proofs) = inner.redirects.get(session_id) {
+                run_store.redirects = proofs.clone();
+            }
+            run_store.validate_redirects()?;
+            inner.validate_queue_store(session_id, &run_store)?;
             execution::validate_store(
                 &run_store,
                 inner
@@ -163,6 +176,7 @@ impl DesktopRuntime {
                 },
             );
         }
+        inner.recover_queues()?;
         Ok(Self {
             inner: Mutex::new(inner),
         })
@@ -251,6 +265,12 @@ impl Inner {
             "chat.eventsV2" => self.events_v2(decode(params)?),
             "chat.pendingPermissions" => self.pending_permissions(decode(params)?),
             "chat.permissionRespond" => self.respond_permission(decode(params)?),
+            "chat.beginChain" if self.queue_enabled => self.begin_chain(decode(params)?),
+            "chat.queue" if self.queue_enabled => self.queue_input(decode(params)?),
+            "chat.listChains" if self.queue_enabled => self.list_chains(decode(params)?),
+            "chat.queueState" if self.queue_enabled => self.queue_state(decode(params)?),
+            "chat.advanceQueue" if self.queue_enabled => self.advance_queue(decode(params)?),
+            "chat.stopChain" if self.queue_enabled => self.stop_chain(decode(params)?),
             "chat.send" => self.send(decode(params)?),
             "chat.cancel" => self.cancel(decode(params)?),
             "chat.events" => self.events(decode(params)?),
@@ -338,6 +358,19 @@ impl Inner {
         Ok(json!(session))
     }
     fn delete(&mut self, p: SessionId) -> Result<Value> {
+        let chains: Vec<_> = self
+            .chains
+            .values()
+            .filter(|c| c.session_id == p.session_id && c.closure.is_none())
+            .cloned()
+            .collect();
+        for c in chains {
+            self.stop_chain(queue_types::StopChain {
+                session_id: p.session_id.clone(),
+                chain_id: c.chain_id,
+                reason: queue_types::StopReason::Delete,
+            })?;
+        }
         let mut session = self.session(&p.session_id)?.clone();
         session.deleted = true;
         session.updated_at = activity_time(session.updated_at)?;

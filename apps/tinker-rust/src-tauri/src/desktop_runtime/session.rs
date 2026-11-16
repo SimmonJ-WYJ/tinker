@@ -25,8 +25,15 @@ pub struct Binding {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum Entry {
-    Session { session: Session },
-    Bind { binding: Binding },
+    Session {
+        session: Session,
+    },
+    Bind {
+        binding: Binding,
+    },
+    Queue {
+        transition: super::queue_types::QueueEntry,
+    },
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

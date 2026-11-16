@@ -15,6 +15,8 @@ static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 mod header;
 use crate::run_context::*;
 use header::*;
+#[path = "run_store_context.rs"]
+mod context;
 #[path = "tool_store.rs"]
 mod tools;
 #[derive(Debug, Clone)]
@@ -28,6 +30,7 @@ pub(crate) struct StoredRun {
 }
 #[derive(Debug)]
 pub struct RunStore {
+    pub(crate) redirects: std::collections::BTreeMap<String, ParentRunRef>,
     root: PathBuf,
     context_root: PathBuf,
     tools_root: PathBuf,
@@ -64,6 +67,7 @@ impl RunStore {
         // 子目录自身同步不确认父目录中的新目录项；宿主启动前必须确认布局。
         File::open(&root)?.sync_all()?;
         Ok(Self {
+            redirects: Default::default(),
             tools_root: root.join("tools-v3"),
             context_root,
             root,
@@ -174,81 +178,6 @@ impl RunStore {
             }
         }
         Ok(())
-    }
-    pub(crate) fn context_for(
-        &self,
-        parent: &ParentRunRef,
-        child_order: u64,
-        input: &str,
-    ) -> Result<(RunContext, ParentRunRef), RunError> {
-        let mut next = parent.clone();
-        let mut order = child_order;
-        let mut visited = std::collections::HashSet::new();
-        let mut turns = Vec::new();
-        let mut bytes = input.len();
-        loop {
-            if turns.len() >= MAX_CONTEXT_ANCESTORS {
-                return Err(RunError::ContextLimitExceeded);
-            }
-            if !visited.insert(next.run_id.clone()) {
-                return Err(RunError::CorruptLog);
-            }
-            if self.find_location(&next.run_id)? == 3 {
-                return Err(RunError::ContextUnsupported);
-            }
-            let run = self.load(&next.run_id)?;
-            if run.snapshot.status != RunStatus::Completed || run.snapshot.recovery_required {
-                return Err(RunError::ContextParentNotCompleted);
-            }
-            if run.snapshot.sequence != next.sequence || run.created_order >= order {
-                return Err(RunError::CorruptLog);
-            }
-            bytes += run.snapshot.input.len() + run.snapshot.output.len();
-            if bytes > MAX_CONTEXT_BYTES {
-                return Err(RunError::ContextLimitExceeded);
-            }
-            turns.push((run.snapshot.input, run.snapshot.output));
-            order = run.created_order;
-            match run.lineage {
-                RunLineage::Standalone => break,
-                RunLineage::Continuation { parent, .. } => next = parent,
-            }
-        }
-        turns.reverse();
-        Ok((RunContext::from_turns(turns, input)?, parent.clone()))
-    }
-    pub(crate) fn continuation_context(
-        &self,
-        parent_id: &str,
-        input: &str,
-    ) -> Result<(RunContext, ParentRunRef), RunError> {
-        if self.find_location(parent_id)? == 3 {
-            return Err(RunError::ContextUnsupported);
-        }
-        let run = self.load(parent_id)?;
-        let parent = ParentRunRef {
-            run_id: parent_id.into(),
-            sequence: run.snapshot.sequence,
-        };
-        self.context_for(&parent, u64::MAX, input)
-    }
-    pub(crate) fn create_continuation(
-        &self,
-        id: &str,
-        input: String,
-        scenario: OfflineScenario,
-        parent: ParentRunRef,
-    ) -> Result<StoredRun, RunError> {
-        validate_parent(&parent, id)?;
-        self.create_inner(
-            id,
-            input,
-            scenario,
-            RunLineage::Continuation {
-                parent,
-                policy_version: CONTEXT_POLICY_VERSION,
-            },
-        )
     }
     pub(crate) fn create(
         &self,

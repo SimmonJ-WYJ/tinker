@@ -28,6 +28,16 @@ pub struct RunController {
     pub(crate) worker: Mutex<Option<JoinHandle<()>>>,
 }
 impl RunController {
+    pub(crate) fn authorize_redirect(
+        &self,
+        child: String,
+        parent: crate::run_context::ParentRunRef,
+    ) -> Result<(), RunError> {
+        let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        inner.store.redirects.insert(child, parent);
+        Ok(())
+    }
+
     pub fn open(root: impl AsRef<Path>) -> Result<Self, RunError> {
         Self::from_store(RunStore::open(root)?)
     }
@@ -155,7 +165,10 @@ impl RunController {
         let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
         let (context, parent) = match parent_id {
             Some(id) => {
-                let (context, parent) = inner.store.continuation_context(&id, &input)?;
+                let (context, parent) =
+                    inner
+                        .store
+                        .continuation_for_child(&request_id, &id, &input)?;
                 (context, Some(parent))
             }
             None => (RunContext::single(&input), None),
