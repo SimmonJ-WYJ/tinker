@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development`, serial single-writer tasks, behavior red/green tests, independent task review, and final whole-branch review. User authorized continuing the existing migration plan without another execution-method confirmation.
 
-**Status:** Task 1 core implementation is verified (364 Rust tests, fmt, clippy) and awaiting independent review; Task 2 host/UI integration and Task 3 native acceptance remain pending.
+**Status:** Task 1 is independently approved at `a7c42db` (367 Rust tests, fmt, clippy). Task 2 host/UI implementation is verified (51 focused Rust tests, 98 affected Bun tests, monorepo typecheck/lint, fmt and clippy) and awaits independent review. Task 3 native GUI acceptance and delivery remain pending.
 **Baseline:** main `450df3a86ca9cfc64d4b8777c98a1311f5230d57`, after merged PR #24.
 **Goal:** Make the existing workbench's text FIFO queue, Option/Alt interrupt-send, Stop, reload, and restart history work through the Rust/Tauri runtime.
 **Architecture:** DesktopRuntime owns durable accepted queue intent and execution lineage in its existing journal. The existing native actor owns live scheduling and delivery. Keep initial send ownership separate from each execution run. Reuse original React components and IPC facade.
@@ -217,13 +217,13 @@ Rollback uses the unchanged installed application and older clean synthetic root
 **Consumes:** Task1 exact receipt/state APIs and opted-in runtime. Existing generation/restore/close gate and original facade.
 **Produces:** Real queue/interrupt/Stop through original editor, additive trusted native capability, stale-action protection and complete chain/execution projection.
 
-- [ ] RED: original queue call reaches native host and returns the accepted UUID. Other preview hosts still reject before clearing input. Actual existing frontend component/transport test fails before implementation.
-- [ ] Add trusted queue capability and native-only expected chain metadata for queue/Stop. Bind metadata when the user action is initiated, not whichever session chain exists later at the actor. Leave public Electron queue input unchanged.
-- [ ] Keep one attempt owner and long-send completion per chain. Use distinct execution IDs for tools, permissions, partial content, histories and new runs. Preserve staged/backpressure-safe delivery and authoritative restore snapshots, including accepted pending messages.
-- [ ] Preserve per-turn badge clearing policy without allowing old terminal events to end the whole active chain. Keep the existing queue bar/keyboard/controls and original production paths. Native failure/unknown acknowledgment retains recoverable input and reconciles the exact receipt before rollback, without automatic new-UUID resend.
-- [ ] RED/GREEN: A/B/C FIFO, D interrupt while A waits on permission, rapid Stop/new send, queued late ack, reload while active, full outbox, stale old permission/terminal after new chain, per-session isolation, failure after first success, one exact user UUID/bubble, and no partial output assigned to another turn.
-- [ ] Test close prepare/abort versus final close: freeze then restore live work on abort, durably stop all pending work on final close, no automatic HTTP on full reopen. No new timer-driven renderer execution engine.
-- [ ] Run focused Rust/Bun/type/lint plus affected original queue/ownership/tool snapshot tests. Commit after self-review and save report. Task review must verify both facade compatibility and execution safety.
+- [x] RED: original queue call reaches native host and returns the accepted UUID. Other preview hosts still reject before clearing input. Actual existing frontend component/transport test fails before implementation.
+- [x] Add trusted queue capability and native-only expected chain metadata for queue/Stop. Bind metadata when the user action is initiated, not whichever session chain exists later at the actor. Leave public Electron queue input unchanged.
+- [x] Keep one attempt owner and long-send completion per chain. Use distinct execution IDs for tools, permissions, partial content, histories and new runs. Preserve staged/backpressure-safe delivery and authoritative restore snapshots, including accepted pending messages.
+- [x] Preserve per-turn badge clearing policy without allowing old terminal events to end the whole active chain. Keep the existing queue bar/keyboard/controls and original production paths. Native failure/unknown acknowledgment retains recoverable input and reconciles the exact receipt before rollback, without automatic new-UUID resend.
+- [x] RED/GREEN: A/B/C FIFO, D interrupt while A waits on permission, rapid Stop/new send, queued late ack, reload while active, full outbox, stale old permission/terminal after new chain, per-session isolation, failure after first success, one exact user UUID/bubble, and no partial output assigned to another turn.
+- [x] Test close prepare/abort versus final close: freeze then restore live work on abort, durably stop all pending work on final close, no automatic HTTP on full reopen. No new timer-driven renderer execution engine.
+- [x] Run focused Rust/Bun/type/lint plus affected original queue/ownership/tool snapshot tests. Self-review and implementation report completed; source committed with normal hooks. Independent Task 2 review must still verify both facade compatibility and execution safety before Task 3.
 
 ## Task 3: Native Synthetic Acceptance and Delivery
 

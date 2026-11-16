@@ -13,6 +13,16 @@ pub struct FormalHost {
 }
 impl FormalHost {
     pub fn open_tools(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
+        Self::open_tools_mode(root, environment, false)
+    }
+    pub fn open_queueing(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
+        Self::open_tools_mode(root, environment, true)
+    }
+    fn open_tools_mode(
+        root: &TrustedRoot,
+        environment: HostEnvironment,
+        queueing: bool,
+    ) -> Result<Self> {
         root.validate_tools()?;
         let mock = OwnedMock::start_tools()?;
         let profiles = mock.profiles()?;
@@ -31,12 +41,16 @@ impl FormalHost {
             options,
         }];
         let platform = FormalPlatform::open(root, &profiles, environment)?;
-        let runtime = Arc::new(DesktopRuntime::open_with_tools(
-            root.path(),
-            profiles,
-            bindings,
-        )?);
-        let agent = FormalAgentHost::new(runtime, platform, root.clone())?;
+        let runtime = Arc::new(if queueing {
+            DesktopRuntime::open_with_queueing(root.path(), profiles, bindings)?
+        } else {
+            DesktopRuntime::open_with_tools(root.path(), profiles, bindings)?
+        });
+        let agent = if queueing {
+            FormalAgentHost::new_queueing(runtime, platform, root.clone())?
+        } else {
+            FormalAgentHost::new(runtime, platform, root.clone())?
+        };
         Ok(Self { agent, mock })
     }
     pub fn open(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {

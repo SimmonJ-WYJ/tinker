@@ -140,6 +140,7 @@ impl Actor {
                 arity(&args, 1, 1)?;
                 let sid = string(&args, 0)?;
                 self.reserve_deleted_delivery(sid)?;
+                self.delete_queue(sid)?;
                 self.stop(sid)?;
                 self.poll();
                 self.core("sessions.delete", json!({"sessionId":sid}))?;
@@ -298,7 +299,7 @@ impl Actor {
         }
         Ok(())
     }
-    fn send(&mut self, input: Value, reply: &Reply) -> Result<Option<Value>> {
+    pub(super) fn send(&mut self, input: Value, reply: &Reply) -> Result<Option<Value>> {
         self.gate.expire();
         if !self.gate.allows_send() {
             return Err(DesktopError("closing"));
@@ -370,6 +371,9 @@ impl Actor {
                     format!("native-{now}-{}", self.token_seq)
                 }
             });
+        if self.queueing {
+            return self.begin_queue(json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":input.get("effort").cloned().unwrap_or(Value::Null)}));
+        }
         let existing = self.entries.get(sid);
         if existing.is_some_and(|e| projection::active(&e.turn) && e.turn["requestId"] != request) {
             return Err(DesktopError("runBusy"));

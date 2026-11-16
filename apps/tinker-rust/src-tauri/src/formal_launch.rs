@@ -93,7 +93,7 @@ fn run_mode(
                 .on_navigation(formal_commands::local_origin)
                 .on_new_window(|_,_| tauri::webview::NewWindowResponse::Deny)
                 .build()?;
-            let host = if tools {FormalHost::open_tools(&root,environment(&window))?} else {FormalHost::open(&root,environment(&window))?};
+            let host = if tools {FormalHost::open_queueing(&root,environment(&window))?} else {FormalHost::open(&root,environment(&window))?};
             if fresh {
                 // 预配置合成验收 profile：实际持久化 skip，不虚构真实服务已连接。
                 let boot = host.command("main",serde_json::json!({"command":"bootstrap"}))?.wait(Duration::from_secs(5))?;

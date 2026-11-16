@@ -1,3 +1,6 @@
+import { clearToolRunPermissionsAtom } from '@/hooks/tool-run-snapshot-state'
+import { currentAgentAttempt } from '@/lib/agent-attempt'
+import { nativeQueueChainsAtom, refusesNativeQueue, rejectNativeQueuedMessageAtom } from '@/hooks/native-queue-state'
 import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { registerAgentAttempt, acceptAgentAttempt } from '@/lib/agent-attempt'
 import { observeAgentSend } from '@/lib/agent-send'
@@ -880,8 +883,8 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (isStreamRunning && selectedImage) return
     // 上一条消息仍在处理中，直接追加发送
     if (isStreamRunning) {
-      // 已验证的文本预览不支持队列；在清空输入或注入乐观消息前拒绝。
-      if (window.__DESKTOP_RUNTIME_PREVIEW__ === true) {
+      // 仅可信原生能力允许纯文本队列；不支持的预览与富输入在清空前拒绝。
+      if (refusesNativeQueue(window.__DESKTOP_RUNTIME_PREVIEW__ === true, window.__TAURI_QUEUEING__ === true, pendingFiles.length > 0 || pendingMentions.length > 0)) {
         toast.error(tErrors('desktopRuntime.unsupported'))
         return
       }
@@ -894,11 +897,13 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       }
 
       const localUuid = crypto.randomUUID()
+      const nativeChain = window.__TAURI_QUEUEING__ ? currentAgentAttempt(store,sessionId) ?? store.get(nativeQueueChainsAtom).get(sessionId)?.chainId : undefined
 
       // 1. 立即注入 liveMessages（作为普通用户消息显示）
       const syntheticMsg: import('@asci/shared').SDKMessage = {
         type: 'user',
         uuid: localUuid,
+        ...(nativeChain ? {_desktopQueueChainId:nativeChain,_desktopQueueUuid:localUuid} : {}),
         message: {
           content: [{ type: 'text', text: effectiveText }],
         },
@@ -941,6 +946,8 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       }).catch((error) => {
         console.error('[AgentView] 追加消息失败:', error)
         toast.error(tConversation('agent.toast.appendFailed.title'), { description: String(error) })
+        if (error && typeof error === 'object' && 'queueAcknowledgmentUnknown' in error && error.queueAcknowledgmentUnknown) return
+        if (nativeChain) {store.set(rejectNativeQueuedMessageAtom,{sessionId,message:syntheticMsg,text:effectiveText});return}
         // 回滚：从 liveMessages 移除
         store.set(liveMessagesMapAtom, (prev) => {
           const map = new Map(prev)
@@ -1234,6 +1241,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     store.set(clearQueuedMessageUuidsAtom, sessionId)
     store.set(stoppedByUserSessionsAtom, previous => new Set(previous).add(sessionId))
 
+    if (window.__TAURI_QUEUEING__) store.set(clearToolRunPermissionsAtom,{sessionId,requestId:currentAgentAttempt(store,sessionId) ?? store.get(nativeQueueChainsAtom).get(sessionId)?.chainId})
     window.electronAPI.stopAgent(sessionId).catch(console.error)
   }, [sessionId, setStreamingStates, store])
 

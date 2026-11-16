@@ -532,8 +532,23 @@ export interface ToolRunSnapshotEvent {
   pendingPermissions: PermissionRequest[]
 }
 
+/** 原生链快照只增加认证元数据，原 Electron 输入及事件保持兼容。 */
+export interface NativeChainSnapshotEvent {
+  type: 'native_chain_snapshot'
+  chainId: string
+  revision: number
+  badgeClearBoundary: number
+  badgeClearRevision?: number
+  activeRequestId: string | null
+  closureReason: string | null
+  executions: {requestId: string; runId: string; snapshot: ToolRunSnapshotEvent}[]
+  pendingMessages: SDKMessage[]
+  receipts: {uuid:string; userMessageId:string; userMessage?:string|null; interrupt?:boolean; requestId:string|null; disposition:string; receipt:{uuid:string;chainId:string;sessionId:string;revision?:number}}[]
+}
+
 /** ASCI 内部事件类型 */
 export type ASCIEvent =
+  | NativeChainSnapshotEvent
   | ToolRunSnapshotEvent
   | { type: 'text_snapshot'; text: string; model: string }
   | { type: 'text_delta'; text: string; turnId?: string }

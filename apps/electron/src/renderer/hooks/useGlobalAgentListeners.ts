@@ -97,7 +97,7 @@ export function useGlobalAgentListeners(): void {
         const { sessionId, payload } = streamEvent
         if (!acceptAgentAttempt(store,sessionId,streamEvent.requestId)) return
 
-        if (payload.kind === 'asci_event' && payload.event.type === 'tool_run_snapshot') {
+        if (payload.kind === 'asci_event' && (payload.event.type === 'tool_run_snapshot' || payload.event.type === 'native_chain_snapshot')) {
           for (const request of store.set(applyToolRunSnapshotAtom, streamEvent)) {
             sendBlockingNotification(sessionId, i18n.t('conversation:banner.permissionRequired'), request.toolName, 'permissionRequest')
           }

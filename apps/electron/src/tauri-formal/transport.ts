@@ -1,4 +1,6 @@
 /** 单 native listener、串行平台写入、按会话恢复屏障；不包含 Node 或 Electron。 */
+import { createQueueFrames } from './queue-frames.ts'
+import { createQueueControl, NativeQueueError } from './queue-control.ts'
 import { withDeadline } from './deadline.ts'
 import type { PlatformTransport } from '../preload/transport.ts'
 import type { ActiveRun, Bootstrap, NativeBridge, NativeEvent, PlatformSnapshot, RestoreBundle } from './protocol.ts'
@@ -19,8 +21,10 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
   const watermarks = new Map<string, number>()
   const paused = new Set<string>()
   const completed = new Set<string>()
+  const frames = createQueueFrames()
   const restores = new Map<string, Promise<RestoreBundle>>()
   const fast = new Set<Promise<unknown>>()
+  let queue: ReturnType<typeof createQueueControl> | undefined
   let bootstrap: Bootstrap
   let cache: PlatformSnapshot
   let lane: Promise<unknown> = Promise.resolve()
@@ -72,7 +76,12 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     const identity = typeof event.payload.requestId === 'string' ? JSON.stringify([sid, event.payload.requestId]) : undefined
     if (identity && completed.has(identity)) return
     if (paused.has(sid) || event.deliverySequence <= (watermarks.get(sid) ?? 0) || event.deliverySequence <= (observed[sid] ?? 0)) return
-    publish(event.channel, event.payload)
+    let assembled: typeof event | undefined
+    try { assembled = frames.accept(event) }
+    catch { frames.clear(sid); void recover(sid).catch(console.error); return }
+    if (!assembled) return
+    queue?.observe(assembled.channel, assembled.payload)
+    publish(assembled.channel, assembled.payload)
     if (identity && event.channel === 'agent:stream:complete') completed.add(identity)
     observed[sid] = event.deliverySequence
   })
@@ -89,7 +98,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
       return result
     } catch (error) {
       const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : 'runtimeUnavailable'
-      throw new Error(translate(code))
+      throw new NativeQueueError(code, translate(code))
     }
   }
   function control(next: boolean, force = false): Promise<void> {
@@ -136,12 +145,16 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
   function history(sid: string): Promise<RestoreBundle> {
     const existing = restores.get(sid)
     if (existing) return existing
+    const restoreOwner=queue?.owner(sid)
     const promise = Promise.resolve().then(async () => {
       paused.add(sid)
+      frames.clear(sid)
       try {
         await ensureAttached()
         const bundle = await command<RestoreBundle>('restore', { sessionId: sid, observedDeliverySequence: observed[sid] ?? 0 })
         watermarks.set(sid, bundle.deliverySequence)
+        queue?.restoreStates(bundle.chainStates ?? [])
+        queue?.restore(bundle.activeSnapshot,restoreOwner)
         active(bundle.activeSnapshot)
         // 下一 task 让两层原 API Promise 的全部历史消费者先完成 microtask。
         setTimeout(() => {
@@ -158,12 +171,18 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     restores.set(sid, promise)
     return promise
   }
+  const track = (pending: Promise<unknown>) => { fast.add(pending); void pending.finally(() => fast.delete(pending)).catch(() => {}) }
+  if (bootstrap.queueing) queue = createQueueControl(bootstrap.activeRuns, async (channel, args, expectedChainId) => {
+    const reply = await command<{value: unknown}>('invoke', {channel,args,expectedChainId})
+    return reply.value
+  }, track, translate)
   async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
     if (closing && channel !== 'settings:update') throw new Error(translate('closing'))
     if (channel === 'agent:get-messages' || channel === 'agent:get-sdk-messages') {
       const bundle = await history(String(args[0]))
       return projectErrors(channel === 'agent:get-messages' ? bundle.messages : bundle.sdkMessages) as T
     }
+    if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
     const execute = async (): Promise<T> => {
       const mutation = MUTATION_CHANNELS.has(channel) ? { mutationId: crypto.randomUUID(), expectedRevision: cache.revision } : undefined
       const reply = await command<{ value: T; snapshot?: PlatformSnapshot }>('invoke', { channel, args, ...(mutation ? { mutation } : {}) })
@@ -206,6 +225,6 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     async quiesce() { while (fast.size) await Promise.all([...fast]); await lane },
     setClosing(value) { closing = value },
     onAction(callback) { actionHandler = callback },
-    dispose() { disposed = true; unlisten(); callbacks.clear(); for (const resolve of readyWaiters) resolve(); readyWaiters.clear(); requested = false; void control(false, true).catch(() => {}) },
+    dispose() { frames.clear(); queue?.dispose(); disposed = true; unlisten(); callbacks.clear(); for (const resolve of readyWaiters) resolve(); readyWaiters.clear(); requested = false; void control(false, true).catch(() => {}) },
   }
 }

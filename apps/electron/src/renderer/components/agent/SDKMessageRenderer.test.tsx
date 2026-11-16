@@ -261,3 +261,12 @@ test('运行中的过程主标题使用文字流光，无内嵌球体，结束�
   view.rerender(<StickToBottom><AssistantTurnRenderer turn={turn} allMessages={messages} compactProcess isStreaming={false} /></StickToBottom>)
   expect(view.container.querySelector('.agent-status-text[data-active="true"]')).toBeNull()
 })
+
+test('native queued caller UUID colliding with a persisted user ID keeps distinct DOM and minimap identities', async () => {
+  const {getGroupId}=await import('./SDKMessageRenderer.tsx')
+  const persisted={...userInput('B'),uuid:'b-user',_desktopRunId:'b',_desktopQueueChainId:'a',_desktopQueueUuid:'b'} as unknown as SDKMessage
+  const pending={...userInput('C'),uuid:'b-user',_desktopQueueChainId:'a',_desktopQueueUuid:'b-user',_desktopQueueDisposition:'pending'} as unknown as SDKMessage
+  const groups=groupIntoTurns([persisted,pending]);expect(groups).toHaveLength(2)
+  expect(getGroupId(groups[0]!)).not.toBe(getGroupId(groups[1]!))
+  const legacy=userInput('legacy');expect(getGroupId(groupIntoTurns([legacy])[0]!)).toBe(legacy.uuid!)
+})

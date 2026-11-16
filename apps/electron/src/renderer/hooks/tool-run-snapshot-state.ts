@@ -1,9 +1,11 @@
 /** 单个 Jotai write 提交消息、正文、工具与权限，订阅者不观察中间状态。 */
+import { applyNativeQueueSnapshotAtom, nativeQueueChainsAtom } from './native-queue-state.ts'
 import { atom } from 'jotai'
 import type { AgentStreamEvent, PermissionRequest } from '@asci/shared'
 import { liveMessagesMapAtom, agentStreamingStatesAtom, allPendingPermissionRequestsAtom } from '../atoms/agent-atoms.ts'
 import { reconcileToolSnapshot } from './tool-run-snapshot.ts'
 export const applyToolRunSnapshotAtom = atom(null, (get, set, envelope: AgentStreamEvent): PermissionRequest[] => {
+  if (envelope.payload.kind === 'asci_event' && envelope.payload.event.type === 'native_chain_snapshot') return set(applyNativeQueueSnapshotAtom,envelope)
   const { sessionId, requestId, payload }=envelope
   if (payload.kind !== 'asci_event' || payload.event.type !== 'tool_run_snapshot' || !requestId) return []
   // envelope 会话才是原子写入目标；外部权限不得借快照进入该会话或触发通知。
@@ -21,7 +23,9 @@ export const applyToolRunSnapshotAtom = atom(null, (get, set, envelope: AgentStr
 export const clearToolRunPermissionsAtom = atom(null, (get,set,identity:{sessionId:string;requestId?:string}) => {
   const previous=get(allPendingPermissionRequestsAtom)
   const current=previous.get(identity.sessionId) ?? []
-  const owned=new Set(Array.from({length:4},(_,round)=>`p-${identity.requestId}-${round}`))
+  const chain=get(nativeQueueChainsAtom).get(identity.sessionId)
+  const runs=chain && chain.chainId===identity.requestId && chain.executions.length ? chain.executions : [identity.requestId]
+  const owned=new Set(runs.flatMap(run=>Array.from({length:4},(_,round)=>`p-${run}-${round}`)))
   const next=identity.requestId ? current.filter(p=>!owned.has(p.requestId)) : []
   if (next.length!==current.length) set(allPendingPermissionRequestsAtom,new Map(previous).set(identity.sessionId,next))
 })
