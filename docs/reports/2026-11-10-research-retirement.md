@@ -1,131 +1,147 @@
-# Tinker 科研退役执行记录
+<a id="tinker-科研退役执行记录"></a>
 
-起始基线 main `4ca339592668581c1dc36abc9097fc9bf0aa1650`。隔离分支 `refactor/tinker-general-product-cleanup`，原目录全部未提交改动保留。执行期间重新核实 PR #19 已由用户合并，main 为 `53c191d663e1733840aa6fa0475ca6494e98bce4`，通过正常 merge `2de0c30` 同步，零冲突。本批没有改写 Rust 源码，也不声称生产已切换 Rust。
+# Tinker Research Retirement Execution Record
 
-## 批次 1：Tinker 身份与当前开发规则
+Starting baseline main `4ca339592668581c1dc36abc9097fc9bf0aa1650`. Isolated branch `refactor/tinker-general-product-cleanup`; all uncommitted changes in the original directory preserved. During execution, reconfirmed the user had merged PR #19, with main at `53c191d663e1733840aa6fa0475ca6494e98bce4`; synchronized through normal merge `2de0c30`, without conflicts. This batch did not rewrite Rust source and does not claim production switched to Rust.
 
-已改写当前 CLAUDE、CONTEXT、README 和开发入口文档。当前 SDK/架构说明与运行代码对齐，完整旧 SDK 调查归档到 [历史 SDK 集成](../history/ASCI-agent-sdk-integration.md)，15 份专属科研规格加历史状态头且保持原路径与主体。旧科研资源链接指向不可变 Git 基线，避免成为断链或当前恢复指令。保留有效规则、当前 Tinker 仓库工作流、原作者及上游来源。完整旧科研 CONTEXT 归档到 [历史领域词汇](../history/ASCI-CONTEXT.md)，不再作为当前产品目标。
+<a id="批次-1tinker-身份与当前开发规则"></a>
 
-新建项目/默认会话的身份文件使用 Tinker，保留 ambient CLAUDE 防护、运行时语言指令和兼容路径。仅在文件缺失时写入，已有用户/历史文件保持原样。本轮没有扫描或修改真实会话目录，没有改 seed/prune、数据库、登录、密钥和安装版。
+## Batch 1: Tinker Identity and Current Development Rules
 
-| 验证 | 结果 |
+Rewrote current CLAUDE, CONTEXT, README, and development entry documentation. Current SDK/architecture descriptions match running code; full old SDK research is archived at [Historical SDK Integration](../history/ASCI-agent-sdk-integration.md). Added historical status headers to 15 research-specific specifications, retaining paths and bodies. Old research-resource links target immutable Git baselines, avoiding broken links or current restoration instructions. Preserved valid rules, current Tinker repository workflow, original authors, and upstream sources. Full old research CONTEXT is archived as [Historical Domain Vocabulary](../history/ASCI-CONTEXT.md), no longer current product goals.
+
+New-project/default-session identity files use Tinker, preserving ambient CLAUDE protection, runtime language instructions, and compatible paths. Write only missing files; existing user/historical files remain unchanged. No scanning/modification of real session directories, seed/prune, databases, login, keys, or installed versions.
+
+| Validation | Result |
 |---|---|
-| 新身份测试 RED | 4 通过、4 预期失败，旧 ASCI 内容触发失败 |
-| 身份测试 GREEN | 8 通过，0 失败 |
-| 身份与路径定向回归 | 25 通过，0 失败，79 断言 |
-| 全仓 Bun | 3471 通过，0 失败，385 文件 |
-| 类型检查 | 6 workspace 通过 |
-| 全仓 lint / diff 检查 | 通过 |
-| Electron build | 通过，仅构建 |
-| 独立规格与质量审查 | 通过，无可确认重要问题 |
+| New identity tests RED | 4 passed, 4 expected failures caused by old ASCI content |
+| Identity tests GREEN | 8 passed, 0 failed |
+| Identity/path targeted regression | 25 passed, 0 failed, 79 assertions |
+| Repository-wide Bun | 3471 passed, 0 failed, 385 files |
+| Typecheck | 6 workspaces passed |
+| Repository lint / diff check | Passed |
+| Electron build | Passed; build only |
+| Independent specification/quality review | Passed, no confirmable significant issues |
 
-原 CONTEXT 全文归档比对通过，仅调整移动后的相对链接。61 个本地文档链接存在，AGENTS 符号链接及 LICENSE/NOTICE 保持。未执行真实 SDK 指令优先级、原生 UI 或线上调用验收，不将生成文本测试称为实际模型身份验证。
+Full original CONTEXT archive comparison passed, with only moved relative links adjusted. All 61 local documentation links exist; AGENTS symlink and LICENSE/NOTICE remain. No actual SDK instruction-priority, native UI, or online-call acceptance; generated-text tests are not actual model identity validation.
 
-## 批次 2：停止默认科研执行，保留通用媒体
+<a id="批次-2停止默认科研执行保留通用媒体"></a>
 
-已移除科研意图/sticky 专属路由、系统提示中的强制科研链、科研 MCP 构造和 hook 装配、启动时科研后台服务与能力包 seed。内置 `lit-search`、`lit-review`、`research-gap` 三包（19 文件）和五个专属工作流技能（9 文件）从源码分发退役。另删除 3 个仅针对已退役资源的延迟/生成器测试，历史 parser/schema/export 与通用测试保留。
+## Batch 2: Stop Default Research Execution, Retain General Media
 
-OCR/ASR 使用既有独立设置字段，不再依赖 Zotero 总开关。MCP 设置保留可操作的媒体开关与缓存管理，ASR 默认关闭，挂载不下载。九个 Zotero 科研写入/重建入口明确返回 `SCIENTIFIC_WORKFLOW_UNAVAILABLE`，历史读取与媒体管理接口保留。
+Removed research-intent/sticky routing, mandatory research chains in system prompts, research MCP construction/hooks, startup research background services, and capability-pack seeding. Retired built-in `lit-search`, `lit-review`, `research-gap` packs (19 files) and five dedicated workflow skills (9 files) from distribution. Also removed 3 delay/generator tests specific to retired assets; historical parser/schema/export and general tests remain.
 
-用户自建 MCP、Agent、技能、能力包继续通过通用接口装配。停止自动覆盖项目 `.claude/agents`、`.mcp.json` 和自动修改 Claude trust。技能运行目录使用本次自有临时投影，命名空间与手动 Skill 引用一致；SDK 查询与后台任务持有租约，停止/异常/关闭后按明确生命周期释放，不抢删仍活跃的资源。
+OCR/ASR use existing independent settings without depending on the Zotero master switch. MCP settings retain operational media toggles and cache management; ASR defaults off, with no download on mount. Nine Zotero research write/rebuild entries explicitly return `SCIENTIFIC_WORKFLOW_UNAVAILABLE`; historical reads and media management remain.
 
-已安装的五种已知工作流副本仅在目录布局和完整指纹与当前发布版精确相符时从运行投影排除，未知/修改副本保留，**不删除磁盘用户文件**。指纹识别先有界检查全部元数据，额外附件、缺失、变长、链接、超深/过多条目直接保留而不读附件正文。仅已知小文件布局才有限分块读取并复核 fd 身份、大小与读取后的布局。
+User-created MCPs, Agents, skills, and capability packs continue through general assembly interfaces. Automatic overwrites of project `.claude/agents`, `.mcp.json`, and Claude trust edits stop. Skill runtime directories use owned temporary projections, with namespaces matching manual Skill references; SDK queries/background tasks hold leases released by explicit lifecycle after stop/error/close, without deleting active resources.
 
-| 验证 | 结果 |
+Installed copies of the five known workflows are excluded from runtime projection only when directory layouts and full fingerprints exactly match the current release. Unknown/modified copies remain; **no user disk files are deleted**. Fingerprinting first checks all metadata within bounds; extra attachments, missing/variable-length entries, links, excessive depth/count preserve the resource without reading attachment bodies. Only known small-file layouts receive bounded chunked reads with fd identity, size, and post-read layout rechecks.
+
+| Validation | Result |
 |---|---|
-| 科研路由/MCP/启动/媒体/注册定向行为 | 红绿回归通过 |
-| 五种发布副本与修改副本 | 5/5 已知排除、5/5 修改保留 |
-| 指纹读取边界 RED → GREEN | 1 通过/4 预期失败 → 13 通过/0 失败（含投影回归） |
-| 全仓 Bun（最终有界指纹源码） | 3388 通过、0 失败，387 文件，9043 断言 |
-| 类型 / lint / Electron build / diff | 全部通过，6 workspace 类型检查 |
-| SDK 关闭生命周期回归 | 70 次模拟 started→abort/dispose、异常迭代与 local_workflow 终态通过 |
+| Research routing/MCP/startup/media/registration targeted behavior | Red/green regression passed |
+| Five released/modified copies | 5/5 known excluded, 5/5 modified retained |
+| Fingerprint read boundaries RED → GREEN | 1 pass/4 expected failures → 13 pass/0 failures (including projection regression) |
+| Repository-wide Bun (final bounded-fingerprint source) | 3388 passed, 0 failed, 387 files, 9043 assertions |
+| Types / lint / Electron build / diff | All passed; 6-workspace typecheck |
+| SDK close lifecycle regression | 70 simulated started→abort/dispose runs, exceptional iteration, and local_workflow terminal states passed |
 
-定向宿主夹具运行真实 IPC 注册、MCP 装配、`runOrchestratorQuery`、`ClaudeAgentAdapter`，SDK query 被模拟且 baseOptions 人工构造。不是完整 `AgentOrchestrator.sendMessage`、原生 SDK 派活或 UI 验收。原生模型、GUI、Python/OCR/ASR 执行及真实下载未测试，也未读取密钥或调用付费服务。
+Targeted host fixtures run real IPC registration, MCP assembly, `runOrchestratorQuery`, and `ClaudeAgentAdapter`; SDK query is mocked and baseOptions manually constructed. This is not full `AgentOrchestrator.sendMessage`, native SDK dispatch, or UI acceptance. Native models, GUI, Python/OCR/ASR execution, and actual downloads were not tested; no keys read or paid services called.
 
-旧 project `settingSources` 保留。无法判定归属的既有 `.claude/agents`、`.mcp.json`、项目指令与未知旧技能版本不改动，仍可能被 SDK 自行发现；不宣称所有磁盘发现路径已关闭。SDK 原生 programmatic Agent 派发及 symlink plugin 行为仍待验证，不以此为由恢复自动 trust 写入。
+Old project `settingSources` remains. Existing `.claude/agents`, `.mcp.json`, project instructions, and unknown old skill versions of uncertain ownership remain untouched and may still be discovered by the SDK; not all disk-discovery routes are claimed closed. Native SDK programmatic Agent dispatch and symlink plugin behavior still require validation; automatic trust writes are not restored for this reason.
 
-## 批次 3：旧科研页面与替代路由
+<a id="批次-3旧科研页面与替代路由"></a>
 
-新会话和空右栏恢复只显示 Files。Papers/研究空白从已有结果显式打开，仍可关闭、重开和阅读。移除论文主面板、展开窗口、详情、Library 替代详情和嵌套资料弹窗的科研入库/图谱/生成/沉淀等主动操作。保留已有表格、来源锚点、本地 PDF、复制/导出路径与普通笔记。
+## Batch 3: Old Research Pages and Alternative Routes
 
-旧导入 atom 只清内存，不执行 ingest/link；科研确认卡片只读。两个科研等待服务立即取消，不留 pending Promise，不发新卡片；迟到响应不能重启流程。通用 ChoiceCard、权限、AskUser、ExitPlan 与普通消息不受这两类旧请求阻塞。论文 IPC 的六项确证科研写入和图谱 build/add-to-Zotero 先返回不可用，不打开存储或联网。普通 notes、feedback、读取/导出和既有资料管理保留。
+New sessions and restored empty right panels show only Files. Papers/research blanks open explicitly from existing results and remain closable, reopenable, and readable. Removed active research ingest/graph/generate/capture operations from paper main panels, expanded windows, details, alternative Library details, and nested material dialogs. Existing tables, source anchors, local PDFs, copy/export paths, and ordinary notes remain.
 
-Library 中已有 review/conversation 的引用和普通 free note 仍能操作；退役的仅 paper 入库分支。账户说明已澄清“本地记录不随账户跨设备同步”与“模型/工具可能接收任务所需输入”，不承诺对话绝不上传。不改登录/OAuth。
+Old import atoms clear memory only without ingest/link; research confirmation cards are read-only. Two research waiting services cancel immediately without pending Promises or new cards; late responses cannot restart flows. General ChoiceCard, permission, AskUser, ExitPlan, and ordinary messages are not blocked by these two old request types. Six confirmed paper research-write IPCs and graph build/add-to-Zotero return unavailable before opening storage or networking. Ordinary notes, feedback, reads/exports, and existing material management remain.
 
-| 验证 | 结果 |
+Existing review/conversation references and ordinary free notes in Library stay operational; only paper-ingest branches retire. Account copy clarifies that local records do not sync across devices through accounts and that models/tools may receive task-required inputs, without promising conversations never upload. Login/OAuth unchanged.
+
+| Validation | Result |
 |---|---|
-| 最终定向 React/IPC/service 回归 | 78 通过、0 失败，11 文件，188 断言 |
-| 全仓 Bun（独立审查修复后） | 3399 通过、0 失败，390 文件，9100 断言 |
-| 类型 / lint / Electron build / diff | 全部通过，6 workspace 类型检查 |
-| 独立审查 | 两项 P2 修复后通过，无剩余阻塞发现 |
+| Final targeted React/IPC/service regression | 78 passed, 0 failed, 11 files, 188 assertions |
+| Repository-wide Bun (after independent-review fixes) | 3399 passed, 0 failed, 390 files, 9100 assertions |
+| Types / lint / Electron build / diff | All passed; 6-workspace typecheck |
+| Independent review | Passed after two P2 fixes, no remaining blockers |
 
-曾有一轮同时构建时 wrapper fixture 在默认 5 秒超时；单独复测 2/0，之后完整 suite 两轮均通过，未改超时或 skip。只能记录其为瞬时失败，不能将资源竞争当已证明原因。默认沙箱的本机回环监听失败另经正常狭窄权限运行验证，未绕过拒绝。
+One wrapper fixture hit the default 5-second timeout during concurrent builds; isolated rerun was 2/0, followed by two complete passing suites, without timeout or skip changes. Record it only as a transient failure; resource contention is not a proven cause. Default-sandbox local-loopback binding failure was separately validated through normal narrow permissions, without bypassing denial.
 
-页面验证为真实 React/Jotai + happy-dom 与合成 main IPC 委托，不是原生 Electron 点击。实际点击验证保留的 review/conversation 引用与笔记保存，零 paper 入库。原生 GUI、Zotero、账户、真实模型/数据未验收。未引用的旧科研弹窗/图谱兼容源码仍有保留，不宣称全源码清场。
+Page validation uses actual React/Jotai + happy-dom and synthetic main IPC delegation, not native Electron clicks. Actual clicks verified retained review/conversation references and note saves with zero paper ingestion. Native GUI, Zotero, accounts, real models/data were not accepted. Unreferenced old research dialogs/graph compatibility source remains; complete source removal is not claimed.
 
-## 批次 4：专属技能资源与统一退役策略
+<a id="批次-4专属技能资源与统一退役策略"></a>
 
-追加删除经过逐目录依赖核对的 49 个专属技能目录，精确 402 文件、5,090,292 原始字节。与首五个工作流合计退役 54 个技能目录，保留 35 个通用与 10 个跨用途技能；完整清单见[逐目录清理表](./2026-11-10-scientific-skill-curation.md)。原有 root LICENSE/NOTICE 与五个保留技能 LICENSE.txt（共七路径）逐字节保持。
+## Batch 4: Dedicated Skill Assets and Unified Retirement Policy
 
-54 项受信发布布局/指纹集中到 shared JSON，seed/copy/upgrade/discovery 使用同一策略。运行时仍只排除精确已知副本，未知/修改副本保持可用和原字节，不删除安装目录。元数据检查按每个精确布局预算，硬上限 64 条目、4 路径段、64KiB 单文件、512KiB 总正文；正文用 8KiB buffer，读取至发布字节数加一个哨兵字节，并保留 fd 身份/时间/大小及读取后布局复核。实际最大目录 35 条目、457,166 字节，不因一处额外附件而读它的正文。
+Additionally removed 49 dedicated skill directories after per-directory dependency checks: exactly 402 files, 5,090,292 original bytes. Together with the first five workflows, 54 skill directories retired; 35 general and 10 cross-purpose skills retained. Full inventory: [Per-Directory Cleanup Table](./2026-11-10-scientific-skill-curation.md). Original root LICENSE/NOTICE and five retained skill LICENSE.txt files (seven paths total) remain byte-identical.
 
-保留技能中四处对退役技能的可选建议已在三个文件中改为通用能力表述。EDA 内对外部 Python 库的示例保留，不将库 import 误判为已删技能目录依赖。不卸载通用 Python 或已安装外部库。
+Centralized 54 trusted release layouts/fingerprints in shared JSON; seed/copy/upgrade/discovery use one policy. Runtime excludes exact known copies only; unknown/modified copies remain usable and byte-identical without installation-directory deletion. Metadata checks use each exact layout budget, with hard ceilings of 64 entries, 4 path segments, 64KiB per file, 512KiB total bodies; read with an 8KiB buffer up to released byte count plus one sentinel, retaining fd identity/time/size and post-read layout checks. Actual largest directory: 35 entries, 457,166 bytes; an extra attachment never causes its body to be read.
 
-| 最终验证 | 结果 |
+Four optional recommendations referring to retired skills were rewritten as general capabilities in three retained files. EDA examples importing external Python libraries remain; imports are not mistaken for dependencies on removed skill directories. General Python and installed external libraries are not uninstalled.
+
+| Final Validation | Result |
 |---|---|
-| D 定向测试 | 15 通过，0 失败 |
-| 全仓 Bun（含最新 main 与全部清理） | 3400 通过，0 失败，391 文件，9150 断言 |
-| 类型 / lint / Electron build / diff | 全部通过，六 workspace 类型检查 |
-| 真实 Git 基线重建审计 | 54/54 发布指纹与布局通过，45 保留目录、七法律文件、统一策略及实际 mock SDK plugin 输入通过 |
-| 每布局异常/读取边界 | 已知与修改副本、额外附件/链接、有限读取与投影回归通过 |
-| 常规测试无 Git 历史 | 通过，使用合成正文及隔离子进程 digest 映射 |
-| 显式历史审计缺基线 | 明确 needs-history 退出 1，不自动 fetch 或静默 skip |
-| 独立资源/指纹/依赖审查 | 通过，无未关闭重要发现 |
+| D targeted tests | 15 passed, 0 failed |
+| Repository-wide Bun (latest main + all cleanup) | 3400 passed, 0 failed, 391 files, 9150 assertions |
+| Types / lint / Electron build / diff | All passed; six-workspace typecheck |
+| Actual Git baseline reconstruction audit | 54/54 release fingerprints/layouts passed; 45 retained directories, seven legal files, unified policy, and actual mock SDK plugin inputs passed |
+| Per-layout anomalies/read boundaries | Known/modified copies, extra attachments/links, bounded reads, and projection regressions passed |
+| Normal tests without Git history | Passed using synthetic bodies and isolated-subprocess digest mapping |
+| Explicit historical audit without baseline | Explicit needs-history exit 1; no automatic fetch or silent skip |
+| Independent asset/fingerprint/dependency review | Passed, no unresolved significant findings |
 
-正常永久测试不保留被删科研正文，也不依赖浅克隆中未必存在的旧 Git 对象。合成 digest 映射验证布局/策略，不冒充真实原文 SHA-256；另用本机完整历史显式运行无映射的真实重建审计，二者分开记录。真实审计命令为：
+Permanent normal tests retain no removed research bodies and do not depend on historical Git objects potentially absent from shallow clones. Synthetic digest mappings verify layout/policy without pretending to be actual original SHA-256. Separately ran the explicit unmapped real reconstruction audit against complete local history; records stay distinct. Actual audit command:
 
 ```sh
 bun apps/electron/src/main/lib/__tests__/fixtures/scientific-assets.fixture.ts --git-baseline
 ```
 
-夹具自行使用合成目录。此命令需要本地 `4ca339592668581c1dc36abc9097fc9bf0aa1650` 对象，不读取用户技能目录或自动联网取历史。
+The fixture uses synthetic directories. It requires local `4ca339592668581c1dc36abc9097fc9bf0aa1650`, without reading user skill directories or automatically fetching history.
 
-## 同步最新 main 后的 Rust 回归
+<a id="同步最新-main-后的-rust-回归"></a>
 
-合入用户已合并的 `53c191d` 后，本分支相对该 main 的 `apps/tinker-rust` 源码差异为零。重新运行：
+## Rust Regression After Synchronizing Latest Main
 
-| 检查 | 结果 |
+After merging user-merged `53c191d`, this branch has zero `apps/tinker-rust` source differences from that main. Reran:
+
+| Check | Result |
 |---|---|
-| `cargo fmt -- --check` | 通过 |
-| Rust Lab Vite build | 通过 |
-| `cargo clippy --locked --all-targets -- -D warnings` | 通过 |
-| `cargo test --locked` | 141 顶层测试通过，0 失败，不重复累计子进程辅助测试 |
+| `cargo fmt -- --check` | Passed |
+| Rust Lab Vite build | Passed |
+| `cargo clippy --locked --all-targets -- -D warnings` | Passed |
+| `cargo test --locked` | 141 top-level tests passed, 0 failed; subprocess helpers not double-counted |
 
-首次 clippy 因新工作树缺少 `frontendDist` 报错；正常构建 Lab 前端后原命令通过，没有改 Rust 源码或压制检查。测试使用隔离目录、伪凭据和本机回环模拟服务，未运行线上模型或原生窗口。本批补测不能当作完整新栈产品/UI 验收。
+Initial clippy failed because the new worktree lacked `frontendDist`; the original command passed after a normal Lab frontend build, without Rust source edits or suppressed checks. Tests used isolated directories, fake credentials, and local loopback mock services, without online models or native windows. These additional tests do not establish full new-stack product/UI acceptance.
 
-## 保留边界与后续
+<a id="保留边界与后续"></a>
 
-- 当前 Electron/SDK 后端、会话/渠道/生图/文件/项目/登录和通用媒体仍保留，Rust 未替代的生产后端不退役。已有安装版没有被覆盖或重启。
-- 历史科研对象、schema、读取/导出、PDF/锚点和普通笔记保留，没有删除表或迁移真实会话。
-- `@asci/*`、`ASCI_*`、`.asci/.asci-dev`、协议名、app identifier、OAuth/deeplink 与许可证/原作者归属继续保留。外部 Google 同意页面/服务配置没有修改。
-- 未使用的旧科研 dialog、GraphModal/NodeInspector、科研服务/resource 源码有保留，处于未接入或兼容边界。没有声称全部科研源码、所有 ASCI 字符串或所有历史规格被删除。
-- 用户自建/修改资源、旧未知版本、已有 project CLAUDE/agents/MCP 不能凭名字销毁；SDK 自行发现边界仍存在。
-- 通用 Agent 在真实原生 SDK 中派活、原生 GUI、中英/主题手动切换、真实模型与媒体执行仍需验收。本批没有重做完整 MVP UI，没有模型费用、整机内存或速度改善的实测声明。
+## Retained Boundaries and Follow-Up
 
-## 本地证据与回滚
+- Current Electron/SDK backend, conversations/channels/images/files/projects/login, and general media remain; production backend not replaced by Rust is not retired. Existing installations were not overwritten or restarted.
+- Historical research objects, schemas, reads/exports, PDFs/anchors, and ordinary notes remain; no tables deleted or real sessions migrated.
+- `@asci/*`, `ASCI_*`, `.asci/.asci-dev`, protocol names, app identifiers, OAuth/deeplinks, licenses/original attribution remain. External Google consent pages/service configuration unchanged.
+- Unused old research dialogs, GraphModal/NodeInspector, and research service/resource source remain disconnected or for compatibility. No claim that all research source, ASCI strings, or historical specs were deleted.
+- User-created/modified assets, unknown old versions, existing project CLAUDE/agents/MCP cannot be destroyed by name; SDK discovery boundaries remain.
+- General Agent dispatch in the real native SDK, native GUI, manual Chinese/English/theme switching, real models/media still require acceptance. No full MVP UI redesign or measured claims about model cost, whole-machine memory, or speed improvements.
 
-发布前差异检查未发现新增凭据模式、用户数据或构建产物路径；LICENSE/NOTICE、保留技能法律文件、bun.lock 及相对最新 main 的 Rust 源码均零差异。原主工作区仍在 `codex/tinker-rust-foundation`，读取时有 63 个 dirty 条目，本批没有在那里修改源码或清理文件。
+<a id="本地证据与回滚"></a>
 
-完整日志保留于 `/private/tmp/tinker-cleanup-checks-20261110`，包括 identity/runtime/history/assets 与 final-rust 前缀。检查通过的命令为 `bun run typecheck`、`bun run lint`、`bun test`、`bun run electron:build`，Rust 的 fmt/clippy/test 及 Lab Vite build。运行时清除 ambient 服务变量，ASCI_CONFIG_HOME/ASCI_RUNTIMES_HOME 指向全新的合成目录，Cargo 复用已确认缓存；回环模拟采用正常权限路线，不读取凭据或触发付费调用。
+## Local Evidence and Rollback
 
-| 清理提交 | 作用 |
+Prepublication diff checks found no new credential patterns, user data, or build artifact paths; LICENSE/NOTICE, retained skill legal files, bun.lock, and Rust source relative to latest main have zero differences. Original workspace remains on `codex/tinker-rust-foundation` with 63 dirty entries when read; no source edits or file cleanup occurred there.
+
+Full logs remain at `/private/tmp/tinker-cleanup-checks-20261110`, including identity/runtime/history/assets and final-rust prefixes. Passing commands: `bun run typecheck`, `bun run lint`, `bun test`, `bun run electron:build`, Rust fmt/clippy/test, Lab Vite build. Runtime cleared ambient service variables; ASCI_CONFIG_HOME/ASCI_RUNTIMES_HOME targeted fresh synthetic directories; Cargo reused a confirmed cache. Loopback mocks used normal permissions, without credential reads or paid calls.
+
+| Cleanup Commit | Purpose |
 |---|---|
-| `eab860e` | Tinker 身份与基础开发文档 |
-| `23b257f` | 科研运行接线退役、媒体独立控制 |
-| `64b52e3` / `e95a1b7` | 当前 SDK/架构说明、历史规格状态与源链接 |
-| `5cb68de` | 科研主动 UI/IPC 退役、历史与通用资料管理保留 |
-| `180a68f` | 追加 49 个专属技能及统一有界识别 |
+| `eab860e` | Tinker identity and base development documentation |
+| `23b257f` | Retire research runtime wiring, independent media control |
+| `64b52e3` / `e95a1b7` | Current SDK/architecture docs, historical spec statuses/source links |
+| `5cb68de` | Retire active research UI/IPC, retain history/general material management |
+| `180a68f` | Additional 49 dedicated skills and unified bounded identification |
 
-需要源码回滚时按依赖逆序 revert 对应清理提交，先资源再 UI 再运行接线，最后文档/身份。**不回滚用于同步用户 main 的 merge `2de0c30`，不撤销用户已合并的 Rust PR #19。** 不删除已有数据以消除回滚冲突。单个旧读模块尚有依赖时先保留并审查，而非删除整目录。
+For source rollback, revert cleanup commits in reverse dependency order: assets, UI, runtime wiring, then docs/identity. **Do not revert synchronization merge `2de0c30` or undo the user's merged Rust PR #19.** Do not delete existing data to resolve rollback conflicts. Retain/review old read modules while dependencies remain rather than deleting entire directories.
 
-远端分支为 `refactor/tinker-general-product-cleanup`，按正常 hooks 提交并仅交付 Draft PR。最终完整 head SHA、PR 与该 SHA 的 checks/status/Actions 以交付回复及 PR 审查评论为准；本报告记录本地证据，不将无 CI 记录称为通过。不合并、不部署、不安装。
+Remote branch: `refactor/tinker-general-product-cleanup`, committed through normal hooks and delivered only as Draft PR. Final full head SHA, PR, and checks/status/Actions for that SHA are governed by the delivery reply and PR review comments. This report records local evidence and does not treat absent CI as passing. No merge, deployment, or installation.

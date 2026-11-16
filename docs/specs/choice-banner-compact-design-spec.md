@@ -1,266 +1,320 @@
-# Choice Banner 紧凑化设计 Spec
+<a id="choice-banner-紧凑化设计-spec"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：（待开）
-> **关联 PR**：（待开）
-> **领域语言事实源**：`CONTEXT.md`（暂无 banner 专门术语，本 spec 沿用既有命名）
-> **触发来源**：会话流中的执行/权限卡片当前撑满屏幕，需要参考 Codex 的"覆盖式紧凑卡"重塑。
+# Compact Choice Banner Design Spec
 
----
-
-## 1. 问题与目标
-
-### 1.1 现状
-
-`PermissionBanner`（权限确认卡）在 Agent 调用 MCP / Bash / 文件工具时弹出，**替换输入框**显示在 `AgentView` 底部：
-
-- 标题行（"需要确认 zotero / zotero_list_collections"）
-- 副行（"使用工具: mcp__zotero__zotero_list_collections"）
-- 工具预览（命令 / 文件路径 / JSON 参数，max-h 120px）
-- 判定原因（硬规则 / AI 决策，可选）
-- 3 个选项（允许 / 拒绝 / 本会话总是允许），每行 36px
-- 队列追加（"+N queued"）
-- 页脚键盘提示（↑↓ 切换 / ↵ 确认 / 1-3 直选 / esc 终止）
-
-实测在通常场景下高度 ≈ 180–240px，**视觉上挤压上方对话消息流**，给用户"撑满屏幕"的压迫感。
-
-### 1.2 目标
-
-把 `PermissionBanner` 改为**紧凑覆盖式卡片**：
-
-1. 高度 hug 内容（无 min-height），普通场景 ≈ 130px、带预览 ≈ 160px、危险加 tooltip 仍 ≈ 130px
-2. 沿用"覆盖输入框"模式（`!hasBannerOverlay && <Input>`），无 z-index 叠加
-3. 信息密度提升：标题合并工具名、副行删除、判定原因走 tooltip、预览块封顶 60px
-4. 右下加**确定按钮**（按钮文字 = 当前 focused 选项动词；危险态 + focused 拒绝时按钮变红）
-5. 同时焕新 3 个共用 shell 的兄弟 banner：`AskUserBanner`、`ExitPlanModeBanner`、`LitReviewDirectionsBanner`
-
-### 1.3 非目标
-
-- 不动 IPC / 权限服务 / 状态 atom（`PermissionRequest` 形状不变；响应通道 `PERMISSION_RESPOND` 不变）
-- 不引入 banner 与输入框的 z-index 叠加（曾考虑"输入框压在卡片上"方案，最终回归覆盖式）
-- 不动 `ToolActivityItem` / 消息流里的工具结果渲染（视觉体系不同，独立项）
-- 不做动画 polish（淡入淡出 / slide-up 等留作 v2）
-- 不重新设计 `ConfirmDangerousModal`（仅复用）
+> **Status**: draft · awaiting review
+> **Related issue**: (to be opened)
+> **Related PR**: (to be opened)
+> **Domain language source of truth**: `CONTEXT.md` (no dedicated banner terminology yet; retain existing names)
+> **Trigger**: execution/permission cards currently fill the conversation screen and need reshaping using Codex-style compact overlay cards.
 
 ---
 
-## 2. 决策回顾
+<a id="1-问题与目标"></a>
 
-| 项 | 决定 | 备选与放弃原因 |
+## 1. Problem and Goals
+
+<a id="11-现状"></a>
+
+### 1.1 Current State
+
+`PermissionBanner` appears when the Agent calls MCP / Bash / file tools, **replacing the input** at the bottom of `AgentView`:
+
+- Title ("Confirmation required: zotero / zotero_list_collections")
+- Subtitle ("Use tool: mcp__zotero__zotero_list_collections")
+- Tool preview (command / file path / JSON arguments, max-h 120px)
+- Decision reason (hard rule / AI decision, optional)
+- 3 options (Allow / Deny / Always allow this session), each 36px high
+- Queue suffix ("+N queued")
+- Keyboard footer (↑↓ navigate / ↵ confirm / 1-3 direct selection / esc terminate)
+
+Typical measured height ≈ 180–240px, **visually crowding conversation messages above** and feeling overwhelming.
+
+<a id="12-目标"></a>
+
+### 1.2 Goals
+
+Turn `PermissionBanner` into a **compact overlay card**:
+
+1. Hug content height (no min-height): ordinary ≈ 130px, with preview ≈ 160px, dangerous with tooltip still ≈ 130px
+2. Retain input-replacement mode (`!hasBannerOverlay && <Input>`), without z-index layering
+3. Increase density: merge tool name into title, remove subtitle, move reason to tooltip, cap preview at 60px
+4. Add bottom-right **confirm button** (label = focused option's verb; button turns red in danger state with Deny focused)
+5. Refresh 3 sibling banners sharing the shell: `AskUserBanner`, `ExitPlanModeBanner`, `LitReviewDirectionsBanner`
+
+<a id="13-非目标"></a>
+
+### 1.3 Non-goals
+
+- No IPC / permission service / state-atom changes (`PermissionRequest` shape and `PERMISSION_RESPOND` response channel unchanged)
+- No z-index layering between banner and input (considered input above card, ultimately returned to replacement)
+- No `ToolActivityItem` / message-stream tool-result rendering changes (separate visual system/task)
+- No animation polish (fade / slide-up, etc. deferred to v2)
+- No redesign of `ConfirmDangerousModal` (reuse only)
+
+---
+
+<a id="2-决策回顾"></a>
+
+## 2. Decision Review
+
+| Item | Decision | Alternatives and Rejection Reasons |
 |---|---|---|
-| **范围** | 动共享 shell（`ChoiceCardShell` + `choice-tokens.ts`），4 个 banner 一起焕新 | 只动 PermissionBanner body 能改的余地有限（圆角/边框/页脚来自 shell） |
-| **分支** | `alex-20260603`（基于 main），PR → main | 走 UI-main 会丢真实 IPC 数据流验证 |
-| **与输入框** | 覆盖输入框（沿用现状） | 曾考虑"输入框 z-index 压在卡片上"，但实现复杂、键盘冲突、阻塞决策语义反而被削弱 |
-| **选项排列** | 竖排（沿用现有 3 行结构，行高 36→28px） | 横排在窄屏退化复杂，且与现有 keyboard model 不匹配 |
-| **高度** | hug content，无 min-height | 固定 80–90px 在带预览 / 多队列时溢出 |
-| **键盘** | 不动现有全局监听（1/2/3 / ↑↓ / ↵ / Esc），输入框被覆盖故无焦点冲突 | — |
-| **信息** | 副行删 · 工具名进标题 · 判定原因 → tooltip · always-allow 解释 → tooltip · 预览 120→60px | 全留信息过载；激进横向按钮组在 Bash/文件场景无法看参数 |
-| **确定按钮** | 右下；文字 = focused 选项的动词；危险 + focused 拒绝时变红，其他保持深色 | 始终写"确定"信息量低；始终红色在普通态过度报警 |
+| **Scope** | Change shared shell (`ChoiceCardShell` + `choice-tokens.ts`), refreshing all 4 banners | PermissionBanner body alone offers limited changes; corners/borders/footer come from shell |
+| **Branch** | `alex-20260603` (based on main), PR → main | UI-main would lose real IPC data-flow validation |
+| **Input relationship** | Replace input (retain current behavior) | Input layered above card adds implementation/keyboard complexity and weakens blocking-decision semantics |
+| **Option arrangement** | Vertical (retain 3 rows, height 36→28px) | Horizontal layout degrades poorly on narrow screens and mismatches existing keyboard model |
+| **Height** | Hug content, no min-height | Fixed 80–90px overflows with previews / multiple queued requests |
+| **Keyboard** | Retain global listeners (1/2/3 / ↑↓ / ↵ / Esc); replacement input avoids focus conflict | — |
+| **Information** | Remove subtitle · tool in title · reason → tooltip · always-allow explanation → tooltip · preview 120→60px | Keeping all information overloads; aggressive horizontal buttons hide Bash/file arguments |
+| **Confirm button** | Bottom-right; focused option verb; red only for danger + focused Deny, otherwise dark | Always "Confirm" conveys little; always red over-warns in ordinary states |
 
 ---
 
-## 3. 视觉规格
+<a id="3-视觉规格"></a>
 
-### 3.1 整卡结构
+## 3. Visual Specification
+
+<a id="31-整卡结构"></a>
+
+### 3.1 Card Structure
 
 ```
 ┌──────────────────────────────────────────────┐
-│ 需要确认  zotero / zotero_list_collections   │  ← 标题行（hdr）
-│              · 危险态: ⚠ 前缀；右侧浮判定原因 tooltip ⓘ
+│ Confirm  zotero / zotero_list_collections   │  ← title row (hdr)
+│              · Dangerous: ⚠ prefix; reason tooltip ⓘ on right
 ├──────────────────────────────────────────────┤
-│ git fetch origin main                        │  ← 预览块（prv，可选）
+│ git fetch origin main                        │  ← optional preview (prv)
 ├──────────────────────────────────────────────┤
-│ 1  允许                                       │  ← 选项行（opt × N）
-│ 2  拒绝                                       │     focused 行: bg-muted/40
-│ 3  本会话总是允许                              │     disabled 行: opacity-45
+│ 1  Allow                                      │  ← option row (opt × N)
+│ 2  Deny                                       │     focused row: bg-muted/40
+│ 3  Always allow this session                  │     disabled row: opacity-45
 ├──────────────────────────────────────────────┤
-│ ↑↓切换 1-3直选 Esc终止       [允许 ↵]        │  ← 页脚（ftr）
+│ ↑↓Navigate 1-3Select EscTerminate [Allow ↵]   │  ← footer (ftr)
 └──────────────────────────────────────────────┘
 ```
 
-### 3.2 尺寸 token（落 `choice-tokens.ts`）
+<a id="32-尺寸-token落-choice-tokensts"></a>
 
-| token | 现值 | 新值 |
+### 3.2 Size Tokens (in `choice-tokens.ts`)
+
+| Token | Current | New |
 |---|---|---|
-| `shellClass` 整体 padding | `p-3 / px-3 py-2` | `p-0`（child 自己控制） |
-| 标题行 padding | `px-3 pt-2 pb-1` | `px-3 py-2`（统一） |
-| 标题字号 | `text-sm font-semibold` | 保持 `text-sm font-semibold`（13px） |
-| 工具名 | `text-xs text-muted-foreground font-mono` | 保持 |
-| 副行 | 存在 | **删除** |
-| 预览块 max-h | `120px` | `60px` |
-| 预览块字号 | `text-xs font-mono` | 保持，`px-3 py-1` |
-| 选项行高 | `h-9 px-3` | `min-h-7 px-3 py-1.5`（约 28px） |
-| 选项分隔 | `divide-y` | 保持，颜色用 `border-muted/40` |
-| 页脚 padding | `border-t px-3 py-1.5` | `border-t pl-3 pr-2 py-1.5`（右边留按钮气） |
-| 页脚字号 | `text-[11px]` | 保持 |
-| 确定按钮 | **新增** | `h-7 px-3 text-xs font-medium rounded` |
+| Overall `shellClass` padding | `p-3 / px-3 py-2` | `p-0` (children control it) |
+| Title-row padding | `px-3 pt-2 pb-1` | `px-3 py-2` (unified) |
+| Title font size | `text-sm font-semibold` | Retain `text-sm font-semibold` (13px) |
+| Tool name | `text-xs text-muted-foreground font-mono` | Retain |
+| Subtitle | Present | **Remove** |
+| Preview max-h | `120px` | `60px` |
+| Preview font size | `text-xs font-mono` | Retain, `px-3 py-1` |
+| Option row height | `h-9 px-3` | `min-h-7 px-3 py-1.5` (about 28px) |
+| Option separators | `divide-y` | Retain; color `border-muted/40` |
+| Footer padding | `border-t px-3 py-1.5` | `border-t pl-3 pr-2 py-1.5` (space for button at right) |
+| Footer font size | `text-[11px]` | Retain |
+| Confirm button | **New** | `h-7 px-3 text-xs font-medium rounded` |
 
-### 3.3 颜色 token（沿用现有语义 token，无 Tailwind palette 硬编码）
+<a id="33-颜色-token沿用现有语义-token无-tailwind-palette-硬编码"></a>
 
-- 普通态：shell `bg-card border-border`；按钮 `bg-foreground text-background hover:bg-foreground/90`
-- 危险态：shell `border-destructive/60`；标题 `text-destructive`；按钮（focused 在拒绝时）`bg-destructive text-destructive-foreground`
-- 安全态（如有）：保持现有 `border-emerald-500/50`（沿用现状，未来 design.md 决定是否换 token）
+### 3.3 Color Tokens (Existing Semantic Tokens, No Hardcoded Tailwind Palette)
 
-> 严格遵守 CLAUDE.md §2 "颜色必须用语义 token，禁止 Tailwind 调色板硬编码" —— 任何 brand 色加 `// eslint-disable-next-line asci/no-tailwind-palette -- <理由>` 豁免。
+- Ordinary: shell `bg-card border-border`; button `bg-foreground text-background hover:bg-foreground/90`
+- Dangerous: shell `border-destructive/60`; title `text-destructive`; button (Deny focused) `bg-destructive text-destructive-foreground`
+- Safe (if present): retain `border-emerald-500/50` (existing behavior; design.md can decide future token replacement)
 
-### 3.4 Tooltip 内容
+> Follow CLAUDE.md §2 strictly: colors must use semantic tokens, no hardcoded Tailwind palette; brand-color exemptions require `// eslint-disable-next-line asci/no-tailwind-palette -- <理由>` (placeholder means reason).
 
-| 触发点 | 现来源 | tooltip 内容 |
+<a id="34-tooltip-内容"></a>
+
+### 3.4 Tooltip Content
+
+| Trigger | Existing source | Tooltip content |
 |---|---|---|
-| 标题右侧 "判定原因 ⓘ"（仅出现当存在 hardRuleReason 或 decisionReason） | `permission.banner.reason.hardRule` / `permission.banner.reason.decision` | 完整原文 |
-| 选项 "本会话总是允许" 行 | `permission.banner.alwaysAllowTooltip` | 现有文案 |
+| "Decision reason ⓘ" at title right (only with hardRuleReason or decisionReason) | `permission.banner.reason.hardRule` / `permission.banner.reason.decision` | Full original text |
+| "Always allow this session" option row | `permission.banner.alwaysAllowTooltip` | Existing copy |
 
-Tooltip 触发：鼠标 hover **+ 键盘 focus-visible**（无障碍）；使用 ShadcnUI `Tooltip` 组件，`open-on-focus` 默认开启，无需自写。
-
----
-
-## 4. 内容与 i18n 改动
-
-### 4.1 现 key 处理（`apps/electron/src/renderer/locales/{en,zh}/conversation/input.json`）
-
-实际触发"使用工具：xxx" 副行的是 `banner.description.generic`（zh: `使用工具：{{tool}}` / en: `Use tool: {{tool}}`），由 `ToolPreview` 在 `toolInput` 为空且无 `command` 时作为 fallback 渲染（`PermissionBanner.tsx:202`），不是独立 subtitle key。本 spec 不删 key（其它分支可能也用），而是改渲染逻辑：当 fallback 文案等价于"使用工具：<已在 title 显示的工具名>"时，**body 留空**（让 ChoiceCard 直接进入选项列表）。
-
-| key | 操作 |
-|---|---|
-| `banner.title.normal` "需要确认" | 保持 |
-| `banner.title.dangerous` "危险操作需要确认" | 保持 |
-| `banner.title.safe` "确认操作" | 保持 |
-| `banner.action.allow` / `.deny` / `.alwaysAllowSession` | 保持 |
-| `banner.alwaysAllowTooltip` | 保持，移作 tooltip 内容 |
-| `banner.reason.hardRule` / `.decision` | 保持，移作 tooltip 内容 |
-| `banner.description.generic` "使用工具：{{tool}}" | key 保留（其它入口可能用）；PermissionBanner 渲染时若 generic fallback 等价 title 中的工具名则**不渲染 body** |
-| `banner.confirmButton`（新增） | 默认 "确定"（en: "Confirm"），作回退；运行时按钮文字取自 focused option label |
-
-### 4.2 现 key 处理（`apps/electron/src/renderer/locales/{en,zh}/conversation/permission.json`）
-
-| key | 操作 |
-|---|---|
-| `choiceCard.keyboardHint.navigate` "切换" | 保持 |
-| `choiceCard.keyboardHint.confirm` "确认" | **删除 JSX 使用**（移到按钮 kbd `↵`），key 暂保留以防其他 banner 用 |
-| `choiceCard.keyboardHint.select` "直选" | 保持 |
-| `choiceCard.keyboardHint.dismissTerminate` "终止" | 保持 |
-| `choiceCard.counter` `{{current}}/{{total}}` | 保持 |
-| 旧 `permission.title` / `permission.subtitle.tool`（legacy 块） | 探索阶段标注为 unused，本 spec 不动；后续清理 spec 另开 |
-
-### 4.3 双语守门
-
-- 改动 key 时 en + zh 同步增删
-- `key-parity.test.ts` 守门确保不漏翻
+Tooltip trigger: mouse hover **+ keyboard focus-visible** (accessible); use ShadcnUI `Tooltip`, with `open-on-focus` enabled by default, no custom implementation.
 
 ---
 
-## 5. 文件清单（实现时落到这些文件）
+<a id="4-内容与-i18n-改动"></a>
 
-| 文件 | 改动 |
+## 4. Content and i18n Changes
+
+<a id="41-现-key-处理appselectronsrcrendererlocalesenzhconversationinputjson"></a>
+
+### 4.1 Existing Keys (`apps/electron/src/renderer/locales/{en,zh}/conversation/input.json`)
+
+The actual "Use tool: xxx" subtitle comes from `banner.description.generic` (zh: `使用工具：{{tool}}` / en: `Use tool: {{tool}}`), rendered by `ToolPreview` when `toolInput` is empty and no `command` exists (`PermissionBanner.tsx:202`), rather than a dedicated subtitle key. Keep the key (other branches may use it), but change rendering: when fallback equals "Use tool: <tool already shown in title>", **leave body empty** so ChoiceCard goes directly to options.
+
+| Key | Action |
 |---|---|
-| `apps/electron/src/renderer/components/agent/choice/choice-tokens.ts` | 收紧尺寸 token、新增 `confirmButtonClass` |
-| `apps/electron/src/renderer/components/agent/choice/ChoiceCardShell.tsx` | 页脚布局重写：左 hints + 右 confirm button；接受 `confirmLabel`、`confirmDanger`、`onConfirm` props；删 `counter` 显示位（合并进 hints 或保留？见 § 8 待定） |
-| `apps/electron/src/renderer/components/agent/choice/ChoiceCard.tsx` | 把 Enter 行为路由到 shell 的 `onConfirm`；focused 选项变化时通知 shell 更新按钮文字 |
-| `apps/electron/src/renderer/components/agent/choice/KeyboardHintFooter.tsx` | 改为 inline 短文（不再单独一行的"键盘提示"组件，删除独立组件或简化为 string builder） |
-| `apps/electron/src/renderer/components/agent/PermissionBanner.tsx` | `ToolPreview` 的 generic fallback 在等价工具名时返回 `null`（让 body 空）；预览块 max-h 改 60；判定原因从 inline 移到 tooltip wrapper；通过 ChoiceCard / shell 传 `confirmLabel = focusedOption.label`、`confirmDanger = dangerLevel === 'dangerous' && focusedIdx === denyIdx` |
-| `apps/electron/src/renderer/components/agent/AskUserBanner.tsx` | 接 shell 新 props；如有自由文本输入框（选项之外），整合到 confirm 按钮上方 |
-| `apps/electron/src/renderer/components/agent/ExitPlanModeBanner.tsx` | 接 shell 新 props |
-| `apps/electron/src/renderer/components/agent/LitReviewDirectionsBanner.tsx` | 接 shell 新 props；若选项多于 5 个，shell 内部 listbox 加 `max-h-[160px] overflow-y-auto` |
-| `apps/electron/src/renderer/components/agent/permission/PermissionQueueList.tsx` | 不动（追加行已经够紧凑） |
-| `apps/electron/src/renderer/locales/{en,zh}/conversation/input.json` | 删 `banner.subtitle.tool`；新增 `banner.confirmButton` 回退态 |
-| `apps/electron/package.json` | patch 递增（`0.x.y → 0.x.(y+1)`） |
-| `apps/electron/src/renderer/components/agent/choice/ChoiceCardShell.test.tsx`（新） | 新 props 渲染快照 + 键盘行为 |
-| `apps/electron/src/renderer/components/agent/PermissionBanner.test.tsx`（如无则新增） | 验证 confirm button label 跟随 focusedIdx、danger 态颜色切换、tooltip 触发 |
+| `banner.title.normal` "Confirmation required" | Retain |
+| `banner.title.dangerous` "Dangerous action requires confirmation" | Retain |
+| `banner.title.safe` "Confirm action" | Retain |
+| `banner.action.allow` / `.deny` / `.alwaysAllowSession` | Retain |
+| `banner.alwaysAllowTooltip` | Retain, use as tooltip |
+| `banner.reason.hardRule` / `.decision` | Retain, use as tooltip |
+| `banner.description.generic` "Use tool: {{tool}}" | Retain key (other entry points may use it); PermissionBanner **omits body** when generic fallback duplicates the title tool name |
+| `banner.confirmButton` (new) | Default Chinese equivalent of "Confirm" (en: "Confirm") as fallback; runtime label comes from focused option |
+
+<a id="42-现-key-处理appselectronsrcrendererlocalesenzhconversationpermissionjson"></a>
+
+### 4.2 Existing Keys (`apps/electron/src/renderer/locales/{en,zh}/conversation/permission.json`)
+
+| Key | Action |
+|---|---|
+| `choiceCard.keyboardHint.navigate` "Navigate" | Retain |
+| `choiceCard.keyboardHint.confirm` "Confirm" | **Remove JSX usage** (move to button kbd `↵`); retain key for other banners |
+| `choiceCard.keyboardHint.select` "Direct selection" | Retain |
+| `choiceCard.keyboardHint.dismissTerminate` "Terminate" | Retain |
+| `choiceCard.counter` `{{current}}/{{total}}` | Retain |
+| Old `permission.title` / `permission.subtitle.tool` (legacy block) | Marked unused during exploration; untouched here, separate cleanup spec later |
+
+<a id="43-双语守门"></a>
+
+### 4.3 Bilingual Guard
+
+- Add/remove keys in en + zh together
+- `key-parity.test.ts` guards against missed translations
 
 ---
 
-## 6. 实现注意点
+<a id="5-文件清单实现时落到这些文件"></a>
 
-### 6.1 IPC / 数据流保持不变
+## 5. Implementation Files
 
-- 入站：`useGlobalAgentListeners.ts:479-495` 仍消费 `permission_request` 事件 → 落 `allPendingPermissionRequestsAtom`
-- 出站：`PermissionBanner.respond` 仍调 `window.electronAPI.respondPermission({ requestId, behavior, alwaysAllow })`
-- 终止：Esc 仍走 `handleDismiss` → flush queue + `stopAgent(sessionId)`
-
-### 6.2 键盘模型不变
-
-- 全局 `keydown` 监听仍由 `ChoiceCard.tsx:85-116` 和 `ChoiceCardShell.tsx:38-53` 注册
-- `skipInputElements` 卫语句保留（虽然输入框被覆盖，但其它 textarea / contentEditable 仍可能存在）
-- Enter 行为：原直接调用 `triggerSelect(focusedIdx)` → 现统一走 shell 的 `onConfirm`，shell 内部仍调 `triggerSelect`
-- `ConfirmDangerousModal` 路径不变
-
-### 6.3 dev-only 不涉及
-
-本改动无 dev/prod 分支，无需 `IS_DEV_MODE` / `ASCI_DEV` 门控。
-
-### 6.4 packages/ 解耦
-
-视觉与 i18n 均在 `apps/electron/` 内部，不耦合 `packages/shared` / `packages/core` / `packages/ui`。
+| File | Change |
+|---|---|
+| `apps/electron/src/renderer/components/agent/choice/choice-tokens.ts` | Tighten size tokens, add `confirmButtonClass` |
+| `apps/electron/src/renderer/components/agent/choice/ChoiceCardShell.tsx` | Rewrite footer: left hints + right confirm; accept `confirmLabel`, `confirmDanger`, `onConfirm`; remove `counter` slot (merge into hints or keep? §8 undecided) |
+| `apps/electron/src/renderer/components/agent/choice/ChoiceCard.tsx` | Route Enter through shell `onConfirm`; notify shell to update label when focus changes |
+| `apps/electron/src/renderer/components/agent/choice/KeyboardHintFooter.tsx` | Inline short text (no standalone keyboard-hint row; remove component or simplify to string builder) |
+| `apps/electron/src/renderer/components/agent/PermissionBanner.tsx` | `ToolPreview` generic fallback returns `null` when duplicating tool name; preview max-h 60; reason moves from inline to tooltip; pass through ChoiceCard / shell `confirmLabel = focusedOption.label`, `confirmDanger = dangerLevel === 'dangerous' && focusedIdx === denyIdx` |
+| `apps/electron/src/renderer/components/agent/AskUserBanner.tsx` | Adopt new shell props; integrate any free-text input above confirm button |
+| `apps/electron/src/renderer/components/agent/ExitPlanModeBanner.tsx` | Adopt new shell props |
+| `apps/electron/src/renderer/components/agent/LitReviewDirectionsBanner.tsx` | Adopt new shell props; for >5 options, add `max-h-[160px] overflow-y-auto` to shell listbox |
+| `apps/electron/src/renderer/components/agent/permission/PermissionQueueList.tsx` | Unchanged (queue suffix already compact) |
+| `apps/electron/src/renderer/locales/{en,zh}/conversation/input.json` | Remove `banner.subtitle.tool`; add `banner.confirmButton` fallback |
+| `apps/electron/package.json` | Increment patch (`0.x.y → 0.x.(y+1)`) |
+| `apps/electron/src/renderer/components/agent/choice/ChoiceCardShell.test.tsx` (new) | New-prop rendering snapshots + keyboard behavior |
+| `apps/electron/src/renderer/components/agent/PermissionBanner.test.tsx` (add if absent) | Confirm label follows focusedIdx, danger colors switch, tooltip triggers |
 
 ---
 
-## 7. 测试矩阵
+<a id="6-实现注意点"></a>
 
-### 7.1 单元 / 集成（Bun test）
+## 6. Implementation Notes
 
-| 用例 | 覆盖 |
+<a id="61-ipc-&#45;数据流保持不变"></a>
+
+### 6.1 IPC / Data Flow Unchanged
+
+- Incoming: `useGlobalAgentListeners.ts:479-495` still consumes `permission_request` → `allPendingPermissionRequestsAtom`
+- Outgoing: `PermissionBanner.respond` still calls `window.electronAPI.respondPermission({ requestId, behavior, alwaysAllow })`
+- Termination: Esc still uses `handleDismiss` → flush queue + `stopAgent(sessionId)`
+
+<a id="62-键盘模型不变"></a>
+
+### 6.2 Keyboard Model Unchanged
+
+- Global `keydown` listeners still registered by `ChoiceCard.tsx:85-116` and `ChoiceCardShell.tsx:38-53`
+- Retain `skipInputElements` guard (other textarea / contentEditable elements may exist despite input replacement)
+- Enter: previously direct `triggerSelect(focusedIdx)` → now shell `onConfirm`, which still calls `triggerSelect`
+- `ConfirmDangerousModal` path unchanged
+
+<a id="63-dev-only-不涉及"></a>
+
+### 6.3 No Dev-Only Logic
+
+No dev/prod branches; no `IS_DEV_MODE` / `ASCI_DEV` gate needed.
+
+<a id="64-packages-解耦"></a>
+
+### 6.4 Decoupled from packages/
+
+Visual/i18n changes stay within `apps/electron/`, without coupling to `packages/shared` / `packages/core` / `packages/ui`.
+
+---
+
+<a id="7-测试矩阵"></a>
+
+## 7. Test Matrix
+
+<a id="71-单元-&#45;集成bun-test"></a>
+
+### 7.1 Unit / Integration (Bun test)
+
+| Case | Coverage |
 |---|---|
-| ChoiceCardShell 普通态渲染 | 标题 / 选项 / 页脚 / 确定按钮全部出现 |
-| ChoiceCardShell 危险态渲染 | shell 边框 `border-destructive/60`、标题 `text-destructive`、按钮 focused-deny 时背景为 `bg-destructive` |
-| ChoiceCard ↵ 路由 | Enter 触发 shell 的 `onConfirm`，进而调用 `triggerSelect(focusedIdx)` |
-| ChoiceCard 1/2/3 直选 | 数字键触发对应 option |
-| ChoiceCard ↑↓ 切换 | `focusedIdx` 在可用选项之间循环；button label 同步 |
-| ChoiceCard Esc | 仍调 `onDismiss` |
-| PermissionBanner button label 同步 | 切换 focused 时，按钮文字跟着变（"允许" → "拒绝" → "本会话总是允许"） |
-| PermissionBanner tooltip | hardRuleReason 存在时标题右侧出现 `判定原因 ⓘ`；hover/focus 显示完整文本 |
-| PermissionBanner queue | N>1 时显示 `+N queued`，最高位排首 |
-| i18n key-parity | en + zh 同步增删 `banner.subtitle.tool`、`banner.confirmButton` |
+| ChoiceCardShell ordinary rendering | Title / options / footer / confirm button all visible |
+| ChoiceCardShell dangerous rendering | Shell `border-destructive/60`, title `text-destructive`, focused-deny button `bg-destructive` |
+| ChoiceCard ↵ routing | Enter invokes shell `onConfirm`, then `triggerSelect(focusedIdx)` |
+| ChoiceCard 1/2/3 direct selection | Number key triggers corresponding option |
+| ChoiceCard ↑↓ navigation | `focusedIdx` cycles available options; label synchronizes |
+| ChoiceCard Esc | Still calls `onDismiss` |
+| PermissionBanner label synchronization | Focus changes update label ("Allow" → "Deny" → "Always allow this session") |
+| PermissionBanner tooltip | With hardRuleReason, show `判定原因 ⓘ` (Decision reason ⓘ) at title right; hover/focus shows full text |
+| PermissionBanner queue | N>1 shows `+N queued`, highest priority first |
+| i18n key-parity | Synchronize en + zh additions/removals of `banner.subtitle.tool`, `banner.confirmButton` |
 
-### 7.2 视觉手测（`bun run dev`）
+<a id="72-视觉手测bun-run-dev"></a>
 
-- 普通 zotero / paper-search MCP 调用 → 确认卡 ≈ 130px、无副行、按钮"允许 ↵"
-- Bash 调用（git fetch / ls） → 预览块出现、卡片 ≈ 160px
-- 危险 Bash（rm -rf 触发 detect-dangerous-bash） → 红边框 / 标题加 ⚠ / focused 跳到拒绝 / 按钮变红 / always-allow 行 disabled
-- 多请求排队（连续触发 2 个工具调用） → 队列显示 `+1 queued`、首请求解决后第二个自动上位
-- 切 zh ↔ en 各走一遍 → 无 raw key、按钮文字双语正确
-- AskUserBanner / ExitPlanModeBanner / LitReviewDirectionsBanner 各跑一遍 golden path → 视觉一致
+### 7.2 Manual Visual Checks (`bun run dev`)
+
+- Ordinary zotero / paper-search MCP call → card ≈ 130px, no subtitle, "Allow ↵" button
+- Bash (git fetch / ls) → preview visible, card ≈ 160px
+- Dangerous Bash (rm -rf triggers detect-dangerous-bash) → red border / ⚠ title / Deny focused / red button / always-allow disabled
+- Queued requests (2 tool calls consecutively) → `+1 queued`, second promoted after first resolves
+- Walk zh ↔ en once each → no raw keys, correct bilingual labels
+- Golden paths for AskUserBanner / ExitPlanModeBanner / LitReviewDirectionsBanner → consistent appearance
 
 ### 7.3 reach
 
-- `bun run typecheck` 通过（含新 props 类型）
-- `bun test` 全绿（含 `key-parity.test.ts`）
-- `apps/electron/package.json` patch 递增
+- `bun run typecheck` passes (including new prop types)
+- `bun test` fully green (including `key-parity.test.ts`)
+- `apps/electron/package.json` patch incremented
 
 ---
 
-## 8. 仍待实现期决策（不阻塞 spec approval）
+<a id="8-仍待实现期决策不阻塞-spec-approval"></a>
 
-1. **counter 显示位**：现 shell 显示 `{{current}}/{{total}}`（如 "1/3 queued"）在标题旁。新设计是否保留？默认保留，但若标题行变挤可挪到队列追加行。
-2. **safe 态视觉**：当前 `dangerLevel === 'safe'` 走 `border-emerald-500/50`。本 spec 沿用现状；若 design system 后续给 `--success` token 再切换。
-3. **按钮 hover/active 状态**：使用 ShadcnUI `Button` 现有 variant 还是手写最小样式？默认走 ShadcnUI variant 复用。
+## 8. Implementation-Time Decisions (Do Not Block Spec Approval)
+
+1. **Counter slot**: current shell shows `{{current}}/{{total}}` (e.g. "1/3 queued") beside title. Keep in new design? Default retain, move to queue suffix if crowded.
+2. **Safe appearance**: current `dangerLevel === 'safe'` uses `border-emerald-500/50`. Retain here; switch when design system provides `--success`.
+3. **Button hover/active**: existing ShadcnUI `Button` variant or minimal custom style? Default reuse ShadcnUI variant.
 
 ---
 
-## 9. 风险与回滚
+<a id="9-风险与回滚"></a>
 
-| 风险 | 缓解 |
+## 9. Risks and Rollback
+
+| Risk | Mitigation |
 |---|---|
-| Enter 路由改造打断现有 PermissionBanner 测试 | 实现时先跑现 `PermissionBanner.test.tsx`，把行为差异写进 spec 测试 |
-| 兄弟 banner（AskUser 等）的 listbox 列表过长导致 shell 撑高 | shell 内部加 `max-h-[160px] overflow-y-auto`（见 § 5） |
-| Tooltip 内容溢出（长判定原因） | tooltip 用 ShadcnUI 现有组件，自动 max-width / wrap |
-| i18n 漏翻 | `key-parity.test.ts` 守门；CI 不过不能 merge |
-| design.md 颜色规范变化 | spec 内所有颜色走语义 token，未来切 token 一次性替换 |
-| 按钮 label = focused 动词时长文（如 "本会话总是允许"）在窄宽度（< 480px renderer 宽）溢出 | 按钮加 `max-w-[180px] truncate`；过长 label 触发 truncate 时整词改回退态 "确定" |
+| Enter routing breaks existing PermissionBanner tests | Run existing `PermissionBanner.test.tsx` first; record behavioral differences in spec tests |
+| Long sibling-banner listboxes (AskUser, etc.) make shell too tall | Add `max-h-[160px] overflow-y-auto` within shell (§5) |
+| Long reason tooltip overflows | Existing ShadcnUI tooltip provides automatic max-width / wrapping |
+| Missing translations | `key-parity.test.ts` guard; no merge if CI fails |
+| design.md color rules change | All spec colors use semantic tokens for centralized replacement |
+| Long focused-verb labels (e.g. "Always allow this session") overflow narrow renderer widths (<480px) | Add `max-w-[180px] truncate`; if truncation occurs, replace whole label with fallback "Confirm" |
 
-回滚策略：单 PR commit，revert 一次即回到现状。
+Rollback: one PR commit; one revert restores current behavior.
 
 ---
 
-## 10. 交付检查（Done When）
+<a id="10-交付检查done-when"></a>
 
-按 CLAUDE.md §8：
+## 10. Delivery Checks (Done When)
 
-1. [ ] `bun run typecheck` 通过
-2. [ ] `bun test` 通过（含 `key-parity.test.ts`）
-3. [ ] `apps/electron/package.json` patch 已递增
-4. [ ] 跑过一次 `simplify` skill 复盘
-5. [ ] `bun run dev` 中 4 个 banner 各走 golden path + 危险态、队列、长预览边界
-6. [ ] zh ↔ en 切换无 raw key
-7. [ ] 向用户确认是否同步 CLAUDE.md / README.md（本 spec 改的是组件实现，不动文档约定，预计**不需要**同步）
-8. [ ] 不涉及 IPC 四联同步
-9. [ ] 不涉及 SDK 打包配置
+Per CLAUDE.md §8:
+
+1. [ ] `bun run typecheck` passes
+2. [ ] `bun test` passes (including `key-parity.test.ts`)
+3. [ ] `apps/electron/package.json` patch incremented
+4. [ ] One `simplify` skill review completed
+5. [ ] All 4 banner golden paths + danger, queue, and long-preview boundaries checked in `bun run dev`
+6. [ ] zh ↔ en switches show no raw keys
+7. [ ] Ask user whether CLAUDE.md / README.md need synchronization (component implementation only, no documentation conventions changed; **not expected**)
+8. [ ] No four-layer IPC synchronization involved
+9. [ ] No SDK packaging configuration involved

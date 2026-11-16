@@ -1,70 +1,86 @@
-# note / 证据集 首次使用 onboarding 空状态教学卡 Spec
+<a id="note-&#45;证据集-首次使用-onboarding-空状态教学卡-spec"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：[#438](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/438) — `[ops-feedback] note / 证据集首次使用 onboarding 引导（降低新人门槛）`
-> **关联 PR**：TBD
-> **领域语言事实源**：[CONTEXT.md](../../CONTEXT.md)（note / 证据集 / 文献库 术语）
-> **依赖输入**：现有 `SpotlightOverlay V2` 状态机（仅作机制对比，不复用其状态字段）；现有 `EvidenceSetCard` 视觉语言（卡片样式同源）
+# First-use onboarding empty-state teaching cards for notes / evidence sets Spec
 
----
-
-## 1. 背景与目标
-
-### 1.1 问题
-
-note（笔记）和证据集（Evidence Set）是 ASCI 的核心科研对象，但产品里没有任何首次使用引导/演示。新人不知道它们是什么、怎么用、和文献库/对话的关系，上手门槛高（来源：0601 测试反馈序号 17·旭武）。
-
-现有 `SpotlightOverlay V2` 是"真·首次安装一次性贯穿引导"，覆盖 LLM/Zotero/任务三步动作链，**不覆盖 note / 证据集的概念引导**。且 spotlight 是"指向式动作引导"，与 note/证据集所需的"概念讲清"语义不匹配。
-
-### 1.2 目标
-
-为 **NotesView**（"全部证据集"列表）和 **PaperNotesPanel**（论文 notes 区）补一套**视图内空状态教学卡**：
-
-- **触发**：列表数据为空 + 未 dismiss → 自然显示
-- **内容**：每张卡含 1 张 SVG 主示意 + 4 段文字步骤（"是什么 / 怎么建 / 在哪看 / 典型用法"）
-- **关闭**：右上 `×` 主动 dismiss → 持久化 → 即便列表仍空也不再显示
-- **再看**：视图顶部一个 `HelpCircle` 图标 → 清掉 dismiss 标志位 → 卡片重新出现
-
-### 1.3 非目标（YAGNI）
-
-- ❌ 不在 `EvidenceSetDetailSheet`（已建空集）显示——已经在用证据集的人不需要概念引导
-- ❌ 不在 `PaperContainingEvidenceSetsPanel`（被收录提示）显示——反向 hint，看见即懂
-- ❌ 不接入 `SpotlightOverlay` 状态机——spotlight 是一次性贯穿语义，空状态卡是按视图独立 dismiss 语义，混在一起会污染 spotlight
-- ❌ 不做"几天后自动重显"——dismiss 即永久（但 `dismissedAt: number` 字段为未来此能力留口）
-- ❌ 不做演示 GIF / 截图——纯 SVG 主示意，零图片资产维护
+> **Status**: Draft · Review pending
+> **Related issue**: [#438](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/438) — `[ops-feedback] note / 证据集首次使用 onboarding 引导（降低新人门槛）` (First-use onboarding for notes / evidence sets, lowering the barrier for newcomers)
+> **Related PR**: TBD
+> **Domain-language source of truth**: [CONTEXT.md](../../CONTEXT.md) (note / evidence set / library terminology)
+> **Dependency inputs**: Existing `SpotlightOverlay V2` state machine (mechanism comparison only, no state-field reuse); existing `EvidenceSetCard` visual language (shared card styling)
 
 ---
 
-## 2. 架构与组件边界
+<a id="1-背景与目标"></a>
 
-### 2.1 新增文件清单
+## 1. Background and goals
+
+<a id="11-问题"></a>
+
+### 1.1 Problem
+
+Notes and Evidence Sets are core ASCI research objects, but the product has no first-use guidance/demo. Newcomers do not know what they are, how to use them, or their relationship to the library/conversations, raising the learning barrier (source: 0601 test feedback item 17, Xuwu).
+
+Existing `SpotlightOverlay V2` is a genuine first-install, one-time walkthrough covering LLM/Zotero/task actions, **not conceptual guidance for notes / evidence sets**. Spotlight's directed-action semantics also differ from explaining these concepts.
+
+<a id="12-目标"></a>
+
+### 1.2 Goals
+
+Add **in-view empty-state teaching cards** to **NotesView** (“All evidence sets” list) and **PaperNotesPanel** (paper notes section):
+
+- **Trigger**: Empty data list + not dismissed → display naturally
+- **Content**: Each card contains 1 primary SVG diagram + 4 text steps (what it is / how to create / where to view / typical use)
+- **Close**: Top-right `×` actively dismisses → persists → never reappears even while empty
+- **Replay**: View-top `HelpCircle` icon → clear dismiss flag → card reappears
+
+<a id="13-非目标yagni"></a>
+
+### 1.3 Non-goals (YAGNI)
+
+- ❌ Do not show in `EvidenceSetDetailSheet` (created empty set); existing evidence-set users need no conceptual guidance
+- ❌ Do not show in `PaperContainingEvidenceSetsPanel` (inclusion hint); reverse hint is self-explanatory
+- ❌ Do not join the `SpotlightOverlay` state machine; one-time walkthrough and independent per-view dismissal have different semantics, mixing pollutes spotlight
+- ❌ No automatic reappearance after days; dismissal is permanent (but `dismissedAt: number` leaves room for this future feature)
+- ❌ No demo GIF / screenshot; pure SVG diagram, zero image-asset maintenance
+
+---
+
+<a id="2-架构与组件边界"></a>
+
+## 2. Architecture and component boundaries
+
+<a id="21-新增文件清单"></a>
+
+### 2.1 New file inventory
 
 ```
 apps/electron/src/renderer/components/onboarding/
-  OnboardingEmptyCard.tsx                    # 通用空状态教学卡（props 驱动）
+  OnboardingEmptyCard.tsx                    # General teaching card (props-driven)
   illustrations/
-    EvidenceSetIntro.tsx                     # SVG 主示意 #1（证据集是什么）
-    PaperNotesIntro.tsx                      # SVG 主示意 #2（PDF 划词→笔记）
+    EvidenceSetIntro.tsx                     # Primary SVG #1 (what an evidence set is)
+    PaperNotesIntro.tsx                      # Primary SVG #2 (PDF selection→note)
 
 apps/electron/src/renderer/atoms/
-  onboarding-empty-card-atoms.ts             # state atom + hydrate 逻辑
+  onboarding-empty-card-atoms.ts             # State atom + hydration
 
 apps/electron/src/renderer/hooks/
-  useOnboardingEmptyCard.ts                  # 视图侧使用的便捷 hook
+  useOnboardingEmptyCard.ts                  # Convenience hook for host views
 
 apps/electron/src/main/lib/
   onboarding-empty-card-service.ts           # settings.json read/write + subscribe
-  onboarding-empty-card-service.test.ts      # 主进程单元测试
+  onboarding-empty-card-service.test.ts      # Main-process unit tests
 
 packages/shared/src/types/
-  onboarding-empty-card.ts                   # OnboardingEmptyCardKey + State 类型
-  # 在 ipc-channels.ts 加 4 个通道常量
+  onboarding-empty-card.ts                   # OnboardingEmptyCardKey + State types
+  # Add 4 channel constants in ipc-channels.ts
 
 apps/electron/src/renderer/locales/<lang>/onboarding.json
-  # 根级加 emptyCard 子树（不新开 ns）
+  # Add root emptyCard subtree (no new ns)
 ```
 
-### 2.2 通用组件契约
+<a id="22-通用组件契约"></a>
+
+### 2.2 General component contract
 
 ```ts
 // OnboardingEmptyCard.tsx
@@ -86,25 +102,31 @@ export interface OnboardingEmptyCardProps {
 }
 ```
 
-- **视觉契约**：`border + shadow-sm + bg-card`，与 `EvidenceSetCard` 视觉同源；右上 `×` 关闭按钮；内部布局上→下为 `主示意 → 标题 → intro → 4 段步骤`。
-- **依赖**：仅 `useT('onboarding')` + `useOnboardingEmptyCard(cardKey)`（dismiss 通过 hook 内部 IPC）。
-- **零业务依赖**：组件不查数据、不判空——是否显示由 host 视图根据自己的数据状态 + `dismissed` 综合判断。
+- **Visual contract**: `border + shadow-sm + bg-card`, sharing `EvidenceSetCard` visuals; top-right `×`; top-to-bottom layout `主示意 → 标题 → intro → 4 段步骤` (diagram → title → intro → 4 steps).
+- **Dependencies**: Only `useT('onboarding')` + `useOnboardingEmptyCard(cardKey)` (dismiss through internal hook IPC).
+- **No business dependencies**: Component neither queries data nor checks emptiness; host combines its data state + `dismissed` to decide visibility.
 
-### 2.3 关键边界与取舍
+<a id="23-关键边界与取舍"></a>
 
-| 决策 | 取舍 |
+### 2.3 Key boundaries and tradeoffs
+
+| Decision | Tradeoff |
 |---|---|
-| **独立服务而非合进 spotlight** | spotlight 是"一次性贯穿"，empty-card 是"按视图独立 dismiss"；状态语义不同，混合会污染状态机 |
-| **dismiss 字段为 `dismissedAt: number` 而非 `boolean`** | 同时兼容未来"几天后自动重显"+ 调试时间审计 |
-| **i18n 走 `onboarding.json` 根级 emptyCard 子树** | `onboarding` 现为单文件 ns；新开子 ns 需改 `locales/index.ts` 合并逻辑，收益不抵成本；root subtree 由 key-parity 测试现成守门 |
-| **不写组件渲染测试** | 视觉组件，与 `EvidenceSetCard` / `SpotlightTooltip` 同策略——靠 `bun run dev` 手工验收 |
-| **`replay` = 清掉 dismissedAt** | 比"加 shouldReplay 字段"更简洁，与"自然显示规则"（`空 && !dismissed`）自洽 |
+| **Independent service instead of merging into spotlight** | Spotlight is a one-time walkthrough; empty-card is independent per-view dismissal; mixing their state semantics pollutes the state machine |
+| **Use `dismissedAt: number`, not `boolean`** | Supports future automatic reappearance after days + debugging timestamp audits |
+| **i18n under root emptyCard subtree of `onboarding.json`** | `onboarding` is currently a single-file ns; a new sub-ns requires `locales/index.ts` merge changes, not worth the cost; existing key-parity guards root subtree |
+| **No component-render tests** | Visual component, same strategy as `EvidenceSetCard` / `SpotlightTooltip`: manual `bun run dev` acceptance |
+| **`replay` = clear dismissedAt** | Simpler than adding shouldReplay; consistent with natural display rule (`空 && !dismissed`, meaning empty && !dismissed) |
 
 ---
 
-## 3. 数据流与持久化
+<a id="3-数据流与持久化"></a>
 
-### 3.1 settings.json 字段扩展
+## 3. Data flow and persistence
+
+<a id="31-settingsjson-字段扩展"></a>
+
+### 3.1 settings.json field extension
 
 `packages/shared/src/types/settings.ts`：
 
@@ -119,24 +141,28 @@ interface AppSettings {
 }
 ```
 
-**老用户兼容**：字段缺失 → 状态为空对象 `{}` → 所有 key 都未 dismiss → 列表空时正常显示卡。无需迁移逻辑。
+**Existing-user compatibility**: Missing field → empty state object `{}` → no dismissed keys → show cards normally for empty lists. No migration logic needed.
 
-### 3.2 IPC 四联通道
+<a id="32-ipc-四联通道"></a>
 
-| 通道（shared 常量） | 方向 | 参数 | 返回 |
+### 3.2 Four-part IPC channels
+
+| Channel (shared constant) | Direction | Parameters | Return |
 |---|---|---|---|
 | `IPC_ONBOARDING_EMPTY_CARD_GET_STATE` | invoke | — | `OnboardingEmptyCardState` |
-| `IPC_ONBOARDING_EMPTY_CARD_DISMISS` | invoke | `{ key: OnboardingEmptyCardKey }` | 更新后的 `OnboardingEmptyCardState` |
-| `IPC_ONBOARDING_EMPTY_CARD_REPLAY` | invoke | `{ key: OnboardingEmptyCardKey }` | 更新后的 `OnboardingEmptyCardState` |
+| `IPC_ONBOARDING_EMPTY_CARD_DISMISS` | invoke | `{ key: OnboardingEmptyCardKey }` | Updated `OnboardingEmptyCardState` |
+| `IPC_ONBOARDING_EMPTY_CARD_REPLAY` | invoke | `{ key: OnboardingEmptyCardKey }` | Updated `OnboardingEmptyCardState` |
 | `IPC_ONBOARDING_EMPTY_CARD_ON_CHANGED` | event | broadcast | `OnboardingEmptyCardState` |
 
-四联同步检查清单（CLAUDE.md §5）：
-- [ ] `packages/shared/src/ipc-channels.ts` — 通道常量 + 请求/响应类型
-- [ ] `apps/electron/src/main/ipc.ts` — `ipcMain.handle` 注册，调用 `onboardingEmptyCardService`
-- [ ] `apps/electron/src/preload/index.ts` — `window.electronAPI.onboardingEmptyCard.*` 桥接
-- [ ] renderer — `useOnboardingEmptyCard` hook 调用
+Four-part synchronization checklist (CLAUDE.md §5):
+- [ ] `packages/shared/src/ipc-channels.ts` — Channel constants + request/response types
+- [ ] `apps/electron/src/main/ipc.ts` — `ipcMain.handle` registration, calling `onboardingEmptyCardService`
+- [ ] `apps/electron/src/preload/index.ts` — `window.electronAPI.onboardingEmptyCard.*` bridge
+- [ ] renderer — `useOnboardingEmptyCard` hook calls
 
-### 3.3 renderer 状态流
+<a id="33-renderer-状态流"></a>
+
+### 3.3 Renderer state flow
 
 ```ts
 // atoms/onboarding-empty-card-atoms.ts
@@ -154,11 +180,13 @@ export function useOnboardingEmptyCard(key: OnboardingEmptyCardKey) {
 }
 ```
 
-**hydrate + 订阅**（App.tsx 初始化区，参考现有 `onboardingSpotlight` 的 hydrate 模式）：
-1. App mount → `get-state()` → 写入 `onboardingEmptyCardAtom`
-2. 订阅 `on-changed` 事件 → 收到广播后覆盖写 atom（覆盖多窗口一致性）
+**Hydrate + subscribe** (App.tsx initialization, following existing `onboardingSpotlight` hydration):
+1. App mount → `get-state()` → write `onboardingEmptyCardAtom`
+2. Subscribe to `on-changed` → overwrite atom on broadcast (multi-window consistency)
 
-### 3.4 显示判定（host 侧组合）
+<a id="34-显示判定host-侧组合"></a>
+
+### 3.4 Visibility decision (host composition)
 
 **NotesView**（`apps/electron/src/renderer/components/library/NotesView.tsx`）：
 ```ts
@@ -173,62 +201,74 @@ const { dismissed, replay } = useOnboardingEmptyCard('paperNotes')
 const showOnboardingCard = notes.length === 0 && !dismissed
 ```
 
-### 3.5 "重看演示" 入口
+<a id="35-重看演示-入口"></a>
 
-- **NotesView**：顶栏（"全部证据集"标题右侧）固定一个 `<HelpCircle />` icon button + tooltip `t('emptyCard.replayTooltip')`；点击 → `replay()`
-- **PaperNotesPanel**：notes 区 header 同位置一个 `<HelpCircle />`；点击 → `replay()`
+### 3.5 Replay-demo entry
 
-icon button 始终显示（不依赖卡片当前是否在显示）——这是"重看"的本质：随时可触发。
+- **NotesView**: Persistent `<HelpCircle />` icon button in top bar (right of “All evidence sets”) + tooltip `t('emptyCard.replayTooltip')`; click → `replay()`
+- **PaperNotesPanel**: Same-position `<HelpCircle />` in notes header; click → `replay()`
+
+Always show the icon button regardless of card visibility, allowing replay at any time.
 
 ---
 
-## 4. SVG 主示意（120×120）
+<a id="4-svg-主示意120120"></a>
 
-### 4.1 EvidenceSetIntro（NotesView 卡）
+## 4. Primary SVG diagrams (120×120)
 
-**语义**：N 篇论文 → 抽出片段 → 收束成一个集合。
+<a id="41-evidencesetintronotesview-卡"></a>
 
-**草图**：
+### 4.1 EvidenceSetIntro (NotesView card)
+
+**Meaning**: N papers → extract fragments → gather into one set.
+
+**Sketch**:
 ```
   ┌─────────┐ ┌─────────┐ ┌─────────┐
-  │ paper A │ │ paper B │ │ paper C │     ← 三张论文卡（小矩形 + 横线）
+  │ paper A │ │ paper B │ │ paper C │     ← Three paper cards (rectangles + lines)
   └────┬────┘ └────┬────┘ └────┬────┘
        └───────────┼───────────┘
               ┌────▼────┐
-              │ 证据集  │                  ← 聚拢容器（带 stack 阴影）
-              │  ▤  ▤   │                  ← 内部两条 evidence bar
+              │Evidence │                  ← Gathering container (stack shadow)
+              │  ▤  ▤   │                  ← Two internal evidence bars
               └─────────┘
 ```
 
-### 4.2 PaperNotesIntro（PaperNotesPanel 卡）
+<a id="42-papernotesintropapernotespanel-卡"></a>
 
-**语义**：在 PDF 上划词 → 弹出气泡 → 落为一条 note。
+### 4.2 PaperNotesIntro (PaperNotesPanel card)
 
-**草图**：
+**Meaning**: Select text in PDF → bubble appears → save as a note.
+
+**Sketch**:
 ```
   ┌──────────────────────┐
-  │ Lorem ipsum [▒▒▒▒] ─ │       ← PDF 页带高亮段
+  │ Lorem ipsum [▒▒▒▒] ─ │       ← PDF page with highlighted passage
   │ dolor sit amet...    │
   └────────┬─────────────┘
            │
            ▼
-       ╭─────────╮                 ← 笔记气泡（圆角矩形 + 角标）
+       ╭─────────╮                 ← Note bubble (rounded rectangle + badge)
        │  ✏ note │
        ╰─────────╯
 ```
 
-### 4.3 实施约束
+<a id="43-实施约束"></a>
 
-- `<svg viewBox="0 0 120 120">` + `stroke="currentColor"` + `fill="none"` / `fill="currentColor" fill-opacity="0.1"`，**跟随主题色，亮/暗双主题自动适配**
-- 容器 stroke 用 `text-muted-foreground/50`，强调要素用 `text-foreground/80`
-- **零 Tailwind palette 硬编码**（CLAUDE.md UI 规则 + `asci/no-tailwind-palette` 守门）
-- 默认 `aria-hidden`，装饰图形不进无障碍树
+### 4.3 Implementation constraints
+
+- `<svg viewBox="0 0 120 120">` + `stroke="currentColor"` + `fill="none"` / `fill="currentColor" fill-opacity="0.1"`, **following theme colors and adapting automatically to light/dark themes**
+- Container stroke uses `text-muted-foreground/50`; emphasis uses `text-foreground/80`
+- **Zero hardcoded Tailwind palette colors** (CLAUDE.md UI rules + `asci/no-tailwind-palette` guard)
+- Default `aria-hidden`; decorative graphics excluded from accessibility tree
 
 ---
 
-## 5. i18n 文案
+<a id="5-i18n-文案"></a>
 
-**路径**：`apps/electron/src/renderer/locales/<lang>/onboarding.json` 的根级新增 `emptyCard` 子树（en + zh 双侧同步）。
+## 5. i18n copy
+
+**Path**: Add root `emptyCard` subtree to `apps/electron/src/renderer/locales/<lang>/onboarding.json` (synchronized en + zh).
 
 ### 5.1 zh
 
@@ -292,79 +332,93 @@ icon button 始终显示（不依赖卡片当前是否在显示）——这是"�
 }
 ```
 
-**key-parity** 测试现成覆盖。
+Existing **key-parity** tests cover it.
 
 ---
 
-## 6. 测试与验收
+<a id="6-测试与验收"></a>
 
-### 6.1 测试矩阵
+## 6. Tests and acceptance
 
-| 层 | 文件 | 覆盖 |
+<a id="61-测试矩阵"></a>
+
+### 6.1 Test matrix
+
+| Layer | File | Coverage |
 |---|---|---|
-| 主进程单元 | `apps/electron/src/main/lib/onboarding-empty-card-service.test.ts` | `getState` / `dismiss` / `replay` 三态、`subscribe` 通知、settings 字段缺失兼容、重复 dismiss 幂等、replay 后立即 dismiss 仍生效 |
-| 共享类型 | (无) | TypeScript 编译即守门 |
-| renderer 组件 | (无) | 视觉组件，靠 `bun run dev` 手工验收 |
-| i18n | 现成 `key-parity.test.ts` | 自动覆盖新加 key 的 en/zh 对齐 |
+| Main-process unit | `apps/electron/src/main/lib/onboarding-empty-card-service.test.ts` | `getState` / `dismiss` / `replay` states, `subscribe` notifications, missing settings-field compatibility, repeated-dismiss idempotence, immediate dismiss after replay |
+| Shared types | (none) | TypeScript compilation guards |
+| Renderer components | (none) | Visual components, manual `bun run dev` acceptance |
+| i18n | Existing `key-parity.test.ts` | Automatically checks new en/zh keys |
 
-### 6.2 Done When（汇总）
+<a id="62-done-when汇总"></a>
 
-1. [ ] `OnboardingEmptyCard` 通用组件 + 两张 SVG 主示意完成
-2. [ ] 主进程 service + IPC 四联通道完成（CLAUDE.md §5）
-3. [ ] settings.json 类型扩 `onboardingEmptyCard`，老用户字段缺失兼容
-4. [ ] NotesView 接入：列表空 + 无 query + 未 dismiss → 显示；顶栏 HelpCircle 重看
-5. [ ] PaperNotesPanel 接入：notes 空 + 未 dismiss → 显示；header HelpCircle 重看
-6. [ ] i18n key 落 `onboarding.json` 根级 `emptyCard.*`，en + zh 同步
-7. [ ] `bun run typecheck` 通过
-8. [ ] `bun test` 通过（含 key-parity + 新增 service 测试）
-9. [ ] 版本号由 pre-commit 钩子自动 bump（钉到 `origin/main` patch+1），无需手动递增
-10. [ ] `bun run dev` 实跑验收：
-   - [ ] 全新装（清 `~/.asci-dev/`）→ 进 NotesView 看到卡 / `×` 关闭后不再出现 / `i` 重看出现
-   - [ ] PaperNotesPanel 同上验证
-   - [ ] 设置页切 zh↔en 各走一遍，无 raw key
-11. [ ] issue #438 acceptance criteria 全部勾选，PR 关联 close
+### 6.2 Done When (summary)
 
----
-
-## 7. 实施顺序建议
-
-写成 implementation plan 时建议分 phase（每 phase 末尾跑一次 typecheck）：
-
-1. **类型 + 主进程 service**（含单元测试）：纯逻辑，独立可验
-2. **IPC 四联通道**：shared 常量 → main 注册 → preload 桥接 → renderer atom + hook + hydrate
-3. **通用组件 `OnboardingEmptyCard`**：靠 props 渲染，独立可看
-4. **两张 SVG 主示意**：纯静态，独立可看
-5. **i18n key 落 `onboarding.json`** 双语
-6. **NotesView 接入** + **PaperNotesPanel 接入**：组合所有
-7. **dev 实跑 golden path** + 双语切换验收
+1. [ ] General `OnboardingEmptyCard` component + two primary SVG diagrams complete
+2. [ ] Main service + four-part IPC channels complete (CLAUDE.md §5)
+3. [ ] settings.json type adds `onboardingEmptyCard`, compatible with missing fields for existing users
+4. [ ] NotesView integration: empty list + no query + not dismissed → show; top-bar HelpCircle replays
+5. [ ] PaperNotesPanel integration: empty notes + not dismissed → show; header HelpCircle replays
+6. [ ] i18n keys in `onboarding.json` root `emptyCard.*`, en + zh synchronized
+7. [ ] `bun run typecheck` passes
+8. [ ] `bun test` passes (including key-parity + new service tests)
+9. [ ] pre-commit hook bumps version automatically (pinned to `origin/main` patch+1), no manual increment
+10. [ ] Actual `bun run dev` acceptance:
+   - [ ] Fresh installation (clear `~/.asci-dev/`) → NotesView card appears / `×` dismisses permanently / `i` replays
+   - [ ] Same checks for PaperNotesPanel
+   - [ ] Switch zh↔en in settings and run each, no raw keys
+11. [ ] All issue #438 acceptance criteria checked; PR linked to close it
 
 ---
 
-## 8. 风险与边界条件
+<a id="7-实施顺序建议"></a>
 
-| 风险 | 应对 |
+## 7. Suggested implementation order
+
+When writing the implementation plan, divide into phases (run typecheck after each):
+
+1. **Types + main service** (including unit tests): Pure logic, independently verifiable
+2. **Four-part IPC**: Shared constants → main registration → preload bridge → renderer atom + hook + hydrate
+3. **General `OnboardingEmptyCard` component**: Props-only rendering, independently viewable
+4. **Two primary SVG diagrams**: Static, independently viewable
+5. **i18n keys in `onboarding.json`**, bilingual
+6. **NotesView integration** + **PaperNotesPanel integration**: Combine all parts
+7. **Actual dev golden path** + bilingual switching acceptance
+
+---
+
+<a id="8-风险与边界条件"></a>
+
+## 8. Risks and boundary conditions
+
+| Risk | Response |
 |---|---|
-| spotlight 引导期间空状态卡同时显示，视觉打架 | 显示判定可加 `&& !spotlightActive` 守卫——但 spotlight 不指向 NotesView/Library notes，重叠概率低，**先不加，dev 实测如有问题再加** |
-| 多窗口场景 dismiss 不同步 | IPC `on-changed` 广播覆盖；hydrate + 订阅双保险 |
-| 用户点 replay 后立即又 dismiss，状态机错乱 | service 实现幂等：`replay` = `delete state[key]`；`dismiss` = `state[key] = { dismissedAt: nowMs() }`。互相覆盖即可 |
-| `~/.asci/` 老用户升级首次进 NotesView 突然弹卡 | 这是预期行为：老用户首次进入空 NotesView 才弹（如果列表已经有内容则不弹）；卡是教学性的、可关闭，无打断感 |
-| key-parity 漏 key | i18n 改动开 PR 前必跑 `bun test`——key-parity 是必跑项 |
+| Empty cards conflict visually with spotlight guidance | May add `&& !spotlightActive`; spotlight does not target NotesView/Library notes, so overlap unlikely; **omit initially, add only if dev testing shows a problem** |
+| Dismiss not synchronized across windows | IPC `on-changed` broadcast plus hydration/subscription |
+| Immediate dismiss after replay confuses state | Idempotent service: `replay` = `delete state[key]`; `dismiss` = `state[key] = { dismissedAt: nowMs() }`. They overwrite one another |
+| Upgraded existing `~/.asci/` users unexpectedly see card on first NotesView entry | Expected: Only first empty NotesView shows it (not lists with content); educational, dismissible, noninterrupting |
+| key-parity misses keys | Run `bun test` before i18n PRs; key-parity mandatory |
 
 ---
 
-## 9. 后续可能的迭代（非本期）
+<a id="9-后续可能的迭代非本期"></a>
 
-- **EvidenceSetDetailSheet 内空状态提示**（已建空集时的"如何加 paired card"指引）—— issue #438 暂不覆盖，留作后续
-- **PaperContainingEvidenceSetsPanel 反向提示**—— 看见即懂，不做
-- **dismissed 几天后自动重显**——`dismissedAt: number` 已为此预留字段
-- **统计 onboarding 触达/转化**—— 0.3.0 公开发布后再看是否需要埋点
+## 9. Possible later iterations (outside this release)
+
+- **Empty-state hints inside EvidenceSetDetailSheet** (how to add paired cards to created empty sets): Outside issue #438, defer
+- **PaperContainingEvidenceSetsPanel reverse hint**: Self-explanatory, omit
+- **Automatic reappearance days after dismissal**: `dismissedAt: number` already reserves this field
+- **Onboarding reach/conversion statistics**: Reassess instrumentation after public 0.3.0 release
 
 ---
 
-## 附：与现有机制的关系
+<a id="附与现有机制的关系"></a>
 
-| 机制 | 触发 | 范围 | 持久化 | 与本 spec 关系 |
+## Appendix: Relationship to existing mechanisms
+
+| Mechanism | Trigger | Scope | Persistence | Relationship |
 |---|---|---|---|---|
-| `SpotlightOverlay V2` | 真·首次安装自动 + 头像菜单"重看引导" | 全局蒙版，跨视图贯穿 | `settings.onboardingSpotlight` | **独立**——不复用状态字段、不复用状态机 |
-| `WelcomeEmptyState` | 主视图（conversations）无对话时 | 主视图欢迎卡 | 无 | 视觉语言参考（吉祥物+greeting 风格），不复用组件 |
-| `OnboardingEmptyCard`（本 spec） | NotesView/PaperNotesPanel 数据空 + 未 dismiss | 视图内空状态 | `settings.onboardingEmptyCard.<key>` | **新增** |
+| `SpotlightOverlay V2` | Genuine first install automatic + avatar-menu “Replay guidance” | Global overlay across views | `settings.onboardingSpotlight` | **Independent**, no shared state fields/machine |
+| `WelcomeEmptyState` | Main conversations view has no conversations | Main-view welcome card | None | Visual reference (mascot + greeting), no component reuse |
+| `OnboardingEmptyCard` (this spec) | Empty NotesView/PaperNotesPanel data + not dismissed | In-view empty state | `settings.onboardingEmptyCard.<key>` | **New** |

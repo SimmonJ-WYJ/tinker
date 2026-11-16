@@ -1,190 +1,230 @@
-# 0.2/0.3 里程碑战略评价
+<a id="0203-里程碑战略评价"></a>
 
-**评价人**：虎尼克（strategist）
-**日期**：2026-04-28
-**方法论**：SWOT + AI 项目可行性六维评估 + CLEAR + AI 生命周期
+# 0.2/0.3 Milestone Strategic Review
 
----
-
-## 一、战略定位判断
-
-ASCI 目前处于 **POC → Pilot** 过渡期：
-
-- 0.1 验证了"检索→综述"闭环的技术可行性（POC 阶段完成）
-- 0.2/0.3 的目标是将已验证能力从"实验室"推向"真实用户可用的产品"
-- 这符合 AI 项目路线图从 POC 到 Pilot 的跃迁逻辑
-
-**结论**：0.2/0.3 的定位正确——0.2 建底座、0.3 做发布，拆分为两个版本有利于降低单版本风险。
+**Reviewer**: Tiger Nick (strategist)
+**Date**: 2026-04-28
+**Method**: SWOT + six-dimensional AI project feasibility + CLEAR + AI lifecycle
 
 ---
 
-## 二、AI 项目可行性六维评估
+<a id="一战略定位判断"></a>
 
-| 维度 | 0.2（对象底座） | 0.3（用户体系+发布） | 评价 |
+## I. Strategic Positioning
+
+ASCI is transitioning from **POC → Pilot**:
+
+- 0.1 verified the technical feasibility of search→review (POC complete)
+- 0.2/0.3 aim to turn verified laboratory capability into a product usable by real users
+- This matches AI-roadmap progression from POC to Pilot
+
+**Conclusion**: positioning is correct: 0.2 builds foundations, 0.3 releases; two versions reduce per-release risk.
+
+---
+
+<a id="二ai-项目可行性六维评估"></a>
+
+## II. Six-Dimensional AI Project Feasibility
+
+| Dimension | 0.2 (object foundation) | 0.3 (user system + release) | Assessment |
 |------|---------|---------|------|
-| **商业价值** | ✅ 高。对象模型让 0.1 产出可积累，是 ASCI 的护城河 | ✅ 高。账户体系是 Web 版和数据采集的前提 | 两个版本都直击核心价值 |
-| **数据就绪度** | ✅ 本地优先，无数据依赖 | ✅ PostgreSQL，结构化用户数据 | 数据路径清晰 |
-| **技术可行性** | ✅ TypeScript + Electron，团队熟悉 | ⚠️ 服务器端需要新技术栈（待调研） | 0.3 的服务器选型是变量 |
-| **团队能力** | ✅ 前端为主，4 人 AI Native | ⚠️ 后端/DevOps 能力需验证 | 0.3 对团队能力有更高要求 |
-| **合规约束** | ✅ 纯本地，无合规暴露 | ⚠️ GDPR 完整合规含 DPO 指定，3 周紧张 | 0.3 合规是硬仗 |
-| **预算充足度** | ✅ 零服务端成本 | ⚠️ 欧美双节点 + 邮件服务 + Sentry + PostHog，月成本需评估 | 0.3 开始出现持续性运营成本 |
+| **Business value** | ✅ High. Object model accumulates 0.1 outputs, forming ASCI's moat | ✅ High. Accounts prerequisite for Web and data collection | Both target core value |
+| **Data readiness** | ✅ Local-first, no data dependencies | ✅ PostgreSQL, structured user data | Clear data path |
+| **Technical feasibility** | ✅ Familiar TypeScript + Electron | ⚠️ New server stack needed (research pending) | 0.3 server choice is a variable |
+| **Team capability** | ✅ Frontend-focused, 4 AI Native people | ⚠️ Backend/DevOps capability needs validation | 0.3 demands more of the team |
+| **Compliance** | ✅ Entirely local, no exposure | ⚠️ Full GDPR includes appointing a DPO; 3 weeks is tight | 0.3 compliance is challenging |
+| **Budget** | ✅ Zero server costs | ⚠️ EU/US nodes + email + Sentry + PostHog; assess monthly costs | Recurring operations costs begin in 0.3 |
 
-**综合判断**：0.2 = **Go**（纯本地，风险可控）；0.3 = **Conditional Go**（服务器技术选型完成后确认；GDPR 合规需尽早启动，不等 Week 2）
+**Overall**: 0.2 = **Go** (local, controlled risk); 0.3 = **Conditional Go** (confirm after server selection; start GDPR early, before Week 2)
 
 ---
 
-## 三、SWOT 交叉矩阵
+<a id="三swot-交叉矩阵"></a>
 
-### Strengths（内部优势）
-- S1：4 人 AI Native 团队，产研速度高
-- S2：0.1 已验证核心技术链路（检索+综述）
-- S3：Electron 技术栈成熟，打包发布路径通
-- S4：Monorepo 工程化程度高（typecheck/test/build 全链路）
+## III. SWOT Cross-Matrix
 
-### Weaknesses（内部劣势）
-- W1：团队缺乏后端/DevOps 经验（0.3 首次建服务器）
-- W2：GDPR 合规无经验，需外部资源
-- W3：0.2 和 0.3 之间有时间差，可能被竞品先发
+<a id="strengths内部优势"></a>
 
-### Opportunities（外部机会）
-- O1：科研 AI 工具市场尚无整合"检索+综述+对象管理"的产品
-- O2：ORCID 在科研用户中普及率高，OAuth 接入门槛低
-- O3：OpenAI/Anthropic 持续提升 Agent 能力，ASCI 作为宿主应用受益
+### Strengths (Internal)
+- S1: 4-person AI Native team, fast product/engineering execution
+- S2: 0.1 verified the core search+review chain
+- S3: Mature Electron stack and working packaging/release path
+- S4: Strong Monorepo engineering (typecheck/test/build throughout)
 
-### Threats（外部威胁）
-- T1：Elicit/Semantic Scholar/Consensus 等竞品可能快速跟进对象化能力
-- T2：EU AI Act 监管趋严，合规成本上升
-- T3：LLM API 成本波动，影响推理成本结构
+<a id="weaknesses内部劣势"></a>
 
-### 交叉矩阵
+### Weaknesses (Internal)
+- W1: Lacking backend/DevOps experience (first server in 0.3)
+- W2: No GDPR experience; external resources needed
+- W3: Gap between 0.2 and 0.3 may let competitors launch first
 
-| 组合 | 战略 | 行动 |
+<a id="opportunities外部机会"></a>
+
+### Opportunities (External)
+- O1: No research AI product yet integrates search+review+object management
+- O2: ORCID widely used by researchers, low OAuth integration barrier
+- O3: Improving OpenAI/Anthropic Agent capabilities benefit ASCI as host
+
+<a id="threats外部威胁"></a>
+
+### Threats (External)
+- T1: Elicit/Semantic Scholar/Consensus may quickly add object capabilities
+- T2: Stricter EU AI Act regulation raises compliance costs
+- T3: LLM API cost fluctuations affect inference-cost structure
+
+<a id="交叉矩阵"></a>
+
+### Cross-Matrix
+
+| Combination | Strategy | Action |
 |------|------|------|
-| **S+O（建设）** | 以 ASIC 速度优势，在竞品跟上前完成"检索+综述+对象"三合一闭环 | 0.2/0.3 的 5.5 周节奏是合理的，不减速 |
-| **W+O（补强）** | 借 ORCID 接入的刚性需求，倒逼后端能力建设 | 0.2 期间 Dev D 服务器调研必须产出明确的技术选型结论 |
-| **S+T（防御）** | 对象模型作为护城河，让竞品难以复制"可积累的研究上下文" | 对象模型的开放扩展性（不限于论文）可作为长期差异化 |
-| **W+T（撤退/转型）** | GDPR 合规如果成为瓶颈，可考虑 0.3 先发非欧盟地区 | 不推荐，会损害国际项目定位。建议前置合规工作 |
+| **S+O (build)** | Use ASIC speed to complete search+review+objects before competitors | Keep the reasonable 5.5-week 0.2/0.3 cadence |
+| **W+O (strengthen)** | ORCID integration necessity drives backend capability | Dev D's 0.2 server research must yield a definite stack choice |
+| **S+T (defend)** | Object model makes accumulated research context hard to copy | Open extensibility beyond papers offers long-term differentiation |
+| **W+T (retreat/pivot)** | If GDPR blocks progress, consider launching 0.3 outside the EU first | Not recommended; harms international positioning. Start compliance early |
 
 ---
 
-## 四、0.2 版本逐项评价
+<a id="四02-版本逐项评价"></a>
 
-### 整体判断：✅ 范围合理，审计标准可验证
+## IV. Itemized 0.2 Review
 
-**做得对的地方**：
+<a id="整体判断-范围合理审计标准可验证"></a>
 
-1. **"对象底座"切得干净**。6 个核心对象 + 3 条协议 + 3 个验证应用，纯本地无外部依赖，天然可独立交付。这是好的版本切分。
+### Overall: ✅ Reasonable Scope, Verifiable Audit Criteria
 
-2. **审计标准可验证**。V1-V9 每条都是"能/否"或"可见/不可见"，符合北极星文档的审计原则。
+**What works**:
 
-3. **依赖关系清晰**。证据链查看器 → 札记面板 → 假设追踪器，P0→P1→P2，如果时间吃紧可以砍 P2 保 P0+P1。
+1. **Clean object-foundation scope**. 6 core objects + 3 protocols + 3 validation apps, local with no external dependencies, naturally deliverable independently. Good release partitioning.
 
-4. **版本衔接设计到位**。0.2 → 0.3 的数据流方向明确（对象底座 + 账户隔离 → 用户独立数据空间），Dev D 并行做服务器调研也不阻塞交付。
+2. **Verifiable audit criteria**. Every V1-V9 criterion is can/cannot or visible/invisible, matching North Star audit principles.
 
-**潜在风险**：
+3. **Clear dependencies**. Evidence-chain viewer → notes panel → hypothesis tracker, P0→P1→P2; cut P2 if needed to preserve P0+P1.
 
-- **存储协议的工程落地未展开**。P1-P3 是协议层描述，但没有明确存储后端（JSON 文件？SQLite？自定义格式？）。这会影响 V9（大数据量查询）的实现路径。`[推断]` 建议在技术方案中明确。
-- **CitationRelation 在 0.2 无直接验证**。6 个对象中，CitationRelation 没有对应的验证应用。建议要么在 V2 中显式覆盖（Paper 详情可以看到 CitationRelation 列表），要么承认它在 0.2 只建模不验证。
-- **侧边栏笔记入口（V6a/V6b）的价值被低估**。这不仅是 UI 问题——它验证了"跨对象查询 Note"的能力，是 P3（查询不遍历）在 Note 对象上的早期验证。建议在依赖关系中标明它是 P3 的预验证。
+4. **Good version integration**. Clear 0.2 → 0.3 data flow (object foundation + account isolation → independent user data spaces); Dev D's parallel server research does not block delivery.
 
-**建议微调**：
-1. V2 明确包含 CitationRelation 的可见性验证
-2. 札记面板的依赖关系加上"间接验证 P3（跨对象 Note 查询）"
+**Potential risks**:
 
----
+- **Storage protocol engineering is unspecified**. P1-P3 describe protocols but not a storage backend (JSON files? SQLite? custom format?), affecting V9 large-data queries. `[推断]` (inference) Specify this in the technical design.
+- **No direct CitationRelation validation in 0.2**. It is the only one of 6 objects without a validation app. Explicitly include it in V2 (Paper detail lists CitationRelations), or acknowledge modeling without validation.
+- **Sidebar notes entry (V6a/V6b) is undervalued**. It validates cross-object Note queries and thus P3 (query without traversal) early, beyond UI. Mark it as preliminary P3 validation.
 
-## 五、0.3 版本逐项评价
-
-### 整体判断：⚠️ 范围偏激进，建议做风险缓冲
-
-**做得对的地方**：
-
-1. **账户体系设计克制**。Email + 三家 OAuth，OPENSCI 只预留字段不做绑定。范围控制到位。
-
-2. **审计标准具体**。U1-U5 覆盖了多 OAuth 绑定（U3，这是容易出 bug 的场景）、Token 安全（U4/U5），没有遗漏。
-
-3. **不做清单明确**。Web 版本、数据同步、OPENSCI 绑定都在不做清单里，避免范围蔓延。
-
-4. **GDPR 要求有技术落点**。欧美双节点、数据不出境（S3）——这是 GDPR 的最小可行技术架构。
-
-5. **埋点分层清晰**。Sentry（崩溃）和 PostHog（产品分析）职责分开，T3（用户可关闭采集）是 GDPR 合规的关键项。
-
-**关键风险**：
-
-1. **GDPR 完整合规 3 周过紧**。DPO 指定需要时间（外聘或内训），数据处理协议（DPA）需要法律审查，知情同意流程需要 UI 设计。`[推断]` 建议 Week 1 就启动 DPO 选定和 DPA 起草，不等 Week 2。
-
-2. **三家 OAuth 的调试周期被低估**。每家 OAuth Provider 的审核流程不同（Google 需要验证回调域、ORCID 需要机构认证），可能不是纯开发时间能控制的。
-
-3. **服务器技术选型前置依赖 0.2**。Dev D 在 0.2 期间的调研结论会直接影响 0.3 的服务器开发。如果调研结果偏向 Go + Gin（团队不熟悉），学习成本会吃掉 0.3 的开发时间。建议 0.2 Week 1 就输出选型结论。
-
-4. **邮件服务未纳入审计标准**。Email 注册+密码重置（U2）依赖邮件服务，但文档未提及邮件服务选型和可靠性要求。这是单点故障——邮件发不出去，注册链路断了。
-
-**建议补全**：
-- 新增审计标准 **S4**："邮件验证/密码重置邮件在 30 秒内送达，送达率 > 99%"
-- 0.2 期间定服务器技术栈，Week 1 末出结论，给 0.3 留最大缓冲
-- DPO 选定和 DPA 起草前移到 0.2 期间启动（Dev D 可兼任）
+**Suggested adjustments**:
+1. Explicitly include CitationRelation visibility in V2
+2. Add “indirect P3 validation (cross-object Note queries)” to notes-panel dependencies
 
 ---
 
-## 六、ASCI 战略方向贴合度
+<a id="五03-版本逐项评价"></a>
 
-对照 ASCI 的长期定位（"面向科研用户的深度 Agent 桌面应用"）：
+## V. Itemized 0.3 Review
 
-| 战略维度 | 0.2/0.3 的贡献 | 评分 |
+<a id="整体判断️-范围偏激进建议做风险缓冲"></a>
+
+### Overall: ⚠️ Aggressive Scope; Add Risk Buffer
+
+**What works**:
+
+1. **Restrained accounts**. Email + three OAuth providers; reserve OPENSCI fields without binding. Good scope control.
+
+2. **Specific audits**. U1-U5 cover multiple OAuth bindings (U3, bug-prone) and Token security (U4/U5), without gaps.
+
+3. **Clear exclusions**. Web, sync, and OPENSCI binding are excluded, preventing creep.
+
+4. **Concrete GDPR architecture**. EU/US nodes and no cross-border data (S3) provide minimal viable technical architecture.
+
+5. **Clear telemetry layers**. Sentry crashes vs PostHog product analytics; T3 opt-out is key to GDPR.
+
+**Key risks**:
+
+1. **3 weeks is too tight for full GDPR**. DPO appointment (external/internal training), legal DPA review, and consent UI take time. `[推断]` (inference) Start DPO selection and DPA drafting in Week 1, not Week 2.
+
+2. **Three OAuth debugging cycles underestimated**. Provider reviews differ (Google callback-domain verification, ORCID institutional verification) and exceed purely controllable development time.
+
+3. **Server selection depends on 0.2**. Dev D's research directly affects 0.3. If Go + Gin wins (unfamiliar), learning consumes 0.3 time. Decide in 0.2 Week 1.
+
+4. **Email absent from audits**. Registration/password reset (U2) needs email, but service choice/reliability is unspecified. This is a single failure point: unsent email breaks registration.
+
+**Suggested additions**:
+- Add **S4**: “verification/password-reset emails arrive within 30 seconds, delivery rate > 99%”
+- Decide server stack by end of 0.2 Week 1 for maximum 0.3 buffer
+- Start DPO selection/DPA drafting during 0.2 (Dev D can also own this)
+
+---
+
+<a id="六asci-战略方向贴合度"></a>
+
+## VI. Alignment with ASCI Strategy
+
+Against ASCI's long-term positioning (“a deep Agent desktop app for researchers”):
+
+| Strategic dimension | 0.2/0.3 contribution | Score |
 |---------|---------------|------|
-| **科研深度** | 对象模型（Paper/Evidence/Hypothesis）直接服务于科研工作流 | ⭐⭐⭐⭐⭐ |
-| **Agent 原生** | 对象模型是 Agent 操作的数据底座，Note 是 Agent 和用户的共享上下文 | ⭐⭐⭐⭐ |
-| **可积累性** | P1 追加不覆盖、P2 引用不复制，确保数据资产持续增值 | ⭐⭐⭐⭐⭐ |
-| **国际化** | 0.3 多语言+GDPR+欧美双节点，面向全球科研用户 | ⭐⭐⭐⭐ |
-| **生态开放** | 预留 OPENSCI 绑定和 Web 数据同步接口，0.2/0.3 不做但方向正确 | ⭐⭐⭐ |
+| **Research depth** | Paper/Evidence/Hypothesis objects directly serve research workflows | ⭐⭐⭐⭐⭐ |
+| **Agent native** | Object model underpins Agent operations; Notes share context with users | ⭐⭐⭐⭐ |
+| **Accumulation** | P1 append without overwrite, P2 reference without copy preserve asset growth | ⭐⭐⭐⭐⭐ |
+| **Internationalization** | 0.3 multilingual + GDPR + EU/US nodes for global researchers | ⭐⭐⭐⭐ |
+| **Open ecosystem** | Reserved OPENSCI binding/Web sync interfaces; excluded now but right direction | ⭐⭐⭐ |
 
-**偏离项**：目前 0.2/0.3 没有涉及"多 Agent 协同编排"——这是 V1 的核心。但文档明确列为不做，这是自觉的取舍而非遗漏。0.2/0.3 选择先固化"单人+单 Agent"的数据底座，再在 V1 扩展为多 Agent 协同，这个顺序合理。
+**Deviation**: 0.2/0.3 omit multi-Agent orchestration, central to V1. Explicit exclusion makes this deliberate rather than overlooked. Establishing single-user+single-Agent data first, then multi-Agent collaboration in V1, is reasonable.
 
 ---
 
-## 七、CLEAR 五维评估
+<a id="七clear-五维评估"></a>
 
-按科研工具场景，权重设为 C=0.15, L=0.2, E=0.3, A=0.2, R=0.15（质量优先，成本次之）：
+## VII. Five-Dimensional CLEAR Assessment
 
-| 维度 | 0.2 | 0.3 | 评价 |
+Research-tool weights: C=0.15, L=0.2, E=0.3, A=0.2, R=0.15 (quality first, then cost):
+
+| Dimension | 0.2 | 0.3 | Assessment |
 |------|-----|-----|------|
-| **Cost** | 🟢 满分。纯本地，零服务端成本 | 🟡 欧美双节点 + SaaS，成本待量化 | 0.3 需在技术调研中输出 TCO 估算 |
-| **Latency** | 🟢 纯本地操作，延迟可忽略 | 🟡 认证+数据跨网络，P95 需关注 | 0.3 的 S2 只测了并发，未测延迟 |
-| **Efficacy** | 🟢 V1-V9 覆盖了核心路径 | 🟢 U1-U5 + T1-T4 覆盖了认证+埋点 | 缺少端到端用户体验测试 |
-| **Assurance** | 🟢 纯本地，TLS 无关 | 🟡 GDPR 合规深度取决于 3 周内的执行 | 见第七节风险 1 |
-| **Reliability** | 🟢 本地，不涉及网络可靠性 | 🟡 OAuth 依赖第三方可用性 | 建议增加 OAuth Provider 降级策略 |
+| **Cost** | 🟢 Full marks. Local, zero server cost | 🟡 EU/US nodes + SaaS, quantify costs | 0.3 research needs TCO estimate |
+| **Latency** | 🟢 Negligible local latency | 🟡 Network auth/data, watch P95 | S2 tests concurrency, not latency |
+| **Efficacy** | 🟢 V1-V9 cover core paths | 🟢 U1-U5 + T1-T4 cover auth/telemetry | Missing end-to-end UX tests |
+| **Assurance** | 🟢 Local, TLS irrelevant | 🟡 GDPR depth depends on 3-week execution | See section VII risk 1 |
+| **Reliability** | 🟢 Local, no network reliance | 🟡 OAuth depends on third parties | Add OAuth Provider fallback policy |
 
-**综合 CLEAR 评分**：0.2 = 🟢 高信心；0.3 = 🟡 中等信心（取决于服务器选型和 GDPR 执行力）
-
----
-
-## 八、战略建议
-
-### 保持的
-1. 0.2/0.3 的版本切分（对象底座 → 公开发布），逻辑清晰、依赖合理
-2. 审计标准驱动，每条可二值验证
-3. "不做清单"防止范围蔓延
-
-### 需要调整的
-1. **0.2 微调**：V2 覆盖 CitationRelation；札记面板标注为 P3 预验证
-2. **0.3 补全**：新增 S4（邮件送达率）；GDPR 合规工作前移到 0.2 期间启动
-3. **服务器选型加速**：0.2 Week 1 输出结论，不拖到 Week 2
-
-### 长期战略方向的确认
-目前 0.1→0.2→0.3 的路子是对的：**先让研究者能信任（0.1），再让研究成果能积累（0.2），最后让产品能分发（0.3）**。三个版本构成一个完整的"信任基础设施"栈。
-
-不做的事同样重要：Web 版、多 Agent 协同、插件市场都推到 V1/V2——这个克制在 AI 项目中是罕见的，也是正确的。AI 项目失败的首要原因是范围过大，ASCI 的版本规划有效避开了这个陷阱。
+**Overall CLEAR**: 0.2 = 🟢 high confidence; 0.3 = 🟡 medium confidence (server selection and GDPR execution dependent)
 
 ---
 
-## 九、总结
+<a id="八战略建议"></a>
 
-| 维度 | 评价 |
+## VIII. Strategic Suggestions
+
+<a id="保持的"></a>
+
+### Retain
+1. Clear, reasonable 0.2/0.3 split (object foundation → public release)
+2. Audit-driven, binary-verifiable criteria
+3. Exclusion lists preventing scope creep
+
+<a id="需要调整的"></a>
+
+### Adjust
+1. **0.2**: V2 covers CitationRelation; notes panel marked preliminary P3 validation
+2. **0.3**: add S4 email delivery; start GDPR during 0.2
+3. **Accelerate server selection**: conclusions in 0.2 Week 1, not Week 2
+
+<a id="长期战略方向的确认"></a>
+
+### Confirm Long-Term Direction
+The 0.1→0.2→0.3 path is correct: **first researchers can trust it (0.1), then research can accumulate (0.2), then the product can distribute (0.3)**. Together they form a complete trust-infrastructure stack.
+
+Exclusions matter equally: Web, multi-Agent collaboration, and plugin marketplace deferred to V1/V2. Such restraint is rare and correct in AI projects. Excessive scope is the leading failure cause; ASCI's roadmap avoids it effectively.
+
+---
+
+<a id="九总结"></a>
+
+## IX. Summary
+
+| Dimension | Assessment |
 |------|------|
-| **战略方向** | 🟢 正确。0.1→0.2→0.3 构成完整信任基础设施栈 |
-| **版本切分** | 🟢 合理。0.2 纯本地独立交付，0.3 加服务端能力 |
-| **范围控制** | 🟢 克制。不做清单明确，每个版本砍掉了所有非必要项 |
-| **审计标准** | 🟢 可验证。全部审计项可二值判断 |
-| **0.2 风险** | 🟢 低。纯本地，团队熟悉技术栈 |
-| **0.3 风险** | 🟡 中。服务器选型+GDPR合规+第三方OAuth审核周期是三个变量 |
-| **关键建议** | 服务器选型加速到 0.2 Week 1；GDPR 合规前移；CitationRelation 补验证 |
+| **Strategy** | 🟢 Correct. 0.1→0.2→0.3 forms complete trust infrastructure |
+| **Version split** | 🟢 Reasonable. 0.2 independently local, 0.3 adds server capabilities |
+| **Scope control** | 🟢 Restrained. Explicit exclusions remove all unnecessary items |
+| **Audits** | 🟢 Verifiable. All binary judgments |
+| **0.2 risk** | 🟢 Low. Local, familiar stack |
+| **0.3 risk** | 🟡 Medium. Server selection + GDPR + third-party OAuth review cycles |
+| **Key suggestions** | Server choice in 0.2 Week 1; earlier GDPR; add CitationRelation validation |

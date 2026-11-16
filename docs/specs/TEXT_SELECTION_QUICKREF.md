@@ -1,8 +1,14 @@
-# 📌 划词功能快速参考卡
+<a id="-划词功能快速参考卡"></a>
 
-## 🚀 3 步启用功能
+# 📌 Text Selection Quick Reference Card
 
-### 1️⃣ 替换 AI 消息组件
+<a id="-3-步启用功能"></a>
+
+## 🚀 Enable in 3 Steps
+
+<a id="1️⃣-替换-ai-消息组件"></a>
+
+### 1️⃣ Replace the AI Message Component
 ```tsx
 // 找到显示 AI 消息的地方
 import { SelectableMessageResponse } from '@/components/ai-elements/message'
@@ -13,7 +19,9 @@ import { SelectableMessageResponse } from '@/components/ai-elements/message'
 <SelectableMessageResponse>{content}</SelectableMessageResponse>
 ```
 
-### 2️⃣ 输入框集成
+<a id="2️⃣-输入框集成"></a>
+
+### 2️⃣ Integrate the Input
 ```tsx
 // 在 rich-text-input.tsx 中添加
 import { useAtom } from 'jotai'
@@ -30,7 +38,9 @@ useEffect(() => {
 }, [pendingQuote, editor, setPendingQuote])
 ```
 
-### 3️⃣ 侧边栏集成
+<a id="3️⃣-侧边栏集成"></a>
+
+### 3️⃣ Integrate the Sidebar
 ```tsx
 // 在侧边栏组件中添加
 import { useAtom } from 'jotai'
@@ -49,28 +59,34 @@ useEffect(() => {
 
 ---
 
-## 📁 文件位置
+<a id="-文件位置"></a>
+
+## 📁 File Locations
+
+The original tree below labels core code, modified exports, documentation, integration checklist, usage guide, architecture diagram, demonstration script, and completion report.
 
 ```
-核心代码:
+Core code:
 ├─ atoms/text-selection-atoms.ts
 ├─ components/ai-elements/
 │  ├─ text-selection-toolbar.tsx
 │  ├─ selectable-message-response.tsx
-│  └─ message.tsx (已修改)
+│  └─ message.tsx (modified)
 └─ hooks/useTextSelection.ts
 
-文档:
-├─ TEXT_SELECTION_TODO.md        ← 集成清单
-├─ TEXT_SELECTION_FEATURE.md     ← 使用指南
-├─ TEXT_SELECTION_ARCHITECTURE.md ← 架构图
-├─ TEXT_SELECTION_DEMO.md        ← 演示脚本
-└─ TEXT_SELECTION_REPORT.md      ← 完成报告
+Documentation:
+├─ TEXT_SELECTION_TODO.md        ← Integration checklist
+├─ TEXT_SELECTION_FEATURE.md     ← Usage guide
+├─ TEXT_SELECTION_ARCHITECTURE.md ← Architecture diagram
+├─ TEXT_SELECTION_DEMO.md        ← Demo script
+└─ TEXT_SELECTION_REPORT.md      ← Completion report
 ```
 
 ---
 
-## 🔍 查找需要修改的文件
+<a id="-查找需要修改的文件"></a>
+
+## 🔍 Find Files to Modify
 
 ```bash
 # 查找使用 MessageResponse 的地方
@@ -85,97 +101,119 @@ find apps/electron/src/renderer -name "*sidebar*.tsx" -o -name "*panel*.tsx"
 
 ---
 
-## 🎨 效果预览
+<a id="-效果预览"></a>
+
+## 🎨 Preview
+
+The original diagram shows a floating toolbar centered above selected AI text, with sidebar and chat actions.
 
 ```
-用户选中文本后:
+After user selects text:
 
 ┌─────────────────────────────────────┐
 │  💬 1 selection                     │
-│  ├─ Ask in sidebar  ├─ Add to chat │ ← 浮动工具栏
+│  ├─ Ask in sidebar  ├─ Add to chat │ ← floating toolbar
 └─────────────────────────────────────┘
-        ↓ 悬浮在选中文本上方
+        ↓ floats above selected text
 ┌────────────────────────────────────────┐
-│ AI: 量子计算是[选中的文本内容]...      │
+│ AI: Quantum computing is [selected text]...      │
 └────────────────────────────────────────┘
 ```
 
 ---
 
-## 🐛 调试检查点
+<a id="-调试检查点"></a>
 
-### 工具栏不显示？
-- ✓ 检查是否使用 `SelectableMessageResponse`
-- ✓ 查看控制台是否有错误
-- ✓ 确认文本选择在正确容器内
+## 🐛 Debugging Checkpoints
 
-### 点击按钮无反应？
-- ✓ 检查 atoms 导入是否正确
-- ✓ 确认输入框/侧边栏组件正在监听 atom
-- ✓ 添加 console.log 查看状态变化
+<a id="工具栏不显示"></a>
 
-### 引用格式不对？
-- ✓ 检查 `.split('\n').map(...)` 逻辑
-- ✓ 确认编辑器 API 使用正确
-- ✓ 查看实际插入的文本内容
+### Toolbar Not Appearing?
+- ✓ Check that `SelectableMessageResponse` is used.
+- ✓ Check the console for errors.
+- ✓ Confirm the text selection is inside the correct container.
 
----
+<a id="点击按钮无反应"></a>
 
-## 💡 关键概念
+### Buttons Not Responding?
+- ✓ Check atom imports.
+- ✓ Confirm input/sidebar components subscribe to the atom.
+- ✓ Add console.log to inspect state changes.
 
-**组件**: `SelectableMessageResponse` = `MessageResponse` + 文本选择
-**状态**: `pendingQuoteAtom` (添加到对话) + `sidebarQuoteAtom` (侧边栏)
-**Hook**: `useTextSelection` 处理选择逻辑和位置计算
-**UI**: `TextSelectionToolbar` 浮动工具栏组件
+<a id="引用格式不对"></a>
 
----
-
-## 📊 性能提示
-
-- ✅ 只在 AI 消息中启用（不用于用户消息）
-- ✅ 事件监听仅限于容器内
-- ✅ 使用 Jotai atoms 避免不必要的重渲染
-- ✅ 组件卸载时自动清理
+### Incorrect Quote Formatting?
+- ✓ Check `.split('\n').map(...)` logic.
+- ✓ Confirm correct editor API usage.
+- ✓ Inspect the text actually inserted.
 
 ---
 
-## 🎯 下一步
+<a id="-关键概念"></a>
 
-1. [ ] 完成输入框集成 (15 分钟)
-2. [ ] 完成侧边栏集成 (20 分钟)
-3. [ ] 替换 MessageResponse (5 分钟)
-4. [ ] 测试基本功能 (10 分钟)
-5. [ ] 添加 i18n (可选，15 分钟)
+## 💡 Key Concepts
 
-**总时间**: 约 1 小时即可完成基础集成
-
----
-
-## 📞 获取帮助
-
-- 详细文档: `TEXT_SELECTION_FEATURE.md`
-- 集成步骤: `TEXT_SELECTION_TODO.md`
-- 架构说明: `TEXT_SELECTION_ARCHITECTURE.md`
-- 示例代码: `text-selection-examples.tsx`
+**Component**: `SelectableMessageResponse` = `MessageResponse` + text selection
+**State**: `pendingQuoteAtom` (add to chat) + `sidebarQuoteAtom` (sidebar)
+**Hook**: `useTextSelection` handles selection logic and positioning
+**UI**: `TextSelectionToolbar` floating toolbar component
 
 ---
 
-## ✅ 验证清单
+<a id="-性能提示"></a>
 
-完成后验证以下功能：
+## 📊 Performance Tips
 
-- [ ] 选中 AI 消息中的文本时工具栏出现
-- [ ] 点击 "Add to chat" 引用插入到输入框
-- [ ] 点击 "Ask in sidebar" 侧边栏打开并显示引用
-- [ ] 工具栏位置正确（文本上方居中）
-- [ ] 点击外部或按钮后工具栏关闭
-- [ ] 支持中英文切换（如果已添加 i18n）
+- ✅ Enable only in AI messages (not user messages).
+- ✅ Restrict event listeners to the container.
+- ✅ Use Jotai atoms to avoid unnecessary rerenders.
+- ✅ Clean up automatically on unmount.
 
 ---
 
-**快速链接**: 
+<a id="-下一步"></a>
+
+## 🎯 Next Steps
+
+1. [ ] Complete input integration (15 minutes).
+2. [ ] Complete sidebar integration (20 minutes).
+3. [ ] Replace MessageResponse (5 minutes).
+4. [ ] Test basic functionality (10 minutes).
+5. [ ] Add i18n (optional, 15 minutes).
+
+**Total time**: Approximately 1 hour for basic integration.
+
+---
+
+<a id="-获取帮助"></a>
+
+## 📞 Get Help
+
+- Detailed documentation: `TEXT_SELECTION_FEATURE.md`
+- Integration steps: `TEXT_SELECTION_TODO.md`
+- Architecture: `TEXT_SELECTION_ARCHITECTURE.md`
+- Example code: `text-selection-examples.tsx`
+
+---
+
+<a id="-验证清单"></a>
+
+## ✅ Verification Checklist
+
+Verify these features after completion:
+
+- [ ] Selecting text in an AI message shows the toolbar.
+- [ ] Clicking "Add to chat" inserts a quote in the input.
+- [ ] Clicking "Ask in sidebar" opens the sidebar with the quote.
+- [ ] The toolbar is correctly positioned (centered above the text).
+- [ ] Clicking outside or a button closes the toolbar.
+- [ ] Chinese/English switching works (if i18n was added).
+
+---
+
+**Quick links**:
 - 📝 TODO: `TEXT_SELECTION_TODO.md`
-- 📚 文档: `TEXT_SELECTION_FEATURE.md`
-- 🏗️ 架构: `TEXT_SELECTION_ARCHITECTURE.md`
-- 🎬 演示: `TEXT_SELECTION_DEMO.md`
-- 📊 报告: `TEXT_SELECTION_REPORT.md`
+- 📚 Documentation: `TEXT_SELECTION_FEATURE.md`
+- 🏗️ Architecture: `TEXT_SELECTION_ARCHITECTURE.md`
+- 🎬 Demo: `TEXT_SELECTION_DEMO.md`
+- 📊 Report: `TEXT_SELECTION_REPORT.md`

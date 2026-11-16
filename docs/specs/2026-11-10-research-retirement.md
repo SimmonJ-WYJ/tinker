@@ -1,45 +1,59 @@
-# Tinker 科研专属能力分批退役
+<a id="tinker-科研专属能力分批退役"></a>
 
-状态：四批实现及自动化验证完成，待 Draft PR 人工审阅与原生补验。用户已批准统一品牌与开发文档、按依赖移除科研专属入口和功能，保留通用能力、数据和兼容契约。基线 main `4ca339592668581c1dc36abc9097fc9bf0aa1650`，预检时 PR #19 尚为独立草稿，执行期间确认已合并到 main `53c191d`，正常同步后继续，本批不改写其 Rust 源码。
+# Phased Retirement of Tinker Research-specific Capabilities
 
-## 保护清单
+Status: Four implementation batches and automated validation complete, awaiting Draft PR human review and native follow-up validation. The user approved unified branding and development documentation, dependency-aware removal of research-specific entry points and features, and preservation of general capabilities, data, and compatibility contracts. Baseline main `4ca339592668581c1dc36abc9097fc9bf0aa1650`; PR #19 was still a separate draft at preflight, but was confirmed merged into main `53c191d` during execution. Work continued after normal synchronization; this batch does not rewrite its Rust source.
 
-必须保留聊天、渠道/模型配置、生图及版本引用、项目/Recent、普通文件预览、历史读取与导出、登录、用户设置和用户数据。保留通用 PDF、OCR、ASR/Python 工具及其按需启动边界。不得读取真实密钥、发起付费请求、安装替换正式版或操作真实会话数据。
+<a id="保护清单"></a>
 
-`@asci/*`、ASCI_*、MCP 协议名、数据库/配置路径、app identifier/OAuth/deeplink 等仍使用的兼容契约不做批量替换。LICENSE、NOTICE、原作者和历史来源保留。科研历史及旧工具结果继续可读取或导出，不删除表、做破坏性 migration 或清空资源目录。
+## Preservation Checklist
 
-旧 Electron/SDK 生产后端继续承担现有功能，Rust 尚未替代部分不退役。本批不修改 Rust，不并入 PR #19。科研入口可变，其他正式 UI/功能不变。
+Preserve chat, channel/model configuration, image generation and version references, projects/Recent, ordinary file previews, history reading and export, login, user settings, and user data. Preserve general PDF, OCR, ASR/Python tools and their on-demand startup boundaries. Do not read real keys, make paid requests, install over the official release, or operate on real session data.
 
-## 批次 1：身份和当前开发文档
+Do not bulk-replace compatibility contracts still in use, such as `@asci/*`, ASCI_*, MCP protocol names, database/configuration paths, app identifiers/OAuth/deeplinks. Preserve LICENSE, NOTICE, original authors, and historical sources. Research history and old tool results remain readable/exportable; no table deletion, destructive migration, or resource-directory clearing.
 
-- 将当前 CLAUDE/CONTEXT 从 ASCI 科研定位改为 Tinker 通用 Agent，保留有效开发、安全、i18n、测试和提交流程规则。
-- 原科研领域定义归档为历史文档，保留来源链接与归属，不把历史规格误当当前产品目标。
-- 纠正现行开发文档默认 issue/PR 仓库，保留明确上游参考。
-- 新建项目和默认会话的工作区身份说明使用 Tinker，保留 ambient CLAUDE 防护与语言指令边界，不覆盖已有用户/历史 CLAUDE 文件。
-- 用隔离合成目录做身份/路径/已有文件不覆盖回归，独立审查后单独提交。
+The old Electron/SDK production backend continues supporting existing features; parts not yet replaced by Rust are not retired. This batch changes no Rust and does not join PR #19. Research entry points may change; other official UI/features remain unchanged.
 
-## 批次 2：科研运行接线与通用媒体解耦
+<a id="批次-1身份和当前开发文档"></a>
 
-- 移除生产默认科研意图路由、科研专用 MCP 和能力包的自动加载/seed/后台启动接线，普通科研问题仍可作为通用检索或文件任务处理。
-- 不能仅隐藏设置行，所有 general/coding/reference 路径都不应意外注入专用论文检索、Zotero、综述、研究空白和 searchplan 工具。
-- 保留历史只读数据路径、数据库 schema、导出和旧结果 renderer/兼容桥；不能把历史数据支持等同仍开放新科研工作流。
-- OCR/ASR 不再依赖 Zotero 总开关，保留各自原开关值和 MCP 配置方式，不默认下载语音模型。PDF 与通用 Python 不受科研退役影响。
-- 不对磁盘上的用户技能/能力包/配置做自动删除。仅在依赖与分发验证充分时删除仓库内科研专属资源，通用资源不误删。
+## Batch 1: Identity and Current Development Documentation
 
-## 批次 3：科研产品表面
+- Change current CLAUDE/CONTEXT positioning from ASCI research to the Tinker general Agent, preserving valid development, security, i18n, testing, and submission rules.
+- Archive original research-domain definitions as historical documents with source links and attribution; do not treat historical specifications as current product goals.
+- Correct the default issue/PR repository in current development documentation, preserving explicit upstream references.
+- Use Tinker for workspace identity descriptions in new projects and default sessions, preserving ambient CLAUDE protection and language-instruction boundaries without overwriting existing user/historical CLAUDE files.
+- Regress identity/paths/preservation of existing files in isolated synthetic directories; commit separately after independent review.
 
-- 移除默认/新增 Papers 页及科研主动入口，新会话默认文件页。历史研究输出应仍可显式打开只读兼容视图。
-- 收口文献/综述/研究空白等新建操作，保留读取旧会话、旧引用与导出。
-- 账户等通用页面中的科研措辞改为通用用户数据，中英文同步，不改登录和授权配置。
+<a id="批次-2科研运行接线与通用媒体解耦"></a>
 
-## 批次 4：专属技能素材分发
+## Batch 2: Decouple Research Runtime Wiring from General Media
 
-在逐目录依赖核对后追加退役 49 个明确专属科研技能，与前五个工作流合计 54 个。保留 35 个通用技能和 10 个跨用途/不确定技能，不按分类或 scientific 关键词批量清空。
+- Remove production default research-intent routing, research-specific MCP, and capability-package automatic loading/seed/background startup wiring. Ordinary research questions remain processable as general search or file tasks.
+- Hiding settings rows alone is insufficient: no general/coding/reference path should accidentally inject dedicated paper search, Zotero, review, research-gap, or searchplan tools.
+- Preserve historical read-only data paths, database schema, export, and old result renderers/compatibility bridges; historical data support does not imply new research workflows remain available.
+- OCR/ASR no longer depend on the Zotero master switch; preserve their original individual switch values and MCP configuration methods, without downloading speech models by default. PDF and general Python are unaffected by research retirement.
+- Do not automatically delete user skills/capability packages/configuration on disk. Delete research-specific repository resources only after sufficient dependency and distribution validation; preserve general resources.
 
-仅删除 Git 中对应源目录并统一 seed/copy/upgrade/discovery 的内置退役策略。已有用户目录不删除；运行识别需要精确发布布局和完整指纹，未知/修改副本保留。扩展受信元数据不能恢复无界递归/附件正文读取。许可证、NOTICE 和保留技能的独立 LICENSE 文件不改。
+<a id="批次-3科研产品表面"></a>
 
-## 验收与交付
+## Batch 3: Research Product Surfaces
 
-每批先做行为回归和红绿测试，再实现。验证聊天/生图/渠道/项目/历史/登录相关现有回归，科研运行隔离、媒体独立开关、新/旧 tab 和只读兼容、数据不删除。全仓 typecheck、lint、Bun、Electron build 及必要实验前端检查，独立代码审查与简化复盘。记录哪些仅模拟，原生或线上未测不冒称已验收。
+- Remove the default/new Papers page and active research entry points; new sessions default to the file page. Historical research outputs must remain explicitly openable in a read-only compatibility view.
+- Restrict new literature/review/research-gap operations while preserving reading old sessions, old citations, and export.
+- Replace research wording on general pages such as accounts with general user-data wording in both Chinese and English, without changing login or authorization configuration.
 
-各批独立可回滚提交，正常钩子，通过验证再推安全分支及 Draft PR，不合并、不部署、不安装、不重写远端历史。若某模块耦合未厘清，保留其数据/兼容实现并明确后续范围，不用删除文件数量冒充完成度。
+<a id="批次-4专属技能素材分发"></a>
+
+## Batch 4: Dedicated Skill Asset Distribution
+
+After checking dependencies directory by directory, retire another 49 clearly research-specific skills, totaling 54 with the preceding five workflows. Preserve 35 general skills and 10 cross-purpose/uncertain skills; do not clear entire categories or everything matching scientific.
+
+Delete only corresponding source directories in Git and unify built-in retirement policy across seed/copy/upgrade/discovery. Do not delete existing user directories; runtime recognition requires an exact release layout and complete fingerprints, preserving unknown/modified copies. Extended trusted metadata must not restore unbounded recursion/attachment body reading. Licenses, NOTICE, and independent LICENSE files of retained skills remain unchanged.
+
+<a id="验收与交付"></a>
+
+## Acceptance and Delivery
+
+Each batch begins with behavioral regressions and red/green tests, followed by implementation. Verify existing chat/image generation/channel/project/history/login regressions, research runtime isolation, independent media switches, new/old tabs and read-only compatibility, and no data deletion. Run repository-wide typecheck, lint, Bun, Electron build, necessary experimental frontend checks, independent code review, and simplification review. Record simulated-only checks; do not claim untested native or online flows were accepted.
+
+Use independently reversible commits per batch, normal hooks, and validation before pushing a safe branch and Draft PR; no merge, deployment, installation, or remote history rewrite. If module coupling remains unclear, preserve its data/compatibility implementation and state follow-up scope explicitly; deleted-file counts do not establish completeness.

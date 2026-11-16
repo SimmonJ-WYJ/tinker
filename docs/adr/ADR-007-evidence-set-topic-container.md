@@ -1,66 +1,80 @@
-# ADR-007：证据集数据模型从 1:1（笔记的证据）反转为多归属主题容器（M:N）
+<a id="adr-007证据集数据模型从-11笔记的证据反转为多归属主题容器mn"></a>
 
-| 字段 | 内容 |
+# ADR-007: Reverse the Evidence-Set Data Model from 1:1 (a Note's Evidence) to Topic Containers with Multiple Memberships (M:N)
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed（方向 + 三待定项 + M:N 多归属 已全部裁定 2026-06-01；待产研 Lead 签 Accepted）|
-| **决策日期** | 2026-06-01（方向）|
-| **拍板人** | （待填，建议产研 Lead）|
-| **决策时点硬约束** | 0.4 P2「证据集数据模型重构」实现 issue 开出前 |
-| **关联** | 0.4 P2（夯实证据集 + 笔记）· [CONTEXT.md 证据集与笔记领域](../../CONTEXT.md) · v0.2 证据列表数据模型重构 |
+| **Status** | Proposed (direction + three open items + M:N multiple membership all decided 2026-06-01; awaiting product/engineering Lead's Accepted signature) |
+| **Decision date** | 2026-06-01 (direction) |
+| **Decision maker** | (to be filled; product/engineering Lead recommended) |
+| **Hard decision deadline** | Before opening the implementation issue for 0.4 P2 “Evidence-set data model refactoring” |
+| **Related** | 0.4 P2 (strengthen evidence sets + notes) · [CONTEXT.md evidence-set and note domain](../../CONTEXT.md) · v0.2 evidence-list data model refactoring |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-v0.2「证据列表重构」把 **Note ⟷ EvidenceSet 立为 1:1 强绑**（划词建注单事务 4 步：note → evidence_set(1:1) → evidence_ref → evidence_set_refs；`evidence_sets.note_id` UNIQUE + ON DELETE CASCADE）。证据集在实现上 = "一条笔记 + 它引用的若干证据"。
+## I. Background
 
-0.4 P2 复盘暴露三个用户痛点，且**共同指向同一个根**：
+v0.2 “Evidence-list refactoring” established a **strong 1:1 Note ⟷ EvidenceSet binding** (four-step single transaction for selection-to-note: note → evidence_set(1:1) → evidence_ref → evidence_set_refs; `evidence_sets.note_id` UNIQUE + ON DELETE CASCADE). In implementation, an evidence set = “one note + the evidence it cites.”
 
-| 用户痛点 | 指向 |
+The 0.4 P2 retrospective exposed three user pain points, **all sharing one root**:
+
+| User pain point | Implication |
 |---|---|
-| 补证据只能在 Agent 对话场景里选已有集 | 详情页缺"直接补证据"入口 |
-| 不能在当前证据集新增笔记、只能编辑那一条 | **要 1 证据集 ⟷ N 笔记**（撞 1:1） |
-| 要标签 + 时间戳 | 缺 `tag` 字段（`created_at` 有但未充分展示） |
+| Existing sets can be selected for evidence additions only in Agent conversations | Details lack a “directly add evidence” entry |
+| Cannot add notes to the current evidence set, only edit the single note | **Need 1 evidence set ⟷ N notes** (conflicts with 1:1) |
+| Need tags + timestamps | Missing `tag` field (`created_at` exists but is underexposed) |
 
-三者合起来 = 用户心智里的"证据集"是**一个研究主题的容器**（N 笔记 + N 证据 + 标签），而非"一条笔记的证据"。
+Together these mean users understand an evidence set as **a container for a research topic** (N notes + N evidence items + tags), rather than “one note's evidence.”
 
-## 二、决策维度
+<a id="二决策维度"></a>
 
-"证据集"的**核心隐喻**：是"一条笔记的证据"（1:1，v0.2 实现），还是"研究主题的容器"（1:N）？
+## II. Decision Dimension
 
-## 三、候选方案
+The evidence set's **core metaphor**: “one note's evidence” (1:1, v0.2 implementation), or “a research topic container” (1:N)?
 
-| | 保守增量（1:1） | 反转为主题容器（1:N，**选中方向**） |
+<a id="三候选方案"></a>
+
+## III. Options
+
+| | Conservative increment (1:1) | Reverse to topic container (1:N, **selected direction**) |
 |---|---|---|
-| 数据模型 | 保持 1:1，只加 `tag` / 时间戳展示 + 详情页补证据入口 | 证据集 1:N 笔记 + 1:N 证据 + 标签 + 时间戳 |
-| 能否多笔记 | ❌ 仍只能 1 条 | ✅ 一个证据集下多条笔记 |
-| 用户痛点 | 部分解决，"多笔记"无解 | 三痛点全解 |
-| 迁移成本 | 无 | v0.2 的 1:1 老数据需迁移 |
-| 风险 | 低，但天花板低、笔记仍是文献附属 | 中，动核心数据模型 |
+| Data model | Retain 1:1; add only `tag` / timestamp display + add-evidence entry in details | Evidence set 1:N notes + 1:N evidence + tags + timestamps |
+| Multiple notes | ❌ Still only 1 | ✅ Multiple notes per evidence set |
+| User pain points | Partial solution; multiple notes unresolved | All three resolved |
+| Migration cost | None | Migrate v0.2's old 1:1 data |
+| Risk | Low, but limited ceiling; notes remain literature attachments | Medium; changes the core data model |
 
-## 四、决策
+<a id="四决策"></a>
 
-**反转为多归属主题容器（M:N）：证据集 = 研究主题容器（含 N 笔记 + N 证据 + 标签 + 时间戳），且一条笔记/证据可同属多个容器。**
+## IV. Decision
 
-理由：1:1 是 v0.2 为"划词建注"这一特定交互所做的技术约束，并非产品概念的最优；"主题容器"更贴合科研直觉，且是三个痛点的共同根。
+**Reverse to topic containers with multiple memberships (M:N): evidence set = research topic container (N notes + N evidence items + tags + timestamps), with each note/evidence item eligible to belong to multiple containers.**
 
-**三个待定项已由 0.4 P2 科研场景需求探索回填**（详见 [evidence-set-research.md](../specs/evidence-set-research.md)，deep-research 2026-06-01，三向对抗验证高置信）：
+Rationale: 1:1 was a technical constraint for v0.2's specific selection-to-note interaction, not the optimal product concept. Topic containers better match research intuition and address the three pain points' common root.
 
-| 待定项 | 结论 | 依据 |
+**Three open items were resolved through 0.4 P2 research-scenario requirements exploration** (see [evidence-set-research.md](../specs/evidence-set-research.md), deep-research 2026-06-01, high confidence from three-way adversarial validation):
+
+| Open item | Conclusion | Basis |
 |--------|------|------|
-| (a) 自由笔记是否成立 | **成立**——自由笔记是耐久一等公民（Zettelkasten 永久笔记可凭空成立）；但不照搬"fleeting 必删 / 强制链接"规范，链接为可选 | Ahrens / zettelkasten.de |
-| (b) 笔记 vs 证据 从属/并列 | **并列(co-member)**——笔记与证据都是主题容器的并列成员，由引用/链接关联，而非"笔记下挂证据" | 综述主题聚合 / Zettelkasten note→source 引用关系 |
-| (c) 多容器组织方式 | **扁平 + 标签/双向链接**，主题为涌现式容器，**不用刚性嵌套文件夹** | Luhmann bottom-up / semilattice |
+| (a) Are standalone notes valid? | **Yes**—standalone notes are durable first-class citizens (Zettelkasten permanent notes can exist without a source); do not copy “fleeting notes must be deleted / mandatory linking” rules; links are optional | Ahrens / zettelkasten.de |
+| (b) Notes vs evidence: subordinate or parallel? | **Parallel (co-member)**—notes and evidence are peer members of topic containers, associated through citations/links, rather than evidence subordinate to notes | Review topic aggregation / Zettelkasten note→source citations |
+| (c) Multi-container organization | **Flat + tags/bidirectional links**, with topics as emergent containers; **no rigid nested folders** | Luhmann bottom-up / semilattice |
 
-**✅ 多归属（M:N）已由 PM 裁定（2026-06-01）**：一条笔记/证据可同属多个主题容器（Luhmann semilattice），一处维护、多处复用——贴合科研"一文献支撑多主题"的高频需求。代价：笔记⟷容器、证据⟷容器均为 many-to-many 关联，归属管理 UI 更复杂。**实现建议**：数据模型一步到位做 M:N 关联表（避免日后迁移），UI 可分步放开多归属交互。
+**✅ Multiple membership (M:N) decided by PM (2026-06-01)**: one note/evidence item can belong to multiple topic containers (Luhmann semilattice), maintained once and reused in many places, matching the frequent research need for one paper to support multiple topics. Cost: both note⟷container and evidence⟷container need many-to-many associations, complicating membership UI. **Implementation recommendation**: implement M:N join tables immediately to avoid later migration; release multiple-membership UI incrementally.
 
-## 五、反转 / 影响
+<a id="五反转-&#45;影响"></a>
 
-反转 v0.2「证据列表重构」确立的 1:1 强绑。`CONTEXT.md` 证据集/笔记领域已记入该漂移为 **flagged ambiguity**——本 ADR 签 Accepted 后据最终模型消解。
+## V. Reversal / Impact
 
-## 六、后果
+Reverses the strong 1:1 binding established by v0.2 “Evidence-list refactoring.” The `CONTEXT.md` evidence-set/note domain records this drift as **flagged ambiguity**, to resolve against the final model after this ADR is signed Accepted.
 
-- **数据模型**：`evidence_sets.note_id` 1:1 → 证据集 ⟷ 笔记、证据集 ⟷ 证据 均为 **M:N 关联表**（一成员可多归属）；新增 `tag`；时间戳前台化。
-- **迁移**：v0.2 老用户的 1:1 数据需平滑迁移到 1:N（每个老证据集 = 含 1 条笔记的容器）。
-- **四联同步**：repository / service / IPC（含 `notes:*`、`evidenceSets:*` 通道）/ renderer 全链路改造；`createNote 未实现(T16)` 坑可借此填（详情页加笔记 / 自由笔记）。
-- **前置**：需先完成 P2 科研场景需求探索，避免在错误的模型上重构。
+<a id="六后果"></a>
+
+## VI. Consequences
+
+- **Data model**: `evidence_sets.note_id` 1:1 → **M:N join tables** for both evidence set ⟷ note and evidence set ⟷ evidence (members may belong to multiple containers); add `tag`; expose timestamps in the frontend.
+- **Migration**: smoothly migrate v0.2 users' 1:1 data to 1:N (each old evidence set becomes a container with 1 note).
+- **Four-layer synchronization**: refactor repository / service / IPC (including `notes:*`, `evidenceSets:*` channels) / renderer throughout; this can also close the `createNote 未实现(T16)` gap (“createNote unimplemented,” T16) through notes in details / standalone notes.
+- **Prerequisite**: finish P2 research-scenario requirements exploration first to avoid refactoring the wrong model.

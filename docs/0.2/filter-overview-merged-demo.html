@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>整体概览 + 更多筛选 合并为一个面板（演示）</title>
+<title>Overview + More Filters Combined into One Panel (Demo)</title>
 <style>
   :root{
     --text:#1f1f1d; --soft:#6f6f69; --faint:#9a9a93;
@@ -24,7 +24,7 @@
   .col{flex:1;min-width:320px;}
   .col h3{font-size:13px;color:var(--soft);margin:0 0 10px;font-weight:600;}
 
-  /* 工具栏：单一入口 */
+  /* Toolbar: one entry */
   .toolbar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--hair);border-radius:12px;padding:8px 10px;margin-bottom:10px;}
   .toolbar .tt{font-size:12px;color:var(--soft);display:flex;align-items:center;gap:6px;}
   .toolbar .sp{flex:1;}
@@ -32,7 +32,7 @@
   .entry.active{background:var(--primary-soft);color:#1f5fa6;}
   .entry .dotmark{width:6px;height:6px;border-radius:50%;background:var(--primary);}
 
-  /* 合并面板 */
+  /* Combined panel */
   .pop{width:330px;background:#fff;border:1px solid var(--hair);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.14);overflow:hidden;}
   .pop .ph{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--hair2);}
   .pop .ph b{font-size:13px;}
@@ -43,7 +43,7 @@
   .group:last-child{margin-bottom:0;}
   .glabel{font-size:10.5px;color:var(--muted);font-weight:600;margin:0 0 7px;}
 
-  /* 年份刷选条 */
+  /* Year range brushing */
   .hist{display:flex;align-items:flex-end;gap:2px;height:54px;}
   .hist .bar{flex:1;background:var(--muted);border-radius:2px 2px 0 0;}
   .hist .bar.sel{background:var(--primary);}
@@ -56,12 +56,12 @@
   .chip.on{background:var(--primary-soft);color:#1f5fa6;border-color:#bcd6f3;}
   .chip .n{color:var(--faint);}
 
-  /* 相关度渐变条 */
+  /* Relevance gradient bar */
   .relbar{height:10px;border-radius:6px;background:linear-gradient(90deg,#f6c9c0,#f3e3a8,#bfe3c4);position:relative;}
   .relbar .knob{position:absolute;left:14%;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:#fff;border:1px solid #cfcfca;box-shadow:0 1px 3px rgba(0,0,0,.18);}
   .rel-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:5px;}
 
-  /* tier 档位 */
+  /* Tier levels */
   .tiers{display:flex;flex-wrap:wrap;gap:6px;}
   .tier{font-size:11.5px;padding:5px 9px;border-radius:7px;background:var(--btn-bg);color:#555;cursor:pointer;border:1px solid transparent;}
   .tier.on{background:var(--primary-soft);color:#1f5fa6;border-color:#bcd6f3;}
@@ -77,39 +77,39 @@
 </head>
 <body>
   <div class="head">
-    <h1>合并方案：整体概览 + 更多筛选 → 一个「筛选」面板</h1>
-    <p>两者都是「收窄检索结果」的同一件事。合并成单一入口、单一面板，分「分布概览（点选筛选）」与「更多条件」两段。新用户只需理解一个地方。</p>
+    <h1>Combined Design: Overview + More Filters → One Filter Panel</h1>
+    <p>Both narrow search results. Combine them into one entry and one panel, with Distribution Overview (click to filter) and More Conditions sections. New users only need to learn one place.</p>
   </div>
 
   <div class="wrap">
-    <!-- 左：合并后 -->
+    <!-- Left: combined -->
     <div class="col">
-      <h3>合并后（建议）</h3>
+      <h3>Combined (recommended)</h3>
       <div class="toolbar">
-        <span class="tt"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>本次检索 · 747</span>
+        <span class="tt"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>This search · 747</span>
         <span class="sp"></span>
-        <span class="entry active"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>筛选<span class="dotmark"></span></span>
-        <span class="entry"><svg class="ic" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>排序</span>
+        <span class="entry active"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>Filter<span class="dotmark"></span></span>
+        <span class="entry"><svg class="ic" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>Sort</span>
       </div>
 
       <div class="pop">
         <div class="ph">
-          <b>筛选检索结果 · 747 篇</b>
-          <span class="reset"><svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M18 6 6 18M6 6l12 12"/></svg>重置</span>
+          <b>Filter search results · 747 papers</b>
+          <span class="reset"><svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M18 6 6 18M6 6l12 12"/></svg>Reset</span>
         </div>
         <div class="body">
-          <!-- 段 1：分布概览（点选即筛选） -->
-          <p class="seg-label">分布概览 · 点选即筛选</p>
+          <!-- Section 1: distribution overview (click to filter) -->
+          <p class="seg-label">Distribution overview · Click to filter</p>
 
           <div class="group">
-            <p class="glabel">年份</p>
-            <div class="ysum">1990 – 2005 · 共 312 条 · 16 年</div>
+            <p class="glabel">Year</p>
+            <div class="ysum">1990 – 2005 · 312 results · 16 years</div>
             <div class="hist" id="hist"></div>
             <div class="ticks"><span>1945</span><span>2026</span></div>
           </div>
 
           <div class="group">
-            <p class="glabel">来源</p>
+            <p class="glabel">Source</p>
             <div class="chips">
               <span class="chip on">crossref <span class="n">238</span></span>
               <span class="chip">openalex <span class="n">207</span></span>
@@ -120,59 +120,59 @@
           </div>
 
           <div class="group">
-            <p class="glabel">相关度（≥ 阈值）</p>
+            <p class="glabel">Relevance (≥ threshold)</p>
             <div class="relbar"><span class="knob"></span></div>
-            <div class="rel-ends"><span>低</span><span>高</span></div>
+            <div class="rel-ends"><span>Low</span><span>High</span></div>
           </div>
 
           <div class="divider"></div>
 
-          <!-- 段 2：更多条件 -->
-          <p class="seg-label">更多条件</p>
+          <!-- Section 2: more conditions -->
+          <p class="seg-label">More conditions</p>
 
           <div class="group">
-            <p class="glabel">引用量</p>
-            <div class="tiers"><span class="tier on">不限</span><span class="tier">≥10</span><span class="tier">≥50</span><span class="tier">≥100</span><span class="tier">≥500</span></div>
+            <p class="glabel">Citation count</p>
+            <div class="tiers"><span class="tier on">Any</span><span class="tier">≥10</span><span class="tier">≥50</span><span class="tier">≥100</span><span class="tier">≥500</span></div>
           </div>
           <div class="group">
-            <p class="glabel">综合评分</p>
-            <div class="tiers"><span class="tier on">不限</span><span class="tier">≥50</span><span class="tier">≥65</span><span class="tier">≥80</span></div>
+            <p class="glabel">Overall score</p>
+            <div class="tiers"><span class="tier on">Any</span><span class="tier">≥50</span><span class="tier">≥65</span><span class="tier">≥80</span></div>
           </div>
           <div class="group">
-            <p class="glabel">JCR 分区</p>
+            <p class="glabel">JCR quartile</p>
             <div class="tiers"><span class="tier">Q1</span><span class="tier">Q2</span><span class="tier">Q3</span><span class="tier">Q4</span></div>
           </div>
           <div class="group">
-            <p class="glabel">影响因子</p>
-            <div class="tiers"><span class="tier on">不限</span><span class="tier">≥2</span><span class="tier">≥5</span><span class="tier">≥10</span></div>
+            <p class="glabel">Impact factor</p>
+            <div class="tiers"><span class="tier on">Any</span><span class="tier">≥2</span><span class="tier">≥5</span><span class="tier">≥10</span></div>
           </div>
           <div class="group">
-            <p class="glabel">期刊 / 会议等级</p>
-            <div class="tiers"><span class="tier">顶级</span><span class="tier">优秀</span><span class="tier">普通</span><span class="tier">较弱</span></div>
+            <p class="glabel">Journal / conference tier</p>
+            <div class="tiers"><span class="tier">Top</span><span class="tier">Excellent</span><span class="tier">Standard</span><span class="tier">Lower</span></div>
           </div>
-          <label class="check"><input type="checkbox" /> 仅显示有摘要</label>
+          <label class="check"><input type="checkbox" /> Only with abstracts</label>
         </div>
       </div>
 
-      <p class="note"><b>新用户视角：</b>只有「筛选」一个入口；进去后「概览分布」与「更多条件」是同一面板的上下两段，分布图既是可视化、也是点选筛选器。不再需要分清「概览」和「筛选」是两个不同的东西。</p>
+      <p class="note"><b>New user perspective:</b>A single Filter entry leads to Distribution Overview and More Conditions in the same panel. Charts visualize results and act as clickable filters. Users no longer need to distinguish Overview from Filters.</p>
     </div>
 
-    <!-- 右：现状对照 -->
+    <!-- Right: current comparison -->
     <div class="col">
-      <h3>现状（两个入口、两套交互）</h3>
+      <h3>Current design (two entries, two interactions)</h3>
       <div class="toolbar">
-        <span class="before"><span class="e"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg>整体概览</span><span class="e"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>更多筛选</span></span>
+        <span class="before"><span class="e"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg>Overview</span><span class="e"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>More filters</span></span>
       </div>
       <p class="note">
-        · <b>整体概览</b>：年份/来源/相关度，点柱状条或 chip 来筛选；<br/>
-        · <b>更多筛选</b>：引用量/评分/JCR/影响因子/等级/摘要，选 chip 来筛选。<br/><br/>
-        两个 popover、两种心智，且年份/来源只能在「概览」里点、其它只能在「筛选」里选——同是筛选却分家。对新用户尤其难建立模型（呼应 UX 走查 #6）。
+        · <b>Overview</b>: Year/source/relevance; click bars or chips to filter;<br/>
+        · <b>More filters</b>: Citations/score/JCR/impact factor/tier/abstract; select chips to filter.<br/><br/>
+        Two popovers and two mental models: years/sources are selected only in Overview, everything else only in Filters. The same filtering task is split, particularly confusing for newcomers (UX walkthrough #6).
       </p>
     </div>
   </div>
 
   <script>
-    // 画一个示意年份直方图，高亮一段表示刷选区间
+    // Draw a schematic year histogram; highlight the brushed range
     const hist = document.getElementById('hist');
     let seed = 0x51f3;
     const rnd = ()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
@@ -181,7 +181,7 @@
       const t=k/(N-1);
       const h = Math.max(6, Math.pow(t,2.4)*100 + rnd()*14);
       const bar=document.createElement('div');
-      bar.className='bar'+((k>=26 && k<=42)?' sel':'');  // 选中一段示意
+      bar.className='bar'+((k>=26 && k<=42)?' sel':'');  // Example selected range
       bar.style.height=h+'%';
       hist.appendChild(bar);
     }

@@ -1,30 +1,38 @@
-# 配置空值引导与运行文字可见度
+<a id="配置空值引导与运行文字可见度"></a>
 
-- 状态：实现与验收完成，用户已确认并授权推送独立 GitHub 分支，不自动合并或安装
-- 基线：main d94a3f0，用户正在运行挂载的 Electron 0.1.615
-- 范围：ChannelForm 的 Base URL 空值与占位文案，RunningStatusText 的视觉参数
+# Empty Configuration Guidance and Running Text Visibility
 
-## 设计
+- Status: Implementation and acceptance complete; user confirmed and authorized pushing a separate GitHub branch, without automatic merging or installation
+- Baseline: main d94a3f0; the user is running the mounted Electron 0.1.615
+- Scope: ChannelForm Base URL empty state and placeholder copy; RunningStatusText visual parameters
 
-- Base URL 占位使用本地化的“例如：”前缀，不把示例写入 value。
-- 空值下显示已关联输入框的简短说明，填写后恢复实际端点预览。
-- 名称和 Key 已填时，缺 Base URL 的顶部提示优先于模型和连接测试提示。
-- 按用户最终确认仅降低配置占位与空值说明层级，浅色占位 #B4B4B4，真实输入、标签与禁用控件保留。
-- 文字流光参考本机 Codex：55% 次级灰字、75% 白色窄光带，.6s 进入等待、1s 扫过、4s 周期。
-- 文字和 Logo 不移动。减少动态与强制颜色模式恢复普通文字。最终参数与证据见复调报告。
-- 无认证、存储、模型授权或 Rust 改动，不使用用户截图或真实 Key。
+<a id="设计"></a>
 
-## 实施与验证计划
+## Design
 
-- [x] 复核版本、工作区和相关测试基线。
-- [x] 补中英文空值语义、填写/清空、按钮门控回归并观察红测。
-- [x] 实际浏览器渲染当前 loading，记录渐变端点、运动和像素，确认可见度基线。
-- [x] 最小修改 ChannelForm、en/zh channels.json 与 scoped running-status-text.css。
-- [x] 回归空值/有值、浅深色、窄窗、减少动态、强制颜色和动画启停。
-- [x] 类型检查、lint、相关与全仓测试、Electron build，清除临时 QA 入口并保存本地提交。
+- Base URL placeholders use a localized "For example:" prefix; the example is never written into value.
+- When empty, display a short explanation associated with the input; restore the actual endpoint preview after entry.
+- When name and Key are filled, the top notice for a missing Base URL takes priority over model and connection-test notices.
+- Per the user's final confirmation, reduce only the visual prominence of configuration placeholders and empty-state explanations; light-mode placeholders use #B4B4B4, preserving actual input, labels, and disabled controls.
+- Text shimmer references local Codex: 55% secondary gray text, 75% white narrow highlight band, .6s entry wait, 1s sweep, 4s cycle.
+- Text and Logo stay stationary. Reduced motion and forced colors restore ordinary text. See the retuning report for final parameters and evidence.
+- No authentication, storage, model authorization, or Rust changes; no user screenshots or real keys are used.
 
-## 判断边界
+<a id="实施与验证计划"></a>
 
-- 原图由父任务检查且包含认证信息，本轮不接收、保存或转发该图。
-- 静态表单验收不能证明动态流光，流光必须通过实际浏览器时间采样和视觉检查。
-- 浏览器合成数据验证不代表真实账号/模型端到端或当前安装包已更新。
+## Implementation and Validation Plan
+
+- [x] Recheck version, workspace, and relevant test baselines.
+- [x] Add Chinese/English empty-state semantics, entry/clearing, and button-gating regressions and observe failing tests.
+- [x] Render current loading behavior in an actual browser; record gradient endpoints, motion, and pixels to establish visibility baseline.
+- [x] Make minimal changes to ChannelForm, en/zh channels.json, and scoped running-status-text.css.
+- [x] Regress empty/filled states, light/dark mode, narrow windows, reduced motion, forced colors, and animation start/stop.
+- [x] Run typecheck, lint, relevant and repository-wide tests, and Electron build; remove temporary QA entries and save a local commit.
+
+<a id="判断边界"></a>
+
+## Assessment Boundaries
+
+- The parent task inspected the original image, which contains authentication information; this round does not receive, save, or forward it.
+- Static form acceptance cannot prove dynamic shimmer; shimmer requires actual browser time sampling and visual inspection.
+- Browser validation with synthetic data does not establish actual account/model end-to-end behavior or that the current installed package was updated.

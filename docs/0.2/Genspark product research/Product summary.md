@@ -1,60 +1,60 @@
-一、Super Agent 概述
+1. Super Agent Overview
 
-Super Agent 是 Genspark 的旗舰功能,于 2025 年 4 月发布,是一个 nocode 的自主智能体。用户用一句自然语言描述目标,Super Agent 自动规划任务、选择工具、生成产出物。
+Super Agent is Genspark's flagship feature, launched in April 2025: a nocode autonomous agent. Users describe a goal in one natural-language sentence, and Super Agent automatically plans tasks, chooses tools, and generates deliverables.
 
-1.1 底层架构
+1.1 Underlying Architecture
 
- 协同 9 个专用大语言模型(后期扩展至 30+ 模型)
- 集成 80+ 内置工具(后期扩展至 150+)
- 使用 GPT4.1 处理研究和结构化输出(支持 1M token 上下文)
- 使用 GPTimage1 处理图像生成
- 使用 OpenAI Realtime API 处理实时语音(Call For Me)
- 云端异步处理:任务可在用户离线时继续运行
+ Coordinates 9 specialized large language models (later expanded to 30+ models)
+ Integrates 80+ built-in tools (later expanded to 150+)
+ Uses GPT4.1 for research and structured output (supports 1M-token context)
+ Uses GPTimage1 for image generation
+ Uses OpenAI Realtime API for real-time voice (Call For Me)
+ Asynchronous cloud processing: tasks continue while users are offline
 
-1.2 Super Agent 的核心价值主张
+1.2 Super Agent's Core Value Proposition
 
-一句 prompt = 一份交付物(或一个行动)" —— Super Agent 让用户从"打字交流"升级到"直接拿到成品。
+"One prompt = one deliverable (or action)" — Super Agent moves users from typing in a conversation to receiving a finished result.
 
-二、Genspark 整体产品页面框架结构
+2. Overall Genspark Product Page Structure
 
-2.1 顶层入口与导航
+2.1 Top-Level Entry and Navigation
 
-Genspark 主域名 genspark.ai 进入后是统一的 AI 工作台,整体采用"左侧导航 + 中间工作区 + 右侧产物预览"的三栏布局。顶部有全局搜索框和用户头像入口。未登录用户也能预览首页,但触发任何 Agent 会跳转登录。
+Entering Genspark's main domain, genspark.ai, opens a unified AI workbench with a three-column layout: left navigation + central workspace + right artifact preview. The top contains global search and a user-avatar entry. Signed-out users can preview the home page, but triggering any Agent redirects to sign-in.
 
-2.2 输入与触发层
+2.2 Input and Trigger Layer
 
-输入框始终位于工作区底部,支持:
-文字 prompt + 文件附件(PDF/Office/CSV/PPT/Image)
-直接点击侧边栏快捷入口(主动选择,跳过路由)
-答复后 Follow-up Suggestions(3 至 4 条预生成追问)
-中间检查点反问(意图模糊时浮出快速选择按钮)
+The input stays at the bottom of the workspace and supports:
+Text prompts + file attachments (PDF/Office/CSV/PPT/Image)
+Direct sidebar shortcuts (explicit selection, bypassing routing)
+Follow-up Suggestions after responses (3 to 4 pregenerated follow-up questions)
+Mid-task checkpoint questions (quick-choice buttons appear when intent is unclear)
 
-触发后 Super Agent 在响应里输出路由标签(如 [SLIDES] [SHEETS] [DOCS]),前端检测到标签跳转到对应模态的生成端点。
+After triggering, Super Agent outputs routing labels in its response (such as [SLIDES] [SHEETS] [DOCS]); the frontend detects these and switches to the corresponding modality's generation endpoint.
 
-2.3 产物层与编辑模式
+2.3 Artifact Layer and Editing Modes
 
-产物分三类:
-文档型(Slides / Sheets / Docs / Sparkpage)  右侧内嵌完整编辑器,支持 AI Edit(对话式修改) + Advanced Edit(手动精细操作),手动编辑不消耗 Credits
-媒体型(Image / Video / Audio / Design)  以"再生成"为主,编辑能力较弱;支持参数调整、风格切换、变体生成
-行动型(Developer / Call For Me)  Developer 产物是可运行代码/可预览网站;Call For Me 触发真实电话呼叫,有通话进度面板
+Artifacts fall into three categories:
+Document (Slides / Sheets / Docs / Sparkpage): full embedded editor on the right, supporting AI Edit (conversational changes) + Advanced Edit (fine manual control); manual editing consumes no Credits
+Media (Image / Video / Audio / Design): primarily regeneration, with weaker editing; supports parameter changes, style switching, and variant generation
+Action (Developer / Call For Me): Developer outputs runnable code/previewable websites; Call For Me places real phone calls with a call-progress panel
 
-每个产物都有统一的导出/分享栏:导出原生格式(PDF / PPTX / XLSX 等)、生成公开链接、复制到剪贴板。
+Every artifact has a unified export/share bar: export native formats (PDF / PPTX / XLSX, etc.), generate public links, and copy to clipboard.
 
-三 follow up（追问功能）
+3. Follow Up (Follow-Up Questions)
 
-3.1、答复后的追问引导(Followup Suggestions)
+3.1 Post-Response Followup Suggestions
 
-Genspark 在每次答复结束后,会自动在答复下方浮现一组追问按钮(通常 34 个),每个按钮都是一句完整的、可直接点击的后续 prompt。这是一种叫做 Followup Suggestions(追问引导)的设计模式,它让对话从"用户主导"变成了"系统引导 + 用户选择",显著提升了会话深度和功能渗透率。
+After every response, Genspark automatically displays follow-up buttons beneath it (typically 34); each contains a complete follow-up prompt ready to click. This design pattern, Followup Suggestions, shifts conversation from user-led to system guidance + user choice, substantially increasing session depth and feature adoption.
 
-3.2 追问生成的 prompt 设计（利用claude反推提示词）
+3.2 Prompt Design for Follow-Up Generation (Reverse-Engineered with Claude)
 
-这是这个功能的灵魂部分。一个高质量的追问生成 prompt 通常包含以下几个要素:
+This is the heart of the feature. A high-quality follow-up-generation prompt usually includes:
 
-要素  作用
-角色定义  "你是一位帮助用户深入探索话题的对话规划师"
-输入上下文  把(用户原问题 + AI 完整答复)拼成上下文喂给模型
-数量约束  "生成恰好 4 个追问,不多不少"
-多样性要求  "4 个追问应覆盖不同方向:深入细节、横向对比、转换形式、应用实践" —— 这是避免追问雷同的关键
-格式约束  "每个追问应该是完整的、可直接发送的中文问句,以\"请\"开头,1540 字"
-禁用约束  "不要重复用户已经问过的内容;不要超出当前话题边界"
-结构化输出 Schema  用 JSON Schema 强制输出 `{ followups: string[4] }`,保证前端解析不出错
+Element  Purpose
+Role definition  "You are a conversation planner helping users explore topics in depth"
+Input context  Combine the user's original question + the full AI response as model context
+Count constraint  "Generate exactly 4 follow-up questions, no more and no fewer"
+Diversity requirement  "The 4 questions should cover different directions: deeper detail, comparison, format transformation, and practical application" — crucial to avoiding repetitive questions
+Format constraint  "Each follow-up should be a complete, directly sendable Chinese question beginning with the Chinese word for 'please,' 1540 characters"
+Prohibitions  "Do not repeat what the user already asked; stay within the current topic"
+Structured-output Schema  Enforce `{ followups: string[4] }` with JSON Schema to ensure reliable frontend parsing

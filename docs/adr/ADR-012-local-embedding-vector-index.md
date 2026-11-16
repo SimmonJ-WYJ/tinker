@@ -1,56 +1,68 @@
-# ADR-012：文献向量索引用本地 ONNX 嵌入模型（而非远程 embeddings API）
+<a id="adr-012文献向量索引用本地-onnx-嵌入模型而非远程-embeddings-api"></a>
 
-| 字段 | 内容 |
+# ADR-012: Use a Local ONNX Embedding Model for the Literature Vector Index (Rather Than a Remote Embeddings API)
+
+| Field | Content |
 |------|------|
-| **状态** | Accepted（grill-with-docs 会话裁决 2026-06-02） |
-| **决策日期** | 2026-06-02 |
-| **拍板人** | alan@opensci.io |
-| **决策时点硬约束** | `feat/vector-store-evidence` 实现落地前 |
-| **关联** | [CONTEXT.md 文献语料与检索领域](../../CONTEXT.md) · [docs/specs/vector-store-evidence-spec.md](../specs/vector-store-evidence-spec.md) · ADR-001（本地存储 SQLite 路线） |
+| **Status** | Accepted (grill-with-docs session decision, 2026-06-02) |
+| **Decision date** | 2026-06-02 |
+| **Decision maker** | alan@opensci.io |
+| **Hard decision deadline** | Before implementation of `feat/vector-store-evidence` |
+| **Related** | [CONTEXT.md literature corpus and retrieval domain](../../CONTEXT.md) · [docs/specs/vector-store-evidence-spec.md](../specs/vector-store-evidence-spec.md) · ADR-001 (local SQLite storage direction) |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-文献多时（几十~几百篇）Agent 问答/综述靠逐篇通读 wiki md，慢且耗 context；证据组装只到论文级精度。需要接入向量检索（语义召回段落 + 锚点回写证据）。
+## 1. Background
 
-向量从哪来是整个方案里最难回头的决定——嵌入模型一旦选定，全部语料的向量都绑定该模型；换来源 = 全量重建索引 + 可能的依赖/配置形态变化。
+With many papers (dozens to hundreds), Agent Q&A/reviews read each wiki md in full, which is slow and consumes context; evidence assembly only reaches paper-level precision. Vector retrieval is needed (semantic paragraph recall + anchors written back to evidence).
 
-**现实约束**：项目 Provider 层 6 个渠道全部是 Anthropic-skin Messages API，无一保证有 embeddings 端点；Anthropic 官方不提供 embeddings API。"复用现有渠道凭证调 embeddings"这条路默认不存在。
+The vector source is the hardest decision to reverse in the overall plan: once the embedding model is chosen, all corpus vectors are tied to it; changing the source means a full index rebuild plus possible dependency/configuration changes.
 
-## 二、决策维度
+**Practical constraint**: all 6 channels in the project's Provider layer use Anthropic-style Messages APIs, with no guaranteed embeddings endpoint; Anthropic offers no official embeddings API. Reusing existing channel credentials for embeddings is not an available path by default.
 
-| 维度 | 权重理由 |
+<a id="二决策维度"></a>
+
+## 2. Decision Dimensions
+
+| Dimension | Reason for its weight |
 |------|----------|
-| 用户配置门槛 | Agent 的检索工具必须**稳定可用**，不能取决于用户是否配了特定渠道 |
-| 文献隐私 | 科研全文（含未发表稿）是否出本机 |
-| 手术面 | 是否要动 Provider 适配器层（两层设计，新增端点类型是大手术） |
-| 质量上限 | 检索召回质量（可被混合检索部分兜底） |
+| User configuration barrier | Agent retrieval tools must be **reliably available**, independent of whether the user configured a particular channel |
+| Literature privacy | Whether full research texts (including unpublished manuscripts) leave the local machine |
+| Change scope | Whether the Provider adapter layer must change (a two-layer design where adding an endpoint type is a major operation) |
+| Quality ceiling | Retrieval recall quality (partially supported by hybrid search) |
 
-## 三、候选方案
+<a id="三候选方案"></a>
 
-| | 本地 ONNX 模型（**选中**） | 远程 embeddings API |
+## 3. Options
+
+| | Local ONNX model (**selected**) | Remote embeddings API |
 |---|---|---|
-| 配置门槛 | 零配置（模型首次后台下载 ~135MB） | 用户须自配支持 embeddings 的渠道（SiliconFlow/OpenAI/Voyage…） |
-| 隐私 | 全文不出本机 | 全文上传第三方 |
-| 手术面 | 不碰 Provider 层；`onnxruntime-node` 已是依赖（N-API，主进程可用） | Provider 层新增 OpenAI-compatible embeddings 能力 + 渠道配置 UI |
-| 质量 | e5-small 级（384 维），多语言；精确术语弱 → 由 FTS5 混合检索兜底 | 顶级 API 模型（voyage-3 等）上限更高 |
-| 成本 | 零 token 成本、可离线 | 按量计费、网络依赖 |
-| 速度 | CPU 批量推理，全库首建分钟级后台任务 | 单批快，但受网络/限流 |
+| Configuration barrier | Zero configuration (first background model download ~135MB) | Users must configure a channel supporting embeddings (SiliconFlow/OpenAI/Voyage…) |
+| Privacy | Full text stays local | Full text uploaded to a third party |
+| Change scope | No Provider-layer changes; `onnxruntime-node` is already a dependency (N-API, usable in the main process) | Add OpenAI-compatible embeddings capability to the Provider layer + channel configuration UI |
+| Quality | e5-small level (384 dimensions), multilingual; weak on exact terminology → supported by FTS5 hybrid search | Higher ceiling with top API models (voyage-3, etc.) |
+| Cost | Zero token cost, works offline | Usage billing, network dependency |
+| Speed | Batched CPU inference; initial full-library build is a background task taking minutes | Fast per batch, but subject to network/rate limits |
 
-## 四、决策
+<a id="四决策"></a>
 
-**本地 ONNX 嵌入**：`multilingual-e5-small` 量化版（384 维），`onnxruntime-node` 主进程推理，分词用纯 JS `@huggingface/tokenizers`。权重运行时从 HF（主源）/ hf-mirror（镜像兜底）下载到 `~/.asci/models/`，不随应用打包。
+## 4. Decision
 
-配套护栏（让"难回头"变成"可回头"）：
+**Local ONNX embeddings**: quantized `multilingual-e5-small` (384 dimensions), inference in the main process through `onnxruntime-node`, tokenization using pure-JS `@huggingface/tokenizers`. At runtime, weights download from HF (primary) / hf-mirror (fallback mirror) into `~/.asci/models/`; they are not bundled with the app.
 
-1. **索引库 meta 记录 `model_id` + `embed_dim`**——换模型/未来接远程 API 时自动整库删除重建（索引定位是可重建缓存，见 spec）
-2. **混合检索（向量 + FTS5 BM25 + RRF）**——精确术语召回不依赖嵌入质量，兜住小模型的弱项
-3. 嵌入调用收敛在单一 `embedder` 模块——未来若加远程路径，只替换该模块实现
+Supporting safeguards (making this difficult-to-reverse choice reversible):
 
-## 五、后果
+1. **Index database meta records `model_id` + `embed_dim`** — automatically delete and rebuild the entire database when changing models or adding a remote API later (the index is a rebuildable cache; see spec)
+2. **Hybrid retrieval (vectors + FTS5 BM25 + RRF)** — exact-term recall does not depend on embedding quality, covering the small model's weakness
+3. Embedding calls are centralized in one `embedder` module; adding a remote path later only requires replacing its implementation
 
-- ✅ 检索工具开箱即用、离线可用、全文不出本机；Agent 工具可用性不依赖渠道配置
-- ✅ 不动 Provider 层，实现面收敛在新增模块内
-- ⚠️ 接受 e5-small 的质量上限；若实测召回不足，升级路径是换更大本地模型（bge-m3 等）或补远程路径，两者都走"换 model_id → 删库重建"
-- ⚠️ 首次使用有 ~135MB 模型下载（后台、带镜像兜底与断点）；下载失败时索引任务挂起，检索工具显式降级（`model_not_ready`）而非报错
+<a id="五后果"></a>
+
+## 5. Consequences
+
+- ✅ Retrieval tools work out of the box and offline, with full text staying local; Agent-tool availability does not depend on channel configuration
+- ✅ Provider layer remains untouched; implementation scope stays within new modules
+- ⚠️ Accept the e5-small quality ceiling; if measured recall is inadequate, upgrade to a larger local model (bge-m3, etc.) or add a remote path. Both follow "change model_id → delete and rebuild database"
+- ⚠️ First use downloads a ~135MB model (background, mirror fallback, and resume support); failed downloads suspend indexing and explicitly degrade retrieval tools (`model_not_ready`) rather than throwing errors

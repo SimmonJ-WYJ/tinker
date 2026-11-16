@@ -1,162 +1,206 @@
-# ADR-002：服务器后端栈选型
+<a id="adr-002服务器后端栈选型"></a>
 
-| 字段 | 内容 |
+# ADR-002: Server Backend Stack Selection
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed |
-| **决策时点硬约束** | 0.3 启动前（即 0.2 Week 1 末） |
-| **拍板日期** | （待填） |
-| **拍板人** | （待填，建议产研 Lead） |
-| **作者** | （待填，建议 Dev D） |
-| **关联** | [0.2 north-star §六 F1](../../ya-docs/milestones/0.2/north-star.md) / [0.3 north-star §二](../../ya-docs/milestones/0.3/north-star.md) |
+| **Status** | Proposed |
+| **Hard decision deadline** | Before 0.3 starts (end of 0.2 Week 1) |
+| **Decision date** | (to be filled) |
+| **Decision maker** | (to be filled; product/engineering Lead recommended) |
+| **Author** | (to be filled; Dev D recommended) |
+| **Related** | [0.2 north-star §VI F1](../../ya-docs/milestones/0.2/north-star.md) / [0.3 north-star §II](../../ya-docs/milestones/0.3/north-star.md) |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-0.3 milestone 引入 ASCI 独立账户体系与公开发布，需要自建服务器（认证 / 用户数据 / 埋点接收 / 版本更新）。本 ADR 决策服务器后端栈的 4 个粒度 + 节点位置。结论一旦签字即为 0.3 实施依据；变更需走 ADR 修订流程。
+## I. Background
 
-**术语澄清**：本 ADR 中"自建服务器"指的是"**自己写后端代码**"，**不**是"不使用 AWS / GCP 等云"。0.3 的服务器一定部署在公有云上，需要决策的是：用什么栈写、装在哪个云、认证用 SaaS 还是自写。
+The 0.3 milestone introduces ASCI's independent account system and public release, requiring a custom server (authentication / user data / telemetry ingestion / version updates). This ADR decides 4 backend-stack dimensions + node location. Once signed, its conclusion governs 0.3 implementation; changes require ADR revision.
 
-**0.3.0 范围相关决策（已在 0.3 north-star §二 / §十 锁定，本 ADR 需遵守）**：
-- **单节点首发**，欧美双节点路由推迟 0.4
-- 节点位置由本 ADR 拍板（0.3 north-star 倾向欧盟，理由：合规一致性强、避免对欧盟用户的 SCC 依赖、所有用户数据天然落在欧盟）
-- 数据库：PostgreSQL（已锁定，本 ADR 仅在 ② 粒度决定"用什么 PG 服务"）
-- API 协议：REST + JSON（已锁定）
-- 服务器代码闭源，独立仓库，CI/CD 独立
+**Terminology**: “custom server” here means **writing our own backend code**, rather than avoiding AWS / GCP or other clouds. The 0.3 server will run on public cloud; decisions concern the implementation stack, cloud, and SaaS vs custom authentication.
 
----
-
-## 二、决策粒度
-
-### ① 部署平台
-
-**候选**：AWS / GCP / Hetzner / DigitalOcean
-
-**关键决策依据**：
-- GDPR 数据主权（首发节点位置选定后是否能合法运营）
-- 欧美双节点能力（0.3.0 单节点首发，但 0.4 需扩展到双节点，平台需支持）
-- 月成本（首发用户量预估 <1k，年度 TCO 估算）
-
-### ② 数据库
-
-**候选**：AWS RDS / Neon / Supabase（仅 DB）/ 自管 PG
-
-**关键决策依据**：
-- 托管费 vs 运维成本
-- 与 ① 部署平台的兼容性（同云内部网络延迟低）
-- 备份 / 还原 SOP 复杂度
-- Privacy Policy 中的数据处理方（数据子处理者列表）
-
-### ③ 认证策略
-
-**候选**：自写 / Auth0 / Clerk / WorkOS
-
-**关键决策依据**：
-- ORCID 接入成本（0.3 必须支持 ORCID OAuth，非默认 provider，看每家自定义 OAuth 接入难度）
-- 月费临界点（Auth0 7000 MAU 后失效免费层；其他家计费模型）
-- 0.3.0 已砍 GitHub OAuth，仅需支持 Google + ORCID + Email/Password
-- Refresh Token 轮转 / safeStorage 加密接入复杂度（U4 / U5 审计要求）
-
-### ④ 应用层框架
-
-**候选**：Bun + Hono / Go + Gin / Node + Fastify
-
-**关键决策依据**：
-- 团队学习成本（当前桌面端用 Bun + TypeScript，服务端复用 vs 引入新栈）
-- 0.3 时间窗口（约 2 周代码窗口，含 0.2 末 1 周重叠）
-- 性能（认证服务 99.5% 可用 + 1000 并发登录，见 S2）
-- 与 ② 数据库的 ORM / 客户端生态成熟度
+**0.3.0 scope decisions (locked in 0.3 north-star §II / §X; binding on this ADR)**:
+- **Single-node launch**; Europe/US dual-node routing deferred to 0.4
+- This ADR decides node location (0.3 north-star favors the EU for consistent compliance, avoiding SCC dependence for EU users, and naturally keeping all user data in the EU)
+- Database: PostgreSQL (locked; dimension ② decides only which PG service)
+- API protocol: REST + JSON (locked)
+- Closed-source server code in a separate repository with independent CI/CD
 
 ---
 
-## 三、调研与评估
+<a id="二决策粒度"></a>
 
-### ① 部署平台
+## II. Decision Dimensions
 
-| 候选 | TCO 估算（年）| 优势 | 劣势 | 决策依据 |
+<a id="-部署平台"></a>
+
+### ① Deployment Platform
+
+**Candidates**: AWS / GCP / Hetzner / DigitalOcean
+
+**Key criteria**:
+- GDPR data sovereignty (lawful operation after selecting the launch node location)
+- Europe/US dual-node capability (0.3.0 launches one node; platform must support two for 0.4)
+- Monthly cost (estimated launch users <1k, annual TCO)
+
+<a id="-数据库"></a>
+
+### ② Database
+
+**Candidates**: AWS RDS / Neon / Supabase (DB only) / self-managed PG
+
+**Key criteria**:
+- Managed fees vs operations cost
+- Compatibility with ① deployment platform (low same-cloud internal network latency)
+- Backup / restore SOP complexity
+- Data processors in Privacy Policy (subprocessor list)
+
+<a id="-认证策略"></a>
+
+### ③ Authentication Strategy
+
+**Candidates**: custom / Auth0 / Clerk / WorkOS
+
+**Key criteria**:
+- ORCID integration cost (0.3 must support ORCID OAuth, a nondefault provider; compare custom OAuth integration difficulty)
+- Monthly pricing thresholds (Auth0 free tier ends after 7000 MAU; other providers' pricing models)
+- 0.3.0 already removed GitHub OAuth; only Google + ORCID + Email/Password needed
+- Refresh Token rotation / safeStorage encryption integration complexity (U4 / U5 audit requirements)
+
+<a id="-应用层框架"></a>
+
+### ④ Application Framework
+
+**Candidates**: Bun + Hono / Go + Gin / Node + Fastify
+
+**Key criteria**:
+- Team learning cost (desktop currently uses Bun + TypeScript; server reuse vs a new stack)
+- 0.3 time window (approximately 2 weeks coding, including 1 overlapping week at the end of 0.2)
+- Performance (authentication 99.5% availability + 1000 concurrent logins, see S2)
+- ORM / client ecosystem maturity for database ②
+
+---
+
+<a id="三调研与评估"></a>
+
+## III. Research and Evaluation
+
+<a id="-部署平台-1"></a>
+
+### ① Deployment Platform
+
+| Candidate | Estimated annual TCO | Advantages | Disadvantages | Decision basis |
 |------|-------------|------|------|---------|
-| AWS | （待填）| （待填）| （待填）| （待填）|
-| GCP | （待填）| （待填）| （待填）| （待填）|
-| Hetzner | （待填）| （待填）| （待填）| （待填）|
-| DigitalOcean | （待填）| （待填）| （待填）| （待填）|
+| AWS | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| GCP | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| Hetzner | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| DigitalOcean | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
 
-### ② 数据库
+<a id="-数据库-1"></a>
 
-| 候选 | TCO 估算（年）| 优势 | 劣势 | 决策依据 |
+### ② Database
+
+| Candidate | Estimated annual TCO | Advantages | Disadvantages | Decision basis |
 |------|-------------|------|------|---------|
-| AWS RDS | （待填）| （待填）| （待填）| （待填）|
-| Neon | （待填）| （待填）| （待填）| （待填）|
-| Supabase（仅 DB） | （待填）| （待填）| （待填）| （待填）|
-| 自管 PG | （待填）| （待填）| （待填）| （待填）|
+| AWS RDS | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| Neon | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| Supabase (DB only) | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| Self-managed PG | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
 
-### ③ 认证策略
+<a id="-认证策略-1"></a>
 
-| 候选 | TCO 估算（年）| ORCID 接入成本 | 月费临界点 | 决策依据 |
+### ③ Authentication Strategy
+
+| Candidate | Estimated annual TCO | ORCID integration cost | Monthly pricing threshold | Decision basis |
 |------|-------------|---------------|----------|---------|
-| 自写 | （待填）| （待填）| N/A | （待填）|
-| Auth0 | （待填）| （待填）| 7000 MAU 后失效免费层 | （待填）|
-| Clerk | （待填）| （待填）| （待填）| （待填）|
-| WorkOS | （待填）| （待填）| （待填）| （待填）|
+| Custom | (to be filled) | (to be filled) | N/A | (to be filled) |
+| Auth0 | (to be filled) | (to be filled) | Free tier ends after 7000 MAU | (to be filled) |
+| Clerk | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
+| WorkOS | (to be filled) | (to be filled) | (to be filled) | (to be filled) |
 
-### ④ 应用层框架
+<a id="-应用层框架-1"></a>
 
-| 候选 | 优势 | 劣势 | 决策依据 |
+### ④ Application Framework
+
+| Candidate | Advantages | Disadvantages | Decision basis |
 |------|------|------|---------|
-| Bun + Hono | （待填）| （待填）| （待填）|
-| Go + Gin | （待填）| （待填）| （待填）|
-| Node + Fastify | （待填）| （待填）| （待填）|
+| Bun + Hono | (to be filled) | (to be filled) | (to be filled) |
+| Go + Gin | (to be filled) | (to be filled) | (to be filled) |
+| Node + Fastify | (to be filled) | (to be filled) | (to be filled) |
 
 ---
 
-## 四、已排除方案
+<a id="四已排除方案"></a>
 
-> 0.2 north-star §六 F1 明确：Firebase / Supabase 全栈 BaaS 因 GDPR 主权 + ORCID 不在默认 provider 列表 + 本地优先架构通常可在 §3 中淘汰，但需在文档中记录原因。
+## IV. Excluded Options
 
-### Firebase 全栈
-- **排除原因**：（待填——参考 GDPR 数据主权、ORCID 接入、与本地优先架构的契合度）
+> 0.2 north-star §VI F1 states that Firebase / Supabase full-stack BaaS can generally be excluded in §3 due to GDPR sovereignty + ORCID absent from default providers + local-first architecture, but reasons must be recorded.
 
-### Supabase 全栈（包含 Auth + DB + Storage）
-- **排除原因**：（待填——与 Supabase 仅作为 DB 提供商区分；前者绑定 Supabase Auth，后者只用 PG）
+<a id="firebase-全栈"></a>
+
+### Firebase Full Stack
+- **Reason for exclusion**: (to be filled—consider GDPR data sovereignty, ORCID integration, fit with local-first architecture)
+
+<a id="supabase-全栈包含-auth-&#45;db-&#45;storage"></a>
+
+### Supabase Full Stack (Auth + DB + Storage)
+- **Reason for exclusion**: (to be filled—distinguish from using Supabase solely as a DB provider; the former binds Supabase Auth, the latter uses only PG)
 
 ---
 
-## 五、决策
+<a id="五决策"></a>
 
-> 待 Dev D 完成调研 + 评审后填写。
+## V. Decision
 
-### 拍板结论
+> Dev D to fill after research + review.
 
-| 粒度 | 决策 | 主要理由 |
+<a id="拍板结论"></a>
+
+### Final Decision
+
+| Dimension | Decision | Main rationale |
 |------|------|---------|
-| ① 部署平台 | （待填） | （待填）|
-| ② 数据库 | （待填） | （待填）|
-| ③ 认证策略 | （待填） | （待填）|
-| ④ 应用层框架 | （待填） | （待填）|
-| **节点位置（0.3.0 首发）** | （待填，建议欧盟） | （待填）|
+| ① Deployment platform | (to be filled) | (to be filled) |
+| ② Database | (to be filled) | (to be filled) |
+| ③ Authentication strategy | (to be filled) | (to be filled) |
+| ④ Application framework | (to be filled) | (to be filled) |
+| **Node location (0.3.0 launch)** | (to be filled; EU recommended) | (to be filled) |
 
-### 与 §五-A 发布前置事务的关联
+<a id="与-五-a-发布前置事务的关联"></a>
 
-本 ADR 拍板后，§五-A 中以下事项的责任人需立即启动：
+### Relationship to §V-A Release Prerequisites
 
-- Apple Developer + macOS Notarization（与节点位置无关，但与 ④ 框架部署目标相关）
-- ORCID OAuth client_id 申请（依赖 ③ 认证策略——若选 Auth0/Clerk，OAuth client 在 SaaS 控制台配置；若自写，需 ASCI 自己向 ORCID 申请）
-- Google OAuth verification（同上）
-- 邮件发件域 SPF / DKIM / DMARC + 邮件商认证（独立于本 ADR）
+After this ADR is decided, owners of the following §V-A items must start immediately:
+
+- Apple Developer + macOS Notarization (independent of node location, but related to ④ framework deployment targets)
+- ORCID OAuth client_id application (depends on ③ authentication strategy: Auth0/Clerk configures clients in SaaS consoles; custom authentication requires ASCI to apply directly to ORCID)
+- Google OAuth verification (same as above)
+- Sending-domain SPF / DKIM / DMARC + email provider verification (independent of this ADR)
 
 ---
 
-## 六、后果
+<a id="六后果"></a>
 
-### 正向后果
-（待填）
+## VI. Consequences
 
-### 负向后果 / 风险
-（待填）
+<a id="正向后果"></a>
 
-### 后续动作
+### Positive Consequences
+(to be filled)
 
-- [ ] 服务器仓库创建（走 sciops OPS 流程，配置权限 / 分支保护 / secrets policy / CODEOWNERS）
-- [ ] CI/CD 配置
-- [ ] §五-A lead-time 启动（依本 ADR ③ 拍板结论）
-- [ ] §五 GDPR MVP 中 DPA 子处理者清单更新（依本 ADR ① ② ③ 服务商列表）
-- [ ] （待填）
+<a id="负向后果-&#45;风险"></a>
+
+### Negative Consequences / Risks
+(to be filled)
+
+<a id="后续动作"></a>
+
+### Follow-up Actions
+
+- [ ] Create server repository (sciops OPS process; permissions / branch protection / secrets policy / CODEOWNERS)
+- [ ] Configure CI/CD
+- [ ] Start §V-A lead-time tasks (per dimension ③'s decision)
+- [ ] Update §V GDPR MVP DPA subprocessor list (per providers chosen in ① ② ③)
+- [ ] (to be filled)

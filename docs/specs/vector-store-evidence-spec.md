@@ -1,134 +1,164 @@
-# 文献向量索引 + 语义检索 Spec（Vector Index & Semantic Search Specification）
+<a id="文献向量索引-&#45;语义检索-specvector-index-&#45;semantic-search-specification"></a>
 
-> **状态**：设计已裁决（grill-with-docs 九问 2026-06-02）· 实现完成（PR1/2/3 + simplify 复盘；待手动 golden path 验证）
-> **关联分支**：`feat/vector-store-evidence`
-> **关联 ADR**：[ADR-012 本地嵌入选型](../adr/ADR-012-local-embedding-vector-index.md)
-> **领域语言事实源**：[CONTEXT.md「文献语料与检索」](../../CONTEXT.md)
-> **关联 issue**：（开发完成后回填）
+# Literature Vector Index + Semantic Search Spec (Vector Index & Semantic Search Specification)
+
+> **Status**: Design decided (grill-with-docs nine questions, 2026-06-02) · Implementation complete (PR1/2/3 + simplify review; manual golden path pending)
+> **Related branch**: `feat/vector-store-evidence`
+> **Related ADR**: [ADR-012 Local Embedding Selection](../adr/ADR-012-local-embedding-vector-index.md)
+> **Domain language source of truth**: [CONTEXT.md Literature Corpus and Retrieval](../../CONTEXT.md)
+> **Related issue**: (Fill after development)
 
 ---
 
-## 1. 问题与目标
+<a id="1-问题与目标"></a>
 
-文献多时（几十~几百篇）Agent 问答/综述靠 `papers_read_*` 逐篇通读 wiki md，慢且耗 context；证据组装只到论文级精度。
+## 1. Problem and Goals
 
-**成功标准**（grill Q1 裁决）：
-1. **组装质量**：Agent 挑证据更准更全，引用锚点精确到段落
-2. **响应速度**：文献多时问答/综述明显变快、少烧 context
+With many papers (tens to hundreds), Agent Q&A/reviews read wiki md one paper at a time through `papers_read_*`, slowly consuming context; evidence assembly reaches only paper-level granularity.
 
-不做（本期）：检索证据集自身（等 ADR-007 M:N 容器落地）；UI 语义搜索框（查询服务保持可被未来 IPC 复用）。
+**Success criteria** (grill Q1 decision):
+1. **Assembly quality**: More accurate and complete Agent evidence selection, with paragraph-level citation anchors.
+2. **Response speed**: Noticeably faster Q&A/reviews with many papers and lower context use.
 
-## 2. 九项设计裁决（与用户逐条确认）
+Out of scope this release: searching evidence sets themselves (await ADR-007 M:N containers); UI semantic-search field (query service remains reusable by future IPC).
 
-| # | 决定 | 关键理由 |
+<a id="2-九项设计裁决与用户逐条确认"></a>
+
+## 2. Nine Design Decisions (Confirmed Individually with the User)
+
+| # | Decision | Main Reason |
 |---|------|----------|
-| Q1 | 成功标准 = 组装质量 + 响应速度 | 见上 |
-| Q2 | 消费方 = 仅 Agent MCP 工具（`papers-rg` 进程内 server 新增 `papers_semantic_search`） | extractor 已有 papers-rg 扫描约定；主进程可直接开 SQLite/onnx |
-| Q3 | 嵌入 = 本地 ONNX（multilingual-e5-small 量化，384 维） | ADR-012：零配置/隐私/不碰 Provider 层 |
-| Q4 | 存储 = sqlite-vec + 独立索引库 `~/.asci/zotero/vector-index.db` | **可重建缓存**定位：不进 asci.db migration；换模型删库重建 |
-| Q5 | 语料三层：raw 段落（保底）+ LLMWiki 摘要（增强）+ title/abstract（粗召回） | LLMWiki 升级为检索质量增强器 |
-| Q6 | 作用域 = 全局一份；查询期可按 attachmentKeys 过滤 | 索引跟语料（文献库）走，不跟消费者（workspace）走 |
-| Q7 | 触发 = 默认自动 + 事件驱动增量；**评估总开关**门控 worker + 工具注册 | 本地零成本 → 工具可用性稳定；开关关闭回退基线便于 A/B |
-| Q8 | 召回 = 向量 KNN + FTS5(BM25, trigram) 混合，RRF 融合 | 科研精确术语（基因名/缩写）召回 + 小模型质量兜底 |
-| Q9 | 证据回写 = extractor 新增扫描分支，段落级锚点 + chunk 原文作 snapshotText | "这段是依据"而非"这篇相关" |
+| Q1 | Success = assembly quality + response speed | Above |
+| Q2 | Consumer = Agent MCP tools only (add `papers_semantic_search` to in-process `papers-rg` server) | Extractor already scans papers-rg; main process can directly open SQLite/onnx |
+| Q3 | Embedding = local ONNX (quantized multilingual-e5-small, 384 dimensions) | ADR-012: zero configuration/privacy/no Provider-layer changes |
+| Q4 | Storage = sqlite-vec + independent index `~/.asci/zotero/vector-index.db` | **Rebuildable cache**, outside asci.db migration; delete/rebuild on model changes |
+| Q5 | Three corpus layers: raw paragraphs (baseline) + LLMWiki summaries (enhancement) + title/abstract (coarse recall) | LLMWiki becomes a retrieval-quality enhancer |
+| Q6 | Scope = one global index; query-time attachmentKeys filtering | Index follows corpus (literature library), not consumers (workspaces) |
+| Q7 | Trigger = automatic by default + event-driven increments; **evaluation master switch** gates worker + tool registration | Zero local cost → stable tool availability; switch-off restores baseline for A/B |
+| Q8 | Retrieval = vector KNN + FTS5(BM25, trigram), fused by RRF | Exact research terms (gene names/abbreviations) + small-model quality fallback |
+| Q9 | Evidence write-back = new extractor scanning branch, paragraph anchors + chunk original text as snapshotText | This passage is the evidence, rather than this paper is related |
 
-## 3. 架构
+<a id="3-架构"></a>
+
+## 3. Architecture
+
+The retained diagram traces parser/deletion and LLMWiki events through onEmbedSourceReady/onEmbedSourceDeleted, queue/worker, content-hash increments, dual-anchor chunking, batch embedding, transactional storage, KNN/BM25→RRF/per-paper deduplication, per-session gated MCP tools, and paragraph-level EvidenceRef extraction from top hits.
 
 ```
-┌─ 事件源 ──────────────────────────────────────────────┐
-│ zotero-pdf-parser（解析完成/删除）                      │
-│ zotero-article-generator（LLMWiki 生成完成）            │
+┌─ Event sources ──────────────────────────────────────────────┐
+│ zotero-pdf-parser（parse complete/delete）                      │
+│ zotero-article-generator（LLMWiki generation complete）            │
 └──────────────┬───────────────────────────────────────┘
                ▼ onEmbedSourceReady / onEmbedSourceDeleted
-┌─ zotero-embedding-index（主进程，仿 article 三件套）────┐
+┌─ zotero-embedding-index（main process, following article trio）────┐
 │ queue → worker.runOne(key)：                           │
-│   读 .md/.article.md/index.json → content_hash 增量判定 │
-│   → chunker 切块（双轨锚点）→ embedder 批量推理          │
-│   → vector-db 三表事务写入                              │
+│   read .md/.article.md/index.json → content_hash incremental check │
+│   → chunker (dual anchors) → embedder batch inference          │
+│   → vector-db three-table transactional write                              │
 └──────────────┬───────────────────────────────────────┘
                ▼
-┌─ vector-index.db（可重建缓存）─────────────────────────┐
+┌─ vector-index.db（rebuildable cache）─────────────────────────┐
 │ meta（model_id/embed_dim）                             │
-│ chunks（锚点+原文+hash） + vec_chunks（vec0） + fts_chunks│
+│ chunks（anchors+original text+hash） + vec_chunks（vec0） + fts_chunks│
 └──────────────┬───────────────────────────────────────┘
-               ▼ 混合检索（KNN ∪ BM25 → RRF → 每篇去重）
-┌─ papers-rg MCP（进程内）────────────────────────────────┐
-│ papers_semantic_search（评估开关门控注册，每会话判定）    │
+               ▼ hybrid retrieval (KNN ∪ BM25 → RRF → per-paper deduplication)
+┌─ papers-rg MCP（in-process）────────────────────────────────┐
+│ papers_semantic_search（evaluation-switch gated registration, checked per session）    │
 └──────────────┬───────────────────────────────────────┘
-               ▼ 工具结果（paperId + 锚点 + snippet）
+               ▼ tool results (paperId + anchor + snippet)
 ┌─ evidence-conversation-citations-extractor ───────────┐
-│ 新增扫描分支 → 段落级 EvidenceRef 候选（每篇去重 top 命中）│
+│ new scan branch → paragraph EvidenceRef candidates (top hit per paper)│
 └───────────────────────────────────────────────────────┘
 ```
 
-### 3.1 双轨锚点（语料现实）
+<a id="31-双轨锚点语料现实"></a>
 
-lite 策略（默认）解析的 raw md **没有** `<p id>` 锚点（本机实测 47 篇中 45 篇 lite）：
+### 3.1 Dual Anchors (Actual Corpus)
 
-| 语料形态 | 切分 | 锚点格式 |
+Raw md from the default lite strategy **lacks** `<p id>` anchors (45 of 47 locally measured papers used lite):
+
+| Corpus Form | Splitting | Anchor Format |
 |----------|------|----------|
-| structured md / .article.md（有 `<p id="pS_P">`） | 按段落标签 | `p3_1`（段落 id） |
-| lite md（纯文本） | 按行合并至 ~300 token | `b12345`（body 内字节偏移，与 `papers_read_context` 的 byteOffset 寻址吻合） |
-| title+abstract（index.json） | 每篇一条 | null |
+| structured md / .article.md (with `<p id="pS_P">`) | Paragraph tags | `p3_1` (paragraph id) |
+| lite md (plain text) | Merge lines to ~300 tokens | `b12345` (body byte offset, matching `papers_read_context` byteOffset addressing) |
+| title+abstract (index.json) | One per paper | null |
 
-### 3.2 vector-index.db schema
+### 3.2 vector-index.db Schema
 
-见 `apps/electron/src/main/lib/zotero-embedding-index/vector-db.ts` 头注释（事实源）。要点：
-- `chunks`（id 主键）+ `vec_chunks`（vec0，rowid 对齐）+ `fts_chunks`（FTS5 external-content，trigram）
-- meta.model_id / embed_dim 与当前模型不符 → 整库删除重建
-- 每篇每层整体替换（事务内三表同步）；增量键 `attachment_key + content_hash + model_id`
+See the header comment of `apps/electron/src/main/lib/zotero-embedding-index/vector-db.ts` (source of truth). Key points:
+- `chunks` (id primary key) + `vec_chunks` (vec0, aligned rowid) + `fts_chunks` (FTS5 external-content, trigram).
+- meta.model_id / embed_dim mismatch with current model → delete/rebuild the database.
+- Replace each paper/layer atomically (three tables synchronized in one transaction); incremental key `attachment_key + content_hash + model_id`.
 
-### 3.3 模型分发
+<a id="33-模型分发"></a>
 
-`multilingual-e5-small` 量化 ONNX（118MB）+ tokenizer.json（17MB）+ tokenizer_config.json，
-运行时从 HF 主源 / hf-mirror 镜像下载到 `~/.asci/models/{modelId}/`（`embedding-model-service.ts`，
-状态机仿 `asr-weights-service.ts`；走 `getEffectiveProxyUrl()` 代理；文件粒度断点）。
+### 3.3 Model Distribution
 
-### 3.4 评估开关（A/B）
+Quantized `multilingual-e5-small` ONNX (118MB) + tokenizer.json (17MB) + tokenizer_config.json,
+downloaded at runtime from HF primary / hf-mirror to `~/.asci/models/{modelId}/` (`embedding-model-service.ts`,
+state machine following `asr-weights-service.ts`; proxy via `getEffectiveProxyUrl()`; file-level resumption).
 
-`~/.asci/zotero-embedding.json` 的 `enabled`（默认 true）同时门控：
-1. embedding worker 是否跟随事件建索引
-2. `agent-orchestrator` 创建 papers-rg server 时是否注册 `papers_semantic_search`（**每会话判定一次**，避免会话中途工具集抖动）
+<a id="34-评估开关ab"></a>
 
-关闭 = Agent 回到逐篇阅读基线，与开启态对比即可评估检索价值。
+### 3.4 Evaluation Switch (A/B)
 
-## 4. MCP 工具契约（papers_semantic_search）
+`enabled` in `~/.asci/zotero-embedding.json` (default true) gates both:
+1. Whether the embedding worker indexes on events.
+2. Whether `agent-orchestrator` registers `papers_semantic_search` when creating papers-rg server (**once per session**, avoiding toolset changes mid-session).
 
-- 入参：`query`(1~512 字符)、`attachmentKeys?`、`maxResults?`(默认 10 上限 50)、`textKinds?`
-- 出参：`ZoteroSemanticSearchResult`（见 `packages/shared/src/types/zotero-embedding.ts`）
-  - `degraded: 'model_not_ready' | 'index_empty'`：降级显式可见，不抛错
-  - hits 含 `paperId / textKind / anchorStart / anchorEnd / snippet / score`
+Off = Agent returns to the per-paper-reading baseline; compare with on to assess retrieval value.
 
-## 5. 实现地图（PR 切分）
+<a id="4-mcp-工具契约papers_semantic_search"></a>
 
-### PR1 — 索引基础设施 ✅
-- `packages/shared/src/types/zotero-embedding.ts` — 类型 + 默认配置
-- `apps/electron/src/main/lib/zotero-embedding-index/{vector-db,chunker,embedder}.ts` + 单测
-- `apps/electron/src/main/lib/embedding-model-service.ts` — 模型下载
-- `config-paths.ts`：`getZoteroVectorIndexPath` / `getEmbeddingModelsDir` / `getZoteroEmbeddingConfigPath`
-- 依赖：`sqlite-vec@0.1.9`（须 --external + 打包白名单）、`@huggingface/tokenizers@0.1.3`（纯 JS 直接打包）
-- 测试 driver 说明：bun test 不支持 better-sqlite3 native（bun#4290）→ `RawVectorDb` 最小接口 + bun:sqlite 适配；vec0 真路径由 Electron 冒烟覆盖
+## 4. MCP Tool Contract (papers_semantic_search)
 
-### PR2 — worker + 事件钩子 + Agent 工具 + 证据回写
-- `zotero-embedding-index/{queue,worker,index}.ts`（仿 zotero-article-generator）
-- 钩子：pdf-parser worker（写完 md / cleanupMd）、article-generator worker（写完 article）
-- `papers-rg-tool.ts` 新增工具（deps 注入查询函数）；`agent-orchestrator.ts` 按开关注册
-- `agent-prompt-builder.ts` 工具说明（英文）
-- `evidence-conversation-citations-extractor.ts` 新分支 + 测试
+- Input: `query` (1~512 characters), `attachmentKeys?`, `maxResults?` (default 10, maximum 50), `textKinds?`.
+- Output: `ZoteroSemanticSearchResult` (see `packages/shared/src/types/zotero-embedding.ts`).
+  - `degraded: 'model_not_ready' | 'index_empty'`: Explicit degradation without throwing.
+  - hits include `paperId / textKind / anchorStart / anchorEnd / snippet / score`.
 
-### PR3 — 设置页 UI（IPC 四联 + i18n en/zh）
-- `ZOTERO_IPC_CHANNELS` 新增 EMBED_* 通道 → ipc.ts → preload → atoms + `ZoteroEmbeddingPanel.tsx`
+<a id="5-实现地图pr-切分"></a>
 
-## 6. 打包硬约束（CLAUDE.md §7.1 对齐）
+## 5. Implementation Map (PR Split)
 
-- esbuild `build:main`/`watch:main` 追加 `--external:sqlite-vec --external:onnxruntime-node`
-- `electron-builder.yml` files 白名单追加 `node_modules/sqlite-vec/**/*` 与 `node_modules/sqlite-vec-*/**/*`
-- **无 ABI 风险**：onnxruntime-node 是 N-API（免 rebuild）；sqlite-vec 是 SQLite loadable extension（dylib，由 SQLite 加载）
-- ONNX 模型不进包（运行时下载）
+<a id="pr1-&#45;索引基础设施-"></a>
 
-## 7. 验证清单
+### PR1 — Index Infrastructure ✅
+- `packages/shared/src/types/zotero-embedding.ts` — Types + default configuration.
+- `apps/electron/src/main/lib/zotero-embedding-index/{vector-db,chunker,embedder}.ts` + unit tests.
+- `apps/electron/src/main/lib/embedding-model-service.ts` — Model download.
+- `config-paths.ts`: `getZoteroVectorIndexPath` / `getEmbeddingModelsDir` / `getZoteroEmbeddingConfigPath`.
+- Dependencies: `sqlite-vec@0.1.9` (requires --external + packaging allowlist), `@huggingface/tokenizers@0.1.3` (pure JS, directly bundled).
+- Test-driver note: bun test lacks better-sqlite3 native support (bun#4290) → minimal `RawVectorDb` interface + bun:sqlite adapter; real vec0 path covered by Electron smoke test.
 
-1. `bun run typecheck` / `bun test` 全绿（含 key-parity）
-2. `dist:fast` 冒烟：sqlite-vec/onnxruntime-node 进包、启动无 native 报错、vec0 真路径可建表
-3. golden path：开开关 → 模型下载进度 → 解析新 PDF 自动入队 → Agent 调 `papers_semantic_search` → 生成证据带段落锚点 → 删 Zotero 论文联动清理 → 设置页 zh↔en 无 raw key
-4. 边界：`model_not_ready` / `index_empty` 降级；attachmentKeys 过滤；开关关闭后新会话无该工具
+<a id="pr2-&#45;worker-&#45;事件钩子-&#45;agent-工具-&#45;证据回写"></a>
+
+### PR2 — Worker + Event Hooks + Agent Tool + Evidence Write-Back
+- `zotero-embedding-index/{queue,worker,index}.ts` (following zotero-article-generator).
+- Hooks: pdf-parser worker (after md write / cleanupMd), article-generator worker (after article write).
+- New tool in `papers-rg-tool.ts` (query function injected through deps); `agent-orchestrator.ts` registers by switch.
+- Tool instructions (English) in `agent-prompt-builder.ts`.
+- New branch + tests in `evidence-conversation-citations-extractor.ts`.
+
+<a id="pr3-&#45;设置页-uiipc-四联-&#45;i18n-enzh"></a>
+
+### PR3 — Settings UI (Four-Way IPC + en/zh i18n)
+- New EMBED_* channels in `ZOTERO_IPC_CHANNELS` → ipc.ts → preload → atoms + `ZoteroEmbeddingPanel.tsx`.
+
+<a id="6-打包硬约束claudemd-71-对齐"></a>
+
+## 6. Packaging Hard Constraints (Aligned with CLAUDE.md §7.1)
+
+- Append `--external:sqlite-vec --external:onnxruntime-node` to esbuild `build:main`/`watch:main`.
+- Add `node_modules/sqlite-vec/**/*` and `node_modules/sqlite-vec-*/**/*` to `electron-builder.yml` files allowlist.
+- **No ABI risk**: onnxruntime-node uses N-API (no rebuild); sqlite-vec is a SQLite loadable extension (dylib, loaded by SQLite).
+- ONNX models remain outside the package (runtime downloads).
+
+<a id="7-验证清单"></a>
+
+## 7. Verification Checklist
+
+1. `bun run typecheck` / `bun test` fully green (including key parity).
+2. `dist:fast` smoke test: sqlite-vec/onnxruntime-node packaged, no native startup errors, actual vec0 path can create tables.
+3. Golden path: Enable switch → model download progress → newly parsed PDF automatically queued → Agent calls `papers_semantic_search` → generated evidence includes paragraph anchors → Zotero paper deletion cleans up → settings zh↔en without raw keys.
+4. Boundaries: `model_not_ready` / `index_empty` degradation; attachmentKeys filtering; new sessions lack tool after disabling.

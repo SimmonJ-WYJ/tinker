@@ -1,134 +1,164 @@
-# Milestones 目录公约
+<a id="milestones-目录公约"></a>
 
-> 这份公约约束 `docs/milestones/` 和 `ya-docs/milestones/` 的目录结构与文件命名，目的是让"讨论 → 定稿 → 团队共享"的迁移路径无需任何路径改写。
+# Milestones Directory Convention
+
+> This convention governs directory structure and filenames in `docs/milestones/` and `ya-docs/milestones/`, ensuring that "discussion → finalization → team sharing" requires no path rewrites.
 
 ---
 
-## 1. 目录结构
+<a id="1-目录结构"></a>
+
+## 1. Directory Structure
 
 ```
-docs/milestones/                 # 团队共享，进 git
-  README.md                      # ← 本文件，目录公约
+docs/milestones/                 # Team-shared, tracked in git
+  README.md                      # ← This file: directory convention
   0.1/
     north-star.md
   0.2/
-    north-star.md                # ← 该版本唯一主入口
-    moat-analysis.md             # 附件：护城河分析（虎尼克）
-    milestone-review.md          # 附件：版本评审（虎尼克）
+    north-star.md                # ← Sole main entry for this version
+    moat-analysis.md             # Attachment: moat analysis (Tiger Nick)
+    milestone-review.md          # Attachment: version review (Tiger Nick)
   0.3/
     north-star.md
 
-ya-docs/milestones/              # 本地讨论场，被 .gitignore 忽略
-  0.1/                           # 结构与 docs/milestones/ 完全镜像
+ya-docs/milestones/              # Local discussion, ignored by .gitignore
+  0.1/                           # Exactly mirrors docs/milestones/
   0.2/
   0.3/
 ```
 
-**两条硬规则**：
+English guide to the preserved tree comments: docs/milestones is team-shared and tracked in git; README is this directory convention; each north-star is that version's sole main entry; moat-analysis and milestone-review are attachments by Tiger Nick. ya-docs/milestones is the local gitignored discussion area, exactly mirroring the docs structure.
 
-1. **每个版本目录有且只有一个 `north-star.md`**——它是该版本的总结/主入口。北极星目标的所有变更都收敛到这一个文件。
-2. **其他 `.md` 一律视为附件**，与 `north-star.md` 同目录平铺，不再分子目录。需要时直接在 `north-star.md` 中用相对链接 `./xxx.md` 引用。
+**Two hard rules**:
 
-附件的常见命名（按需挑选，不强制全部存在）：
+1. **Each version directory has exactly one `north-star.md`**: The version summary/main entry. All north-star goal changes converge in this file.
+2. **All other `.md` files are attachments**, flat alongside `north-star.md`, without further subdirectories. Reference them from `north-star.md` using relative links `./xxx.md` as needed.
 
-| 文件名 | 用途 |
+Common attachment names (choose as needed; not all required):
+
+| Filename | Purpose |
 |--------|------|
-| `north-star.md` | **唯一主入口**，本版本的最终目标与审计标准 |
-| `moat-analysis.md` | 护城河 / 战略定位分析（鹰尼克 / 虎尼克） |
-| `milestone-review.md` | 版本评审 / SWOT / CLEAR（虎尼克） |
-| `{topic}-research.md` | 主题调研（鹰尼克） |
-| `{topic}-spec.md` | 设计规格（狐尼克） |
-| `feedback-{date}.md` | 反馈整理（猫尼克） |
+| `north-star.md` | **Sole main entry**, final goals and audit criteria for this version |
+| `moat-analysis.md` | Moat / strategic positioning analysis (Eagle Nick / Tiger Nick) |
+| `milestone-review.md` | Version review / SWOT / CLEAR (Tiger Nick) |
+| `{topic}-research.md` | Topic research (Eagle Nick) |
+| `{topic}-spec.md` | Design specification (Fox Nick) |
+| `feedback-{date}.md` | Feedback consolidation (Cat Nick) |
 
-附件名**不带版本号前缀**——已经在版本目录里了。
+Attachment names **have no version prefix**: They already reside in a version directory.
 
 ---
 
-## 2. 引用约定
+<a id="2-引用约定"></a>
 
-| 场景 | 写法 |
+## 2. Reference Conventions
+
+| Scenario | Syntax |
 |------|------|
-| 同版本附件互引 | `[moat-analysis.md](./moat-analysis.md)` |
-| north-star 跨版本引用附件 | `[moat-analysis.md](../0.2/moat-analysis.md)` |
-| 跨版本带 anchor | `[0.2 开放标准 O1](../0.2/north-star.md#对象标准开放护城河-p0)` |
+| Same-version attachment links | `[moat-analysis.md](./moat-analysis.md)` |
+| north-star linking another version's attachment | `[moat-analysis.md](../0.2/moat-analysis.md)` |
+| Cross-version anchored link | `[0.2 开放标准 O1](../0.2/north-star.md#对象标准开放护城河-p0)` (preserved example: "0.2 Open Standards O1") |
 
-跨版本引用注意 anchor 的 GitHub slug 规则：中文保留，括号删除，空格转 `-`，全部小写。
-
----
-
-## 3. 命名空间冲突防御
-
-**同版本内不同章节的审计标准编号不能撞名**。例如：
-- ❌ §四"版本更新"用 `O1/O2/O3`，§六"对象标准开放"也用 `O1/O2/O3`
-- ✅ 前者改用 `UP1/UP2/UP3`（Update），后者保留 `O1/O2/O3`（Open）
-- ✅ §二"设计约束"用 `D1/D2/D3`，§六"数据所有权"改用 `DO1-DO4`（Data Ownership）
-
-**跨版本可以复用编号**（因为带 anchor 引用时是 `../0.2/north-star.md#xxx` 显式定位）。
+For cross-version links, follow GitHub slug rules: Retain Chinese characters, remove parentheses, replace spaces with `-`, lowercase everything.
 
 ---
 
-## 4. 工作流：讨论 → 定稿
+<a id="3-命名空间冲突防御"></a>
 
-### 第一稿
-- 直接在 `ya-docs/milestones/{version}/{file}.md` 写。
-- Agent 战略产出（如虎尼克的 `moat-analysis.md`）也直接写到 `ya-docs/milestones/{version}/`，不要再绕 `ya-docs/{version}/{agent-name}/`。
-  - 例外：那些**不会进 milestone** 的 Agent 工作底稿（调研笔记、过程稿）仍按 `.claude/CLAUDE.md` 放 `ya-docs/{version}/{agent-name}/`。
-  - 判定标准：这份文档会被 `north-star.md` 引用吗？是 → 直接写 milestones/；否 → 写 agent 目录。
+## 3. Namespace Collision Prevention
 
-### 修订
-- 已发布的某版本要修订时：
+**Audit criterion IDs in different sections of one version must not collide**. Examples:
+- ❌ §IV "Version Updates" uses `O1/O2/O3`, while §VI "Open Object Standards" also uses `O1/O2/O3`
+- ✅ Change the former to `UP1/UP2/UP3` (Update), retaining `O1/O2/O3` (Open) for the latter
+- ✅ §II "Design Constraints" uses `D1/D2/D3`; §VI "Data Ownership" changes to `DO1-DO4` (Data Ownership)
+
+**IDs may repeat across versions** because anchored links explicitly identify `../0.2/north-star.md#xxx`.
+
+---
+
+<a id="4-工作流讨论-&#45;定稿"></a>
+
+## 4. Workflow: Discussion → Finalization
+
+<a id="第一稿"></a>
+
+### First Draft
+- Write directly in `ya-docs/milestones/{version}/{file}.md`.
+- Agent strategy outputs (such as Tiger Nick's `moat-analysis.md`) also go directly in `ya-docs/milestones/{version}/`, without detouring through `ya-docs/{version}/{agent-name}/`.
+  - Exception: Agent working papers **that will not enter a milestone** (research notes, process drafts) still follow `.claude/CLAUDE.md` into `ya-docs/{version}/{agent-name}/`.
+  - Decision rule: Will `north-star.md` cite this document? Yes → milestones/ directly; no → agent directory.
+
+<a id="修订"></a>
+
+### Revision
+- To revise an already published version:
   ```bash
   cp -r docs/milestones/{version}/ ya-docs/milestones/{version}/
   ```
-  在 ya-docs 修改、讨论。
+  Edit and discuss in ya-docs.
 
-### 定稿
-- 修改完成后：
+<a id="定稿"></a>
+
+### Finalization
+- After completing changes:
   ```bash
   cp -r ya-docs/milestones/{version}/* docs/milestones/{version}/
   ```
-  路径相同 → 引用零改动。git diff 在 docs 中可见。
+  Identical paths → no reference changes. git diff appears in docs.
 
-### 不变量
-- 任何时候 `find docs/milestones -type f` 和 `find ya-docs/milestones -type f` 的相对路径集合应该是 `ya-docs ⊇ docs`（ya-docs 可以多出正在讨论的草稿，但已存在 docs 的文件 ya-docs 应有同名同结构副本作为"工作底稿"或"已同步副本"）。
+<a id="不变量"></a>
 
----
-
-## 5. 不做的事
-
-- ❌ 不分附件类型子目录（`strategy/`、`research/`），避免空目录与过度分层。
-- ❌ 不在 docs/milestones/ 写"草稿/讨论中"标注——草稿留在 ya-docs，定稿才进 docs。
-- ❌ 不引用 `ya-docs/...`——docs 的链接对外可见，引用 .gitignore 的路径会断。
+### Invariant
+- At any time, relative path sets from `find docs/milestones -type f` and `find ya-docs/milestones -type f` should satisfy `ya-docs ⊇ docs` (ya-docs may contain additional discussion drafts, but every existing docs file should have an identically named and structured counterpart as a working draft or synchronized copy).
 
 ---
 
-## 6. 跨批次 summary 与团队同步交付物
+<a id="5-不做的事"></a>
 
-当一次讨论跨越多个版本（如 0.2 + 0.3 一起规划），会产出多种衍生文档。区分两类，分别走不同流程。
+## 5. Exclusions
 
-### 6.1 文件分类与位置
+- ❌ No attachment-type subdirectories (`strategy/`, `research/`), avoiding empty directories and excessive nesting.
+- ❌ No "draft/under discussion" labels in docs/milestones/: Drafts stay in ya-docs; only finalized content enters docs.
+- ❌ No `ya-docs/...` references: docs links are public, and gitignored paths break them.
 
-| 文件 | 性质 | 位置 |
+---
+
+<a id="6-跨批次-summary-与团队同步交付物"></a>
+
+## 6. Cross-batch Summaries and Team Synchronization Deliverables
+
+Discussions spanning multiple versions (such as planning 0.2 + 0.3 together) produce multiple derivative documents. Distinguish two types with separate workflows.
+
+<a id="61-文件分类与位置"></a>
+
+### 6.1 File Types and Locations
+
+| File | Nature | Location |
 |------|------|------|
-| `summary-v<起>-v<止>.md` | 讨论档（含可行性评估、行动清单、PM 内部叙事）| **仅** `ya-docs/milestones/` 根 |
-| `asci-v<起>-v<止>-overview.html` | 团队同步整合交付物（版本规划 + 产品原型 单页整合）| **同时** `ya-docs/` + `docs/milestones/` 根 |
+| `summary-v<起>-v<止>.md` | Discussion record (feasibility assessment, action list, internal PM narrative); placeholders mean start/end | **Only** `ya-docs/milestones/` root |
+| `asci-v<起>-v<止>-overview.html` | Integrated team synchronization deliverable (version planning + product prototype in one page) | **Both** `ya-docs/` + `docs/milestones/` roots |
 
-命名规则：
-- 跨版本批次：`asci-v<起始版>-v<结束版>-overview.html`（如 `asci-v0.2-v0.3-overview.html`）
-- 单版本批次：`asci-v<版本>-overview.html`（如 `asci-v0.4-overview.html`）
-- 前缀统一 `asci-v`，排序时自动归类
-- 旧批次的 HTML / markdown summary **不覆盖、不改名**，保留作为历史决策档案
-- 历史命名：早期 v0.2 / v0.3 批次曾分 `summary-v<起>-v<止>.html`（规划可视化）+ `prototypes-v<起>-v<止>.html`（产品原型）两份文件，2026-05-14 合并为单页 `asci-v<起>-v<止>-overview.html`
+Naming rules:
+- Cross-version batch: `asci-v<起始版>-v<结束版>-overview.html` (e.g. `asci-v0.2-v0.3-overview.html`); placeholders mean starting/ending version
+- Single-version batch: `asci-v<版本>-overview.html` (e.g. `asci-v0.4-overview.html`); placeholder means version
+- Consistent `asci-v` prefix groups files automatically when sorted
+- **Never overwrite or rename** older HTML / markdown summaries; preserve historical decision records
+- Historical naming: Early v0.2 / v0.3 batches had two files, `summary-v<起>-v<止>.html` (planning visualization) + `prototypes-v<起>-v<止>.html` (product prototypes); merged on 2026-05-14 into single-page `asci-v<起>-v<止>-overview.html`
 
-### 6.2 生命周期
+<a id="62-生命周期"></a>
 
-- **markdown summary** 是讨论期对齐工具，**只入 ya-docs/**——含可行性评估 / 重排理由 / PM 内部叙事，不向外部暴露
-- **HTML 交付物** 是面向团队的成品，**同步到 docs/** 让所有人可访问
-- 讨论定稿后，summary 中的所有"决策类内容"必须吸收进各版本 `north-star.md`（north-star 是单一权威源）
+### 6.2 Lifecycle
 
-### 6.3 与 north-star 的边界
+- **Markdown summaries** align discussion and **enter ya-docs/ only**: They contain feasibility assessment / reordering rationale / internal PM narrative, not public material
+- **HTML deliverables** are team-facing finished outputs, **synchronized to docs/** for everyone to access
+- After discussion finalizes, absorb all summary decisions into each version's `north-star.md` (north-star is the sole authority)
 
-- north-star = 单个版本的"做什么 + 怎么验证"权威源
-- summary = 跨版本批次的"为什么这么切 + 整体可行性 + 重排理由"讨论档
-- HTML 交付物 = 基于 summary §一 版本规划的可视化呈现，**不引入 north-star 没有的决策**
-- 重叠内容以 north-star 为准
+<a id="63-与-north-star-的边界"></a>
+
+### 6.3 Boundary with north-star
+
+- north-star = Authority for one version's "what to do + how to verify"
+- summary = Cross-version discussion record of "why this split + overall feasibility + reordering rationale"
+- HTML deliverable = Visualization based on summary §I version planning, **introducing no decisions absent from north-star**
+- north-star prevails for overlapping content

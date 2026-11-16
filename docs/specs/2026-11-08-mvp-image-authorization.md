@@ -1,72 +1,90 @@
-# MVP 图片授权与登录品牌修复
+<a id="mvp-图片授权与登录品牌修复"></a>
 
-状态：实现与本地验收完成，待 draft PR 审阅。范围依据本轮已确认的产品要求与 UX-20261107-01、UX-20261108-01。基线 main 0cbdd72。整个批次一次提交，不迁移生产技术栈。
+# MVP image authorization and login branding fixes
 
-## 目标与边界
+Status: Implementation and local acceptance complete, draft PR review pending. Scope follows product requirements confirmed this round and UX-20261107-01, UX-20261108-01. Baseline main 0cbdd72. One commit for the whole batch; no production stack migration.
 
-- 明确请求生图、参考图编辑、继续生图时，不再因宿主生图工具本身弹权限或收费卡。
-- 授权仅绑定当前用户回合，默认一张，显式指定张数才扩大。相同请求重复执行由现有请求账本复用，不产生第二次 API 调用。取消、不同会话、下一回合不能继承授权。
-- 当前会话已附加图片可作为参考，明确选中的版本不可被替换。任意其他项目文件不能随着生图授权被自动外发，原路径、类型、大小及版本链校验继续执行。
-- 不明意图或超范围请求保留逐次确认，不把整个生图工具加入全局白名单。危险终端操作、写入范围、计划模式、其他服务的权限不变。
-- 只修改自有登录界面和本机 OAuth 回调页面的品牌及双语文案，回归登录开始、取消、返回、重复点击。外部 Google 同意屏幕、客户端配置、token、协议名和现有数据路径不改。
-- 不将原开发目录的旧快照覆盖最新 main，不移植无共同历史的 Tinker 2。Rust/Tauri 本轮不新增生产功能。
+<a id="目标与边界"></a>
 
-## 实施选择
+## Goals and boundaries
 
-将整个工具无条件放行会丢失授权范围；只改提示文案不会消除阻断。采用共享纯逻辑的回合授权对象，由 Electron 为其提供当前用户消息及会话参考图集合，并在权限 hook、canUseTool 与生图执行边界复用。SDK/文件系统依赖留在 Electron 适配层，迁移时可沿用规则测试与契约。
+- Explicit image-generation, reference-image editing, and continuation requests no longer trigger permission or payment cards merely because of the host image-generation tool.
+- Authorization binds only to the current user turn, defaults to one image, and expands only with an explicit count. Existing request-ledger reuse handles duplicate executions without a second API call. Cancellation, other sessions, and later turns cannot inherit authorization.
+- Images attached to the current session may serve as references; an explicitly selected version cannot be substituted. Image authorization must not automatically send arbitrary other project files externally; existing path, type, size, and version-chain checks continue.
+- Ambiguous intent or out-of-scope requests retain per-call confirmation; do not globally allowlist the entire image tool. Dangerous terminal operations, write scope, plan mode, and other service permissions remain unchanged.
+- Change only branding and bilingual copy on owned login UI and local OAuth callback pages; regress login start, cancellation, return, and repeated clicks. External Google consent screen, client configuration, tokens, protocol names, and existing data paths remain unchanged.
+- Do not overwrite latest main with an old development-directory snapshot or transplant Tinker 2 with unrelated history. No new Rust/Tauri production features this round.
+
+<a id="实施选择"></a>
+
+## Implementation choice
+
+Unconditionally allowing the entire tool loses authorization scope; changing prompts alone does not remove the block. Use a shared pure-logic turn authorization object, with Electron supplying the current user message and session reference-image set, reused at permission hook, canUseTool, and image execution boundaries. SDK/filesystem dependencies stay in Electron adapters, allowing reuse of rule tests and contracts during migration.
 
 ## Implementation Plan
 
-> For agentic workers: execute task-by-task with TDD and review. 已授权在当前隔离分支实施，不创建重复工程。最终按用户要求统一提交。
+> For agentic workers: execute task-by-task with TDD and review. Implementation is authorized on the current isolated branch; do not create a duplicate project. Submit together at the end as requested by the user.
 
-**Goal:** 修复当前 Electron MVP 的普通连续生图和登录旧品牌体验。
+**Goal:** Fix ordinary consecutive image generation and old-brand login experiences in the current Electron MVP.
 
-**Architecture:** 共享纯授权规则只接收当前请求与可引用素材 ID/路径数据，不读取文件、密钥或 SDK。Electron 构建会话上下文并接线，已有防重账本与原生校验保持。
+**Architecture:** Shared pure authorization rules receive only the current request and referenceable asset IDs/paths, without reading files, keys, or SDK. Electron builds and wires session context, preserving existing deduplication ledger and native validation.
 
-**Tech Stack:** 现有 React/TypeScript、Electron、Bun、Claude Agent SDK。Rust/Tauri 不改。
+**Tech Stack:** Existing React/TypeScript, Electron, Bun, Claude Agent SDK. No Rust/Tauri changes.
 
-### Task 1：核对并保护现状
+<a id="task-1核对并保护现状"></a>
 
-- [x] 核对 origin、最新 main、PR #1–#8 合并状态及隔离克隆。
-- [x] 保存原开发目录 89 文件哈希，逐一与 main 比对，61 相同、28 不同、无缺失文件。
-- [x] Tinker 2 初次云端占位读取超时；随后只读核实分支、根提交、origin，父对话补齐 status，确认独立工程确有未提交 Rust/Tauri/React 工作。保留原处，不合并无关历史。
-- [x] 对 28 个差异按后续 PR 版本归类，确认 20 个为历史旧 blob，8 个按功能审阅；图片卡精简为本轮应落实的未提交要求。
+### Task 1: Check and protect current state
 
-### Task 2：当前回合图片授权
+- [x] Check origin, latest main, PR #1–#8 merge status, and isolated clone.
+- [x] Save hashes for 89 original development-directory files and compare each with main: 61 identical, 28 different, none missing.
+- [x] Initial Tinker 2 cloud-placeholder reads timed out; subsequent read-only branch/root commit/origin checks plus parent-conversation status confirmed uncommitted Rust/Tauri/React work in an independent project. Preserve in place; do not merge unrelated histories.
+- [x] Classify 28 differences by later PR versions: 20 historical old blobs, 8 reviewed by functionality; simplified image cards are an uncommitted requirement to implement this round.
 
-- [x] 在 packages/shared/src/agent/image-request-authorization.test.ts 写失败回归：明确生图、截图继续请求、选图编辑、讨论/否定、数量范围、引用范围、重复调用 ID、取消与新回合隔离。
-- [x] bun test packages/shared/src/agent/image-request-authorization.test.ts，确认新行为缺失导致失败。
-- [x] 实现同目录 image-request-authorization.ts，导出到 shared，参数只含字符串、引用集合与当前回合状态。
-- [x] 在 Electron 会话附件适配器构建引用集合，保持 realpath 和符号链接边界。
-- [x] 将同一个授权对象接入 agent-permission-service、orchestrator、image-generation-tool，不改变 generic hard rules。
-- [x] 更新 image-permission-flow.test.ts，覆盖 hook/canUseTool 重复通知、不明意图保留审批、子任务、取消、危险工具与计划模式。
-- [x] 运行图片账本、参考图、版本选择及权限相关回归，使用合成数据与假生成器，不调用真实模型。
+<a id="task-2当前回合图片授权"></a>
 
-### Task 3：登录品牌、取消竞态与图片署名
+### Task 2: Current-turn image authorization
 
-- [x] 独立任务先写 LoginPage 双语品牌及 start/cancel/重复点击红测。
-- [x] 最小修改自有页文案与回调资源，保留兼容 ID、路径、法律链接及布局。
-- [x] 验证双语登录、等待、取消、返回与异常路径，实际 loopback 仅使用本机合成授权回调，不访问 Google。
-- [x] 图片署名红测复现 main 仍显示费用详情；精简为双语 Generated by 模型，保留预览/编辑/保存/对比、缺失提示与底层引用，组件回归 7 pass。
+- [x] Write failing regressions in packages/shared/src/agent/image-request-authorization.test.ts: explicit generation, screenshot continuation, selected-image editing, discussion/negation, count scope, reference scope, duplicate call IDs, cancellation, and new-turn isolation.
+- [x] Run bun test packages/shared/src/agent/image-request-authorization.test.ts and confirm failure due to missing new behavior.
+- [x] Implement image-request-authorization.ts alongside it, export from shared, and accept only strings, reference sets, and current-turn state.
+- [x] Build the reference set in the Electron session-attachment adapter, preserving realpath and symlink boundaries.
+- [x] Wire the same authorization object into agent-permission-service, orchestrator, and image-generation-tool without changing generic hard rules.
+- [x] Update image-permission-flow.test.ts to cover duplicate hook/canUseTool notifications, retained approval for unclear intent, subtasks, cancellation, dangerous tools, and plan mode.
+- [x] Run image-ledger, reference-image, version-selection, and permission regressions using synthetic data and fake generators, without real model calls.
 
-### Task 4：验收与一次交付
+<a id="task-3登录品牌取消竞态与图片署名"></a>
 
-- [x] 审查最终 diff、敏感信息及源目录哈希守恒，分类记录旧栈/可复用层/未改 Rust 范围。
-- [x] 运行适用 ESLint、全 monorepo typecheck、全 Bun 测试、Electron build，区分已有失败与本次失败。
-- [x] 在隔离数据下验证实际 renderer 双语及连续流程，不用真实密钥、会话、付费调用或用户安装版。
-- [x] 执行 simplify/review 检查，依据真实结果修复重要问题。
-- [ ] fetch 并合并最新 main，统一提交、推送安全分支，创建 draft PR，不合并或部署。
-- [ ] 核对远端完整 SHA、checks/status/Actions，写清本地通过与远端未运行的区别。
+### Task 3: Login branding, cancellation races, and image attribution
 
-## 后续每日迁移候选
+- [x] Independent task first writes failing LoginPage tests for bilingual branding and start/cancel/repeated clicks.
+- [x] Minimally change owned-page copy and callback resources, preserving compatible IDs, paths, legal links, and layout.
+- [x] Verify bilingual login, waiting, cancellation, return, and errors; real loopback uses local synthetic authorization callbacks only, without Google access.
+- [x] Image attribution failing tests reproduce main still showing cost details; simplify to bilingual Generated by model, preserving preview/edit/save/compare, missing-content prompts, and underlying references; component regression 7 pass.
 
-- 当前修复稳定并合并后，将本轮纯授权规则的合成输入/输出向量转成跨语言契约，只补 Rust Lab 测试，不切生产调用链。依赖本轮语义冻结。
-- 独立只读历史适配器继续兼容 SDK 日志，沿用 PR #8 fixtures；不能同时修改生产会话编排和本轮图片服务。
-- 单独记录相同数据、相同构建的启动/空闲/会话资源基线，不凭语言变化推断收益。
-- 本轮占用文件：agent-permission-service.ts、agent-orchestrator.ts、image-generation-tool.ts、图片授权模块及测试、auth 组件与 locale、auth-google-client.ts。定时任务应避让以上路径和全量测试/构建资源。
+<a id="task-4验收与一次交付"></a>
 
-## 回滚
+### Task 4: Acceptance and single delivery
 
-撤回本次单一提交即可恢复旧审批与文案，不迁移或回滚用户数据。新增授权状态只存在于当前回合内存，旧图片账本、版本记录、密钥和会话格式不变。应用未安装。
+- [x] Review final diff, sensitive information, and source-directory hash conservation; classify old stack/reusable layer/unchanged Rust scope.
+- [x] Run applicable ESLint, full monorepo typecheck, full Bun tests, and Electron build; distinguish baseline failures from new failures.
+- [x] Verify actual renderer bilingual and consecutive flows with isolated data, without real keys, sessions, paid calls, or the user's installed version.
+- [x] Perform simplify/review checks and fix important findings based on actual results.
+- [ ] Fetch and merge latest main; submit together, push safe branch, create draft PR; no merge or deployment.
+- [ ] Check full remote SHA, checks/status/Actions; distinguish local passing results from remote checks not run.
 
-本轮最终本地检查及已知边界见 [验证记录](../reports/2026-11-08-mvp-validation.md)。GitHub 发布步骤在提交之后执行，最终状态以对应分支、draft PR 及交付结果为准。
+<a id="后续每日迁移候选"></a>
+
+## Candidates for subsequent daily migration
+
+- After these fixes stabilize and merge, convert pure authorization-rule synthetic input/output vectors to cross-language contracts; add only Rust Lab tests without switching production calls. Depends on frozen semantics from this round.
+- Keep the independent read-only history adapter compatible with SDK logs, reusing PR #8 fixtures; do not simultaneously modify production session orchestration and this round's image service.
+- Separately record startup/idle/session resource baselines with identical data and builds; do not infer benefits from language changes.
+- Files occupied this round: agent-permission-service.ts, agent-orchestrator.ts, image-generation-tool.ts, image authorization module and tests, auth components and locales, auth-google-client.ts. Scheduled tasks should avoid these paths and full-suite test/build resources.
+
+<a id="回滚"></a>
+
+## Rollback
+
+Revert this single commit to restore previous approval behavior and copy, without migrating or rolling back user data. New authorization state exists only in current-turn memory; old image ledgers, version records, keys, and session formats remain unchanged. Application not installed.
+
+See the [validation record](../reports/2026-11-08-mvp-validation.md) for final local checks and known boundaries. GitHub publication follows commit; final status depends on the actual branch, draft PR, and delivery results.

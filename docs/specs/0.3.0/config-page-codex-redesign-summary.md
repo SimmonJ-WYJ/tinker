@@ -1,77 +1,95 @@
-# 配置页 Codex 风重做 — 改动总结
+<a id="配置页-codex-风重做-&#45;改动总结"></a>
 
-> 范围:配置页「能力包」+「Skill」两个板块的交互/视觉重做(对齐 Codex 插件市场的列表→详情心智)。
-> 关联:0.3 PRD Epic 2(能力包配置化)、`config-capability-panel-redesign-spec.md`、`config-skill-panel-spec.md`(#421)。
-> 状态:已实现、本地验证通过,未开 PR(版本号待开 PR 时统一递增)。
+# Codex-Style Configuration Page Redesign — Change Summary
 
-## 目标
+> Scope: Interaction/visual redesign of the Capability Pack and Skill sections on the configuration page (matching the Codex plugin marketplace's list→detail model).
+> Related: 0.3 PRD Epic 2 (configurable capability packs), `config-capability-panel-redesign-spec.md`, `config-skill-panel-spec.md` (#421).
+> Status: Implemented, local validation passed; no PR opened (version increment deferred until PR creation).
 
-把配置页两个板块从"把后端 manifest/SKILL 元数据原样平铺"改成 Codex 风的**紧凑卡片 + 渐进式详情**:
-- 列表只给用户向的精简信息;完整/技术细节进二级(详情页 / 弹窗)。
-- 明确"内置·默认启用"是有意设计(无启停开关不是缺失)。
-- 筛选分主/次级,空间紧凑。
+<a id="目标"></a>
+
+## Goal
+
+Replace raw backend manifest/SKILL metadata laid out across these two configuration sections with Codex-style **compact cards + progressive details**:
+- Lists show concise user-facing information; full/technical details move to a second level (detail page / dialog).
+- Make clear that “Built-in · Enabled by default” is intentional (absence of a toggle is not a missing feature).
+- Separate primary/secondary filters in a compact space.
 
 ---
 
-## 一、能力包面板(CapabilityPackPanel)
+<a id="一能力包面板capabilitypackpanel"></a>
 
-**从「行内展开的长卡片」改为「网格列表 → 详情页」(master-detail)。**
+## 1. Capability Pack Panel (CapabilityPackPanel)
 
-- **数据层 — 新增用户向摘要 `summaryI18n`**(照搬 Skill 的 `nameI18n` 模式,manifest 内嵌 `{ zh?, en? }`):
-  - `packages/shared/src/schemas/capability-pack.ts`:Zod `CapabilityPackManifest` 加可选 `summaryI18n`。
-  - `packages/shared/src/types/capability-pack-ipc.ts`:`CapabilityPackListItem` 加 `summaryI18n?`。
-  - `apps/electron/src/main/lib/capability-pack-service.ts`:列表转换透传。
-  - 2 个内置包 manifest(lit-review / lit-search)各加一句中英摘要。
-  - 新增纯函数 `resolvePackSummary(pack, lang)`:`summaryI18n[lang] → 另一语言 → description` 回退(向后兼容)+ 单测。
-- **一级列表**:响应式网格紧凑卡片(`[包名] + 一句话摘要 + 🔒 内置·默认启用 徽章`),整卡可点。
-- **二级详情页**(本地 `selectedPackId` 状态,无路由):返回 + 包名/版本/徽章 + 说明 + **完整说明**(原 Agent 路由 prompt)+ **Includes**(场景 Agent / Skill / MCP 只读行,MCP 行带 ⚙ 跳 Settings 的 MCP tab)。
-- **裁掉**:Hero 示例气泡、Information 表(开发者/官网/隐私)、包内偏好编辑(无对应数据,留后续)。
-- 关键:**不再把 Agent 路由 prompt 当描述直接给用户看**(收进详情页「完整说明」)。
+**Replace long cards with inline expansion with a grid list → detail page (master-detail).**
 
-## 二、Skill 面板(SkillPanel)
+- **Data layer — add user-facing summary `summaryI18n`** (following Skill's `nameI18n` pattern, embedded `{ zh?, en? }` in the manifest):
+  - `packages/shared/src/schemas/capability-pack.ts`: Add optional `summaryI18n` to Zod `CapabilityPackManifest`.
+  - `packages/shared/src/types/capability-pack-ipc.ts`: Add `summaryI18n?` to `CapabilityPackListItem`.
+  - `apps/electron/src/main/lib/capability-pack-service.ts`: Pass through list conversion.
+  - Add one Chinese/English summary to each of the 2 built-in pack manifests (lit-review / lit-search).
+  - Add pure function `resolvePackSummary(pack, lang)`: `summaryI18n[lang] → 另一语言 → description` fallback (other language, then description; backward compatible) + unit tests.
+- **Primary list**: Responsive grid of compact cards (`[包名] + 一句话摘要 + 🔒 内置·默认启用 徽章`, meaning pack name + one-sentence summary + Built-in · Enabled by default badge); the whole card is clickable.
+- **Secondary detail page** (local `selectedPackId` state, no routing): Back + pack name/version/badge + description + **Full description** (original Agent routing prompt) + **Includes** (read-only scenario Agent / Skill / MCP rows; MCP rows have ⚙ linking to Settings' MCP tab).
+- **Removed**: Hero example bubbles, Information table (developer/website/privacy), and in-pack preference editing (no corresponding data; deferred).
+- Key point: **Agent routing prompts are no longer shown directly as user descriptions** (moved into Full description on the detail page).
 
-**从「单列富行」改为「网格卡片 → 详情弹窗」,开关外露,排序稳定,筛选分层。**
+<a id="二skill-面板skillpanel"></a>
 
-- **网格列表**:响应式网格紧凑卡片(`[Puzzle 图标] 名称 + 来源徽章 + 一行截断描述 + 外露开关`)。
-- **开关外露在卡片右侧**:列表里直接启停(点开关只切换);点卡片其余区域 → 详情弹窗。来自能力包的 Skill 开关锁定 🔒(不可单独禁用)。
-- **禁用态原地变灰**:关掉后整卡 `opacity` 变灰,**不重排、不消失、不跳位**。
-- **稳定排序**:渲染层按名称固定排序(与 enabled 无关),修复"切换后卡片跳到禁用区找不到"的问题。
-- **详情弹窗**(`SkillDetailDialog`):名称 + 来源徽章 + 完整描述 + 反向链接(被哪些能力包使用)+ 启停开关(同锁定逻辑)。
-- **筛选工具栏(紧凑单行)**:
-  - 搜索框 + **状态(主筛选,分段控件)**:全部/已启用/已禁用,计数基于全量。
-  - **来源(次级筛选,下拉)**:所有来源/系统内置/来自能力包;**计数随状态联动**(在已选状态范围内统计各来源)。
-  - 行尾**结果数**:`N 个 · 未筛选/已筛选`。
-  - 移除了旧的平铺 ghost chip + 竖线分隔。
+## 2. Skill Panel (SkillPanel)
 
-## 三、i18n(en + zh,key-parity 守门)
+**Replace a single rich-row column with grid cards → detail dialog, with exposed toggles, stable ordering, and layered filters.**
 
-- `config.json`:能力包详情新增 `builtinBadge` / `fullDescription` / `back` / `includes` / `skillLockedHint` / `openMcpSettings`(及早期的 expand/collapse 占位,未用)。
-- `skills.json`:筛选区新增 `statusLabel` / `sourceLabel` / `resultUnit` / `resultStateAll` / `resultStateFiltered`;`filter.all` 文案「全部」→「全部状态 / All statuses」消歧。
+- **Grid list**: Responsive compact cards (`[Puzzle 图标] 名称 + 来源徽章 + 一行截断描述 + 外露开关`, meaning Puzzle icon + name + source badge + single-line truncated description + exposed toggle).
+- **Toggle exposed on the card's right**: Enable/disable directly in the list (clicking the toggle only toggles); clicking elsewhere opens the detail dialog. Skills from capability packs have locked 🔒 toggles (cannot disable independently).
+- **Disabled cards gray out in place**: Turning off grays the whole card via `opacity`; **no reordering, disappearing, or jumping**.
+- **Stable sorting**: Render layer uses fixed name sorting (independent of enabled), fixing cards jumping into the disabled area and becoming hard to find after toggling.
+- **Detail dialog** (`SkillDetailDialog`): Name + source badge + full description + backlinks (which capability packs use it) + enable/disable toggle (same locking logic).
+- **Filter toolbar (compact single row)**:
+  - Search + **Status (primary filter, segmented control)**: All/Enabled/Disabled, counts based on the full collection.
+  - **Source (secondary filter, dropdown)**: All sources/System built-in/From capability packs; **counts follow status** (count each source within the selected status).
+  - Trailing **result count**: `N 个 · 未筛选/已筛选` (N items · Unfiltered/Filtered).
+  - Removed the old flat ghost chips + vertical dividers.
 
-## 受影响文件
+<a id="三i18nen-&#45;zhkey-parity-守门"></a>
+
+## 3. i18n (en + zh, Key-Parity Guard)
+
+- `config.json`: Added `builtinBadge` / `fullDescription` / `back` / `includes` / `skillLockedHint` / `openMcpSettings` for capability pack details (plus early unused expand/collapse placeholders).
+- `skills.json`: Added `statusLabel` / `sourceLabel` / `resultUnit` / `resultStateAll` / `resultStateFiltered` for filters; disambiguated `filter.all` from “All” to “All statuses” in Chinese / English.
+
+<a id="受影响文件"></a>
+
+## Affected Files
+
+The retained listing labels summaryI18n types, pass-through, summaries, and design specification alongside their original paths.
 
 ```
 packages/shared/src/schemas/capability-pack.ts          (summaryI18n zod)
-packages/shared/src/types/capability-pack-ipc.ts        (summaryI18n 类型)
-apps/electron/src/main/lib/capability-pack-service.ts   (透传)
-apps/electron/default-capability-packs/lit-review/manifest.json   (摘要)
-apps/electron/default-capability-packs/lit-search/manifest.json   (摘要)
+packages/shared/src/types/capability-pack-ipc.ts        (summaryI18n type)
+apps/electron/src/main/lib/capability-pack-service.ts   (pass-through)
+apps/electron/default-capability-packs/lit-review/manifest.json   (summary)
+apps/electron/default-capability-packs/lit-search/manifest.json   (summary)
 apps/electron/src/renderer/components/config/CapabilityPackPanel.tsx  (list→detail)
 apps/electron/src/renderer/components/config/capability-pack-utils.ts(+.test)  (resolvePackSummary)
 apps/electron/src/renderer/components/config/SkillPanel.tsx  (grid+dialog+toolbar)
 apps/electron/src/renderer/locales/{en,zh}/config.json
 apps/electron/src/renderer/locales/{en,zh}/skills.json
-docs/specs/0.3.0/config-capability-panel-redesign-spec.md  (设计 spec)
+docs/specs/0.3.0/config-capability-panel-redesign-spec.md  (design spec)
 ```
 
-## 验证
+<a id="验证"></a>
 
-- `bun run typecheck`:全包通过(注:期间补装了 pull 后缺的 `fflate` 依赖,与本改动无关)。
-- `bun test`:全量通过(含 i18n key-parity 双语对齐、`resolvePackSummary` 纯函数单测)。
-- `eslint`:改动文件干净。
-- UI 交互在 `bun run dev` 中逐项手验(列表↔详情、弹窗、开关外露不跳位、筛选联动、切 zh↔en)。
+## Validation
 
-## 备注
+- `bun run typecheck`: All packages passed (note: missing `fflate` dependency after pull was installed during this work, unrelated to this change).
+- `bun test`: Full suite passed (including bilingual i18n key parity and `resolvePackSummary` pure-function tests).
+- `eslint`: Changed files clean.
+- UI interactions manually checked individually in `bun run dev` (list↔details, dialogs, exposed toggles without position jumps, linked filters, zh↔en switching).
 
-- 按更新后的 CLAUDE.md,**版本号只在开 PR 时统一递增一次**,本批改动未 bump。
-- 能力包详情页的「包内偏好编辑」、Skill/能力包的 Information 元数据(开发者/官网/隐私/示例 prompt)因无对应数据字段,本轮裁掉,留后续(需 manifest 补字段)。
+<a id="备注"></a>
+
+## Notes
+
+- Under updated CLAUDE.md, **versions increment once when opening the PR**; this batch did not bump versions.
+- In-pack preference editing on capability pack details and Skill/capability pack Information metadata (developer/website/privacy/example prompts) were removed this round because corresponding data fields are absent; deferred pending manifest fields.

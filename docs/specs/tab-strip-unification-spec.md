@@ -1,39 +1,49 @@
 # Tab Strip Unification Spec
 
-状态: implementing
-关联 issue: N/A
-关联 PR: N/A
-领域语言事实源: `CONTEXT.md`, `docs/specs/right-panel-tab-bar-chrome-spec.md`, `docs/specs/workspace-scoped-tabs-spec.md`
+Status: implementing
+Related issue: N/A
+Related PR: N/A
+Domain language sources of truth: `CONTEXT.md`, `docs/specs/right-panel-tab-bar-chrome-spec.md`, `docs/specs/workspace-scoped-tabs-spec.md`
 
-## 背景
+<a id="背景"></a>
 
-主对话流顶部和右侧栏顶部原先都使用 tab 形态，但信息架构并不相同。主对话流顶部当前只展示当前会话，与左侧会话列表共同承担全局会话导航；右侧栏顶部展示当前会话内的上下文 tab（会话文件、检索论文、论文/文件详情等），这些 tab 有明确的局部工作区价值。
+## Background
 
-## 目标
+The main conversation header and right-panel header previously both used tabs, but their information architectures differ. The main header currently shows only the current session and shares global session navigation with the left session list; the right panel shows contextual tabs within the current session (session files, search papers, paper/file details, etc.), which have clear value within the local workspace.
 
-1. 主对话流顶部采用 Codex 式单行 header，只显示当前会话标题与更多入口，不显示会话类型 icon 或关闭按钮，降低与左侧会话列表的重复，并避免单项内容伪装成 tab。
-2. 右侧栏顶部继续显示多个上下文 tab，保留文件/论文详情的累积模型。
-3. 主顶部标题栏与右侧栏 tab 复用同一套基础 primitive，统一图标、关闭按钮和文字截断；只有右侧多菜单继续使用 tab chip 激活态。
+<a id="目标"></a>
 
-## 非目标
+## Goals
 
-1. 不改 tab 状态存储结构。
-2. 不移除多会话状态；仅改变主顶部可视呈现。
-3. 不改右侧栏动态 tab 的打开/关闭语义。
+1. Use a Codex-style single-line header above the main conversation, showing only the current session title and a more-actions entry, without a session-type icon or close button. This reduces duplication with the left session list and avoids presenting one item as a tab.
+2. Continue showing multiple contextual tabs at the top of the right panel, preserving the accumulated file/paper-detail model.
+3. Reuse the same basic primitives for the main title bar and right-panel tabs, unifying icons, close buttons, and text truncation; only the right-side multi-item menu keeps the active tab-chip appearance.
 
-## 行为
+<a id="非目标"></a>
 
-- 主顶部从当前工作区可见 tab 中选择 active tab；若 active 不可见，则回退到第一个可见 tab。
-- 主顶部不再横向展示其他会话 tab，也不使用圆角/浮起的 tab chip 视觉；它是一条单行 header，左侧为当前会话标题，旁边是更多入口。切换会话继续通过左侧会话列表完成。
-- 主顶部更多入口点击后打开功能菜单，至少包含重命名当前会话和打开会话文件夹两个动作。
-- 主内容区不再额外渲染第二行会话标题，避免标题重复。
-- 右侧栏仍展示当前会话的所有 right panel tabs。
-- 右侧栏 tab chip 共享 `tabStripChipClassNames()` 等样式生成函数；主顶部使用 `currentConversationStripClassNames()` 生成 Codex 式单行标题入口。
+## Non-goals
 
-## 验证
+1. Do not change tab-state storage structures.
+2. Do not remove multi-session state; change only the main header's visual presentation.
+3. Do not change dynamic right-panel tab open/close semantics.
 
-- 单测覆盖主顶部 tab 选择逻辑。
-- 单测覆盖右侧栏 tab chip 的 active/inactive class，以及主顶部 flat strip 不包含 tab chip 激活态 class。
-- 运行 `bun run typecheck`。
-- 运行 `bun test`。
-- UI 需通过 `bun run dev` 或 `bun run electron:start` 目检主顶部与右侧栏 tab。
+<a id="行为"></a>
+
+## Behavior
+
+- The main header selects the active tab from visible tabs in the current workspace; if the active tab is hidden, fall back to the first visible tab.
+- The main header no longer displays other session tabs horizontally or uses rounded/floating tab chips; it is a single-line header with the current session title on the left and more actions beside it. Session switching continues through the left session list.
+- Clicking more actions in the main header opens a menu containing at least rename-current-session and open-session-folder actions.
+- The main content no longer renders a second session-title row, avoiding duplicate titles.
+- The right panel still displays all right panel tabs for the current session.
+- Right-panel tab chips share style generators such as `tabStripChipClassNames()`; the main header uses `currentConversationStripClassNames()` for the Codex-style single-line title entry.
+
+<a id="验证"></a>
+
+## Validation
+
+- Unit tests cover main-header tab selection.
+- Unit tests cover active/inactive classes for right-panel tab chips and verify that the main-header flat strip lacks active tab-chip classes.
+- Run `bun run typecheck`.
+- Run `bun test`.
+- Visually inspect the main header and right-panel tabs through `bun run dev` or `bun run electron:start`.

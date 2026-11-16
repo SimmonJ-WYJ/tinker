@@ -1,10 +1,10 @@
 # Paper Search
 
-> **基于 [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp) 重构** — 原项目由 P.S Zhang 开发，MIT 协议。
+> **Refactored from [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp)** — original project by P.S Zhang, MIT licensed.
 >
-> 本项目在原始项目基础上进行了**服务化架构重构**，将业务逻辑从 MCP 协议绑定中解耦，形成独立的服务层，可作为 **Python 库**直接调用，也可作为 **MCP Server** 接入 Claude Desktop 等 LLM 客户端。
+> This project **refactors the original into a service architecture**, decoupling business logic from the MCP protocol into an independent service layer, usable directly as a **Python library** or as an **MCP Server** for Claude Desktop and other LLM clients.
 
-一个支持 **20+ 学术平台**的论文搜索、下载与导出服务。
+A paper search, download, and export service supporting **20+ academic platforms**.
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -12,131 +12,153 @@
 
 ---
 
-## 特性
+<a id="特性"></a>
 
-- **20+ 学术数据源** — arXiv、PubMed、Semantic Scholar、Crossref、OpenAlex、Google Scholar 等
-- **三层架构** — Connectors → Service → Transport，关注点清晰分离
-- **即插即用** — 添加新平台只需一个文件，自动注册，零配置
-- **双模式使用** — 既是 Python 库（`from paper_search import PaperSearchService`），也是 MCP Server
-- **Pydantic 数据模型** — 类型安全、序列化友好
-- **多源并发搜索 + 自动去重** — 基于 DOI / 标题+作者 去重
-- **6 阶段智能下载回退链** — pdf_url 直链 → 源原生下载 → OA resolver（Unpaywall/OpenAlex/Semantic） → OA 仓库搜索（含身份校验） → DOI 落地页 HTML 提取 → Sci-Hub（可选）
-- **引文网络追踪** — Snowball search，支持前向/后向引用递归（1-3 层深度）
-- **多格式导出** — CSV、RIS（Zotero/Mendeley/EndNote）、BibTeX
+## Features
+
+- **20+ academic sources** — arXiv, PubMed, Semantic Scholar, Crossref, OpenAlex, Google Scholar, and more
+- **Three-layer architecture** — Connectors → Service → Transport, with clear separation of concerns
+- **Plug and play** — one file adds a platform, with automatic registration and zero configuration
+- **Dual usage modes** — both Python library (`from paper_search import PaperSearchService`) and MCP Server
+- **Pydantic data models** — type-safe and serialization-friendly
+- **Concurrent multi-source search + automatic deduplication** — based on DOI / title+authors
+- **6-stage intelligent download fallback** — direct pdf_url → source-native download → OA resolver (Unpaywall/OpenAlex/Semantic) → OA repository search (with identity verification) → DOI landing-page HTML extraction → Sci-Hub (optional)
+- **Citation network tracing** — Snowball search with recursive forward/backward citations (depth 1-3)
+- **Multiple export formats** — CSV, RIS (Zotero/Mendeley/EndNote), BibTeX
 
 ---
 
-## 架构
+<a id="架构"></a>
+
+## Architecture
 
 ```
 paper_search/
-├── models/          # Pydantic 数据模型 (Paper, SearchResult, SnowballResult)
-├── connectors/      # 平台连接器 (@register 自动注册)
-│   ├── base.py      #   抽象基类 PaperConnector
-│   ├── registry.py  #   连接器注册表（自动发现）
-│   ├── arxiv.py     #   arXiv 连接器
-│   ├── semantic.py  #   Semantic Scholar 连接器
-│   └── ...          #   25+ 连接器
-├── service/         # 业务编排层（不依赖任何传输协议）
-│   ├── search_service.py    # 多源搜索 + Snowball
-│   ├── download_service.py  # 下载回退链
-│   └── export_service.py    # CSV/RIS/BibTeX 导出
-├── transports/      # 传输适配层
-│   └── mcp_server.py        # MCP Server（薄包装）
-├── config.py        # 环境变量管理
-└── utils.py         # 工具函数
+├── models/          # Pydantic models (Paper, SearchResult, SnowballResult)
+├── connectors/      # Platform connectors (@register auto-registration)
+│   ├── base.py      #   Abstract PaperConnector base class
+│   ├── registry.py  #   Connector registry (auto-discovery)
+│   ├── arxiv.py     #   arXiv connector
+│   ├── semantic.py  #   Semantic Scholar connector
+│   └── ...          #   25+ connectors
+├── service/         # Business orchestration (transport-independent)
+│   ├── search_service.py    # Multi-source search + Snowball
+│   ├── download_service.py  # Download fallback chain
+│   └── export_service.py    # CSV/RIS/BibTeX export
+├── transports/      # Transport adapters
+│   └── mcp_server.py        # MCP Server (thin wrapper)
+├── config.py        # Environment-variable management
+└── utils.py         # Utilities
 ```
 
-### MCP 工具一览
+<a id="mcp-工具一览"></a>
 
-MCP Server 暴露以下工具供 LLM 调用：
+### MCP Tool Overview
 
-| 工具 | 说明 |
+The MCP Server exposes these tools to LLMs:
+
+| Tool | Description |
 |------|------|
-| `search_papers` | 多源并发搜索（支持 `sources` 参数指定数据源） |
-| `search_<source>` | 单源搜索（每个已注册源自动生成，如 `search_arxiv`、`search_crossref`） |
-| `download_paper` | **统一下载入口**，支持 `source`、`paper_id`、`doi`、`title`、`pdf_url`，6 阶段自动回退 |
-| `download_scihub` | Sci-Hub 专用下载（独立工具） |
-| `snowball_search` | 引文网络追踪（前向/后向引用） |
-| `recommend_papers` | 基于 embedding 的相似论文推荐 |
-| `get_crossref_paper_by_doi` | DOI 精确查询 |
-| `read_<source>_paper` | 下载并提取 PDF 文本（每个支持 read 的源自动生成） |
-| `process_search_results` | 多源搜索结果去重 + 摘要补全 + 写入 session JSONL |
-| `export_papers` | 导出为 CSV / RIS / BibTeX |
+| `search_papers` | Concurrent multi-source search (`sources` selects sources) |
+| `search_<source>` | Single-source search (automatically generated per registered source, e.g. `search_arxiv`, `search_crossref`) |
+| `download_paper` | **Unified download entry point**, supporting `source`, `paper_id`, `doi`, `title`, `pdf_url`, with automatic 6-stage fallback |
+| `download_scihub` | Dedicated Sci-Hub download (separate tool) |
+| `snowball_search` | Citation network tracing (forward/backward citations) |
+| `recommend_papers` | Embedding-based similar-paper recommendations |
+| `get_crossref_paper_by_doi` | Exact DOI lookup |
+| `read_<source>_paper` | Download and extract PDF text (generated per source supporting read) |
+| `process_search_results` | Deduplicate multi-source results + complete abstracts + write session JSONL |
+| `export_papers` | Export CSV / RIS / BibTeX |
 
-### 下载回退链
+<a id="下载回退链"></a>
 
-`download_paper` 采用 6 阶段降级策略，逐级尝试直到成功：
+### Download Fallback Chain
+
+`download_paper` uses 6 fallback stages, trying each until successful:
 
 ```
-Stage 0: pdf_url 直链下载（调用方已知 PDF 地址时最快）
-Stage 1: 源 connector 原生下载（如 arxiv.org/pdf/xxx）
-Stage 2: OA resolver 多源并发（Unpaywall + OpenAlex + Semantic Scholar + CrossRef TDM）
-Stage 3: OA 仓库标题搜索（OpenAIRE → CORE → EuropePMC → PMC，含 DOI/标题身份校验）
-Stage 4: DOI 落地页 HTML 提取（citation_pdf_url meta 标签 + body 中的 PDF 链接）
-Stage 5: Sci-Hub（可选，可通过 use_scihub=false 关闭）
+Stage 0: direct pdf_url download (fastest when caller knows PDF URL)
+Stage 1: source-native connector download (e.g. arxiv.org/pdf/xxx)
+Stage 2: concurrent OA resolvers (Unpaywall + OpenAlex + Semantic Scholar + CrossRef TDM)
+Stage 3: OA repository title search (OpenAIRE → CORE → EuropePMC → PMC, DOI/title identity checks)
+Stage 4: DOI landing-page HTML extraction (citation_pdf_url meta + PDF links in body)
+Stage 5: Sci-Hub (optional; disable with use_scihub=false)
 ```
 
-Stage 3 新增了**论文身份校验**——搜索结果必须 DOI 匹配或标题相似度达标（Jaccard ≥ 0.6）才会下载，避免拿到标题相似但实际不同的论文。
+Stage 3 adds **paper identity verification**: download only if DOI matches or title similarity passes the threshold (Jaccard ≥ 0.6), avoiding different papers with similar titles.
 
-### 与原项目的区别
+<a id="与原项目的区别"></a>
 
-| 方面 | 原项目 (paper-search-mcp) | 本项目 (paper-search) |
+### Differences from the Original
+
+| Aspect | Original (paper-search-mcp) | This project (paper-search) |
 |------|--------------------------|----------------------|
-| 架构 | 单文件 server.py（1570 行） | 三层架构，职责分离 |
-| 数据模型 | dataclass | Pydantic v2 |
-| 复用性 | 仅限 MCP 调用 | 可作为库 import 使用 |
-| 添加新平台 | 改 5 处代码 | 只写 1 个文件 |
-| 平台分派 | 20+ 个 if/elif | @register 自动注册 |
-| 测试 | 需启动 MCP Server | 直接测试 Service 层 |
+| Architecture | Single server.py file (1570 lines) | Three layers with separated responsibilities |
+| Data models | dataclass | Pydantic v2 |
+| Reusability | MCP calls only | Importable library |
+| Adding a platform | Change 5 code locations | Write only 1 file |
+| Platform dispatch | 20+ if/elif branches | Automatic @register registration |
+| Tests | Must start MCP Server | Test Service layer directly |
 
 ---
 
-## 支持的数据源
+<a id="支持的数据源"></a>
 
-### 免费开放数据源（无需 API Key）
+## Supported Sources
 
-| 平台 | 搜索 | 下载 | 读取 | 说明 |
+<a id="免费开放数据源无需-api-key"></a>
+
+### Free Open Sources (No API Key Required)
+
+| Platform | Search | Download | Read | Description |
 |------|:----:|:----:|:----:|------|
-| arXiv | ✅ | ✅ | ✅ | 预印本，覆盖物理/CS/数学等 |
-| PubMed | ✅ | - | - | 生物医学文献元数据 |
-| bioRxiv | ✅ | ✅ | ✅ | 生物学预印本 |
-| medRxiv | ✅ | ✅ | ✅ | 医学预印本 |
-| Crossref | ✅ | - | - | DOI 元数据骨干 |
-| OpenAlex | ✅ | - | - | 开放学术知识图谱 |
-| Europe PMC | ✅ | ✅ | ✅ | 欧洲生物医学 OA |
-| PubMed Central | ✅ | ✅ | ✅ | NIH OA 全文 |
-| dblp | ✅ | - | - | 计算机科学文献索引 |
-| IACR | ✅ | ✅ | ✅ | 密码学预印本 |
-| HAL | ✅ | ✅ | ✅ | 法国开放存档 |
-| SSRN | ✅ | ⚠️ | ⚠️ | 社科预印本（best-effort） |
-| ChemRxiv | ✅ | ✅ | ✅ | 化学预印本 |
+| arXiv | ✅ | ✅ | ✅ | Preprints covering physics/CS/mathematics, etc. |
+| PubMed | ✅ | - | - | Biomedical literature metadata |
+| bioRxiv | ✅ | ✅ | ✅ | Biology preprints |
+| medRxiv | ✅ | ✅ | ✅ | Medical preprints |
+| Crossref | ✅ | - | - | DOI metadata backbone |
+| OpenAlex | ✅ | - | - | Open scholarly knowledge graph |
+| Europe PMC | ✅ | ✅ | ✅ | European biomedical OA |
+| PubMed Central | ✅ | ✅ | ✅ | NIH OA full text |
+| dblp | ✅ | - | - | Computer-science bibliography |
+| IACR | ✅ | ✅ | ✅ | Cryptography preprints |
+| HAL | ✅ | ✅ | ✅ | French open archive |
+| SSRN | ✅ | ⚠️ | ⚠️ | Social-science preprints (best-effort) |
+| ChemRxiv | ✅ | ✅ | ✅ | Chemistry preprints |
 
-### 可选 API Key 数据源（免费申请，提升速率）
+<a id="可选-api-key-数据源免费申请提升速率"></a>
 
-| 平台 | 环境变量 | 申请地址 |
+### Sources with Optional API Keys (Free Registration, Higher Rate Limits)
+
+| Platform | Environment variable | Registration URL |
 |------|---------|---------|
 | Semantic Scholar | `PAPER_SEARCH_MCP_SEMANTIC_SCHOLAR_API_KEY` | [semanticscholar.org](https://www.semanticscholar.org/product/api) |
 | CORE | `PAPER_SEARCH_MCP_CORE_API_KEY` | [core.ac.uk](https://core.ac.uk/services/api) |
 | DOAJ | `PAPER_SEARCH_MCP_DOAJ_API_KEY` | [doaj.org](https://doaj.org/apply-for-api-key/) |
 | Zenodo | `PAPER_SEARCH_MCP_ZENODO_ACCESS_TOKEN` | [zenodo.org](https://zenodo.org/account/settings/applications/) |
 | Unpaywall | `PAPER_SEARCH_MCP_UNPAYWALL_EMAIL` | [unpaywall.org](https://unpaywall.org/products/api) |
-| Google Scholar | `PAPER_SEARCH_MCP_GOOGLE_SCHOLAR_PROXY_URL` | 自备代理 |
+| Google Scholar | `PAPER_SEARCH_MCP_GOOGLE_SCHOLAR_PROXY_URL` | Supply your own proxy |
 | OpenAIRE | `PAPER_SEARCH_MCP_OPENAIRE_API_KEY` | [openaire.eu](https://develop.openaire.eu/) |
 | CiteSeerX | `PAPER_SEARCH_MCP_CITESEERX_API_KEY` | - |
 
-### 付费/受限数据源（需 API Key 激活）
+<a id="付费受限数据源需-api-key-激活"></a>
 
-| 平台 | 环境变量 | 说明 |
+### Paid/Restricted Sources (API Key Required to Activate)
+
+| Platform | Environment variable | Description |
 |------|---------|------|
-| IEEE Xplore | `PAPER_SEARCH_MCP_IEEE_API_KEY` | 未设置 key 时自动禁用 |
-| ACM Digital Library | `PAPER_SEARCH_MCP_ACM_API_KEY` | 未设置 key 时自动禁用 |
+| IEEE Xplore | `PAPER_SEARCH_MCP_IEEE_API_KEY` | Automatically disabled without a key |
+| ACM Digital Library | `PAPER_SEARCH_MCP_ACM_API_KEY` | Automatically disabled without a key |
 
 ---
 
-## 快速开始
+<a id="快速开始"></a>
 
-### 安装
+## Quick Start
+
+<a id="安装"></a>
+
+### Installation
 
 ```bash
 # 克隆项目
@@ -150,7 +172,9 @@ uv sync
 uv sync --extra mcp
 ```
 
-### 作为 Python 库使用
+<a id="作为-python-库使用"></a>
+
+### Use as a Python Library
 
 ```python
 import asyncio
@@ -173,7 +197,9 @@ async def main():
 asyncio.run(main())
 ```
 
-### 引文网络追踪（Snowball Search）
+<a id="引文网络追踪snowball-search"></a>
+
+### Citation Network Tracing (Snowball Search)
 
 ```python
 async def snowball_demo():
@@ -188,7 +214,9 @@ async def snowball_demo():
     print(f"发现 {result.total} 篇相关论文")
 ```
 
-### 下载与导出
+<a id="下载与导出"></a>
+
+### Download and Export
 
 ```python
 from paper_search.service import DownloadService, ExportService
@@ -215,9 +243,13 @@ async def download_and_export():
     export.export(result.papers, format="bibtex", save_path="./exports")
 ```
 
-### 作为 MCP Server 使用
+<a id="作为-mcp-server-使用"></a>
 
-#### Claude Desktop 配置
+### Use as an MCP Server
+
+<a id="claude-desktop-配置"></a>
+
+#### Claude Desktop Configuration
 
 ```json
 {
@@ -237,7 +269,9 @@ async def download_and_export():
 }
 ```
 
-#### Claude Code (CLI) 配置
+<a id="claude-code-cli-配置"></a>
+
+#### Claude Code (CLI) Configuration
 
 ```bash
 # 添加为全局 MCP Server（所有项目可用）
@@ -255,11 +289,13 @@ claude mcp add --scope user paper-search \
   -- uv run --directory /path/to/paper-search -m paper_search.transports.mcp_server
 ```
 
-添加后重启 Claude Code 即可在对话中直接使用论文搜索工具。
+Restart Claude Code after adding it to use paper-search tools directly in conversations.
 
-#### 局域网 / 远程访问（HTTP 模式）
+<a id="局域网-&#45;远程访问http-模式"></a>
 
-MCP Server 支持三种传输模式：`stdio`（默认）、`sse`、`streamable-http`。
+#### LAN / Remote Access (HTTP Mode)
+
+The MCP Server supports three transports: `stdio` (default), `sse`, `streamable-http`.
 
 ```bash
 # 启动 HTTP 模式（局域网可访问）
@@ -269,7 +305,7 @@ uv run -m paper_search.transports.mcp_server --transport streamable-http --host 
 uv run -m paper_search.transports.mcp_server --transport sse --host 0.0.0.0 --port 8000
 ```
 
-其他机器的 Claude Code 通过 URL 连接：
+Claude Code on other machines connects through a URL:
 
 ```bash
 claude mcp add --scope user paper-search --transport http http://192.168.x.x:8000/mcp
@@ -277,22 +313,26 @@ claude mcp add --scope user paper-search --transport http http://192.168.x.x:800
 
 ---
 
-## 配置
+<a id="配置"></a>
 
-将 API Key 写入项目根目录的 `.env` 文件（启动时自动加载）：
+## Configuration
+
+Put API keys in the project-root `.env` file (loaded automatically on startup):
 
 ```bash
 cp .env.example .env
 # 编辑 .env 填入你的 key
 ```
 
-所有环境变量均使用 `PAPER_SEARCH_MCP_` 前缀，兼容原项目的无前缀写法。
+All environment variables use the `PAPER_SEARCH_MCP_` prefix, with backward compatibility for the original unprefixed names.
 
 ---
 
-## 扩展新平台
+<a id="扩展新平台"></a>
 
-添加一个新的学术数据源只需 **1 个文件**：
+## Adding a Platform
+
+Adding an academic source requires only **1 file**:
 
 ```python
 # paper_search/connectors/my_platform.py
@@ -313,11 +353,13 @@ class MyPlatformConnector(PaperConnector):
         return f"{save_path}/{paper_id}.pdf"
 ```
 
-**无需修改任何其他文件** — Registry 自动发现，Service 自动包含，MCP 自动注册工具。
+**No other files need changes** — Registry discovers it, Service includes it, and MCP registers tools automatically.
 
 ---
 
-## 开发
+<a id="开发"></a>
+
+## Development
 
 ```bash
 # 安装开发依赖
@@ -342,15 +384,19 @@ uv run paper-search-mcp
 uv run paper-search-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
-基准测试运行后自动生成报告到 `docs/benchmark-reports/`（JSON + Markdown），包含按数据源、按难度的成功率统计和 fallback 阶段分布。
+Benchmarks automatically generate reports in `docs/benchmark-reports/` (JSON + Markdown), including success rates by source/difficulty and fallback-stage distributions.
 
 ---
 
-## 致谢
+<a id="致谢"></a>
 
-- 原始项目 [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp)，由 [P.S Zhang](https://github.com/openags) 开发
-- 本项目在其基础上进行了服务化架构重构，保留了全部平台连接器的业务逻辑
+## Acknowledgments
 
-## 许可证
+- Original project [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp), developed by [P.S Zhang](https://github.com/openags)
+- This project refactors it into a service architecture, retaining all platform-connector business logic
 
-MIT License — 详见 [LICENSE](LICENSE) 文件。
+<a id="许可证"></a>
+
+## License
+
+MIT License — see [LICENSE](LICENSE).

@@ -1,148 +1,178 @@
-# 账户：老用户升级无缝 + 预期管理文案 技术方案（Legacy Upgrade Seamless Spec）
+<a id="账户老用户升级无缝-&#45;预期管理文案-技术方案legacy-upgrade-seamless-spec"></a>
 
-> **状态**：已实现 · 待 review
-> **关联 issue**：[#425](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/425)（Epic 1 切片 1.4，U-A4/U-A6）
-> **关联 PR**：待开
-> **决策落地**：B 段取「**全删**」而非「修复计数」——见 §4.B
-> **领域语言事实源**：`docs/specs/0.3.0/0.3.0-prd.md` §1 数据三分 + Epic 1
-> **依赖输入**：#420（OPENSCI 登录端到端，已落地：commit `5b98caf9` / `account-oauth-arch-spec.md` §8）
-> **阻塞**：无（#420 已合入）
+# Account: Seamless Legacy Upgrade + Expectation-Setting Copy Technical Plan (Legacy Upgrade Seamless Spec)
+
+> **Status**: Implemented · Awaiting review
+> **Related issue**: [#425](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/425) (Epic 1 slice 1.4, U-A4/U-A6)
+> **Related PR**: Not yet opened
+> **Decision implemented**: Section B chooses **complete removal** rather than fixing counts; see §4.B
+> **Domain language source of truth**: `docs/specs/0.3.0/0.3.0-prd.md` §1 three data categories + Epic 1
+> **Input dependency**: #420 (OPENSCI end-to-end sign-in, implemented: commit `5b98caf9` / `account-oauth-arch-spec.md` §8)
+> **Blockers**: None (#420 merged)
 
 ---
 
-## 1. 背景与问题
+<a id="1-背景与问题"></a>
 
-PRD §3 差异对照里有一条**架构反转**：
+## 1. Background and Problem
 
-| north-star 原假设 | 0.3 PRD 结论 |
+The PRD §3 comparison contains an **architectural reversal**:
+
+| Original north-star assumption | 0.3 PRD conclusion |
 |------------------|-------------|
-| 研究数据**按账户隔离** | **设备级单一本地库**（对齐 Zotero），账户仅身份标识；老用户旧库**登录即用，无认领流程** |
+| Research data **isolated by account** | **One device-level local library** (aligned with Zotero); accounts identify users only; existing libraries are **usable immediately on sign-in without claiming ownership** |
 
-但当前代码是按"老假设（账户隔离 + 认领）"实现的——登录链路（#420/#531）落地时，连带搭进了一整套 **"老用户认领（attribution）流程"**，与 0.3 已拍板的"设备级、无认领"直接冲突。本方案就是把这套流程**拆除**、补齐 U-A6 预期管理文案，并加守门测试锁死 U-A4。
+Current code follows the old account-isolation/claiming assumption: implementing sign-in (#420/#531) also introduced an entire **legacy-user attribution flow**, directly conflicting with 0.3's device-level/no-claiming decision. This plan **removes** that flow, adds U-A6 expectation-setting copy, and guards U-A4 with tests.
 
-### 1.1 两个核心发现
+<a id="11-两个核心发现"></a>
 
-**发现一：认领流程是"过时的"（与 PRD 决策冲突）。**
-现有 `LoginPage` 在登录页顶部展示 `UpgradeNotice` banner（带一个"将本地数据关联到此账户"复选框），登录时调 `auth.attributeLocalData()` 往 `~/.asci/owner.json` 写 `OwnerMarker{ uid, attributedFrom }`，并保留了一个 `ConflictWarning` 对话框（"本地数据归属于另一账户，如何处理？"）。**这正是 PRD 明令删除的"认领流程"** ——设备级库语义下，"数据归属某账户"这个概念本身不成立（US11：同设备换账户看到同一份库）。
+### 1.1 Two Core Findings
 
-**发现二：认领流程是"坏的"（扫描了错误的存储位置）。**
-`auth-upgrade.ts:scanLocalData()` 通过**数 `~/.asci/papers/`、`~/.asci/notes/`、`~/.asci/evidence-sets/` 目录下的 `.json` 文件个数**来判断"有无本地数据"。但研究数据实际存在 **SQLite（`~/.asci/asci.db`，7 张表）**，根本没有这三个 per-object JSON 目录。结论：对所有真实用户 `hasLocalData` 恒为 `false`，banner 永不展示、`AccountMenu` 的"本地数据计数"永远为空——**这段代码当前对真实用户完全是死逻辑**。
+**Finding 1: Attribution is obsolete (conflicts with PRD).**
+`LoginPage` shows an `UpgradeNotice` banner with a checkbox to associate local data with the account, calls `auth.attributeLocalData()` on sign-in to write `OwnerMarker{ uid, attributedFrom }` into `~/.asci/owner.json`, and retains a `ConflictWarning` dialog asking how to handle data belonging to another account. **This is precisely the claiming flow the PRD explicitly removes**: under device-level library semantics, data belonging to an account is not a valid concept (US11: switching accounts on one device shows the same library).
 
-> 旁证：`ConflictWarning.tsx` 已经是**纯死代码**（全仓除自身外无任何引用，grep 零命中）。
+**Finding 2: Attribution is broken (scans incorrect storage locations).**
+`auth-upgrade.ts:scanLocalData()` determines whether data exists by **counting `.json` files in `~/.asci/papers/`, `~/.asci/notes/`, `~/.asci/evidence-sets/`**. Research data actually resides in **SQLite (`~/.asci/asci.db`, 7 tables)**; those per-object JSON directories do not exist. Thus `hasLocalData` is always `false` for real users, the banner never appears, and `AccountMenu` local data counts stay empty: **completely dead logic for real users**.
 
-### 1.2 为什么 U-A4 其实"几乎天然成立"
+> Corroboration: `ConflictWarning.tsx` is already **pure dead code** (no references outside itself; zero repository-wide grep hits).
 
-研究数据（`asci.db` + JSONL + review bodies）与系统底座凭据（`channels.json` / `settings.json` / `mcp.json` / `proxy-settings.json` / `zotero/`）**全部设备级、落 `~/.asci/`、schema 中无任何 `uid/accountId/ownerId` 列、查询只按 `workspace_id` 过滤**（见 `config-paths.ts`、`migrations/001-initial.sql`）。登录只是 UI 门（`RouteGuard`），不迁移、不重定位、不清空任何存储路径。
+<a id="12-为什么-u-a4-其实几乎天然成立"></a>
 
-因此 U-A4（老用户升级 + 首次登录 → 数据/配置直接可见可用）的工程量**不是"做迁移"，而是"拆掉挡在前面的认领流程 + 加测试锁死这个不变量"**。
+### 1.2 Why U-A4 Is Almost Inherent
 
----
+Research data (`asci.db` + JSONL + review bodies) and system credentials (`channels.json` / `settings.json` / `mcp.json` / `proxy-settings.json` / `zotero/`) are **all device-level under `~/.asci/`, with no `uid/accountId/ownerId` schema columns; queries filter only by `workspace_id`** (see `config-paths.ts`, `migrations/001-initial.sql`). Sign-in is only a UI gate (`RouteGuard`); it does not migrate, relocate, or clear storage paths.
 
-## 2. 目标与非目标
-
-### 目标
-1. **U-A4**：老用户升级 + 首次 OPENSCI 登录 → 已有论文库/笔记/证据集直接可见；Zotero/Provider/代理/MCP 立即可用、无需重填、**无认领步骤**。
-2. **U-A6**：欢迎页（LoginPage）/账户页（ProfileSettings）含"研究数据仅存本地"明确文案。
-3. 拆除过时 + 坏掉的认领流程，消除登录页"关联数据"复选框这一**与"无缝"直接冲突**的摩擦点。
-
-### 非目标
-- 跨设备同步（0.4，且**不承诺时间表**）。
-- 同机多账户的数据隔离（0.3 = 设备级共享，刻意不做）。
-- 对象级 `ownerUid`、服务端身份映射表（归服务端闭源仓 / 0.4）。
-- DO2 导出 / DO3 删账户（Epic 4，另 issue）。
+Thus U-A4 (upgrade + first sign-in → existing data/configuration immediately usable) requires **removing the obstructing attribution flow + tests preserving this invariant**, rather than migration work.
 
 ---
 
-## 3. ⚠️ 文案口径修订（必须先对齐）
+<a id="2-目标与非目标"></a>
 
-issue #425 正文写的是 *"0.3 研究数据仅存本地、跨设备同步**将在 0.4 提供**"*。但 PRD Epic 1（2026-06-01 grill 修订，spec `account-oauth-arch-spec` 同步）**已撤销"0.4 提供同步"的承诺**：
+## 2. Goals and Non-Goals
 
-> ⚠️ 原承诺"跨设备同步将在 0.4 提供"已**撤销**——0.4 不做 sync，且**不再对用户承诺同步时间表**。本 Epic 文案统一为"数据仅本地、不承诺时间表"。
+<a id="目标"></a>
 
-**本方案以 PRD 为准**（CLAUDE.md：PRD 冲突处以 PRD 为准）。所有面向用户文案**只说"研究数据仅存本地；换设备暂时看不到数据是预期行为"，绝不出现"0.4 / 将在……提供"等时间承诺。** 这点需在 review 时与 issue 作者确认。
+### Goals
+1. **U-A4**: Legacy upgrade + first OPENSCI sign-in → existing papers/notes/evidence sets immediately visible; Zotero/Provider/proxy/MCP immediately usable without reentry or **claiming**.
+2. **U-A6**: Welcome page (LoginPage) / account page (ProfileSettings) explicitly state research data stays local.
+3. Remove obsolete/broken attribution and its associate-data checkbox, a friction point **directly conflicting with seamlessness**.
+
+<a id="非目标"></a>
+
+### Non-Goals
+- Cross-device sync (0.4, with **no promised schedule**).
+- Same-device account data isolation (0.3 deliberately shares at device level).
+- Object-level `ownerUid`, server identity mapping tables (closed-source server repo / 0.4).
+- DO2 export / DO3 account deletion (Epic 4, separate issues).
 
 ---
 
-## 4. 技术方案
+<a id="3-️-文案口径修订必须先对齐"></a>
 
-四块改动：**A 拆认领** / **B 修设备库探测** / **C 预期文案** / **D 守门测试**。
+## 3. ⚠️ Copy Policy Revision (Align First)
 
-### A. 拆除认领（attribution）流程
+Issue #425 says research data stays local in 0.3 and cross-device sync **will arrive in 0.4** (English translation). However PRD Epic 1 (2026-06-01 grill revision, synchronized in `account-oauth-arch-spec`) **withdrew the 0.4 sync promise**:
 
-| 动作 | 落点 |
+> English translation: The original promise of cross-device sync in 0.4 is **withdrawn**. 0.4 does not implement sync, and **no sync schedule is promised to users**. All Epic copy states data is local without promising a schedule.
+
+**The PRD governs** (CLAUDE.md: PRD prevails in conflicts). User-facing copy **only says research data stays local and missing data on another device is expected; never promise “0.4” or a future delivery date**. Confirm this with the issue author at review.
+
+---
+
+<a id="4-技术方案"></a>
+
+## 4. Technical Approach
+
+Four changes: **A remove attribution** / **B fix device-library detection** / **C expectation-setting copy** / **D guard tests**.
+
+<a id="a-拆除认领attribution流程"></a>
+
+### A. Remove the Attribution Flow
+
+| Action | Location |
 |------|------|
-| 删组件 | `renderer/components/auth/UpgradeNotice.tsx`、`renderer/components/auth/ConflictWarning.tsx`（后者已是死代码） |
-| 删 i18n 段 | `locales/{en,zh}/auth/upgrade.json`、`locales/{en,zh}/auth/conflict.json` |
-| 改聚合器 | `locales/{en,zh}/auth.ts`：移除 `upgrade` / `conflict` 的 import 与导出键 |
-| 删 IPC 通道 | `shared/types/auth-ipc.ts`：删 `ATTRIBUTE_LOCAL_DATA`（`SCAN_LOCAL_DATA` 保留，见 B） |
-| 删主进程 handler | `main/ipc.ts:2784` 的 `ATTRIBUTE_LOCAL_DATA` 注册 |
-| 删 preload 桥接 | `preload/index.ts` 的 `attributeLocalData` 方法 + 类型（约 :968 / :1899） |
-| 删 service 方法 | `auth-service.ts:attributeLocalData()`（:304-315） |
-| 删类型 | `shared/types/auth.ts`：删 `OwnerMarker` interface、`LocalDataSnapshot.attributedTo` 字段 |
-| 删 owner.json 读写 | `auth-upgrade.ts`：删 `readOwnerMarker` / `writeOwnerMarker` / `FILE_OWNER` / `OwnerMarker` 引用 |
-| 改登录页逻辑 | `LoginPage.tsx`：删 `UpgradeNotice` 渲染、`attributeData` state、`attributeLocalData()` 调用（:37,:54-56,:69-76） |
+| Delete components | `renderer/components/auth/UpgradeNotice.tsx`, `renderer/components/auth/ConflictWarning.tsx` (already dead code) |
+| Delete i18n sections | `locales/{en,zh}/auth/upgrade.json`, `locales/{en,zh}/auth/conflict.json` |
+| Update aggregators | `locales/{en,zh}/auth.ts`: remove `upgrade` / `conflict` imports and export keys |
+| Delete IPC channel | `shared/types/auth-ipc.ts`: delete `ATTRIBUTE_LOCAL_DATA` (retain `SCAN_LOCAL_DATA`, see B) |
+| Delete main handler | `ATTRIBUTE_LOCAL_DATA` registration at `main/ipc.ts:2784` |
+| Delete preload bridge | `attributeLocalData` method + type in `preload/index.ts` (around :968 / :1899) |
+| Delete service method | `auth-service.ts:attributeLocalData()` (:304-315) |
+| Delete types | `shared/types/auth.ts`: `OwnerMarker` interface, `LocalDataSnapshot.attributedTo` |
+| Delete owner.json reads/writes | `auth-upgrade.ts`: `readOwnerMarker` / `writeOwnerMarker` / `FILE_OWNER` / `OwnerMarker` references |
+| Update sign-in page | `LoginPage.tsx`: remove `UpgradeNotice`, `attributeData` state, `attributeLocalData()` call (:37,:54-56,:69-76) |
 
-> **owner.json 清理**：历史上若有用户已写过 `~/.asci/owner.json`（实测路径不命中，几乎不会有），它将变成无人读取的孤儿文件，无副作用、无需主动删除（保守起见可在 review 决定是否加一次性清理；倾向不加，避免动用户目录）。
+> **owner.json cleanup**: If historical users wrote `~/.asci/owner.json` (unlikely because measured paths miss), it becomes an unread orphan with no side effects; no active deletion needed. A one-time cleanup can be considered at review, but prefer omitting it to avoid touching user directories.
 
-### B. 全删"设备库探测"子系统（最终决策）
+<a id="b-全删设备库探测子系统最终决策"></a>
 
-> **决策（2026-06-15）**：原 spec 在"修复计数"与"全删"间留了选择，最终取**全删**——理由：① 用户诉求是"清掉休眠的认领代码"；② 这条计数当前对真实用户恒为空（扫错位置），从没被用户见过，"修复"等于**新增**一个 reassurance 功能而非清理；③ 全删避免给主进程引入 `auth → object-store` 的新耦合。"数据还在"的安抚由 §C 的文案承担即可。
+### B. Remove the Entire Device-Library Detection Subsystem (Final Decision)
 
-落地为彻底移除整条链路：
+> **Decision (2026-06-15)**: The original spec left count repair vs. complete removal open; **complete removal** was selected because ① the user wants dormant attribution code removed; ② counts are always empty for real users due to incorrect scanning and have never been seen, so repairing them **adds** reassurance functionality instead of cleanup; ③ removal avoids new main-process `auth → object-store` coupling. §C copy provides reassurance that data remains.
 
-- 删 `SCAN_LOCAL_DATA` 通道、`localDataSnapshotAtom`、`auth-service.scanLocalData()`、`auth-upgrade.ts` 整文件、`AuthServiceDeps.userDataPath`。
-- 删 `LocalDataSnapshot` 类型本身（不再有任何消费方）。
-- `useAuth.ts` 启动初始化去掉 `scanLocalData()` 调用（只留 `getCurrentUser` + `getSessionMeta`）。
-- `AccountMenu.tsx` 删"本地数据计数"整块 + `menu.localData` / `menu.localDataCounts` i18n key。
+Remove the whole chain:
 
-> 净效果：登录初始化更轻（少一次 IPC），主进程零新增耦合。
+- Delete `SCAN_LOCAL_DATA`, `localDataSnapshotAtom`, `auth-service.scanLocalData()`, all of `auth-upgrade.ts`, and `AuthServiceDeps.userDataPath`.
+- Delete `LocalDataSnapshot` itself (no consumers remain).
+- Remove startup `scanLocalData()` from `useAuth.ts` (retain only `getCurrentUser` + `getSessionMeta`).
+- Delete the entire local-data count block in `AccountMenu.tsx` + `menu.localData` / `menu.localDataCounts` i18n keys.
 
-### C. 预期管理文案（U-A6）
+> Net effect: Lighter sign-in initialization (one fewer IPC call), zero new main-process coupling.
 
-新增 i18n key（en + zh 同步，走 `useT('auth')`）：
+<a id="c-预期管理文案u-a6"></a>
 
-- `auth/login.json` 增 `localDataNotice`：登录页登录按钮下方一行小字脚注。
+### C. Expectation-Setting Copy (U-A6)
+
+New i18n keys (synchronized en + zh through `useT('auth')`):
+
+- Add `localDataNotice` to `auth/login.json`: Small footnote below sign-in buttons.
   - en: `"Your research data stays on this device only. Switching devices won't show it — that's expected."`
-  - zh: `"你的研究数据仅存本地。换设备暂时看不到数据属于预期行为。"`
-- `auth/profile.json` 增 `dataLocality.title` + `dataLocality.body`：账户 tab（`ProfileSettings`）内一块只读说明卡。
-  - title en: `"Where your data lives"` / zh: `"你的数据存在哪里"`
+  - zh: `"你的研究数据仅存本地。换设备暂时看不到数据属于预期行为。"` (same meaning as the English notice).
+- Add `dataLocality.title` + `dataLocality.body` to `auth/profile.json`: Read-only card in the account tab (`ProfileSettings`).
+  - title en: `"Where your data lives"` / zh: `"你的数据存在哪里"` (same meaning).
   - body en: `"Research data (papers, notes, evidence sets) is stored locally in ~/.asci/ on this device. It is not uploaded and does not sync across devices."`
-  - body zh: `"研究数据（论文、笔记、证据集）仅保存在本机 ~/.asci/，不会上传，也不跨设备同步。"`
+  - body zh: `"研究数据（论文、笔记、证据集）仅保存在本机 ~/.asci/，不会上传，也不跨设备同步。"` (same meaning).
 
-落点：
-- `LoginPage.tsx`：在登录按钮区块下方加 `localDataNotice`（非 oauthPending 态展示）。
-- `ProfileSettings.tsx`：在账户信息区下方加 `dataLocality` 只读卡（用语义 token，卡片+柔和背景，符合 `docs/design.md`）。
+Locations:
+- `LoginPage.tsx`: Add `localDataNotice` below sign-in buttons (shown outside oauthPending state).
+- `ProfileSettings.tsx`: Add a read-only `dataLocality` card below account information (semantic tokens, card + soft background, following `docs/design.md`).
 
-> 文案严守 §3 口径：**不提任何同步时间表**。
+> Follow §3 strictly: **No sync schedule**.
 
-### D. 验证（实际执行）
+<a id="d-验证实际执行"></a>
 
-因 B 段取全删、认领子系统连同 `auth-upgrade.ts` + 其单测一并移除，原计划的"scanLocalData 真实计数"测试**失去对象、不再适用**。实际验证以"删除不破坏既有契约"为准：
+### D. Validation (Actually Executed)
 
-1. `bun run typecheck`：全 monorepo 通过（含 shared 类型删除的连锁）。
-2. `bun test`：全量 **2535 pass / 0 fail**（含原 9 个 auth 测试文件 80 pass——确认删通道/方法未破坏登录链路）。
-3. `key-parity.test.ts`：通过（删 `upgrade`/`conflict` 段 + `menu.localData*` key、增 `login.localDataNotice` + `profile.dataLocality.*` 后 en/zh 仍对齐）。
-4. grep 级零残留：`scanLocalData|attributeLocalData|LocalDataSnapshot|OwnerMarker|UpgradeNotice|ConflictWarning|localDataSnapshotAtom|SCAN_LOCAL_DATA|ATTRIBUTE_LOCAL_DATA|auth-upgrade` 在 `apps/electron/src` + `packages/shared/src` 命中 0。
+Because B removes attribution entirely, including `auth-upgrade.ts` and tests, the planned actual scanLocalData count tests **no longer apply**. Actual validation checks that removal preserves existing contracts:
 
-> U-A4"存储设备级、登录不重定位"这一不变量本就由 `config-paths.ts`（路径只随 `ASCI_DEV` 切换、无 uid 段）保证，本次未改动该层，无需新增冗余路径测试。
+1. `bun run typecheck`: Entire monorepo passed (including effects of shared type deletion).
+2. `bun test`: Full suite **2535 pass / 0 fail** (including 80 pass across the original 9 auth test files, confirming channel/method deletion preserves sign-in).
+3. `key-parity.test.ts`: Passed (en/zh aligned after removing `upgrade`/`conflict` + `menu.localData*` and adding `login.localDataNotice` + `profile.dataLocality.*`).
+4. Zero grep residuals: `scanLocalData|attributeLocalData|LocalDataSnapshot|OwnerMarker|UpgradeNotice|ConflictWarning|localDataSnapshotAtom|SCAN_LOCAL_DATA|ATTRIBUTE_LOCAL_DATA|auth-upgrade` yields 0 hits in `apps/electron/src` + `packages/shared/src`.
+
+> U-A4's device-level-storage/no-relocation invariant is already guaranteed by `config-paths.ts` (paths change only with `ASCI_DEV`, without uid segments). This layer was unchanged, so redundant path tests are unnecessary.
 
 ---
 
-## 5. IPC 四联同步影响
+<a id="5-ipc-四联同步影响"></a>
 
-| 层 | 改动 |
+## 5. Four-Way IPC Synchronization Impact
+
+| Layer | Change |
 |----|------|
-| `shared/types/auth-ipc.ts` | 删 `ATTRIBUTE_LOCAL_DATA` + `SCAN_LOCAL_DATA` 常量 |
-| `shared/types/auth.ts` | 删 `LocalDataSnapshot` + `OwnerMarker` |
-| `main/ipc.ts` | 删 `ATTRIBUTE_LOCAL_DATA` + `SCAN_LOCAL_DATA` handler |
-| `preload/index.ts` | 删 `auth.attributeLocalData` + `auth.scanLocalData`（类型 + 桥接 + `LocalDataSnapshot` import） |
-| `renderer` | `LoginPage` 去认领 + 加 `localDataNotice`；`AccountMenu` 去计数；`auth-atoms` 删 `localDataSnapshotAtom`；`useAuth` 去 `scanLocalData` 调用 |
+| `shared/types/auth-ipc.ts` | Delete `ATTRIBUTE_LOCAL_DATA` + `SCAN_LOCAL_DATA` constants |
+| `shared/types/auth.ts` | Delete `LocalDataSnapshot` + `OwnerMarker` |
+| `main/ipc.ts` | Delete `ATTRIBUTE_LOCAL_DATA` + `SCAN_LOCAL_DATA` handlers |
+| `preload/index.ts` | Delete `auth.attributeLocalData` + `auth.scanLocalData` (types + bridge + `LocalDataSnapshot` import) |
+| `renderer` | Remove claiming from `LoginPage`, add `localDataNotice`; remove `AccountMenu` counts; delete `localDataSnapshotAtom` from `auth-atoms`; remove `scanLocalData` call from `useAuth` |
 
 ---
 
-## 6. 文件改动清单
+<a id="6-文件改动清单"></a>
 
-**删除**
+## 6. File Change List
+
+**Delete**
 - `apps/electron/src/renderer/components/auth/UpgradeNotice.tsx`
 - `apps/electron/src/renderer/components/auth/ConflictWarning.tsx`
 - `apps/electron/src/renderer/locales/{en,zh}/auth/upgrade.json`
@@ -150,49 +180,53 @@ issue #425 正文写的是 *"0.3 研究数据仅存本地、跨设备同步**将
 - `apps/electron/src/main/lib/auth-upgrade.ts`
 - `apps/electron/src/main/lib/auth-upgrade.test.ts`
 
-**修改**
-- `packages/shared/src/types/auth.ts`（删 `LocalDataSnapshot` + `OwnerMarker`）
-- `packages/shared/src/types/auth-ipc.ts`（删 `ATTRIBUTE_LOCAL_DATA` + `SCAN_LOCAL_DATA`）
-- `apps/electron/src/main/lib/auth-service.ts`（删 `scanLocalData`/`attributeLocalData` + `userDataPath` dep + 相关 import）
-- `apps/electron/src/main/index.ts`（去 `AuthService` 的 `userDataPath` 注入）
-- `apps/electron/src/main/ipc.ts`（删 2 个 handler）
-- `apps/electron/src/preload/index.ts`（删桥接 + 类型 + import）
-- `apps/electron/src/renderer/atoms/auth-atoms.ts`（删 `localDataSnapshotAtom`）
-- `apps/electron/src/renderer/hooks/useAuth.ts`（去 `scanLocalData` 调用）
-- `apps/electron/src/renderer/components/auth/LoginPage.tsx`（去认领 + 加 `localDataNotice`）
-- `apps/electron/src/renderer/components/auth/AccountMenu.tsx`（删本地数据计数块）
-- `apps/electron/src/renderer/components/settings/ProfileSettings.tsx`（加 `dataLocality` 卡）
-- `apps/electron/src/renderer/locales/{en,zh}/auth.ts`（聚合器去 upgrade/conflict）
-- `apps/electron/src/renderer/locales/{en,zh}/auth/login.json`（加 `localDataNotice`）
-- `apps/electron/src/renderer/locales/{en,zh}/auth/menu.json`（删 `localData`/`localDataCounts`）
-- `apps/electron/src/renderer/locales/{en,zh}/auth/profile.json`（加 `dataLocality.*`）
+**Modify**
+- `packages/shared/src/types/auth.ts` (delete `LocalDataSnapshot` + `OwnerMarker`)
+- `packages/shared/src/types/auth-ipc.ts` (delete `ATTRIBUTE_LOCAL_DATA` + `SCAN_LOCAL_DATA`)
+- `apps/electron/src/main/lib/auth-service.ts` (delete `scanLocalData`/`attributeLocalData` + `userDataPath` dep + related imports)
+- `apps/electron/src/main/index.ts` (remove `userDataPath` injection into `AuthService`)
+- `apps/electron/src/main/ipc.ts` (delete 2 handlers)
+- `apps/electron/src/preload/index.ts` (delete bridge + types + imports)
+- `apps/electron/src/renderer/atoms/auth-atoms.ts` (delete `localDataSnapshotAtom`)
+- `apps/electron/src/renderer/hooks/useAuth.ts` (remove `scanLocalData` call)
+- `apps/electron/src/renderer/components/auth/LoginPage.tsx` (remove claiming + add `localDataNotice`)
+- `apps/electron/src/renderer/components/auth/AccountMenu.tsx` (delete local-data count block)
+- `apps/electron/src/renderer/components/settings/ProfileSettings.tsx` (add `dataLocality` card)
+- `apps/electron/src/renderer/locales/{en,zh}/auth.ts` (remove upgrade/conflict aggregation)
+- `apps/electron/src/renderer/locales/{en,zh}/auth/login.json` (add `localDataNotice`)
+- `apps/electron/src/renderer/locales/{en,zh}/auth/menu.json` (delete `localData`/`localDataCounts`)
+- `apps/electron/src/renderer/locales/{en,zh}/auth/profile.json` (add `dataLocality.*`)
 
-**版本号递增（已做）**
-- `apps/electron`：`0.1.466 → 0.1.467`
-- `packages/shared`：`0.1.107 → 0.1.108`（因 auth 类型/通道改动）
+**Version Increments (Done)**
+- `apps/electron`: `0.1.466 → 0.1.467`
+- `packages/shared`: `0.1.107 → 0.1.108` (auth type/channel changes)
 
 ---
 
-## 7. 验收映射
+<a id="7-验收映射"></a>
 
-| 验收 | 本方案如何满足 |
+## 7. Acceptance Mapping
+
+| Acceptance | How This Plan Satisfies It |
 |------|---------------|
-| U-A4（数据 + 配置登录即用、无重填、无认领） | A 拆掉认领 banner/复选框/对话框 → 登录后直达；存储天然设备级（D 测试锁死路径不变量 + scan 真实计数）；config 设备级共享天然满足 |
-| U-A6（欢迎页/账户页"仅本地"文案） | C 在 LoginPage（`localDataNotice`）+ ProfileSettings（`dataLocality` 卡）落文案，en/zh 同步，**不承诺同步时间表** |
+| U-A4 (data + configuration immediately usable after sign-in, no reentry or claiming) | A removes attribution banner/checkbox/dialog → direct access after sign-in; inherently device-level storage (D tests lock path invariant + real scan counts); device-shared config inherently satisfies it |
+| U-A6 (local-only copy on welcome/account pages) | C adds copy to LoginPage (`localDataNotice`) + ProfileSettings (`dataLocality` card), synchronized en/zh, **without a sync schedule** |
 
 ---
 
-## 8. 风险与回滚
+<a id="8-风险与回滚"></a>
 
-| 风险 | 缓解 |
+## 8. Risks and Rollback
+
+| Risk | Mitigation |
 |------|------|
-| 删类型/通道触及 #420 骨架，编译连锁 | 改动集中在 attribution 子集；`bun run typecheck` 全量校验；`SCAN_LOCAL_DATA` 保留降低面 |
-| `scanLocalData` 改读对象库引入主进程 → 对象库耦合 | 仅 `import` 既有 repository list 函数 + 取长度，无新建查询；DB 未初始化兜底返回 0 |
-| 文案口径与 issue 正文不一致 | §3 已显式标注，review 时与作者对齐，以 PRD 为准 |
-| 历史 owner.json 孤儿文件 | 无副作用（无人读）；倾向不主动清理用户目录 |
+| Type/channel deletion touches #420 framework with compilation effects | Changes confined to attribution subset; full `bun run typecheck`; retaining `SCAN_LOCAL_DATA` reduces scope |
+| Changing `scanLocalData` to object-store reads couples main process → object store | Only `import` existing repository list functions and take lengths, no new queries; return 0 if DB uninitialized |
+| Copy policy differs from issue body | Explicit in §3; align with author at review; PRD governs |
+| Orphan historical owner.json | Harmless (unread); prefer no active cleanup of user directories |
 
-回滚：本方案为减法 + 文案，单 PR squash；如需回滚直接 revert PR。
+Rollback: Subtractive code + copy, one squash PR; revert the PR if needed.
 
 ---
 
-**Spec 版本**：v1 · 2026-06-15 · 草稿待 review
+**Spec version**: v1 · 2026-06-15 · Draft awaiting review

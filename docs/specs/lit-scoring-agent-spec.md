@@ -1,188 +1,235 @@
-> 历史科研规格：保存旧设计和数据语义，不作为当前新增功能或恢复运行接线的要求。科研主动功能正按[退役规格](./2026-11-10-research-retirement.md)分批收口，实际完成与未验收范围以对应执行记录为准。
+> Historical research specification: preserves earlier designs and data semantics; it does not require new features or restoration of runtime wiring. Active research features are being retired in batches under the [retirement specification](./2026-11-10-research-retirement.md); corresponding execution records define actual completion and unaccepted scope.
 
-# lit-scoring-agent — 证据驱动文献评分（score，与 F22/v1 并行）
+<a id="lit-scoring-agent-&#45;证据驱动文献评分score与-f22v1-并行"></a>
 
-- 状态：已落地（MVP 阶段 1，scorer 已设为默认判官）
-- 关联 ADR：[ADR-010](../adr/ADR-010-evidence-driven-scoring-agent.md)（决策记录：为何引入 score、相关性主导、与 F22 耦合并行）
-- 关联 issue：（待补）
-- 关联 PR：[#511](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/511)
-- 领域语言事实源：本仓库 `CONTEXT.md` + 设计母本《ASCI_文献评分排序Agent方案_修订版v3》（Obsidian，附录 C 为 ASCI 现状映射）
-- 代码事实源：`paper_search/service/paper_scoring.py`、`paper_search/service/venue_tier.py`、`sub-agents/scorer.md`
+# lit-scoring-agent — Evidence-Driven Literature Scoring (score, Parallel to F22/v1)
+
+- Status: implemented (MVP phase 1, scorer is the default judge)
+- Related ADR: [ADR-010](../adr/ADR-010-evidence-driven-scoring-agent.md) (why introduce score, prioritize relevance, and run coupled with F22)
+- Related issue: (to be added)
+- Related PR: [#511](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/511)
+- Domain language source of truth: repository `CONTEXT.md` + design master “ASCI Literature Scoring and Ranking Agent Proposal, Revised v3” (Obsidian; Appendix C maps current ASCI)
+- Code sources: `paper_search/service/paper_scoring.py`, `paper_search/service/venue_tier.py`, `sub-agents/scorer.md`
 
 ---
 
-## 1. 目标与命名
+<a id="1-目标与命名"></a>
 
-在**不动**现有 F22 打分（`scoring.py`）与 finalRelevance（`relevance-scorer`/`apply_rerank`）的前提下，**并行**引入一套"相关性主导、多维、可解释、区分 unknown/negative"的评分，称为 **score**。
+## 1. Goal and Naming
 
-> **命名澄清**：新评分叫 **score**，写在 `extra.score`，**不叫 F22**。
-> F22 = 旧 v1 质量分（`extra.relevance`），仅内部用于"选前 50 篇送 LLM 判分"，前端已不展示。
+Introduce **score** in **parallel**, prioritizing relevance with multiple explainable dimensions and distinguishing unknown/negative, **without changing** existing F22 (`scoring.py`) or finalRelevance (`relevance-scorer`/`apply_rerank`).
 
-核心结构（v3 重构：**相关性主导、质量二级**）：
+> **Naming**: the new rating is **score**, stored in `extra.score`, **not F22**.
+> F22 = old v1 quality rating (`extra.relevance`), used internally only to select the first 50 papers for LLM scoring; no longer shown in the frontend.
+
+Core structure (v3: **relevance primary, quality secondary**). The original diagram defines weighted semantic .35 + method .20 as relevance, and venue .15 + publication .10 + recency .10 + influence .05 + reproducibility .05 as quality; final = 0.8 relevance + 0.2 quality, or relevance alone without quality data.
 
 ```
-relevanceScore = 加权(semantic_relevance .35 + method_match .20)      ← 主导排序
-qualityScore   = 加权(venue .15 + publication_status .10 + recency .10
-                       + influence .05 + reproducibility .05)          ← 二级 + 卡片标注
+relevanceScore = weighted(semantic_relevance .35 + method_match .20)  ← Primary ranking
+qualityScore   = weighted(venue .15 + publication_status .10 + recency .10
+                       + influence .05 + reproducibility .05)      ← Secondary + card annotation
 finalScore     = 0.8 × relevanceScore + 0.2 × qualityScore
-                 （无任何质量数据时 finalScore = relevanceScore）
+                 (without any quality data, finalScore = relevanceScore)
 ```
 
-设计理由：venue / 出版状态 / 影响因子是"论文质量"，不是"是否回答了我的问题"。把它们做成主导会让"高质量但不对题"的论文挤到前面，所以只占 20% 二级权重 + 卡片单独标注。
+Rationale: venue / publication status / impact factor measure paper quality, not whether it answers the question. Giving them dominance promotes high-quality but irrelevant papers, so quality gets only 20% secondary weight + separate card annotation.
 
-输出写入 session JSONL 的 **`extra.score`**（与 `relevance` / `finalRelevance` / `journalRank` 同路，免 IPC）。前端按 `finalScore` 排序、`ScoreBadge` 展示。
-
----
-
-## 2. 运行链路（谁、何时、写什么）
-
-两条路径都会产出 `extra.score`，**后者优先且不被前者覆盖**：
-
-### 2.1 LLM `scorer` 子 Agent —— **默认判官**（精确 semantic + method）
-
-- `lit-search` 默认 PLAN 路由 `searcher → scorer`（`manifest.json` 0.2.15 起，scorer = THE DEFAULT judge）。
-- scorer 读本轮按 F22 排序的前 `min(N,50)` 篇，**只判两维**：`semantic` + `method`（0–100），对照规划层 brief 里的 **`research_question`（用户原问题）**，调 `apply_scoring` 一次写回。
-- 服务端补齐 5 个确定性维 → null 重分配 → 组装 `extra.score`（`version: 3`）。
-- `relevance-scorer`（旧 v1 链路）降级为**语义-only 回退**，默认不派发。
-
-### 2.2 后台富化 `enrich_session_async` —— **基线兜底**（无 LLM）
-
-- 检索结束触发后台任务（`spawn_session_enrich`），在 venue 回填 + EasyScholar 分区/IF 补全后，对本轮前 `_ENRICH_TOP_N=80` 篇算一份基线 score：
-  - `semantic` = 回退信号（`finalRelevance ?? keywordRelevance ?? relevance ?? 50`）
-  - `method` = **null**（该维权重重分配给 semantic）
-- **关键约束（本会话修复）**：富化第 ④ 步若发现某篇**已被 scorer 写过**（`score.scores.method_match != null`），则**保留 scorer 的 semantic + method**，只用最新 venue/分区重算确定性维 —— 即 enrich 不会覆盖 scorer 的 LLM 判分。
-- 七维评分始终运行，无关闭开关。
-
-### 2.3 与 v1 的关系
-F22（`extra.relevance`）+ finalRelevance（`extra.finalRelevance`）原样保留在后端，仅前端不再展示。score 不触碰任何 v1 字段。
+Persist **`extra.score`** in session JSONL through the same route as `relevance` / `finalRelevance` / `journalRank`, without IPC. Frontend sorts by `finalScore` and displays `ScoreBadge`.
 
 ---
 
-## 3. 七个维度的数据来源与缺失处理
+<a id="2-运行链路谁何时写什么"></a>
 
-| 维度 | 组 | 来源 | 缺失 |
+## 2. Runtime Paths (Who, When, What)
+
+Both paths produce `extra.score`; **the latter takes priority and is not overwritten by the former**:
+
+<a id="21-llm-scorer-子-agent-&#45;默认判官精确-semantic-&#45;method"></a>
+
+### 2.1 LLM `scorer` Subagent — **Default Judge** (Precise Semantic + Method)
+
+- `lit-search` default PLAN routes `searcher → scorer` (since `manifest.json` 0.2.15; scorer = THE DEFAULT judge).
+- Reads first `min(N,50)` papers sorted by F22 for this run; judges **only two dimensions**, `semantic` + `method` (0–100), against planner brief's **`research_question` (original user question)**; writes once through `apply_scoring`.
+- Server fills 5 deterministic dimensions → redistributes null weights → assembles `extra.score` (`version: 3`).
+- `relevance-scorer` (old v1) becomes **semantic-only fallback**, not dispatched by default.
+
+<a id="22-后台富化-enrich_session_async-&#45;基线兜底无-llm"></a>
+
+### 2.2 Background `enrich_session_async` — **Baseline Fallback** (No LLM)
+
+- Search completion triggers background `spawn_session_enrich`; after venue backfill + EasyScholar quartile/IF enrichment, calculate baseline score for first `_ENRICH_TOP_N=80` papers:
+  - `semantic` = fallback (`finalRelevance ?? keywordRelevance ?? relevance ?? 50`)
+  - `method` = **null**, its weight redistributed to semantic
+- **Key constraint (fixed this session)**: enrich step ④ checks whether scorer **already wrote** the paper (`score.scores.method_match != null`). If so, **retain scorer semantic + method**, recomputing only deterministic dimensions with latest venue/quartile data; enrich never overwrites LLM judgments.
+- Seven-dimensional scoring always runs, without an off switch.
+
+<a id="23-与-v1-的关系"></a>
+
+### 2.3 Relationship to v1
+
+F22 (`extra.relevance`) + finalRelevance (`extra.finalRelevance`) remain unchanged in backend, hidden only in frontend. score touches no v1 fields.
+
+---
+
+<a id="3-七个维度的数据来源与缺失处理"></a>
+
+## 3. Seven Dimensions: Sources and Missing Data
+
+| Dimension | Group | Source | Missing behavior |
 |---|---|---|---|
-| `semantic_relevance` | 相关性 | scorer（LLM）；缺则回退 `finalRelevance ?? keywordRelevance ?? relevance ?? 50` | **必有**（有回退） |
-| `method_match` | 相关性 | scorer（LLM） | **null**（权重并入 semantic） |
-| `venue_quality` | 质量 | `map_venue_tier(extra.journalRank, venue)` × match_confidence | tier=unknown → **null** |
-| `publication_status` | 质量 | `infer_publication_status(record)`（source/venue/doi 粗判） | 永不 null（最低 unknown=35） |
-| `recency` | 质量 | `year` | 无整数 year → **null** |
-| `paper_influence` | 质量 | `extra.citedBy` 年均引用 | 无 citedBy → **null** |
-| `reproducibility` | 质量 | 标题/摘要/url 启发式 | 无信号 → **null** |
+| `semantic_relevance` | Relevance | scorer (LLM); fallback `finalRelevance ?? keywordRelevance ?? relevance ?? 50` | **Always present** through fallback |
+| `method_match` | Relevance | scorer (LLM) | **null**, weight moves to semantic |
+| `venue_quality` | Quality | `map_venue_tier(extra.journalRank, venue)` × match_confidence | tier=unknown → **null** |
+| `publication_status` | Quality | `infer_publication_status(record)` (rough source/venue/doi inference) | Never null (minimum unknown=35) |
+| `recency` | Quality | `year` | No integer year → **null** |
+| `paper_influence` | Quality | Annualized `extra.citedBy` | No citedBy → **null** |
+| `reproducibility` | Quality | Title/abstract/url heuristic | No signal → **null** |
 
-> **null ≠ 0**：缺数据的维不计入、权重按比例分给同组其它维（缺数据 ≠ 差，尤其新论文无引用）。
+> **null ≠ 0**: missing dimensions are excluded, their weights redistributed proportionally within the group. Missing data is not poor quality, especially for new uncited papers.
 
 ---
 
-## 4. 评分细则（与代码逐条对齐）
+<a id="4-评分细则与代码逐条对齐"></a>
 
-### 4.0 端到端走查（一条论文怎么得到 finalScore）
+## 4. Scoring Rules (Aligned with Code)
+
+<a id="40-端到端走查一条论文怎么得到-finalscore"></a>
+
+### 4.0 End-to-End Walkthrough (How a Paper Gets finalScore)
+
+The diagram traces retrieval into JSONL, baseline enrichment for 80 papers, scorer's first min(N,50), server deterministic scoring and group-wise null redistribution, persistence as version 3, later enrich retaining LLM dimensions, and frontend sorting/badges.
 
 ```
-① searcher/retrieve   → 候选写入 session JSONL，每条带 venue / year / citedBy / extra.relevance(F22)
-② 后台 enrich         → 回填正刊 venue + EasyScholar 分区/IF(extra.journalRank)；
-                          对前 80 篇先算一份"基线 score"(semantic=回退, method=null)
-③ scorer 子 Agent     → 读按 F22 排序的前 min(N,50) 篇，对照原问题判 semantic + method，
-   (默认判官, LLM)        一次 apply_scoring 写回
-④ 服务端 score_record → 对每条被判过的 handle：
-   (确定性 5 维 + 合成)   a. 取 scorer 的 semantic + method
-                          b. 从 record 字段算 venue_quality / publication_status / recency
-                             / paper_influence / reproducibility（见 4.2–4.5）
-                          c. 组内 null 重分配 → relevanceScore、qualityScore（见 4.6）
+① searcher/retrieve   → Candidates into session JSONL, with venue / year / citedBy / extra.relevance(F22)
+② Background enrich   → Backfill formal venue + EasyScholar quartile/IF(extra.journalRank);
+                          baseline score for first 80 (semantic=fallback, method=null)
+③ scorer subagent     → Read first min(N,50) by F22, judge semantic + method against original question;
+   (default, LLM)        one apply_scoring writeback
+④ Server score_record → For each judged handle:
+   (5 deterministic      a. Take scorer semantic + method
+    dimensions + merge)  b. Derive venue_quality / publication_status / recency
+                             / paper_influence / reproducibility from record (4.2–4.5)
+                          c. Redistribute null weights within groups → relevanceScore, qualityScore (4.6)
                           d. finalScore = 0.8×relevanceScore + 0.2×qualityScore
-                          e. 写 extra.score（version 3）
-⑤ 再次 enrich 刷新     → 若该篇 method≠null(scorer 判过)，保留 semantic+method，
-                          仅用最新分区/IF 重算确定性维（不覆盖 LLM 判分）
-⑥ 前端                → 按 finalScore 排序，ScoreBadge 显示数字 + relevance/quality 拆分
+                          e. Write extra.score (version 3)
+⑤ Refreshed enrich    → If method≠null (scorer judged it), retain semantic+method;
+                          recompute deterministic dimensions with latest quartile/IF, never overwrite LLM
+⑥ Frontend            → Sort finalScore, ScoreBadge number + relevance/quality breakdown
 ```
 
-要点：**相关性两维是 LLM 判的、质量五维是服务端从字段算的**；两组各自独立做 null 重分配，最后按 0.8 / 0.2 合成。scorer 缺席时（仅后台基线）semantic 走回退、method 记 null，此时 `relevanceScore = semantic`。
+Key: **LLM judges the two relevance dimensions; server computes five quality dimensions from fields**. Each group redistributes null weights independently; combine 0.8 / 0.2. Without scorer (background baseline only), semantic falls back, method=null, and `relevanceScore = semantic`.
 
-### 4.1 相关性两维（LLM，`scorer` 判）
+<a id="41-相关性两维llmscorer-判"></a>
 
-**`semantic`（0–100）—— 对题度**：论文多直接回答 `research_question`（**用原问题判，不是 keyword 列表**）。
-- 90–100 直接解决问题的具体目标 · 75–89 命中但范围/变体不同 · 60–74 部分相关 · 40–59 同领域但不对题 · 0–39 仅领域/关键词重叠
-- **硬负约束**：领域/模态重叠不算相关。摘要未涉及问题的**具体目标**（如"拓展景深"→ EDOF / all-in-focus / 扩展焦深）则 **semantic ≤ 50**；泛化的 volumetric / 3D / reconstruction 成像若从不提景深目标，封顶 50。
+### 4.1 Two Relevance Dimensions (LLM `scorer`)
 
-**`method`（0–100）—— 方法是否冲着问题的具体目标**：
-- 90–100 方法就是**为**该目标设计 · 75–89 该目标的近变体 · 55–74 相邻 · 0–54 不同目标/方法
-- **硬负约束**：方法/目标是泛化 volumetric imaging / 3D reconstruction / light-field reconstruction、不明确瞄准问题具体目标的，**method ≤ 40**（即便同模态 + 用深度学习）。
+**`semantic` (0–100), topical relevance**: how directly the paper answers `research_question` (**original question, not keyword list**).
+- 90–100 directly addresses the specific objective · 75–89 relevant but different scope/variant · 60–74 partially relevant · 40–59 same field but off-topic · 0–39 only field/keyword overlap
+- **Hard negative constraint**: field/modality overlap is insufficient. If abstract lacks the question's **specific objective** (e.g. extending depth of field → EDOF / all-in-focus / extended focal depth), **semantic ≤ 50**; generic volumetric / 3D / reconstruction imaging never mentioning that objective caps at 50.
 
-### 4.2 venue_tier 映射（`map_venue_tier`，**取最强信号** `_stronger`）
+**`method` (0–100), targeting the specific objective**:
+- 90–100 method designed **for** that objective · 75–89 close variant · 55–74 adjacent · 0–54 different objective/method
+- **Hard negative constraint**: generic volumetric imaging / 3D reconstruction / light-field reconstruction without explicit targeting of the specific objective gets **method ≤ 40**, even with the same modality + deep learning.
 
-多来源各出一个 tier，取最强；命中任一来源 `match_confidence` 抬到 0.9（顶刊白名单 0.95）。
+<a id="42-venue_tier-映射map_venue_tier取最强信号-_stronger"></a>
 
-| tier | 命中条件（满足其一） |
+### 4.2 venue_tier Mapping (`map_venue_tier`, **Strongest Signal** `_stronger`)
+
+Each source supplies a tier; choose the strongest. Any matching source raises `match_confidence` to 0.9 (top-journal allowlist 0.95).
+
+| tier | Match condition (any one) |
 |---|---|
-| **top** | 顶刊白名单 / 中科院1区 / (JCR=Q1 且 IF≥8) / CCF-A / CORE-A* |
-| **strong** | 中科院2区 / JCR=Q1(IF<8) / (Q2 且 IF≥5) / CCF-B / CORE-A |
-| **normal** | 中科院3区 / Q2(IF<5) / Q3 / CCF-C / CORE-B |
-| **weak** | 中科院4区 / Q4 / CORE-C |
-| **unknown** | 无任何信号 |
+| **top** | Top-journal allowlist / CAS tier 1 / (JCR=Q1 and IF≥8) / CCF-A / CORE-A* |
+| **strong** | CAS tier 2 / JCR=Q1(IF<8) / (Q2 and IF≥5) / CCF-B / CORE-A |
+| **normal** | CAS tier 3 / Q2(IF<5) / Q3 / CCF-C / CORE-B |
+| **weak** | CAS tier 4 / Q4 / CORE-C |
+| **unknown** | No signals |
 
-- 期刊指标来自 `extra.journalRank`（EasyScholar：`jcrPartition` / `impactFactor` / `casPartition`，中科院分区从串里抽 1–4 区）。
-- 会议靠本地 `venue_ranking_local.json`（CCF/CORE 种子表），venue 名先经 `normalize_venue` 归一化为简称 key（全名片段表 + 括号缩写 + 已知简称 token 扫描）。
+- Journal metrics come from `extra.journalRank` (EasyScholar: `jcrPartition` / `impactFactor` / `casPartition`, extracting CAS tiers 1–4 from strings).
+- Conferences use local `venue_ranking_local.json` (CCF/CORE seed table); `normalize_venue` converts names to abbreviation keys (full-name fragments + parenthesized abbreviations + known token scanning).
 
-### 4.3 venue_quality 分数
+<a id="43-venue_quality-分数"></a>
+
+### 4.3 venue_quality Score
+
 ```
 tier_score:  top 95 / strong 80 / normal 65 / weak 45 / unknown → null
 venue_quality = round(tier_score × max(match_confidence, 0.5), 1)
 ```
 
-### 4.4 publication_status
+### 4.4 `publication_status`
 
-`infer_publication_status` 由 venue/doi/source 粗判状态与置信度：
+`infer_publication_status` roughly infers status/confidence from venue/doi/source:
 
-| 状态 | 触发 | 基础分 | confidence |
+| Status | Trigger | Base score | confidence |
 |---|---|---|---|
-| `published_journal` | 有 venue 且非预印本 markers，无 conf/workshop 词 | 85 | 0.85 |
-| `published_conference` | venue 含 proceedings/conference/symposium/congress/meeting | 85 | 0.82 |
-| `published_workshop` | venue 含 workshop | 60 | 0.80 |
-| `accepted_pending_publication` | （预留） | 70 | — |
-| `preprint_with_doi` | 无正式 venue 但有 DOI | 55 | 0.70 |
-| `preprint_only` | source=arxiv 或 venue 命中预印本 markers | 45 | 0.75 |
-| `published_repository` | （预留） | 45 | — |
-| `unknown` | 都不命中 | 35 | 0.40 |
+| `published_journal` | Venue present, not preprint markers, no conf/workshop words | 85 | 0.85 |
+| `published_conference` | Venue contains proceedings/conference/symposium/congress/meeting | 85 | 0.82 |
+| `published_workshop` | Venue contains workshop | 60 | 0.80 |
+| `accepted_pending_publication` | (reserved) | 70 | — |
+| `preprint_with_doi` | No formal venue but has DOI | 55 | 0.70 |
+| `preprint_only` | source=arxiv or venue matches preprint markers | 45 | 0.75 |
+| `published_repository` | (reserved) | 45 | — |
+| `unknown` | None matched | 35 | 0.40 |
 
-预印本 markers：arxiv / ssrn / biorxiv / medrxiv / chemrxiv / preprint / research square / techrxiv / authorea。
+Preprint markers: arxiv / ssrn / biorxiv / medrxiv / chemrxiv / preprint / research square / techrxiv / authorea. The formula uses the base score from the table.
+
 ```
-publication_status = round(基础分 × (0.6 + 0.4 × confidence), 1)
+publication_status = round(base_score × (0.6 + 0.4 × confidence), 1)
 ```
 
 ### 4.5 recency / influence / reproducibility
-- **recency**（按 `now_year - year`）：≤1→95 · ≤3→85 · ≤5→70 · ≤10→50 · 否则 30；无整数 year → null。
-- **influence**（年均引用 = citedBy ÷ max(1, now−year+1)）：≥50→95 · ≥20→85 · ≥10→75 · ≥5→65 · ≥1→55 · 否则 40；无 citedBy → null。
-- **reproducibility**：标题+摘要含 github / open source / (code 且 available|release)→75；否则有 url/pdf_url→50；都无→null。
 
-### 4.6 三个分数的合成（null 重分配）
+- **recency** (`now_year - year`): ≤1→95 · ≤3→85 · ≤5→70 · ≤10→50 · otherwise 30; no integer year → null.
+- **influence** (annual citations = citedBy ÷ max(1, now−year+1)): ≥50→95 · ≥20→85 · ≥10→75 · ≥5→65 · ≥1→55 · otherwise 40; no citedBy → null.
+- **reproducibility**: title+abstract includes github / open source / (code and available|release)→75; otherwise url/pdf_url→50; neither→null.
+
+<a id="46-三个分数的合成null-重分配"></a>
+
+### 4.6 Combining Three Scores (Null Redistribution)
+
+The algorithm divides weighted available scores by available weights, redistributing missing dimensions within groups; missing method gives semantic all relevance weight; all-null quality produces None, so final uses relevance alone, otherwise 0.8/0.2.
+
 ```
 compute_final_score(scores, weights):
-    avail  = {维: 分 | 分非 null}
-    return Σ(分 × 权重) / Σ(avail 的权重)          # 缺维权重按比例分给同组其它维
+    avail  = {dimension: score | score is not null}
+    return Σ(score × weight) / Σ(available weights)   # Redistribute missing weights within group
 
 relevanceScore = compute_final_score({semantic, method}, {.35, .20})
-                 # method 缺 → 全给 semantic，即 relevanceScore = semantic
+                 # Missing method → all to semantic, relevanceScore = semantic
 quality_dims   = {venue, pub, recency, influence, repro}
-qualityScore   = None  若五维全 null
-               = compute_final_score(quality_dims, {.15,.10,.10,.05,.05})  否则
-finalScore     = relevanceScore                              若 qualityScore is None
-               = 0.8 × relevanceScore + 0.2 × qualityScore   否则
+qualityScore   = None  if all five dimensions are null
+               = compute_final_score(quality_dims, {.15,.10,.10,.05,.05})  otherwise
+finalScore     = relevanceScore                              if qualityScore is None
+               = 0.8 × relevanceScore + 0.2 × qualityScore   otherwise
 ```
 
-### 4.7 data_confidence（仅展示 / 同分次级排序，**不乘进 finalScore**）
+<a id="47-data_confidence仅展示-&#45;同分次级排序不乘进-finalscore"></a>
+
+### 4.7 data_confidence (Display / Secondary Tie-Breaking Only, **Never Multiplied into finalScore**)
+
+Comments mark title present=0.95, venue present=max(match_conf,0.5), integer year=0.95, nonempty authors=0.9; missing values redistribute weights proportionally.
+
 ```
 weights: title .10 / venue .30 / publication_status .30 / year .10 / authors .20
-confs:   title 0.95(有) · venue max(match_conf,0.5)(有) · pub_status=pub.confidence
-         · year 0.95(整数) · authors 0.9(非空)
-data_confidence = Σ(conf × w) / Σ(可用 w)    # 缺项同样按比例重分配
+confs:   title 0.95(present) · venue max(match_conf,0.5)(present) · pub_status=pub.confidence
+         · year 0.95(integer) · authors 0.9(nonempty)
+data_confidence = Σ(conf × w) / Σ(available w)    # Redistribute missing weights proportionally
 ```
 
-### 4.8 等级（内部计算，**前端不展示 S/A/B/C/D**）
-S ≥90 · A ≥80 · B ≥65 · C ≥50 · D <50。前端只显示 `finalScore` 数字 + 相关/质量分解，不显示字母。
+<a id="48-等级内部计算前端不展示-sabcd"></a>
+
+### 4.8 Levels (Internal, **Frontend Does Not Show S/A/B/C/D**)
+
+S ≥90 · A ≥80 · B ≥65 · C ≥50 · D <50. Frontend shows only numeric `finalScore` + relevance/quality breakdown, no letters.
 
 ---
 
-## 5. 输出结构（`extra.score`，version 3）
+<a id="5-输出结构extrascoreversion-3"></a>
+
+## 5. Output (`extra.score`, Version 3)
+
+Comments identify relevance as the dominant 0.8 term, quality as 0.2 plus card annotation (null when all five dimensions are absent), finalScore for sorting, nullFields for redistributed dimensions, and level as internal. The example reason translates to “Highly semantically relevant; strong method match; top venue (JCR-Q1·IF8.x); formally published (journal).”
 
 ```jsonc
 {
@@ -204,46 +251,63 @@ S ≥90 · A ≥80 · B ≥65 · C ≥50 · D <50。前端只显示 `finalScore`
 
 ---
 
-## 6. 与 F22 五维评分的对比
+<a id="6-与-f22-五维评分的对比"></a>
 
-F22（v1，`scoring.py` → `extra.relevance`）是上一代评分：**纯确定性、质量导向、单一综合分**。score 是这次重构的：**LLM + 确定性混合、相关性主导、可解释多维分**。两者并存（F22 仍内部用于"选前 50 篇送 scorer"），但前端默认展示/排序已切到 score。
+## 6. Comparison with F22 Five-Dimensional Scoring
 
-### 6.1 维度与权重对照
+F22 (v1, `scoring.py` → `extra.relevance`) is **purely deterministic, quality-oriented, one aggregate score**. This refactoring's score is **LLM + deterministic hybrid, relevance-led, explainable multidimensional scoring**. Both coexist (F22 still internally selects the first 50 for scorer), while frontend default display/sorting has switched to score.
 
-| | **F22 五维**（`extra.relevance`，0–100） | **score 七维**（`extra.score.finalScore`） |
+<a id="61-维度与权重对照"></a>
+
+### 6.1 Dimensions and Weights
+
+| | **F22 five dimensions** (`extra.relevance`, 0–100) | **score seven dimensions** (`extra.score.finalScore`) |
 |---|---|---|
-| 相关性维 | `keyword_relevance` .20 | `semantic_relevance` .35 + `method_match` .20 → **relevanceScore** |
-| 质量维 | `citations` .25 · `recency` .25 · `citation_velocity` .15 · `venue_presence` .15 | `venue_quality` .15 · `publication_status` .10 · `recency` .10 · `paper_influence` .05 · `reproducibility` .05 → **qualityScore** |
-| 合成 | 五维加权和（null 重分配） | `finalScore = 0.8×relevanceScore + 0.2×qualityScore` |
-| **相关性占比** | **0.20** | **0.80** |
-| **引用+时效占比** | **0.65**（citations .25 + recency .25 + velocity .15） | **0.20**（全部质量维合计才 0.20，其中引用/时效只占一小部分） |
+| Relevance | `keyword_relevance` .20 | `semantic_relevance` .35 + `method_match` .20 → **relevanceScore** |
+| Quality | `citations` .25 · `recency` .25 · `citation_velocity` .15 · `venue_presence` .15 | `venue_quality` .15 · `publication_status` .10 · `recency` .10 · `paper_influence` .05 · `reproducibility` .05 → **qualityScore** |
+| Combination | Five-dimensional weighted sum (null redistribution) | `finalScore = 0.8×relevanceScore + 0.2×qualityScore` |
+| **Relevance share** | **0.20** | **0.80** |
+| **Citations+recency share** | **0.65** (citations .25 + recency .25 + velocity .15) | **0.20** (all quality dimensions total only 0.20; citations/recency a small subset) |
 
-### 6.2 关键差异（为什么换）
+<a id="62-关键差异为什么换"></a>
 
-| 维度 | F22 五维 | score 七维 |
+### 6.2 Key Differences (Why Change)
+
+| Dimension | F22 five dimensions | score seven dimensions |
 |---|---|---|
-| **相关性怎么判** | `keyword_relevance`：关键词逐 term 命中率投票（**纯字面/词频，无语义、无 LLM**）—— 同领域只要词撞上就给高分 | `semantic`+`method`：**LLM scorer 对照用户原问题语义判**，带硬负约束（同域/同模态 ≠ 相关；不瞄准问题具体目标则封顶） |
-| **什么主导排序** | 引用 + 时效（0.65）—— **高引经典 / 高产期刊容易顶上来**，哪怕不太对题 | 相关性（0.80）—— **对题优先**，质量只做二级微调 |
-| **venue 信号** | `venue_presence` 二值：有期刊名 0.5 / 无 null（**只看有没有，不看强弱**） | `venue_quality` 五档 tier（top/strong/normal/weak），由 CCF/CORE + JCR/中科院分区/IF 映射 |
-| **出版状态** | 不区分（venue 有无一刀切） | `publication_status` 区分期刊/会议/workshop/预印本(有无 DOI)/未知，各给不同分 |
-| **LLM 参与** | 无（纯确定性、可秒算） | 相关性两维由 LLM 判（需派发 scorer；缺席时退回字面回退值） |
-| **输出** | 一个综合分 + `relevanceBreakdown` | `relevanceScore`/`qualityScore`/`finalScore` 三分拆 + 七维 + `reason` + `data_confidence` |
-| **共同点** | — | null 维不计入、权重组内重分配（缺数据 ≠ 差）；分数都夹到 0–100 |
+| **Relevance judgment** | `keyword_relevance`: term-hit voting (**literal/frequency only, no semantics or LLM**); same-field overlapping words can score highly | `semantic`+`method`: **LLM judges against original question**, with hard negative constraints (same field/modality ≠ relevance; cap without specific objective) |
+| **Ranking driver** | Citations + recency (0.65): **highly cited classics / prolific journals rise**, even off-topic | Relevance (0.80): **on-topic first**, quality as secondary adjustment |
+| **Venue signal** | Binary `venue_presence`: named journal 0.5 / absent null (**presence only, not strength**) | Five-level `venue_quality` tier (top/strong/normal/weak), mapped from CCF/CORE + JCR/CAS/IF |
+| **Publication status** | Undifferentiated venue presence | Distinct journal/conference/workshop/preprint with/without DOI/unknown scores |
+| **LLM involvement** | None, deterministic and immediate | Two relevance dimensions judged by LLM scorer; literal fallback if absent |
+| **Output** | Aggregate score + `relevanceBreakdown` | `relevanceScore`/`qualityScore`/`finalScore` + seven dimensions + `reason` + `data_confidence` |
+| **Shared** | — | Exclude nulls, redistribute within groups (missing ≠ poor); clamp to 0–100 |
 
-### 6.3 一个真实例子（同一篇，两套分）
+<a id="63-一个真实例子同一篇两套分"></a>
 
-候选 "**The Light Field Camera: Extended Depth of Field**"（经典全光相机论文，高被引，发表于强 venue，但**不是深度学习、不是显微镜**）：
-- **F22 五维**：citations 高 + recency 尚可 + venue_presence 有 + keyword_relevance（"light field"/"depth of field" 字面全中）→ **综合分很高，排到最前**。
-- **score 七维**：scorer 判 semantic=55 / method=35（领域对、但不是问题要的"深度学习 + 显微镜"，硬负约束封顶），venue_quality 虽 top 但只占 0.15 → **finalScore ≈ 51.7**，被相关性压下来。
+### 6.3 Real Example (Same Paper, Two Scores)
 
-这正是重构意图：**F22 会让"高质量但不对题"的论文靠引用/名气顶上来；score 让"是否回答了你的问题"主导排序。** 也因此，当检索池本身不对题时，score 会如实给出一片低分（而 F22 仍可能因高引/有 venue 给出虚高分）。
+Candidate “**The Light Field Camera: Extended Depth of Field**” (classic plenoptic-camera paper, highly cited, strong venue, but **neither deep learning nor microscopy**):
+- **F22**: high citations + acceptable recency + venue_presence + literal light field/depth of field matches → **high aggregate, top ranking**.
+- **score**: scorer semantic=55 / method=35 (right field, but not requested deep learning + microscopy, hard negative cap); venue_quality is top but only 0.15 → **finalScore ≈ 51.7**, reduced by relevance.
 
-## 7. 关键原则（沿用母本）
-unknown(null) ≠ negative(0)；出版事件与 venue 强度分开、不重复加分；模糊匹配留痕（`match_confidence`）；**相关性优先于影响因子 / 名气**（finalScore 0.8 给相关性）。
+This is the intent: **F22 promotes high-quality but irrelevant papers through citations/reputation; score makes answering the user's question determine rank.** Thus an off-topic retrieval pool honestly gets low scores, while F22 might inflate them through citations/venue.
 
-## 8. MVP 不做
-原始响应留存层、多源 evidence 融合完整版、canonical 两遍迭代、机构主评分、撤稿检测（`published_repository`/`accepted_pending_publication` 仅预留枚举，暂无触发路径）。
+<a id="7-关键原则沿用母本"></a>
 
-## 9. ASCI 落地差异（详见母本附录 C）
-- DBLP 未禁用，仅不进宽搜；会议 venue 定向确认可复用 DBLP XML 精确查（本期先用本地 CCF/CORE 表 + OpenAlex venue 名，DBLP 接入留作增强）。
-- 无原始响应留存 → evidence 为轻量版（基于已归一化 record 字段）。
+## 7. Core Principles (From Master Design)
+
+unknown(null) ≠ negative(0); separate publication events from venue strength, avoiding double credit; preserve fuzzy-match confidence (`match_confidence`); **relevance before impact factor / reputation**, with 0.8 finalScore weight.
+
+<a id="8-mvp-不做"></a>
+
+## 8. Outside MVP
+
+Raw-response retention, full multi-source evidence fusion, two-pass canonical iteration, institution-based primary scoring, retraction detection (`published_repository`/`accepted_pending_publication` remain reserved enums without trigger paths).
+
+<a id="9-asci-落地差异详见母本附录-c"></a>
+
+## 9. ASCI Implementation Differences (Master Appendix C)
+
+- DBLP is not disabled, only excluded from broad search; targeted conference-venue verification can reuse exact DBLP XML lookup (this round uses local CCF/CORE + OpenAlex venue names; DBLP later).
+- No raw-response retention → lightweight evidence based on normalized record fields.

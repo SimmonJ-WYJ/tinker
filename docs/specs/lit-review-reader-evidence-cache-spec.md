@@ -1,66 +1,80 @@
-> 历史科研规格：保存旧设计和数据语义，不作为当前新增功能或恢复运行接线的要求。科研主动功能正按[退役规格](./2026-11-10-research-retirement.md)分批收口，实际完成与未验收范围以对应执行记录为准。
+> Historical research specification: preserves old design/data semantics and does not require new features or restored runtime wiring. Proactive research features are being wound down in batches under the [retirement specification](./2026-11-10-research-retirement.md); corresponding execution records govern completed and unaccepted scope.
 
-# 综述 reader 证据集会话内持久化（reader evidence `.context` cache）设计规格
+<a id="综述-reader-证据集会话内持久化reader-evidence-context-cache设计规格"></a>
 
-- 状态：草案（待评审）
-- 关联 issue：（待建）
-- 关联 PR：（待建）
-- 领域语言事实源：`CONTEXT.md`（EvidenceSet / reader / wiki 语料）
-- 关联 spec：`docs/specs/lit-review-evidence-enrichment-spec.md`（覆盖率/扩库，正交）
+# Session-Local Persistence of Review Reader Evidence Sets (Reader Evidence `.context` Cache) Design Specification
 
-## Context（为什么做）
+- Status: draft (awaiting review)
+- Related issue: (to be created)
+- Related PR: (to be created)
+- Domain language source of truth: `CONTEXT.md` (EvidenceSet / reader / wiki corpus)
+- Related spec: `docs/specs/lit-review-evidence-enrichment-spec.md` (coverage/library expansion, orthogonal)
 
-综述流水线的 `reader` fan-out 是**最贵的一步**：每篇 deep-readable 论文派一个 reader，自解析 wiki 源
-（`zotero_wiki_lookup`）→ outline-first 深读（`papers_read_outline` + 多次 `papers_read_article_section`）
-→ 产出一组 evidence rows（`{ claim, source_id, locator, quote, confidence, status:read, bucket }`）。
+<a id="context为什么做"></a>
 
-**问题（用户锚定的唯一痛点）**：reader 的产物**只活在主 agent 的单轮对话上下文里**
-（`lit-review/scenario/system-prompt.md:80-82`：主 agent 把"reader 返回的**全部** evidenceRows[]"作为 inline
-参数交给 terminal skill）。**一次 context 压缩，这些证据行就被挤掉**——此时唯一退路是**重新派 reader 把论文
-全文再读一遍**，综述时长被整段拉长（trace 实证：18 reader 跑完后压缩，只能去 grep 1.7MB transcript 反解，
-否则就得重读 11 篇全文）。
+## Context (Why)
 
-**目标**：把每篇论文的 reader 证据集落到**会话目录下的 `.context/`**。压缩后无需重读原文——直接从
-`.context/` 读回已抽好的证据集即可。**只解决"压缩→重读→变慢"，不追求跨会话/跨 workspace 复用**
-（每个综述侧重点不同，跨综述复用价值低且会引入 topic 不匹配，明确不做）。
+The review pipeline's `reader` fan-out is **its most expensive step**: assign one reader per deep-readable paper, resolve its wiki source
+(`zotero_wiki_lookup`) → outline-first deep reading (`papers_read_outline` + multiple `papers_read_article_section` calls)
+→ produce evidence rows (`{ claim, source_id, locator, quote, confidence, status:read, bucket }`).
 
-## 范围边界（明确不做）
+**Problem (the sole user-identified pain point)**: reader output **exists only in the main agent's single-turn conversation context**
+(`lit-review/scenario/system-prompt.md:80-82`: the main agent passes "**all** evidenceRows[] returned by readers" as inline
+arguments to the terminal skill). **One context compaction pushes those rows out**; the only fallback then is **redispatching readers to
+reread entire papers**, extending review duration substantially (trace evidence: compaction after 18 readers completed required grepping a 1.7MB transcript to reconstruct results,
+otherwise 11 full texts would need rereading).
 
-- ❌ 跨会话 / 跨 workspace 复用。缓存随会话目录走，会话结束即随之归档/清理，不进全局 wiki 目录。
-- ❌ topic 相关性、跨方向证据筛选。同一会话 = 同一综述 = 同一 topic，整体复用天然正确，无需判定。
-- ❌ 跨 run 合并 / 去重。一个 reader 只写自己那一篇、只写一次（见决策 2）。
-- ❌ 主进程 / orchestrator / IPC 改动（MVP）。全部落在 capability-pack + skill 提示层（见决策 3）。
+**Goal**: persist each paper's reader evidence set in **`.context/` under the session directory**. After compaction, avoid rereading originals by
+reading extracted evidence directly from `.context/`. **Solve only compaction→rereading→slowness, without cross-session/workspace reuse**
+(review emphases differ; cross-review reuse has low value and risks topic mismatch, so is explicitly excluded).
 
-## 关键事实（代码核实，写方案的前提）
+<a id="范围边界明确不做"></a>
 
-| 事实 | 出处 |
+## Scope Boundaries (Explicit Exclusions)
+
+- ❌ Cross-session / cross-workspace reuse. Cache follows its session directory and is archived/cleaned with it, never entering global wiki storage.
+- ❌ Topic relevance or cross-direction evidence filtering. Same session = same review = same topic; wholesale reuse is naturally appropriate without judgment.
+- ❌ Cross-run merging / deduplication. Each reader writes only its own paper, once (decision 2).
+- ❌ Main-process / orchestrator / IPC changes (MVP). Everything stays in capability-pack + skill prompts (decision 3).
+
+<a id="关键事实代码核实写方案的前提"></a>
+
+## Key Facts (Code-Verified Premises)
+
+| Fact | Source |
 |------|------|
-| reader 派发时携带 `{ N, title, zoteroKey \| doi, abstract? }`；evidence row 的 `source_id` = zoteroKey（else doi） | `reader.md:56`、`system-prompt.md:74-78` |
-| reader 已有 `Write` 工具；它的核心交付就是结构化 evidence rows（再 dump 成文件是小增量） | `reader.md`、capability pack tool 授权 |
-| terminal skill `literature-review-result` 已有 `Write`，写 `reviews/*.html` 到 **session cwd**；session cwd 即文件面板根 | `SKILL.md:225-231` |
-| session cwd = `~/.asci/agent-workspaces/{slug}/{sessionId}/`（按 sessionId 隔离，正是"会话内"粒度） | `config-paths.ts:874-894` |
-| **先例**：reviews/ 由 skill 用 Write 写盘、orchestrator run 后扫 `reviews/` 落库（`persistReviewsFromSessionCwd`）——"Write 写 cwd + 事后扫盘"是成熟模式 | `agent-orchestrator.ts:2324-2378`、`review-cwd-scanner.ts:46-108` |
-| orchestrator **无子 agent 完成 hook**：reader 输出埋在 Task 工具结果里流回父 agent，主进程拦不到 → 自动落盘成本高，排除 | `agent-orchestrator.ts:1895-2199` |
-| papers-rg（进程内 MCP）当前只拿全局 `wikiDir`、不知 session cwd；注入需改 `HandlerDeps`（一行，非四联同步） | `papers-rg-tool.ts:132-141`、`agent-orchestrator.ts:709-711` |
-| quote「单段连续、禁 `…` 桥接」当前仅 prompt 约束、无运行时校验（trace 里 reader 实际违约过） | `agent-prompt-builder.ts` QUOTE_RULE_LITREVIEW；trace |
+| Reader dispatch includes `{ N, title, zoteroKey \| doi, abstract? }`; evidence-row `source_id` = zoteroKey (else doi) | `reader.md:56`, `system-prompt.md:74-78` |
+| Readers already have `Write`; their core deliverable is structured evidence rows (dumping them to a file is a small addition) | `reader.md`, capability-pack tool grants |
+| Terminal skill `literature-review-result` already has `Write`, writing `reviews/*.html` to **session cwd**, which is the file-panel root | `SKILL.md:225-231` |
+| Session cwd = `~/.asci/agent-workspaces/{slug}/{sessionId}/` (isolated by sessionId, exactly session-local) | `config-paths.ts:874-894` |
+| **Precedent**: skill writes reviews/ with Write, orchestrator scans `reviews/` after the run and persists them (`persistReviewsFromSessionCwd`); writing cwd + later scanning is established | `agent-orchestrator.ts:2324-2378`, `review-cwd-scanner.ts:46-108` |
+| Orchestrator has **no subagent-completion hook**: reader output returns to the parent inside Task tool results, inaccessible to main; automatic persistence is expensive and excluded | `agent-orchestrator.ts:1895-2199` |
+| papers-rg (in-process MCP) currently knows only global `wikiDir`, not session cwd; injection requires changing `HandlerDeps` (one line, not four-layer synchronization) | `papers-rg-tool.ts:132-141`, `agent-orchestrator.ts:709-711` |
+| The quote rule "one continuous passage, no `…` bridging" is currently prompt-only, without runtime validation (readers violated it in traces) | `agent-prompt-builder.ts` QUOTE_RULE_LITREVIEW; trace |
 
-## 锁定的设计决策
+<a id="锁定的设计决策"></a>
 
-### 1. 位置 = 会话 cwd 下的 `.context/`，按派发身份命名
+## Locked Design Decisions
+
+<a id="1-位置-&#45;会话-cwd-下的-context按派发身份命名"></a>
+
+### 1. Location = `.context/` Under Session cwd, Named by Dispatch Identity
 
 ```
 {session_cwd}/.context/{zoteroKey | doi-sanitized | N{index}}.evidence.json
 ```
 
-- 相对 cwd 写，reader 用现有 `Write` 即可（`Write(".context/ABC123.evidence.json", ...)`）。
-- 文件名取**派发身份**（reader 一上来就有的 `zoteroKey`，否则 sanitized `doi`，否则 `N{citationIndex}`）——
-  无需先做 `zotero_wiki_lookup` 解析 attachmentKey 就能命名/查找，命中路径最便宜。`attachmentKey` 若已知则
-  写进文件内容供 locator 对照。
-- 不放全局 wiki 目录：那是为跨会话复用，已明确不做；放会话内随综述生命周期走，干净、可随会话清理。
+- Write relative to cwd using existing reader `Write` (`Write(".context/ABC123.evidence.json", ...)`).
+- Filename uses **dispatch identity** (`zoteroKey` available immediately, otherwise sanitized `doi`, otherwise `N{citationIndex}`)—
+  no `zotero_wiki_lookup` to resolve attachmentKey before naming/lookup, keeping cache hits cheap. If `attachmentKey` is known,
+  include it in file content for locator matching.
+- Not global wiki storage, which would serve explicitly excluded cross-session reuse; session-local storage follows the review lifecycle and can be cleaned with the session.
 
-### 2. 一论文一份 JSON，reader **只写一次**（无合并/去重）
+<a id="2-一论文一份-jsonreader-只写一次无合并去重"></a>
 
-会话内一个 reader 只负责一篇、跑一次、写一个文件 → 不同文件、无写竞争、无需合并去重。结构：
+### 2. One JSON per Paper; Reader **Writes Once** (No Merging/Deduplication)
+
+Each session-local reader handles one paper, runs once, writes one file → distinct files, no write contention or merging/deduplication. Structure:
 
 ```jsonc
 {
@@ -89,106 +103,126 @@
 }
 ```
 
-`rows[]` 就是 reader 本来要交回的 evidence rows，原样落盘——schema 与 inline 交回的完全一致。
+`rows[]` contains precisely the evidence rows readers already return, persisted unchanged with the same schema as inline results.
 
-### 3. 写/读机制 = 纯提示层（MVP），不碰主进程
+<a id="3-写读机制-&#45;纯提示层mvp不碰主进程"></a>
 
-- **写（reader）**：reader 完成深读、定好 evidence rows 后，**先 `Write` 到 `.context/{key}.evidence.json`**，
-  再像现在一样把 rows 作为 summary 交回父 agent。落盘是"额外一步 Write"，schema 与交回内容一致。
-- **读（terminal skill）**：`literature-review-result` 扩展输入契约——**当 inline `evidenceRows[]` 缺失/不全时，
-  `Glob(".context/*.evidence.json")` + `Read` 把各篇 rows 拼回 `evidenceRows[]`**（按文件里的 `N` / `source_id`
-  归位）。skill 已在同一 cwd 写 `reviews/`，读 `.context/` 是同目录操作。
-- 给 skill 的 allowed-tools 增 `Glob`（当前只有 `Write papers_search_keywords papers_read_context
+### 3. Write/Read Mechanism = Prompts Only (MVP), No Main-Process Changes
+
+- **Write (reader)**: after deep reading and finalizing evidence rows, **first `Write` to `.context/{key}.evidence.json`**,
+  then return rows to the parent as a summary, as today. Persistence adds one Write step with the same schema as returned content.
+- **Read (terminal skill)**: extend `literature-review-result` input contract—**when inline `evidenceRows[]` is missing/incomplete,
+  use `Glob(".context/*.evidence.json")` + `Read` to reconstruct `evidenceRows[]` from all papers** (place rows by file `N` / `source_id`
+  values). The skill already writes `reviews/` in the same cwd; reading `.context/` is a same-directory operation.
+- Add `Glob` to skill allowed-tools (currently only `Write papers_search_keywords papers_read_context
   workspace_papers_list`）。
 
-> 选 (c) 提示层而非 (b) 新 MCP 工具：会话内一篇一写一读、无合并/校验刚需，Write/Glob/Read 足够；且**零主进程
-> 改动、零 IPC、零打包风险**，完全落在 capability-pack + skill markdown，与 reviews 落盘先例同构。
-> 新 MCP 工具（含 sessionCwd 注入 + 写时 strict 校验）留作 Phase 2 健壮性升级（见"未决"）。
+> Choose (c) prompts rather than (b) new MCP tools: one write/read per paper per session, without mandatory merging/validation, is covered by Write/Glob/Read; **zero main-process
+> changes, zero IPC, zero packaging risk**, entirely in capability-pack + skill Markdown, matching the reviews persistence precedent.
+> Reserve new MCP tools (sessionCwd injection + strict write validation) for Phase 2 robustness (see Open Questions).
 
-### 4. 压缩后的两条复用路径（都在提示层）
+<a id="4-压缩后的两条复用路径都在提示层"></a>
 
-`.context/` 落盘后，压缩导致 inline 证据丢失时：
+### 4. Two Post-Compaction Reuse Paths (Both Prompt-Level)
 
-1. **terminal skill 直接重建**（主路径）：skill 发现没收到 inline rows → 从 `.context/` 读回全部 rows →
-   照常合成 §1–§8。**完全不重派 reader、不重读原文。**
-2. **Turn-2 重规划时跳过已缓存论文**（兜底）：若主 agent 在压缩后重做 Turn-2 dispatch，scenario 提示要求
-   "派 reader 前先看 `.context/{key}.evidence.json` 是否存在；存在则跳过该 reader"。即使重派，reader 的
-   Step 0（决策 5）也会命中自身缓存秒回。
+Once `.context/` is persisted, if compaction loses inline evidence:
 
-### 5. reader 流程改造：Step 0 查会话缓存 + 结束前落盘
+1. **Terminal skill reconstructs directly** (primary): no inline rows received → read all rows from `.context/` →
+   synthesize §1–§8 normally. **No reader redispatch or original-text rereading.**
+2. **Skip cached papers during Turn-2 replanning** (fallback): if main replans Turn-2 dispatch after compaction, the scenario instructs:
+   "Before dispatching a reader, check `.context/{key}.evidence.json`; skip that reader if present." Even if redispatched, reader
+   Step 0 (decision 5) hits its own cache and returns instantly.
 
-reader.md 增两处：
+<a id="5-reader-流程改造step-0-查会话缓存-&#45;结束前落盘"></a>
+
+### 5. Reader Flow: Step 0 Session Cache Lookup + Persistence Before Completion
+
+Add two parts to reader.md:
 
 ```
-0.（在 zotero_wiki_lookup 之前）查会话缓存：
-   尝试 Read(".context/{zoteroKey|doi|N}.evidence.json")
-   - 命中 → 直接以文件中的 rows 作为本次产出，跳过 wiki_lookup 与全部深读。结束。
-   - 未命中 → 继续正常流程。
+0. Check session cache before zotero_wiki_lookup:
+   Try Read(".context/{zoteroKey|doi|N}.evidence.json")
+   - Hit → return file rows directly, skip wiki_lookup and all deep reading. Finish.
+   - Miss → continue normal flow.
 
-N.（深读完、定好 rows 后、交回父 agent 前）落盘：
+N. Persist after deep reading/rows finalized, before returning to parent:
    Write(".context/{key}.evidence.json", { meta..., rows })
 ```
 
-主 agent Turn-2 dispatch、body-writer 的 inline 契约**保持兼容**（inline 仍可传；skill 缺 inline 时回退读盘）。
-改的是 reader 内部 + skill 的回退读取。
+Main-agent Turn-2 dispatch and body-writer inline contracts **remain compatible** (inline still accepted; missing inline falls back to disk).
+Only reader internals + skill fallback reading change.
 
-### 6. 新鲜度：会话内极简
+<a id="6-新鲜度会话内极简"></a>
 
-会话内 wiki 源基本不会中途变 → **文件存在即有效**，不做指纹/版本校验（那是跨会话方案的负担，已不做）。
-唯一边缘情形：综述中途某篇 PDF 才解析完，早先落了 `abstract-only`。MVP 接受这种少见情形按 `abstract-only`
-处理（与"不压缩、正常跑"时的行为一致，不退化）；不为此引入复检逻辑。
+### 6. Freshness: Minimal Within a Session
 
-### 7. （可选，正交）quote 连续性校验
+Wiki sources rarely change mid-session → **file existence means valid**, without fingerprints/version checks (cross-session overhead, already excluded).
+The only edge case: a PDF finishes parsing mid-review after `abstract-only` was cached. MVP accepts this rare case as `abstract-only`,
+matching normal uncompacted behavior without degradation; do not add rechecking logic for it.
 
-落盘是补 quote 运行时校验的好钩子，但与本痛点正交。MVP **不做**；若 Phase 2 走 MCP `papers_evidence_put`，
-再在写时用 `papers_read_context` 按 locator byteOffset 校验单段连续、不过的标 `verified:false`。本 spec 仅记锚点。
+<a id="7-可选正交quote-连续性校验"></a>
 
-## 落点（文件）
+### 7. (Optional, Orthogonal) Quote Continuity Validation
 
-- `apps/electron/default-capability-packs/lit-review/sub-agents/reader.md`：增 Step 0（查 `.context/`）+ 结束前
-  `Write` 落盘；写明缓存在**会话 cwd 的 `.context/`**、按派发身份命名、仅会话内。
-- `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md`：Turn-2 dispatch 增"派 reader
-  前先查 `.context/` 跳过已缓存论文"；terminal_skill input 说明"inline 缺失时 skill 从 `.context/` 重建"。
-- `apps/electron/default-skills/literature-review-result/SKILL.md`：输入契约增"inline `evidenceRows[]` 缺失/不全时，
-  `Glob(".context/*.evidence.json")` 读回拼装"；allowed-tools 增 `Glob`。
-- （可选 Phase 2）`papers-rg-tool.ts` + `agent-orchestrator.ts:709`：注入 `sessionCwd`，新增
-  `papers_evidence_get/put` 工具 + 写时 strict 校验。
-- 版本号：MVP 仅改 capability-pack / skill markdown（无代码包），按约定在开 PR 时递增受影响包 patch；
-  Phase 2 动 `apps/electron` 源码则该包 patch +1。
+Persistence is a good hook for runtime quote validation, but orthogonal to this pain point. MVP **excludes it**; if Phase 2 uses MCP `papers_evidence_put`,
+validate continuous passages at write time with `papers_read_context` and locator byteOffset, marking failures `verified:false`. This spec records the extension point only.
 
-## 分阶段
+<a id="落点文件"></a>
 
-- **Phase 1（MVP）**：reader Write 落盘 + Step 0 读盘 + skill `.context/` 回退读取 + scenario 跳过提示。
-  纯提示层，零主进程/IPC/打包改动。**直接消除"压缩→重读全文"。**
-- **Phase 2（可选健壮性）**：把 Write/Glob 约定换成进程内 MCP `papers_evidence_get/put`（papers-rg 注入
-  sessionCwd），获得 schema 化写入 + 写时 quote strict 校验，降低对（弱模型）reader 手写 JSON 的依赖。
+## Files
 
-## 验证
+- `apps/electron/default-capability-packs/lit-review/sub-agents/reader.md`: add Step 0 (check `.context/`) + before completion,
+  `Write` to disk; specify **`.context/` in session cwd**, dispatch-identity naming, session-local only.
+- `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md`: add to Turn-2 dispatch "before reader
+  dispatch check `.context/` and skip cached papers"; terminal_skill input says "skill reconstructs from `.context/` when inline is missing."
+- `apps/electron/default-skills/literature-review-result/SKILL.md`: extend input contract: "when inline `evidenceRows[]` is missing/incomplete,
+  reconstruct with `Glob(".context/*.evidence.json")`"; add `Glob` to allowed-tools.
+- (Optional Phase 2) `papers-rg-tool.ts` + `agent-orchestrator.ts:709`: inject `sessionCwd`, add
+  `papers_evidence_get/put` tools + strict write validation.
+- Versions: MVP changes only capability-pack / skill Markdown (no code packages); increment affected package patches when opening a PR per convention;
+  Phase 2 changes to `apps/electron` source require that package patch +1.
 
-1. `bun run typecheck` / `bun test`（capability-pack-loader / skill 守门测试不破）。
-   - 提醒（见 memory）：worktree 内改 `@asci/*` 需先 `bun install`；`bun test` 从仓库根跑。
-2. **落盘 golden path**：起一篇综述 → 每个 reader 跑完后 `.context/{key}.evidence.json` 存在、rows schema 正确、
-   `N`/`source_id` 可回填。
-3. **压缩重建（核心场景）**：模拟/构造 reader 跑完后 inline 证据丢失（context 压缩）→ terminal skill 从
-   `.context/` 读回全部 rows、综述正常产出，且**全程无 `papers_read_outline`/`papers_read_article_section`/
-   `Read(mdPath)` 再次调用**（断言无重读、综述质量不降）。
-4. **reader Step 0 命中**：对同一会话同一篇二次派 reader（或重规划）→ 命中 `.context/` 秒回、跳过 wiki_lookup
-   与深读。
-5. **兼容回归**：不压缩、正常跑时，inline 路径仍工作；skill 同时收到 inline 与 `.context/` 时以 inline 为准、
-   不重复计入。
-6. **abstract-only 边缘**：PDF 未解析时落 `abstract-only` 缓存 → 重建时按 abstract-only 处理，与正常跑一致。
+<a id="分阶段"></a>
 
-## 收益对照（对应 trace 暴露的问题）
+## Phases
 
-| trace 问题 | 本方案（会话内） |
+- **Phase 1 (MVP)**: reader Write persistence + Step 0 disk lookup + skill `.context/` fallback reads + scenario skip instructions.
+  Prompts only, zero main-process/IPC/packaging changes. **Directly removes compaction→full-text rereading.**
+- **Phase 2 (Optional Robustness)**: replace Write/Glob conventions with in-process MCP `papers_evidence_get/put` (inject
+  sessionCwd into papers-rg), gaining schema-based writes + strict quote validation and reducing dependence on weaker readers hand-writing JSON.
+
+<a id="验证"></a>
+
+## Validation
+
+1. `bun run typecheck` / `bun test` (preserve capability-pack-loader / skill guard tests).
+   - Reminder (see memory): run `bun install` before changing `@asci/*` within a worktree; run `bun test` from repository root.
+2. **Persistence golden path**: start a review → after each reader, `.context/{key}.evidence.json` exists with correct rows schema,
+   and `N`/`source_id` support reconstruction.
+3. **Compaction reconstruction (core scenario)**: simulate/create loss of inline evidence after readers finish (context compaction) → terminal skill
+   reads all rows from `.context/`, review completes, with **no repeated `papers_read_outline`/`papers_read_article_section`/
+   `Read(mdPath)` calls** (assert no rereading and no review-quality loss).
+4. **Reader Step 0 hit**: redispatch reader for the same paper/session (or replan) → instant `.context/` hit, skipping wiki_lookup
+   and deep reading.
+5. **Compatibility regression**: without compaction, inline still works; when skill receives both inline and `.context/`, prefer inline,
+   without double-counting.
+6. **Abstract-only edge**: cache `abstract-only` before PDF parsing → reconstruction handles abstract-only, matching normal runs.
+
+<a id="收益对照对应-trace-暴露的问题"></a>
+
+## Benefits Compared with Trace Problems
+
+| Trace problem | This session-local approach |
 |------------|------------------|
-| 证据行随 context 压缩丢失、只能 grep transcript 或重读全文 | reader 落盘 `.context/`；skill 缺 inline 时读盘重建，**不重读原文** |
-| 重派 reader 重读全文导致综述时长拉长 | Step 0 命中会话缓存秒回；skill 直接读盘，省 outline+section |
-| （正交）reader quote `…` 桥接无校验 | Phase 2 走 MCP put 时写时校验；MVP 不做 |
+| Compaction loses evidence rows; only transcript grep or full-text rereading remains | Reader persists `.context/`; skill reconstructs from disk when inline is missing, **without rereading originals** |
+| Redispatched readers reread full text and extend review duration | Step 0 returns instantly from session cache; skill reads disk directly, avoiding outline+section calls |
+| (Orthogonal) reader quote `…` bridging unvalidated | Phase 2 MCP put validates on write; MVP excludes it |
 
-## 未决
+<a id="未决"></a>
 
-1. **写机制 (c) 提示层 vs (b) MCP 工具**：MVP 选 (c)（零主进程改动）。若 reader 手写 JSON 实测不稳，或想要写时
-   quote 校验，升到 (b)。需用户确认是否接受 MVP 先走提示层。
-2. **inline 是否彻底退役**：可让 skill **总是**从 `.context/` 读、不再走 inline，顺带消灭 14KB inline args 撑爆
-   prompt 的老问题。倾向先双轨（inline 优先、`.context/` 回退）验证稳定，再决定是否单轨读盘。
+## Open Questions
+
+1. **Write mechanism (c) prompts vs (b) MCP tools**: MVP chooses (c) (zero main-process changes). If handwritten reader JSON proves unstable or write-time
+   quote validation is wanted, upgrade to (b). User confirmation needed on prompt-first MVP acceptability.
+2. **Retire inline entirely?** The skill could **always** read `.context/`, removing inline and the old problem of 14KB inline arguments bloating
+   prompts. Prefer validating dual paths (inline first, `.context/` fallback) before deciding on disk-only reading.

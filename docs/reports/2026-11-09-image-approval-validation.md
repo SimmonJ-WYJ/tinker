@@ -1,74 +1,88 @@
-# 图片审批循环修复验证
+<a id="图片审批循环修复验证"></a>
 
-初始基线 main `b61ee1a8b7a04053643eb8da63dc43afee738459`。GitHub 交付前无冲突合并 main `915d3ae6e655e1e40d8fbee9bb39887d7c07896e`，分支 `fix/image-edit-approval-context`。只修 Electron 图片宿主/共享授权，相对最新 main 不改 Rust、README/CLAUDE 或用户会话。本报告不是发布、安装或真实付费生成成功证明。
+# Image Approval Loop Fix Verification
 
-## 根因与修改
+Initial main baseline `b61ee1a8b7a04053643eb8da63dc43afee738459`. Before GitHub delivery, merged main `915d3ae6e655e1e40d8fbee9bb39887d7c07896e` without conflicts, on branch `fix/image-edit-approval-context`. Only Electron image host/shared authorization was fixed; relative to latest main, no Rust, README/CLAUDE, or user-session changes. This report does not establish release, installation, or successful real paid generation.
 
-1. 原句“你看看加入这个女生 三个人一起”有宿主有效选图/上传，仍不符合旧固定语序正则。新增纯视觉意图 helper 组合动作、视觉对象和完整画面目的地；支持礼貌引导、动作先行、把字句、代词和明确多人合影。缺乏上下文、问句、讨论/分析、整次暂缓、代码/资料库/群聊等不会因出现图片词而放行；局部脸部/背景约束保留。
-2. 原 `isImageTask()` 恒等于构造时 automatic，手工批准不改变任务类别。现在合法显式批准单向确立任务语义，通知宿主；精确请求许可、数量、文件路径、调用身份仍仅在当前授权对象内。取消后晚到批准无法确立语义。
-3. 侧车新增 `{kind:'image-task-confirmed',id}`，只更新已有消费事实，不重排真实消费顺序。重复确认不重复追加；未知 ID、异常字段、损坏段与写入失败保守恢复。无提示词、图片、密钥、请求参数、批准缓存进入侧车。
-4. 工厂在下一实际消费回合读取上一授权对象的最新任务语义，创建新授权对象；队列登记本身不推进。普通任务会清除上下文，now/next、晚到调用、取消及重启不复用旧许可。
-5. 升级时旧 false 消费记录可按新识别器及当条宿主证据恢复。重算遵循消费顺序，不能跨过缺失证明的普通输入；无当条选图/上传时，不借用现在才存在的图片集合恢复旧视觉编辑。旧记录不回写、用户真实 JSONL 不修改。
+<a id="根因与修改"></a>
 
-实现主要位于：
+## Root Causes and Changes
+
+1. The original request (English translation: “Take a look, add this girl, the three people together”) had valid host-selected/uploaded images but did not match the old fixed-word-order regex. A new pure visual-intent helper combines action, visual object, and complete scene destination; supports polite lead-ins, action-first wording, Chinese disposal constructions, pronouns, and explicit group portraits. Missing context, questions, discussion/analysis, whole-operation deferral, and code/libraries/group chats do not gain permission merely by mentioning image words; local face/background constraints remain.
+2. Original `isImageTask()` always equaled automatic at construction; manual approval did not change task classification. Now valid explicit approval establishes task semantics in one direction and notifies the host; precise request permission, count, paths, and invocation identity remain confined to the current authorization object. Approval arriving after cancellation cannot establish semantics.
+3. The sidecar adds `{kind:'image-task-confirmed',id}`, updating only existing consumption facts without reordering actual consumption. Duplicate confirmation does not append again; unknown IDs, abnormal fields, corrupt segments, and write failures recover conservatively. No prompts, images, keys, request parameters, or approval caches enter the sidecar.
+4. On the next actual consumption turn, the factory reads the previous authorization object's latest task semantics and creates a new authorization object; queue registration itself does not advance state. Ordinary tasks clear context; now/next, late calls, cancellation, and restarts never reuse old permission.
+5. On upgrade, old false consumption records may recover using the new recognizer and host evidence for that record. Recalculation follows consumption order and cannot skip ordinary input lacking proof; without image selection/upload for that record, images existing only now cannot restore old visual edits. Old records are not rewritten; real user JSONL is unchanged.
+
+Primary implementation locations:
 
 - `packages/shared/src/agent/image-edit-intent.ts`
 - `packages/shared/src/agent/image-request-authorization.ts`
 - `apps/electron/src/main/mcp/image-turn-factory.ts`
 - `apps/electron/src/main/mcp/image-turn-journal.ts`
 
-其余改动为定向回归、真实 handler 的合成夹具、规格与本报告。提交钩子正常更新关联包版本，没有新依赖、IPC 或 UI 白名单。
+Other changes are targeted regressions, synthetic fixtures for real handlers, specifications, and this report. Commit hooks normally updated related package versions; no new dependencies, IPC, or UI allowlists.
 
-## 红测、自动检查与复审
+<a id="红测自动检查与复审"></a>
 
-| 检查 | 实际结果 |
+## Failing Tests, Automated Checks, and Review
+
+| Check | Actual result |
 | --- | --- |
-| 原授权基线 | 83 pass、0 fail，确认原测试缺少本次两条链路 |
-| 首批新增回归 | 15 项失败，复现原句、批准语义和持久恢复问题 |
-| 复审与升级红测 | 撤回、完整目的地、旧 false、缺失普通记录等分别复现后修正 |
-| 六文件定向最终 | **162 pass、0 fail、410 assertions** |
-| 全仓 Bun | **3443 pass、4 skip、0 fail**；3447 tests / 382 files / 9107 assertions |
-| 全仓 typecheck | 6 个 workspace 全部退出 0 |
-| 全仓 lint | 退出 0 |
-| Electron build | 退出 0；未制作 DMG 或安装包 |
-| 独立只读复审 | 四项确认问题均修复；复核无新增阻塞；最后明确询问严格化再复核通过 |
-| 差异检查 | 通过；提交前后复核仅本轮范围 |
+| Original authorization baseline | 83 pass, 0 fail; confirmed original tests lacked this round's two paths |
+| First new regressions | 15 failed, reproducing original wording, approval semantics, and persistent recovery problems |
+| Review and upgrade failing tests | Withdrawal, complete destination, old false, and missing ordinary records each reproduced then fixed |
+| Final targeted six files | **162 pass, 0 fail, 410 assertions** |
+| Repository-wide Bun | **3443 pass, 4 skip, 0 fail**; 3447 tests / 382 files / 9107 assertions |
+| Repository-wide typecheck | All 6 workspaces exited 0 |
+| Repository-wide lint | Exit 0 |
+| Electron build | Exit 0; no DMG or installer produced |
+| Independent read-only review | All four confirmed issues fixed; recheck found no new blockers; final explicit request for stricter rechecking also passed |
+| Diff checks | Passed; before/after commit review confirmed only this round's scope |
 
-4 项 skip 是既有的包内 rg binary 集成测试，开发依赖布局未提供其测试入口；未修改或隐藏这些测试。本轮新增测试全部执行。中途类型检查发现夹具缺少必填 homeDir/tool_use_id，以及循环推断需要显式类型；已补齐后六包 typecheck 通过，没有使用 any。
+The 4 skips are existing packaged rg binary integration tests whose test entry is unavailable in the development dependency layout; these tests were neither modified nor hidden. All newly added tests ran. Intermediate type checking found fixtures missing required homeDir/tool_use_id and recursive inference needing explicit types; after correction all six packages passed typecheck, without any.
 
-原始 red/green 与合并后验证日志仅留本地，不纳入 Git 提交。
+Original red/green and post-merge verification logs remain local and are excluded from Git commits.
 
-## 最新主干整合复验
+<a id="最新主干整合复验"></a>
 
-- main `915d3ae` 通过 merge 整合，无冲突。Rust HTTP provider、Cargo 文件和原有 Rust 报告均保留，与 main 没有本轮差异。
-- 合并后重新执行全量 Bun：**3443 pass、4 skip、0 fail、9107 assertions**。
-- typecheck 六个 workspace、全仓 lint、Electron build 均重新通过。
-- 首次受限沙箱运行有 14 项本机监听测试失败，允许 loopback 后完整重跑通过，没有改测试跳过失败。
-- 独立只读复审与 code-simplifier 的复用、简化、可读性检查无阻塞，独立七文件定向 **165 pass、0 fail、423 assertions**。
-- 无真实模型或付费请求，构建未启动、安装或替换用户应用，Rust Cargo 构建不在本轮范围。
+## Latest Main Integration Recheck
 
-## 宿主链路覆盖
+- Integrated main `915d3ae` through merge without conflicts. Rust HTTP provider, Cargo files, and existing Rust reports were retained without this round's differences from main.
+- Full Bun rerun after merge: **3443 pass, 4 skip, 0 fail, 9107 assertions**.
+- Six-workspace typecheck, repository-wide lint, and Electron build passed again.
+- Initial restricted-sandbox run failed 14 local-listener tests; full rerun passed after allowing loopback, without modifying tests to skip failures.
+- Independent read-only review and code-simplifier reuse/simplification/readability checks found no blockers; independent seven-file targeted run: **165 pass, 0 fail, 423 assertions**.
+- No real model or paid requests; builds did not launch, install, or replace the user's application. Rust Cargo builds were out of scope.
 
-真实 PermissionService PreToolUse hook → canUseTool → ImageRequestAuthorization/确认回调 → 消费侧车 → 重启 factory → 真实 MCP generate_image handler 已串联验证。测试只使用临时目录、合成 PNG、假渠道和假网络，handler 共 **10 次假 API 调用**。没有真实网络生成或费用。
+<a id="宿主链路覆盖"></a>
 
-- 原句在真实选图/上传范围内不弹卡；重复回调和账本不产生额外生成。
-- 泛泛输入先显示一张实际权限请求，明确批准后当前调用通过；新回合“再次生成”不再为旧任务重复显示卡。
-- 默认一张、明确两张、三个人不等于三张、额外文件、跨会话 ID/选图、危险终端和计划模式分别守住原边界。
-- live、restart、queued 未消费、真实消费顺序、now 中断、旧卡晚批准、取消后调用均覆盖。
-- 旧 false + 原始自然改图句 + 有效图片证据 + 重启 + 再次生成通过；撤回、未知选图、未来文件、模型自述和中间消费缺口仍询问。
-- 确认事件重复、旧回合确认、未知身份、异常字段、写入失败和损坏侧车不伪造任务证明。
+## Host Path Coverage
 
-## 真实验收与升级限制
+The real PermissionService PreToolUse hook → canUseTool → ImageRequestAuthorization/confirmation callback → consumption sidecar → restarted factory → real MCP generate_image handler were verified together. Tests used only temporary directories, synthetic PNGs, fake channels, and fake networking, with **10 fake API calls** across handlers. No real network generation or charges.
 
-- 没有读取/修改真实用户 JSONL、上传照片、密钥或个人资料；没有重发用户已成功的生图调用。
-- 没有操作正在运行的 Tinker，没有安装、打包、合并 main 或发布。GitHub 交付范围仅为修复分支和 Draft PR，本地 Electron build 只验证可构建。
-- 没有运行真实模型/SDK 流端到端或真实付费生成；此处“真实 handler”指实际代码配合假网络，不能等同用户账号端到端。
-- 没有修改 UI，本轮没有截图/浏览器样式验收；审批是否发出的断言使用真实权限服务的 renderer 请求数量和实际执行边界。
-- 已有自然改图语句的旧 false 可以安全恢复语义。若旧版只留下泛泛文本、false 和丢失的批准事实，不能无缝推断；用户需要再明确一次生图/编辑或确认合法调用。新版本会记录语义，后续明确重试不再陷入同一循环。
-- 未知或额外文件、超出输出数量、失效/跨会话来源仍会要求确认或拒绝；这是保留的权限边界。
+- Original wording does not show an approval card within valid actual selected/uploaded image scope; duplicate callbacks and ledger entries create no extra generation.
+- Generic input first shows one actual permission request; explicit approval allows the current call; a new “generate again” turn does not repeat the old task's card.
+- Default one image, explicit two, three people not meaning three images, extra files, cross-session IDs/selections, dangerous terminals, and plan mode each retain original boundaries.
+- Covered live, restart, queued-but-unconsumed, actual consumption order, now interruption, late old-card approval, and calls after cancellation.
+- Old false + original natural image-edit wording + valid image evidence + restart + generate again passes; withdrawal, unknown selections, future files, model self-description, and intermediate consumption gaps still ask.
+- Duplicate confirmation events, old-turn confirmation, unknown identities, abnormal fields, write failures, and corrupt sidecars never fabricate task proof.
 
-## GitHub 交付与回滚
+<a id="真实验收与升级限制"></a>
 
-实现提交 `c015f9ff5675225a24ffaf450697add47d9ef027`。已合并最新 main，最终分支 SHA、Draft PR、远端 CI 与复审评论以交付消息为准。合并留给开发者手动完成，当前安装包不会自动获得此修复。
+## Real Acceptance and Upgrade Limitations
 
-回滚本次提交可恢复旧识别与恢复逻辑，不需要删除用户数据。旧读取器遇到新确认事件会保守失去续作上下文，不扩大旧权限；再次明确输入可建立新的普通消费边界。
+- No real user JSONL, uploaded photos, keys, or profiles were read/modified; successful user image-generation calls were not resent.
+- No operation on running Tinker, installation, packaging, main merge, or release. GitHub delivery covers only the fix branch and Draft PR; local Electron build verifies buildability only.
+- No real model/SDK streaming end-to-end or real paid generation ran; “real handler” here means actual code with fake networking, not user-account end-to-end validation.
+- No UI changes, screenshots, or browser style acceptance this round; approval emission assertions use real permission-service renderer request counts and actual execution boundaries.
+- Old false records with natural image-edit requests can safely restore semantics. If an old version retained only generic text, false, and lost approval facts, seamless inference is impossible; users must explicitly request generation/editing again or confirm a valid call. The new version records semantics so subsequent explicit retries avoid the same loop.
+- Unknown/extra files, excess output counts, and invalid/cross-session sources still require confirmation or rejection; these permission boundaries are retained.
+
+<a id="github-交付与回滚"></a>
+
+## GitHub Delivery and Rollback
+
+Implementation commit `c015f9ff5675225a24ffaf450697add47d9ef027`. Latest main was merged; the delivery message is authoritative for final branch SHA, Draft PR, remote CI, and review comments. Developers must merge manually; the current installer does not acquire this fix automatically.
+
+Reverting this commit restores old recognition and recovery logic without deleting user data. Old readers encountering new confirmation events conservatively lose continuation context without broadening old permissions; another explicit input can establish a new ordinary consumption boundary.

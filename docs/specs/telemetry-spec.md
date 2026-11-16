@@ -1,80 +1,98 @@
-# 遥测埋点 Spec（Telemetry Specification）
+<a id="遥测埋点-spectelemetry-specification"></a>
 
-> **状态**：已实现（单 PR 交付）
-> **关联 issue**：#416（Sentry 崩溃上报）· #426（PostHog 行为埋点 + 数据采集 tab）· #427（自进化 5 类信号，上报通道等后端）
-> **关联 ADR**：[ADR-011 遥测埋点架构](../adr/ADR-011-telemetry-architecture.md)
-> **领域语言事实源**：仓库根 [CONTEXT.md](../../CONTEXT.md) §遥测埋点
-> **PRD 来源**：[0.3.0 PRD Epic 3](./0.3.0/0.3.0-prd.md)
+# Telemetry Instrumentation Spec (Telemetry Specification)
+
+> **Status**: Implemented (delivered in a single PR)
+> **Related issues**: #416 (Sentry crash reporting) · #426 (PostHog behavioral events + Data Collection tab) · #427 (5 self-evolution signal types; reporting channel awaits backend)
+> **Related ADR**: [ADR-011 Telemetry Architecture](../adr/ADR-011-telemetry-architecture.md)
+> **Domain source of truth**: Repository-root [CONTEXT.md](../../CONTEXT.md), Telemetry Instrumentation section
+> **PRD source**: [0.3.0 PRD Epic 3](./0.3.0/0.3.0-prd.md)
 
 ---
 
-## 1. 三层架构
+<a id="1-三层架构"></a>
 
-| 层 | 技术 | 开关 | 通道 |
+## 1. Three-layer Architecture
+
+| Layer | Technology | Switch | Channel |
 |----|------|------|------|
-| 崩溃上报 | @sentry/electron（main + renderer） | 恒开（脱敏） | Sentry EU |
-| 行为埋点 | 自建 sender → PostHog HTTP `/batch/` | 数据采集 tab toggle ① | PostHog EU Cloud |
-| 自进化信号 | 5 类 Zod schema + 可插拔 sender | 数据采集 tab toggle ②（与①解耦） | 独立端点（未配置时仅本地 JSONL） |
+| Crash reporting | @sentry/electron (main + renderer) | Always on (redacted) | Sentry EU |
+| Behavioral events | Custom sender → PostHog HTTP `/batch/` | Data Collection tab toggle ① | PostHog EU Cloud |
+| Self-evolution signals | 5 Zod schema types + pluggable sender | Data Collection tab toggle ② (independent of ①) | Separate endpoint (local JSONL only when unconfigured) |
 
-**红线**：绝不采集文献全文 / PDF / 笔记原文 / 对话原文 / 检索词 / API Key / 邮箱 / 用户名 / 含用户名路径。
+**Red line**: Never collect full paper text / PDFs / original notes / original conversations / search terms / API Keys / email addresses / usernames / paths containing usernames.
 
-## 2. 数据流
+<a id="2-数据流"></a>
+
+## 2. Data Flow
 
 ```
-renderer 显式埋点（注册表常量）
+renderer explicit instrumentation (registry constants)
    │ IPC telemetry:track / telemetry:capture-signal
    ▼
-main telemetry-service ── consent 闸门（采集入口全停）
-   ├─ 行为事件：redactDeep → deviceId 注入 → events.jsonl + PosthogSender(/batch/, proxy-fetch)
-   └─ 信号：redactDeep → validateSignal（Zod strip = 白名单）→ ts 注入 → SignalSender(signals.jsonl + 可选 endpoint)
+main telemetry-service ── consent gate (stops all collection entry)
+   ├─ Behavior: redactDeep → inject deviceId → events.jsonl + PosthogSender(/batch/, proxy-fetch)
+   └─ Signals: redactDeep → validateSignal (Zod strip = allowlist) → inject ts → SignalSender(signals.jsonl + optional endpoint)
 ```
 
-主进程自有埋点（app_launched / search_executed / review_generated / agent_task_completed /
-自进化 5 类）直接调 `telemetryService`，不绕 IPC。
+The preserved flow diagram shows explicit renderer events via IPC into the main telemetry-service consent gate; behavior events undergo redactDeep and deviceId injection before local buffering/PostHog, while signals undergo redactDeep, allowlist schema validation, and timestamp injection before local buffering/an optional endpoint.
 
-## 3. 关键文件地图
+Main-process-owned events (app_launched / search_executed / review_generated / agent_task_completed /
+5 self-evolution types) call `telemetryService` directly, without IPC.
 
-| 职责 | 位置 |
+<a id="3-关键文件地图"></a>
+
+## 3. Key File Map
+
+| Responsibility | Location |
 |------|------|
-| 事件注册表（名称 + 属性白名单） | `packages/shared/src/telemetry/event-registry.ts` |
-| consent 模型 + 时区地域判定 | `packages/shared/src/telemetry/consent.ts` |
-| 脱敏纯函数（main/renderer 共用） | `packages/shared/src/telemetry/redact.ts` |
-| 5 类信号 Zod schema | `packages/shared/src/schemas/telemetry-signals.ts` |
-| 审计用 JSON Schema（tracked，drift 测试守门） | `schema/telemetry/*.schema.json`（`bun run gen:telemetry-schema` 生成） |
-| 汇集服务（闸门/注入/出口） | `apps/electron/src/main/lib/telemetry/telemetry-service.ts` |
-| PostHog / 自进化 sender | 同目录 `posthog-sender.ts` / `signal-sender.ts` |
-| Sentry 初始化（main / renderer） | 同目录 `sentry-init.ts` / `apps/electron/src/renderer/lib/sentry.ts` |
-| 本地缓冲（5MB 轮转 ×2） | 同目录 `jsonl-buffer.ts` → `~/.asci/telemetry/` |
-| 匿名 deviceId | 同目录 `device-id.ts` → `~/.asci/telemetry/device-id.json` |
-| 自进化采集器（orchestrator 旁路） | 同目录 `self-evolution-hooks.ts` |
-| 构建期 key 注入 | `apps/electron/scripts/build-main.ts`（env `ASCI_POSTHOG_KEY` / `ASCI_SENTRY_DSN`） |
-| 数据采集 tab | `apps/electron/src/renderer/components/settings/DataCollectionTab.tsx` |
-| renderer 埋点封装 | `apps/electron/src/renderer/lib/telemetry.ts` |
+| Event registry (names + property allowlist) | `packages/shared/src/telemetry/event-registry.ts` |
+| Consent model + timezone-based region detection | `packages/shared/src/telemetry/consent.ts` |
+| Pure redaction functions (shared by main/renderer) | `packages/shared/src/telemetry/redact.ts` |
+| 5 signal-type Zod schemas | `packages/shared/src/schemas/telemetry-signals.ts` |
+| Audit JSON Schema (tracked, drift tests guard it) | `schema/telemetry/*.schema.json` (generated by `bun run gen:telemetry-schema`) |
+| Aggregation service (gating/injection/output) | `apps/electron/src/main/lib/telemetry/telemetry-service.ts` |
+| PostHog / self-evolution sender | Same directory: `posthog-sender.ts` / `signal-sender.ts` |
+| Sentry initialization (main / renderer) | Same directory: `sentry-init.ts` / `apps/electron/src/renderer/lib/sentry.ts` |
+| Local buffer (5MB rotation ×2) | Same directory: `jsonl-buffer.ts` → `~/.asci/telemetry/` |
+| Anonymous deviceId | Same directory: `device-id.ts` → `~/.asci/telemetry/device-id.json` |
+| Self-evolution collectors (orchestrator side path) | Same directory: `self-evolution-hooks.ts` |
+| Build-time key injection | `apps/electron/scripts/build-main.ts` (env `ASCI_POSTHOG_KEY` / `ASCI_SENTRY_DSN`) |
+| Data Collection tab | `apps/electron/src/renderer/components/settings/DataCollectionTab.tsx` |
+| Renderer event wrapper | `apps/electron/src/renderer/lib/telemetry.ts` |
 
-## 4. 行为事件清单（0.3）
+<a id="4-行为事件清单03"></a>
 
-`app_launched` · `profile_created`（#420 前占位）· `login_completed`（占位待 #420）·
-`search_executed`（来源工具名 + 计数，无检索词）· `review_generated` · `agent_task_completed`。
-新增事件必须进注册表 + 属性白名单 review。
+## 4. Behavioral Event List (0.3)
 
-## 5. 自进化信号（5 类 + 隐式反馈）
+`app_launched` · `profile_created` (placeholder before #420) · `login_completed` (placeholder awaiting #420) ·
+`search_executed` (source tool name + counts, no search terms) · `review_generated` · `agent_task_completed`.
+New events must enter the registry + property-allowlist review.
+
+<a id="5-自进化信号5-类-&#45;隐式反馈"></a>
+
+## 5. Self-evolution Signals (5 Types + Implicit Feedback)
 
 task_structure / tool_usage / model_choice / error_event / workspace_structure +
-implicit_feedback（copy / save / cite / discard / retry；thumbs_up/down 为占位无 UI）。
-隐式反馈发射点：CopyButton、AgentView 重试、ZoteroQuickAddDialog（save）、
-SendToAgentButton（cite）、NotesView 删除（discard）。
+implicit_feedback (copy / save / cite / discard / retry; thumbs_up/down are placeholders without UI).
+Implicit feedback emission points: CopyButton, AgentView retry, ZoteroQuickAddDialog (save),
+SendToAgentButton (cite), NotesView delete (discard).
 
-## 6. 验收对照（PRD T-1 ~ T-6）
+<a id="6-验收对照prd-t-1-&#45;t-6"></a>
 
-| 验收 | 状态 |
+## 6. Acceptance Mapping (PRD T-1 ~ T-6)
+
+| Acceptance | Status |
 |------|------|
-| T-1 Sentry 崩溃含堆栈 + 脱敏 | 实现；Dashboard 验证待账号开通（DSN 注入后打包冒烟） |
-| T-2 检索/综述/登录事件流 | 实现；登录事件为占位（#420），PostHog 可见性待账号开通 |
-| T-3 地域 opt-in/out 默认 | 实现（时区启发式，见 ADR-011 §2）+ 单测覆盖 |
-| T-4 两开关解耦 | 实现 + 单测覆盖 |
-| T-5 信号 schema 仓库可查 | 实现（`schema/telemetry/` + drift 测试） |
-| T-6 自进化端点落库 | **等后端**（ADR-002 未拍板）；本期以 `signals.jsonl` 本地可见代偿 |
+| T-1 Sentry crashes include stack + redaction | Implemented; Dashboard validation awaits account provisioning (packaged smoke after DSN injection) |
+| T-2 Search/review/login event streams | Implemented; login event is a placeholder (#420), PostHog visibility awaits account provisioning |
+| T-3 Regional opt-in/out defaults | Implemented (timezone heuristic, see ADR-011 §2) + unit tests |
+| T-4 Independent switches | Implemented + unit tests |
+| T-5 Signal schemas accessible in the repository | Implemented (`schema/telemetry/` + drift tests) |
+| T-6 Self-evolution endpoint persistence | **Awaiting backend** (ADR-002 undecided); local visibility through `signals.jsonl` compensates this release |
 
-## 7. 前置条件（阻塞线上验收，不阻塞开发）
+<a id="7-前置条件阻塞线上验收不阻塞开发"></a>
 
-PostHog EU 项目 key 与 Sentry EU DSN 由运营开通后注入 CI env；缺省时全链路自动降级本地缓冲。
+## 7. Prerequisites (Block Online Acceptance, Not Development)
+
+Operations provisions the PostHog EU project key and Sentry EU DSN for injection into CI env; when absent, the entire chain automatically falls back to local buffering.

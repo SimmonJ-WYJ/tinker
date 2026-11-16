@@ -1,90 +1,114 @@
-# 能力包概念 Spec（Capability Package Concept Specification）
+<a id="能力包概念-speccapability-package-concept-specification"></a>
 
-> **状态**：草稿 · 待 review
-> **审计标准**：0.2 §三-4 X2
-> **关联 issue**：#231（E-4）
-> **依赖输入**：E-1 (#218) 访谈清单 · lit-search / lit-review 场景 Agent 编排说明（原始来源文档已吸收进 `docs/milestones/0.2/2026-05-23-agent-and-capability-pack-spec.md` §5.3/§5.4 并清理）
-> **阻塞后续**：D-4 (#239) schema 实现 · E-5 (#236) UI 概念稿 · E-6 (#240) 迁移方案
+# Capability Package Concept Spec (Capability Package Concept Specification)
+
+> **Status**: Draft · Awaiting review
+> **Audit criterion**: 0.2 §III-4 X2
+> **Related issue**: #231 (E-4)
+> **Input dependencies**: E-1 (#218) interview checklist · lit-search / lit-review scenario Agent orchestration descriptions (original sources absorbed into `docs/milestones/0.2/2026-05-23-agent-and-capability-pack-spec.md` §5.3/§5.4 and removed)
+> **Blocks**: D-4 (#239) schema implementation · E-5 (#236) UI concept · E-6 (#240) migration plan
 
 ---
 
-## 1. 概述与定位
+<a id="1-概述与定位"></a>
 
-### 1.1 什么是能力包
+## 1. Overview and Positioning
 
-**能力包（Capability Package）** 是 ASCI 向用户交付"可下达任务"能力的最小可发布单元。
+<a id="11-什么是能力包"></a>
 
-当前 ASCI 的配置和场景更像 Coding Agent——用户需要分别配置 MCP、Skill、Provider 模型。能力包范式将这些基础设施打包为用户可直观理解的任务域（检索/综述/写作/实验...），**一键安装即可向 Agent 下达任务**。
+### 1.1 What Is a Capability Package?
 
-核心公式：
+A **Capability Package** is ASCI's smallest releasable unit delivering a user-assignable task capability.
+
+Current configuration/scenarios resemble a Coding Agent: Users configure MCP, Skills, and provider models separately. Packages bundle infrastructure into understandable task domains (search/review/writing/experiments...), enabling **task assignment to the Agent after one-click installation**.
+
+Core formula:
 
 ```
-能力包 = 场景 Agent 设定 + Skill 引用 + MCP 引用 + UI 框架选择与渲染配置
-       + capabilities.proposals[]（副产品契约，v0.3 兑现）
+Capability package = scenario Agent settings + Skill references + MCP references + UI framework/render configuration
+                   + capabilities.proposals[] (byproduct contract, delivered in v0.3)
 ```
 
-### 1.2 与 Skill 的关系
+English formula: Package = scenario Agent settings + Skill references + MCP references + UI framework/render configuration + capabilities.proposals[] (byproduct contract delivered in v0.3).
 
-| 维度 | Skill | 能力包 |
+<a id="12-与-skill-的关系"></a>
+
+### 1.2 Relationship to Skills
+
+| Dimension | Skill | Capability package |
 |------|-------|--------|
-| 粒度 | 单一能力片段（一个 SKILL.md + 实现） | 面向任务域的完整解决方案 |
-| 心智模型 | "工具箱里的一把螺丝刀" | "一套完整的工作台" |
-| 组合方式 | 被能力包引用，也可独立启用 | 引用多个 Skill + MCP 组成 pipeline |
-| Agent 交互 | 被 Agent 按匹配度选择调用 | 自带场景 Agent，定义完整会话拓扑 |
-| 用户视角 | 高级用户在设置中管理 | 所有用户在"配置"页浏览/安装/管理 |
+| Granularity | One capability fragment (SKILL.md + implementation) | Complete task-domain solution |
+| Mental model | A screwdriver in a toolbox | A complete workbench |
+| Composition | Referenced by packages or independently enabled | Multiple Skills + MCPs in a pipeline |
+| Agent interaction | Selected by Agent for matching relevance | Own scenario Agent defining complete conversation topology |
+| User perspective | Advanced users manage in settings | All users browse/install/manage on Configuration page |
 
-> **设计判据**：用户需在 30 秒内区分"调系统参数 vs 管 Agent 能力"（X1.2 验证项，正确率 ≥ 60% 方可维持二分）。
+> **Design criterion**: Users distinguish "system parameters vs Agent capabilities" within 30 seconds (X1.2; retain separation only if accuracy ≥ 60%).
 
-### 1.3 不做的事（Non-scope）
+<a id="13-不做的事non-scope"></a>
 
-- 能力包 marketplace / 第三方扩展（0.4+）
-- 能力包自动升级（0.4+）
-- 包间依赖解析（0.2 只做概念预留，0.3 首发包互不依赖）
-- 非 TypeScript 语言的能力包（0.4+ 评估 Python 等）
+### 1.3 Non-scope
+
+- Package marketplace / third-party extensions (0.4+)
+- Automatic package upgrades (0.4+)
+- Inter-package dependency resolution (conceptual reservation in 0.2; 0.3 launch packages independent)
+- Non-TypeScript packages (evaluate Python, etc. in 0.4+)
 
 ---
 
-## 2. 命名与粒度
+<a id="2-命名与粒度"></a>
 
-### 2.1 包 ID 命名规范
+## 2. Naming and Granularity
+
+<a id="21-包-id-命名规范"></a>
+
+### 2.1 Package ID Convention
 
 ```
 <scope>.<category>.<name>
 
-示例：
-  asci.builtin.lit-search    ← 内置文献检索包
-  asci.builtin.lit-review    ← 内置文献综述包
-  asci.community.writing     ← 社区贡献的写作包（0.4+）
+Examples:
+  asci.builtin.lit-search    ← Built-in literature search package
+  asci.builtin.lit-review    ← Built-in literature review package
+  asci.community.writing     ← Community writing package (0.4+)
 ```
 
-| 字段 | 规则 |
+The preserved examples identify built-in literature search, built-in literature review, and community writing (0.4+) packages.
+
+| Field | Rule |
 |------|------|
-| `scope` | `asci`（官方）· 0.4+ 开放组织 scope |
-| `category` | `builtin`（内置）/ `community`（社区）/ `enterprise`（企业） |
-| `name` | kebab-case，≤ 32 字符，全局唯一 |
+| `scope` | `asci` (official); organization scopes open in 0.4+ |
+| `category` | `builtin` / `community` / `enterprise` |
+| `name` | kebab-case, ≤ 32 characters, globally unique |
 
-完整包 ID 用于 `Proposal.sourceCapability` 字段，是采纳率统计的分组键，**必须全局唯一且不可变**。
+Full package ID populates `Proposal.sourceCapability`, grouping adoption statistics; **globally unique and immutable**.
 
-### 2.2 最小可发布单元粒度判据
+<a id="22-最小可发布单元粒度判据"></a>
 
-一个能力包对应**一个用户可感知的任务域**。判据：
+### 2.2 Smallest Releasable Unit Criteria
 
-1. **独立可用**：安装后不依赖其他能力包即可完成至少一个端到端任务
-2. **场景 Agent 唯一**：每个包有且仅有一个场景 Agent 入口
-3. **Skill 可复用**：包内引用的 Skill 可被其他包共享（引用而非拷贝）
-4. **拆分信号**：当一个包的场景 Agent 需要处理两种无关联的意图分支时，应拆成两个包
+One package corresponds to **one user-perceived task domain**:
 
-反例——不应合并：
-- "检索 + 综述"是两个包，因为输入（自然语言 query vs 已选定 EvidenceSet）和输出（论文列表 vs review.md）完全不同
-- "检索 + 引文追溯"是一个包，因为引文追溯是检索意图分支之一，共享同一场景 Agent
+1. **Independently usable**: Completes at least one end-to-end task without other packages
+2. **Unique scenario Agent**: Exactly one scenario Agent entry per package
+3. **Reusable Skills**: Referenced Skills shared with other packages, by reference rather than copy
+4. **Split signal**: Split when one scenario Agent must handle two unrelated intent branches
+
+Counterexamples:
+- Search + review are two packages: Inputs (natural-language query vs selected EvidenceSet) and outputs (paper list vs review.md) differ completely
+- Search + citation tracing are one package: Citation tracing is a search intent branch sharing the scenario Agent
 
 ---
 
-## 3. 四要素内容物
+<a id="3-四要素内容物"></a>
 
-### 3.1 场景 Agent 设定（Scene Agent Setting）
+## 3. Four Contents
 
-场景 Agent 是能力包的入口 Agent。它负责对话流开口、意图分类、SubAgent 派活、收口汇总。
+<a id="31-场景-agent-设定scene-agent-setting"></a>
+
+### 3.1 Scenario Agent Settings (Scene Agent Setting)
+
+The scenario Agent is the package entry, handling conversation opening, intent classification, SubAgent dispatch, and closing summary.
 
 ```typescript
 interface SceneAgentSetting {
@@ -142,13 +166,17 @@ interface IntentDefinition {
 }
 ```
 
-**关键约束**（来自两份编排说明）：
+Preserved interface comments describe: English system prompt with host-injected Output Language directive; model preference; SubAgent definitions; supported/default intents; default maximum 2 scenario calls per turn. SubAgent fields cover unique slug, English name/selection description, model, execution mode, triggering intents, sequence order, and exposed tools; intent fields define intent identity/description and dispatch chain.
 
-- 场景 Agent 每 turn 内**仅 2 次 LLM 调用**（开口 + 意图分类合并 1 次，收口 1 次）
-- SubAgent 执行期间场景 Agent 不被打断、不做判断、不重新规划
-- 一次性下计划，runtime 按计划执行
+**Key constraints** (from both orchestration descriptions):
 
-### 3.2 Skill 引用（Skill References）
+- **Only 2 LLM calls per turn** for scenario Agent (opening + intent classification together, then closing)
+- No interruption, judgment, or replanning by scenario Agent during SubAgent execution
+- Issue the plan once; runtime executes it
+
+<a id="32-skill-引用skill-references"></a>
+
+### 3.2 Skill References
 
 ```typescript
 interface SkillReference {
@@ -163,12 +191,16 @@ interface SkillReference {
 }
 ```
 
-能力包引用 Skill 的语义是**声明式引用**，不是拷贝：
-- 安装包时校验 `required: true` 的 Skill 是否存在于工作区
-- 缺失的 required Skill 阻塞安装，提示用户先启用
-- 同一 Skill 可被多个包引用（Skill 粒度独立于包）
+Preserved fields: Skill slug matching SkillMeta.slug; source; required-installation dependency; SubAgents using it.
 
-### 3.3 MCP 引用（MCP References）
+Skill references are **declarative references**, not copies:
+- Installation checks `required: true` Skills exist in workspace
+- Missing required Skills block installation and prompt prior enablement
+- Multiple packages may share a Skill; its granularity is independent
+
+<a id="33-mcp-引用mcp-references"></a>
+
+### 3.3 MCP References
 
 ```typescript
 interface McpReference {
@@ -187,11 +219,15 @@ interface McpReference {
 }
 ```
 
-**Tool 白名单机制**：
+Preserved fields: MCP server name matching McpServerEntry key; built-in status (zotero/ocr/asr/paper-search); required dependency; consuming SubAgents; optional tool allowlist (omission exposes all); optional non-built-in installation configuration template.
 
-能力包可限制 SubAgent 对 MCP tool 的访问范围。例如 lit-review 包引用 paper-search MCP 但仅暴露 `get_paper_meta` 和 `get_paper_full_text`，不暴露 `search_papers` 和 `snowball_search`——这是跨包 scope 守门的关键手段。
+**Tool allowlist mechanism**:
 
-### 3.4 UI 框架选择与渲染配置（UI Framework Selection）
+Packages may restrict SubAgent access to MCP tools. For example, lit-review references paper-search but exposes only `get_paper_meta` and `get_paper_full_text`, not `search_papers` or `snowball_search`: A key cross-package scope guard.
+
+<a id="34-ui-框架选择与渲染配置ui-framework-selection"></a>
+
+### 3.4 UI Framework Selection and Render Configuration (UI Framework Selection)
 
 ```typescript
 interface UiFrameworkSelection {
@@ -212,17 +248,23 @@ interface DialogMainProductConfig {
 }
 ```
 
-**扩展路线**：
-- **0.3**：仅内置 `dialog-main-product`（对话主 + 右侧产物），两个首发包均使用
-- **0.4+**：开放 UI 框架注册机制，支持写作/实验日志/数据分析等不同布局
+Preserved fields: framework ID (only built-in 'dialog-main-product' in 0.3), framework-specific configuration; conversation-first/right-product-panel settings define product type, streaming, and title i18n key.
+
+**Extension path**:
+- **0.3**: Only built-in `dialog-main-product` (conversation-first + right-side product), used by both launch packages
+- **0.4+**: Open framework registration for writing/experiment logs/data analysis layouts
 
 ---
 
-## 4. `capabilities.proposals[]` 副产品契约
+<a id="4-capabilitiesproposals-副产品契约"></a>
 
-> **v0.2 收敛决策**（2026-05-22）：Proposal 机制整体延后 v0.3。v0.2 两个首发包不产出 Proposal 副产物。本节定义契约 schema 作为 v0.3 实现层的字段权威源。
+## 4. `capabilities.proposals[]` Byproduct Contract
 
-### 4.1 字段定义
+> **v0.2 convergence decision** (2026-05-22): Defer Proposal mechanism wholesale to v0.3. Neither v0.2 launch package emits Proposals. This section defines authoritative contract fields for v0.3 implementation.
+
+<a id="41-字段定义"></a>
+
+### 4.1 Field Definitions
 
 ```typescript
 interface ProposalDeclaration {
@@ -237,32 +279,44 @@ interface ProposalDeclaration {
 }
 ```
 
-### 4.2 两个首发包的 Proposal 产出清单（v0.3 规划）
+Preserved fields define emitted Proposal kind, trigger-event description, structured reasoning template, and target object type.
 
-v0.2 阶段两个首发包均不产出 Proposal。以下为 v0.3 规划占位，来自 0.2 §一-A 触发式产出点表：
+<a id="42-两个首发包的-proposal-产出清单v03-规划"></a>
 
-#### lit-search 包
+### 4.2 Proposal Outputs of Both Launch Packages (v0.3 Plan)
 
-| Proposal kind | 触发事件 | 目标对象 | reasoning 模板 |
+Neither package emits Proposals in v0.2. These v0.3 placeholders derive from 0.2 §I-A triggered-output table:
+
+<a id="lit-search-包"></a>
+
+#### lit-search Package
+
+| Proposal kind | Trigger | Target | Reasoning template |
 |---------------|---------|----------|----------------|
-| `evidence-set` | 检索结果入库 | EvidenceSet | "基于检索结果，建议将以下 N 篇论文追加到 EvidenceSet '{name}'，因为..." |
-| `citation-relation` | 检索结果入库 | Paper | "新入库论文 {paperA} 与 {paperB} 之间存在 {relationType} 关系，依据..." |
+| `evidence-set` | Search results enter library | EvidenceSet | "Based on search results, add these N papers to EvidenceSet '{name}' because..." |
+| `citation-relation` | Search results enter library | Paper | "New papers {paperA} and {paperB} have a {relationType} relationship, based on..." |
 
-#### lit-review 包
+<a id="lit-review-包"></a>
 
-| Proposal kind | 触发事件 | 目标对象 | reasoning 模板 |
+#### lit-review Package
+
+| Proposal kind | Trigger | Target | Reasoning template |
 |---------------|---------|----------|----------------|
-| `citation-relation` | 综述生成完成 | Paper | "综述过程中发现 {paperA} 与 {paperB} 之间存在 {relationType} 关系..." |
-| `hypothesis-promote` | 综述生成完成 / 用户写 Note 触发断言识别 | Note | "检测到以下断言可提升为正式假设：'{claim}'，支撑论文 {N} 篇..." |
-| `hypothesis-review` | EvidenceSet 新增 Paper | Note (hypothesis) | "新增论文 {paper} 对假设 '{hypothesis}' 的立场为 {stance}，理由..." |
+| `citation-relation` | Review generation completes | Paper | "Review identified a {relationType} relationship between {paperA} and {paperB}..." |
+| `hypothesis-promote` | Review completes / claim recognition from user Note | Note | "This assertion can become a formal hypothesis: '{claim}', supported by {N} papers..." |
+| `hypothesis-review` | Paper added to EvidenceSet | Note (hypothesis) | "New paper {paper} takes stance {stance} toward hypothesis '{hypothesis}' because..." |
 
-> **v0.2 fact-checker 替代**：v0.2 的 fact-checker 只做 claim 四档标记（`verified` / `unsupported` / `contradicted` / `unchecked`），不产出 Proposal 候选。Proposal 候选的产出（`citation-relation` / `hypothesis-promote` 等）连同 Proposal 机制整体延后 v0.3。
+> **v0.2 fact-checker substitute**: Only four claim labels (`verified` / `unsupported` / `contradicted` / `unchecked`), no Proposal candidates. Candidate production (`citation-relation` / `hypothesis-promote`, etc.) and the entire mechanism defer to v0.3.
 
 ---
 
-## 5. 依赖 / 安装 / 卸载语义
+<a id="5-依赖-&#45;安装-&#45;卸载语义"></a>
 
-### 5.1 依赖解析
+## 5. Dependency / Installation / Uninstallation Semantics
+
+<a id="51-依赖解析"></a>
+
+### 5.1 Dependency Resolution
 
 ```typescript
 interface PackageDependency {
@@ -277,53 +331,67 @@ interface PackageDependency {
 }
 ```
 
-**解析规则**：
+Preserved fields define dependency type, identifier, required/blocking status, and optional minimum version.
 
-1. 安装前扫描所有 `required: true` 依赖
-2. Skill 依赖：检查工作区 `skills/` + `skills-inactive/` 是否存在，不存在则提示启用或安装
-3. MCP 依赖：检查 `~/.asci/mcp.json` + builtin MCP 是否已注册，未注册的非内建 MCP 提供配置模板引导安装
-4. 能力包间依赖：0.2 不实现（首发包互不依赖），v0.3 预留字段
+**Resolution rules**:
 
-### 5.2 安装顺序
+1. Scan all `required: true` dependencies before installation
+2. Skills: Check workspace `skills/` + `skills-inactive/`; if missing, prompt enablement/installation
+3. MCP: Check registration in `~/.asci/mcp.json` + built-ins; offer configuration templates for unregistered non-built-ins
+4. Inter-package dependencies: Not implemented in 0.2 (launch packages independent); fields reserved for v0.3
+
+<a id="52-安装顺序"></a>
+
+### 5.2 Installation Order
 
 ```
-1. 校验依赖完整性
-   ├─ 缺失 required 依赖 → 阻塞，列出缺失项
-   └─ 全部满足 → 继续
-2. 注册能力包 manifest 到工作区
-3. 启用包内引用的 Skill（从 skills-inactive/ 移到 skills/）
-4. 确认 MCP 服务器就绪
-5. 注册场景 Agent 到 Orchestrator 路由表
-6. 广播 CAPABILITY_PACKAGE_INSTALLED 事件
+1. Validate dependency completeness
+   ├─ Missing required dependency → block and list missing items
+   └─ All satisfied → continue
+2. Register package manifest in workspace
+3. Enable referenced Skills (move skills-inactive/ to skills/)
+4. Confirm MCP servers ready
+5. Register scenario Agent in Orchestrator routing
+6. Broadcast CAPABILITY_PACKAGE_INSTALLED
 ```
 
-### 5.3 卸载语义
+English sequence: 1 Validate dependencies, blocking with missing-required list or continuing if complete; 2 register workspace manifest; 3 enable referenced Skills by moving skills-inactive/→skills/; 4 confirm MCP readiness; 5 register scenario Agent in Orchestrator routing; 6 broadcast CAPABILITY_PACKAGE_INSTALLED.
 
-| 关切项 | 卸载行为 |
+<a id="53-卸载语义"></a>
+
+### 5.3 Uninstallation Semantics
+
+| Concern | Behavior |
 |--------|---------|
-| 包内引用的 Skill | **不自动禁用**（可能被其他包或用户手动使用） |
-| MCP 服务器 | **不自动删除**（全局资源，可能被其他包使用） |
-| 已产出的 Proposal | **保留**（`status: accepted` 的已转化为正式对象；`pending` 的标记为 `sourceCapability` 已卸载，UI 灰显但不删除） |
-| 场景 Agent 注册 | **移除**（从 Orchestrator 路由表注销） |
-| 会话历史 | **保留**（只读，不可新建 turn） |
-| 配置偏好 | **保留**（用户重装同包时恢复；使用 `~/.asci/capability-packages/{packageId}/preferences.json`） |
+| Referenced Skills | **Do not automatically disable**; other packages/users may use them |
+| MCP servers | **Do not automatically delete**; shared global resources |
+| Existing Proposals | **Retain**; `status: accepted` already became formal objects; mark `pending` `sourceCapability` uninstalled, gray in UI without deleting |
+| Scenario Agent registration | **Remove** from Orchestrator routing |
+| Conversation history | **Retain**, read-only with no new turns |
+| Preferences | **Retain** for reinstall, at `~/.asci/capability-packages/{packageId}/preferences.json` |
 
-**卸载后清理 Proposal 的决策理由**：Proposal 的 `payload` 是不可变的信号数据（0.3 §三-A 采纳率分析的输入），删除会破坏历史统计完整性。`sourceCapability` 字段的存在本身就是溯源键，即使包已卸载仍有审计价值。
+**Rationale for Proposal cleanup after uninstall**: `payload` is immutable signal data feeding 0.3 §III-A adoption analysis; deletion damages historical statistics. `sourceCapability` remains a provenance key with audit value even after uninstall.
 
 ---
 
-## 6. 二分布局：Skill 板块 + 能力包板块
+<a id="6-二分布局skill-板块-&#45;能力包板块"></a>
 
-### 6.1 分层判据
+## 6. Split Layout: Skills + Capability Packages
 
-| 层级 | 位置 | 内容 | 用户心智 |
+<a id="61-分层判据"></a>
+
+### 6.1 Layer Criteria
+
+| Layer | Location | Content | User mental model |
 |------|------|------|----------|
-| **系统底座** | Settings 弹窗 | Provider API Key、MCP 服务器、Zotero 凭据、代理、主题、语言 | "调系统参数" |
-| **Agent 生态** | 左侧栏"配置"页 | Skill 注册表 + 能力包浏览器 | "管 Agent 能力" |
+| **System foundation** | Settings dialog | Provider keys, MCP servers, Zotero credentials, proxy, theme, language | System parameters |
+| **Agent ecosystem** | Sidebar Configuration page | Skill registry + package browser | Agent capabilities |
 
-### 6.2 Skill 板块
+<a id="62-skill-板块"></a>
 
-复用现有 `SkillMeta` 结构，增加能力包反向引用：
+### 6.2 Skills Section
+
+Reuse existing `SkillMeta`, adding reverse package references:
 
 ```typescript
 interface SkillMetaExtended extends SkillMeta {
@@ -332,180 +400,228 @@ interface SkillMetaExtended extends SkillMeta {
 }
 ```
 
-展示逻辑：
-- 按 `category` 分组
-- 每个 Skill 卡片显示：名称（`nameI18n[lang] ?? name`）、描述、启用开关、引用方包列表
-- 被能力包 `required` 引用的 Skill 禁用时弹确认（"此 Skill 被 {packageName} 依赖"）
+The preserved field is the read-only reverse index of packages referencing this Skill.
 
-### 6.3 能力包板块
+Display:
+- Group by `category`
+- Each card: Name (`nameI18n[lang] ?? name`), description, enable switch, referencing packages
+- Disabling a `required` Skill prompts confirmation: "{packageName} depends on this Skill"
 
-展示逻辑：
-- 按已安装 / 可安装分区
-- 每个能力包卡片显示：
-  - 包名（`displayNameI18n[lang] ?? displayName`）
-  - 简介
-  - 四要素摘要（N 个 Skill · M 个 MCP · 场景 Agent · UI 框架）
-  - 安装/卸载按钮
-  - Proposal 产出声明（v0.3 亮灯，v0.2 灰显"暂未启用"）
-- 点击进入详情页：完整四要素 + SubAgent 拓扑图 + 包内偏好设置
+<a id="63-能力包板块"></a>
+
+### 6.3 Capability Packages Section
+
+Display:
+- Installed / available groups
+- Each card:
+  - Name (`displayNameI18n[lang] ?? displayName`)
+  - Summary
+  - Four-content summary (N Skills · M MCPs · scenario Agent · UI framework)
+  - Install/uninstall button
+  - Proposal output declarations (active v0.3, gray "Not enabled yet" in v0.2)
+- Click details: Complete four contents + SubAgent topology + package preferences
 
 ---
 
-## 7. 两个首发包详解
+<a id="7-两个首发包详解"></a>
 
-### 7.1 lit-search（文献检索包）
+## 7. Two Launch Packages in Detail
 
-> 字段权威源：as-built `apps/electron/default-capability-packs/lit-search/manifest.json` + `docs/milestones/0.2/2026-05-23-agent-and-capability-pack-spec.md` §5.3（原 `lit-search场景 Agent 编排说明.md` 已吸收并清理）
+<a id="71-lit-search文献检索包"></a>
 
-#### 基本信息
+### 7.1 lit-search (Literature Search Package)
 
-| 字段 | 值 |
+> Field authority: As-built `apps/electron/default-capability-packs/lit-search/manifest.json` + `docs/milestones/0.2/2026-05-23-agent-and-capability-pack-spec.md` §5.3 (original `lit-search场景 Agent 编排说明.md` absorbed and removed; filename means lit-search scenario Agent orchestration description)
+
+<a id="基本信息"></a>
+
+#### Basic Information
+
+| Field | Value |
 |------|-----|
-| 包 ID | `asci.builtin.lit-search` |
-| 显示名 | 文献检索 / Literature Search |
-| UI 框架 | `dialog-main-product`（productType: `search-results`） |
-| 场景 Agent 模型 | sonnet（首字 ~600ms） |
+| Package ID | `asci.builtin.lit-search` |
+| Display name | Literature Search (Chinese / English) |
+| UI framework | `dialog-main-product` (productType: `search-results`) |
+| Scenario Agent model | sonnet (first token ~600ms) |
 
-#### SubAgent 拓扑
+<a id="subagent-拓扑"></a>
+
+#### SubAgent Topology
 
 ```
-场景 Agent（dispatcher，2 次 LLM/turn）
-  ├─ 意图：精确查找 → 无 SubAgent（场景 Agent 直接调 paper-search）
-  ├─ 意图：普通检索 → searcher → relevance-scorer
-  └─ 意图：引文追溯 → [seed 解析] → citation-explorer → relevance-scorer
+Scenario Agent (dispatcher, 2 LLM calls/turn)
+  ├─ Exact lookup → no SubAgent (scenario Agent calls paper-search directly)
+  ├─ Ordinary search → searcher → relevance-scorer
+  └─ Citation tracing → [seed parsing] → citation-explorer → relevance-scorer
 ```
 
-| SubAgent | 模型 | 执行形态 | 触发意图 | 暴露 tool |
+English topology: Dispatcher scenario Agent, 2 LLM calls/turn. Exact lookup → no SubAgent, scenario directly calls paper-search; ordinary search → searcher → relevance-scorer; citation tracing → seed parsing → citation-explorer → relevance-scorer.
+
+| SubAgent | Model | Execution | Intent | Exposed tools |
 |----------|------|---------|---------|-----------|
-| searcher | sonnet | deterministic-pipeline | 普通检索 | paper-search: `search_papers` |
-| citation-explorer | sonnet | deterministic-pipeline | 引文追溯 | paper-search: `snowball_search`, `get_paper_meta` |
-| relevance-scorer | sonnet + haiku | deterministic-pipeline | 普通检索, 引文追溯 | （无外部 tool，纯 LLM 评分） |
+| searcher | sonnet | deterministic-pipeline | Ordinary search | paper-search: `search_papers` |
+| citation-explorer | sonnet | deterministic-pipeline | Citation tracing | paper-search: `snowball_search`, `get_paper_meta` |
+| relevance-scorer | sonnet + haiku | deterministic-pipeline | Ordinary search, citation tracing | No external tools, LLM scoring only |
 
-#### Skill 引用
+<a id="skill-引用"></a>
 
-| Skill slug | required | 用途 |
+#### Skill References
+
+| Skill slug | required | Purpose |
 |------------|----------|------|
-| `literature-search-enhanced` | true | searcher 检索能力骨架 |
+| `literature-search-enhanced` | true | searcher retrieval capability skeleton |
 
-#### MCP 引用
+<a id="mcp-引用"></a>
 
-| MCP name | isBuiltin | required | 暴露 tool |
+#### MCP References
+
+| MCP name | isBuiltin | required | Exposed tools |
 |----------|-----------|----------|-----------|
 | `paper-search` | true | true | `search_papers`, `get_paper_meta`, `get_paper_full_text`, `snowball_search` |
 | `zotero` | true | false | `add_to_library` |
 
-#### TTLT 预算
+<a id="ttlt-预算"></a>
 
-| 意图 | 典型 TTLT | 最差 TTLT | LLM 调用 |
+#### TTLT Budget
+
+| Intent | Typical TTLT | Worst TTLT | LLM calls |
 |------|:---------:|:---------:|:--------:|
-| 精确查找 | ~3s | 5s | 2 |
-| 普通检索 | ~8s | 15s | 5 |
-| 引文追溯 | ~12-15s | 22s | 4 |
+| Exact lookup | ~3s | 5s | 2 |
+| Ordinary search | ~8s | 15s | 5 |
+| Citation tracing | ~12-15s | 22s | 4 |
 
-#### Proposal 产出（v0.3 规划）
+<a id="proposal-产出v03-规划"></a>
 
-- `evidence-set`：检索结果入库时
-- `citation-relation`：新入库论文之间关系候选
+#### Proposal Outputs (v0.3 Plan)
 
-> v0.2：无 Proposal 产出。
+- `evidence-set`: Search results enter library
+- `citation-relation`: Relationship candidates between newly added papers
+
+> v0.2: No Proposal outputs.
 
 ---
 
-### 7.2 lit-review（文献综述包）
+<a id="72-lit-review文献综述包"></a>
 
-> 字段权威源：as-built `apps/electron/default-capability-packs/lit-review/manifest.json` + `docs/milestones/0.2/2026-05-23-agent-and-capability-pack-spec.md` §5.4（原 `lit-review场景 Agent 编排说明.md` 已吸收并清理）
+### 7.2 lit-review (Literature Review Package)
 
-#### 基本信息
+> Field authority: As-built `apps/electron/default-capability-packs/lit-review/manifest.json` + `docs/milestones/0.2/2026-05-23-agent-and-capability-pack-spec.md` §5.4 (original `lit-review场景 Agent 编排说明.md` absorbed and removed; filename means lit-review scenario Agent orchestration description)
 
-| 字段 | 值 |
+<a id="基本信息-1"></a>
+
+#### Basic Information
+
+| Field | Value |
 |------|-----|
-| 包 ID | `asci.builtin.lit-review` |
-| 显示名 | 文献综述 / Literature Review |
-| UI 框架 | `dialog-main-product`（productType: `review-html`，streamToPanel: true） |
-| 场景 Agent 模型 | sonnet |
+| Package ID | `asci.builtin.lit-review` |
+| Display name | Literature Review (Chinese / English) |
+| UI framework | `dialog-main-product` (productType: `review-html`, streamToPanel: true) |
+| Scenario Agent model | sonnet |
 
-#### 会话拓扑：两 turn 必走断点
+<a id="会话拓扑两-turn-必走断点"></a>
+
+#### Conversation Topology: Mandatory Two-turn Breakpoint
 
 ```
-Turn 1 · 方向选择（~10-12s）
-  场景 Agent → review-proposer Skill → litreview.present_directions tool → ChoiceCard
-  用户选定方向 → tool 返回 → 同一 agent run 进 Turn 2
+Turn 1 · Direction selection (~10-12s)
+  Scenario Agent → review-proposer Skill → litreview.present_directions tool → ChoiceCard
+  User selects direction → tool returns → same agent run enters Turn 2
 
-Turn 2 · 综述生成（~70-200s）
-  场景 Agent → synthesizer（并发轨 A: outline 拆分 + 并发轨 B: reader fan-out）
-  → 两轨汇合 → 章节级流式写 review.md → fact-checker 异步核验 → 收口
+Turn 2 · Review generation (~70-200s)
+  Scenario Agent → synthesizer (parallel A: outline splitting + parallel B: reader fan-out)
+  → Merge tracks → chapter-streamed review.md → asynchronous fact-checker → closing
 ```
 
-#### SubAgent 拓扑
+English topology: Turn1 direction selection (~10-12s): scenario Agent → review-proposer Skill → litreview.present_directions → ChoiceCard; user choice returns from tool and same run enters Turn2. Turn2 review generation (~70-200s): scenario → synthesizer with parallel outline splitting and reader fan-out; merge tracks → chapter-streamed review.md → asynchronous fact-checker → closing.
 
-| SubAgent | 模型 | 执行形态 | 所在 Turn | 暴露 tool | 失败兜底 |
+<a id="subagent-拓扑-1"></a>
+
+#### SubAgent Topology
+
+| SubAgent | Model | Execution | Turn | Exposed tools | Failure fallback |
 |----------|------|---------|----------|-----------|---------|
-| synthesizer | sonnet | **agent-loop** | Turn 2 | paper-search: `get_paper_meta`, `get_paper_full_text` | 单段 LLM 错 → Turn 2 失败 |
-| reader | haiku | deterministic-pipeline | Turn 2（并发 fan-out） | （无外部 tool，读 PDF 内容） | 单篇失败 → 降级用 abstract |
-| fact-checker | haiku | deterministic-pipeline | Turn 2（异步，不阻塞） | （无外部 tool，纯 LLM 核验） | 单段失败 → claim 标 `unchecked` |
+| synthesizer | sonnet | **agent-loop** | Turn 2 | paper-search: `get_paper_meta`, `get_paper_full_text` | One LLM segment error → Turn 2 fails |
+| reader | haiku | deterministic-pipeline | Turn 2 (parallel fan-out) | No external tools, reads PDFs | Single-paper failure → abstract fallback |
+| fact-checker | haiku | deterministic-pipeline | Turn 2 (asynchronous, nonblocking) | No external tools, LLM verification only | Single-segment failure → claim `unchecked` |
 
-#### Skill 引用
+<a id="skill-引用-1"></a>
 
-`skillRefs: []`（空）。架构演进后，`review-proposer` 与综述正文主笔人均改为包内 **SubAgent**（见上「SubAgent 拓扑」），不再走 skillRef：
-- `review-proposer`：Turn 1 方向生成，现为 SubAgent（`subAgents[]`）。
-- 综述正文由 `synthesizer`（Agent loop）**自带完整 prompt 直接产出**，不引用任何骨架 Skill。
-- `literature-review-result` 是**独立回落 Skill**：仅当工作区未注册任何 review 能力包时，由 master 经 Skills-First 链（`review-proposer` → `literature-review-result`）兜底；本包不引用它。
+#### Skill References
 
-> 历史注记：早期草稿曾规划 `skillRefs: [review-proposer, literature-review-result]`（后者作 "synthesizer 骨架"）。实现时改为 SubAgent 拓扑、synthesizer 自包含，skillRefs 空。此表已对齐 as-built（见 `apps/electron/default-capability-packs/lit-review/manifest.json`）。
+`skillRefs: []` (empty). After architectural evolution, `review-proposer` and the review-body author became package **SubAgents** (above), no longer skillRefs:
+- `review-proposer`: Turn1 directions, now a SubAgent (`subAgents[]`).
+- `synthesizer` (Agent loop) **produces the body directly with its own full prompt**, no skeleton Skill references.
+- `literature-review-result` is an **independent fallback Skill**: Only without any registered review package does master use Skills-First (`review-proposer` → `literature-review-result`); this package does not reference it.
 
-#### MCP 引用
+> Historical note: Early draft planned `skillRefs: [review-proposer, literature-review-result]`, the latter as synthesizer skeleton. Implementation switched to SubAgent topology and self-contained synthesizer, empty skillRefs. This table matches as-built `apps/electron/default-capability-packs/lit-review/manifest.json`.
 
-| MCP name | isBuiltin | required | 暴露 tool | 备注 |
+<a id="mcp-引用-1"></a>
+
+#### MCP References
+
+| MCP name | isBuiltin | required | Exposed tools | Notes |
 |----------|-----------|----------|-----------|------|
-| `paper-search` | true | false | `get_paper_meta`, `get_paper_full_text` | 跨包精确查找补漏（cap=3） |
-| `zotero` | true | false | — | 间接通过 EvidenceSet 关联 |
+| `paper-search` | true | false | `get_paper_meta`, `get_paper_full_text` | Cross-package exact-lookup gap filling (cap=3) |
+| `zotero` | true | false | — | Indirect EvidenceSet association |
 
-**跨包精确查找 hard cap**：
+**Cross-package Exact-lookup Hard Cap**:
 
-| 维度 | 值 |
+| Dimension | Value |
 |------|-----|
-| 单 Turn 2 累计调用上限 | 3 次 |
-| 单次 timeout | 8s |
-| 累计失败触发停止 | ≥ 2 次 |
-| 主流程阻塞 | 0s（fire-and-forget） |
+| Cumulative calls per Turn 2 | 3 |
+| Timeout per call | 8s |
+| Stop after cumulative failures | ≥ 2 |
+| Main-flow blocking | 0s (fire-and-forget) |
 
-#### 工具调用契约
+<a id="工具调用契约"></a>
 
-| Tool | 用途 | 参数摘要 |
+#### Tool-call Contract
+
+| Tool | Purpose | Argument summary |
 |------|------|----------|
-| `litreview.present_directions` | Turn 1 方向选择 ChoiceCard | `directions[]` + `rerollLabel` + `customLabel` → return `{ choice, customDirection? }` |
-| `litreview.present_resume_choice` | 中断恢复 ChoiceCard | "重新生成 / 放弃" → return `{ choice }` |
+| `litreview.present_directions` | Turn 1 direction ChoiceCard | `directions[]` + `rerollLabel` + `customLabel` → return `{ choice, customDirection? }` |
+| `litreview.present_resume_choice` | Interruption recovery ChoiceCard | "Regenerate / Abandon" → return `{ choice }` |
 
-#### TTLT 预算
+<a id="ttlt-预算-1"></a>
 
-| 场景 | Turn 1 | Turn 2 | 总耗时 | LLM 调用 |
+#### TTLT Budget
+
+| Scenario | Turn 1 | Turn 2 | Total | LLM calls |
 |------|:------:|:------:|:------:|:--------:|
-| 小集（10 篇） | ~10s | ~70s | ~80s | ~40 |
-| 中集（20 篇） | ~12s | ~110s | ~120s | ~58 |
-| 大集（40 篇） | ~15s | ~200s | ~215s | ~95 |
+| Small (10 papers) | ~10s | ~70s | ~80s | ~40 |
+| Medium (20 papers) | ~12s | ~110s | ~120s | ~58 |
+| Large (40 papers) | ~15s | ~200s | ~215s | ~95 |
 
-#### 输出格式
+<a id="输出格式"></a>
 
-review.md（实际存储为 `~/.asci/reviews/{id}.html`）：
-- YAML frontmatter：`reviewId` / `title` / `direction` / `sourceEvidenceSetId` / `sourceCapability` / `generatedAt` / `factCheckSummary` / `chapters` / `totalSentences`
-- 正文：sentence-anchor（`data-sentence-id`）+ 内嵌 fact-check（`data-fact-check`）+ claim 关联（`data-claims`）
-- 参考文献：`<handle>` 反查 paper-search 进程 cache
+#### Output Format
 
-#### Proposal 产出（v0.3 规划）
+review.md (actually stored at `~/.asci/reviews/{id}.html`):
+- YAML frontmatter: `reviewId` / `title` / `direction` / `sourceEvidenceSetId` / `sourceCapability` / `generatedAt` / `factCheckSummary` / `chapters` / `totalSentences`
+- Body: sentence-anchor (`data-sentence-id`) + inline fact-check (`data-fact-check`) + claim associations (`data-claims`)
+- References: `<handle>` reverse lookup in paper-search process cache
 
-- `citation-relation`：综述完成时
-- `hypothesis-promote`：综述完成时 / 用户写 Note 触发断言识别
-- `hypothesis-review`：EvidenceSet 新增 Paper 时
+<a id="proposal-产出v03-规划-1"></a>
 
-> v0.2：无 Proposal 产出。fact-checker 只做 claim 四档标记。
+#### Proposal Outputs (v0.3 Plan)
+
+- `citation-relation`: Review completion
+- `hypothesis-promote`: Review completion / claim recognition from user Note
+- `hypothesis-review`: Paper added to EvidenceSet
+
+> v0.2: No Proposal outputs; fact-checker only applies four claim labels.
 
 ---
 
-## 8. D-4 契约 Schema 映射
+<a id="8-d-4-契约-schema-映射"></a>
 
-本节确保 D-4 (#239) 实现层可直接消费本 Spec 的字段定义。
+## 8. D-4 Contract Schema Mapping
 
-### 8.1 能力包 Manifest 完整 interface
+This section enables D-4 (#239) implementation to consume this spec's field definitions directly.
+
+<a id="81-能力包-manifest-完整-interface"></a>
+
+### 8.1 Complete Capability Package Manifest Interface
 
 ```typescript
 /**
@@ -553,9 +669,13 @@ interface CapabilityPackageManifest {
 }
 ```
 
-### 8.2 字段到现有类型的映射
+Preserved interface comments specify D-4 JSON Schema generation into schema/capabilities/, immutable globally unique ID, semver, English/bilingual names/descriptions, emoji/asset icon, four contents, v0.3 proposal contract, dependencies, and default preferences.
 
-| Manifest 字段 | 现有类型 | 位置 |
+<a id="82-字段到现有类型的映射"></a>
+
+### 8.2 Mapping Fields to Existing Types
+
+| Manifest field | Existing type | Location |
 |--------------|---------|------|
 | `proposals[].kind` | `ProposalKind` | `packages/shared/src/types/objects/proposal.ts` |
 | `skillReferences[].slug` | `SkillMeta.slug` | `packages/shared/src/types/agent.ts` |
@@ -566,45 +686,51 @@ interface CapabilityPackageManifest {
 
 ---
 
-## 9. E-1 (#218) 访谈清单交叉验证
+<a id="9-e-1-218-访谈清单交叉验证"></a>
 
-本 Spec 需与 E-1 访谈清单交叉验证。以下矩阵列出 X1.1 / X1.2 验证项对本 Spec 的影响：
+## 9. E-1 (#218) Interview Checklist Cross-validation
 
-| 验证项 | Spec 段落 | 交叉验证点 | 若验证失败的影响 |
+Cross-validate this spec against E-1 interviews. X1.1 / X1.2 impact matrix:
+
+| Validation | Spec section | Cross-check | Failure impact |
 |--------|----------|-----------|----------------|
-| X1.1 Agent 主动提议接受度 | §4 Proposal 副产品契约 | 用户对三类 Proposal（citation-relation / hypothesis-promote / hypothesis-review）评分 ≥ 50% 给 ≤ 2 分 → 触发 §零 降档 | Proposal 机制可能进一步延后或改为 opt-in |
-| X1.2 Skill/能力包二分心智识别度 | §6 二分布局 | 用户 30 秒内区分"调系统参数 vs 管 Agent 能力"正确率 < 60% | 二分布局降级为统一 Settings 页内分 tab |
-| X1 能力包候选清单 | §2.2 粒度判据 | 访谈识别的 ≥3 类能力包是否与当前粒度判据一致 | 调整粒度边界或合并/拆分首发包 |
+| X1.1 Acceptance of proactive Agent proposals | §4 Proposal byproducts | ≥ 50% rate three Proposal types (citation-relation / hypothesis-promote / hypothesis-review) ≤ 2 points → trigger §0 downgrade | Proposal may defer further or become opt-in |
+| X1.2 Skill/package split comprehension | §6 Split layout | < 60% correctly distinguish system parameters vs Agent capabilities in 30 seconds | Downgrade split layout to tabs in unified Settings |
+| X1 Package candidates | §2.2 Granularity | Whether ≥3 interview-identified package types fit current criteria | Adjust boundaries or merge/split launch packages |
 
 ---
 
-## 附录 A：术语表
+<a id="附录-a术语表"></a>
 
-| 术语 | 定义 |
+## Appendix A: Glossary
+
+| Term | Definition |
 |------|------|
-| 能力包（Capability Package） | 面向用户交付"可下达任务"能力的最小可发布单元，包含四要素 + Proposal 副产品契约 |
-| 场景 Agent（Scene Agent） | 能力包的入口 Agent，负责对话流开口、意图分类、SubAgent 派活、收口汇总 |
-| SubAgent | 场景 Agent 派活的子 Agent，执行具体任务（如检索、评分、综述生成） |
-| Proposal | Agent 产出、用户决策的提议对象；交互载体而非研究产物 |
-| `sourceCapability` | Proposal 的来源字段，指向产出该 Proposal 的能力包 ID |
-| TTFT | Time To First Token，场景 Agent 第一个 chat token |
-| TTLT | Time To Last Token，场景 Agent 最后一个 chat token（turn 结束） |
-| ChoiceCard | 用户决策卡片，通过 tool call 渲染（沿用 0.1 ExitPlanMode 模式） |
+| Capability Package | Smallest releasable user-assignable task unit, four contents + Proposal byproduct contract |
+| Scene Agent | Package entry, opens conversation, classifies intent, dispatches SubAgents, summarizes closure |
+| SubAgent | Scenario-dispatched Agent executing specific work (search, scoring, review generation) |
+| Proposal | Agent-produced, user-decided suggestion object; interaction vehicle, not research artifact |
+| `sourceCapability` | Proposal source field pointing to producing package ID |
+| TTFT | Time To First Token, first scenario chat token |
+| TTLT | Time To Last Token, final scenario chat token (turn end) |
+| ChoiceCard | User decision card rendered by tool call, following 0.1 ExitPlanMode |
 
-## 附录 B：与 north-star 审计标准的对齐
+<a id="附录-b与-north-star-审计标准的对齐"></a>
 
-| 审计标准 | 本 Spec 覆盖段落 | 状态 |
+## Appendix B: Alignment with north-star Audit Criteria
+
+| Criterion | Spec coverage | Status |
 |---------|-----------------|------|
-| X2 · 命名/粒度 | §2 | ✅ |
-| X2 · 四要素内容物 | §3 | ✅ |
-| X2 · `capabilities.proposals[]` 契约 | §4（v0.3 占位） | ✅ |
-| X2 · 依赖/安装-卸载语义 | §5 | ✅ |
-| X2 · Skill 板块 + 能力包板块二分 | §6 | ✅ |
-| X2 · 副产品段落两个首发包各自清单 | §4.2 + §7.1/7.2 Proposal 产出 | ✅（调整为 SubAgent 拓扑 + tool 暴露契约 + v0.3 Proposal 占位） |
-| A3 · 契约文档化可被实现层消费 | §8 D-4 映射 | ✅ |
+| X2 · Naming/granularity | §2 | ✅ |
+| X2 · Four contents | §3 | ✅ |
+| X2 · `capabilities.proposals[]` contract | §4 (v0.3 placeholder) | ✅ |
+| X2 · Dependency/install-uninstall semantics | §5 | ✅ |
+| X2 · Skills/packages split | §6 | ✅ |
+| X2 · Per-package byproduct lists | §4.2 + §7.1/7.2 Proposal outputs | ✅ (SubAgent topology + exposed-tool contracts + v0.3 placeholders) |
+| A3 · Documented contracts consumable by implementation | §8 D-4 mapping | ✅ |
 
 ---
 
 **Spec ID**: `2026-05-25-capability-package-concept`
-**作者**: ASCI 0.2 design session
-**版本**: v1
+**Author**: ASCI 0.2 design session
+**Version**: v1

@@ -1,104 +1,118 @@
-# 0.4 北极星目标（研究空白）
+<a id="04-北极星目标研究空白"></a>
 
-> **定位**：ASCI 第一次把"新场景"押在 AI 最薄弱、却最高价值的认知工作上——**帮研究者看见研究空白**。形态是增强而非替代：**AI 铺开前沿、用户拍板**。
-> **截止**：待定。
-> **前置依赖**：0.3.0 交付（OPENSCI 账户 + 能力包配置化 + 云服务器/云数据库 + 5 类自进化信号采集）· 现有文献解析 / LLMWiki / 语义检索基建（`CONTEXT.md`「文献语料与检索」）。
-> **设计哲学**：HITL（人在环）+ 增强而非替代；本地优先 / BYOK / Agent 主导 / 桌面。AI 不替用户判定"是不是创新"。
+# 0.4 North Star (Research Gaps)
+
+> **Positioning**: ASCI's first new scenario targets cognitive work where AI is weakest yet value is highest: **helping researchers see research gaps**. Augmentation rather than replacement: **AI lays out the frontier; users decide**.
+> **Deadline**: TBD.
+> **Prerequisites**: 0.3.0 delivery (OPENSCI account + configurable capability packs + cloud server/database + collection of 5 self-evolution signal types) · existing literature parsing / LLMWiki / semantic retrieval infrastructure (`CONTEXT.md`, “Literature Corpus and Retrieval”).
+> **Design philosophy**: HITL (human in the loop) + augmentation rather than replacement; local-first / BYOK / Agent-led / desktop. AI does not decide whether something is innovative for the user.
 >
-> **单一权威源边界**：
-> - 本文档 = 0.4 的 **目标 + 审计标准 + 优先级 + 实施顺序** 权威源。
-> - **需求细节**（User Stories / Implementation / Testing）以 [`docs/specs/0.4.0/0.4.0-prd.md`](../../specs/0.4.0/0.4.0-prd.md) 为准。
-> - **领域语言** 以 [`CONTEXT.md`](../../../CONTEXT.md) 为准；**安全边界实现** 以 [`docs/specs/0.4.0/prompt-disclosure-redaction-spec.md`](../../specs/0.4.0/prompt-disclosure-redaction-spec.md) 为准。
+> **Single authoritative source boundaries**:
+> - This document is authoritative for 0.4 **goals + audit criteria + priorities + implementation order**.
+> - **Requirement details** (User Stories / Implementation / Testing) follow [`docs/specs/0.4.0/0.4.0-prd.md`](../../specs/0.4.0/0.4.0-prd.md).
+> - **Domain language** follows [`CONTEXT.md`](../../../CONTEXT.md); **security-boundary implementation** follows [`docs/specs/0.4.0/prompt-disclosure-redaction-spec.md`](../../specs/0.4.0/prompt-disclosure-redaction-spec.md).
 
-**范围声明**：1 新功能（研究空白）+ 2 已有优化（证据集/笔记基础体验、安全边界）。
-**另含**：1 个面向 0.5 的前置探索（Google Scholar 抓取可行性），**不计入 0.4 交付范围**、可并行、不阻塞研究空白主线（详见 §四）。
-**审计原则**：每条审计标准可"是/否"或数值验证，标注优先级。
-**优先级标签**：必做 / 前置 / 观察 / 0.5 二发。
+**Scope**: 1 new feature (research gaps) + 2 existing-feature improvements (evidence-set/note basics, security boundaries).
+**Also included**: 1 preparatory exploration for 0.5 (Google Scholar scraping feasibility), **outside 0.4 delivery scope**, parallelizable and nonblocking for research gaps (see §IV).
+**Audit principle**: every criterion has yes/no or numeric verification and a priority label.
+**Priority labels**: Required / Prerequisite / Observe / Second release in 0.5.
 
 ---
 
-## 一、P1 研究空白（新功能）
+<a id="一p1-研究空白新功能"></a>
 
-**目标**：在用户圈定的一组文献上，AI 抽出"谁做过什么"的对照表，呈现研究空白（空白 + 冲突），每条可溯源，用户拍板，结果沉淀进证据集。**范围限定"所选文献内"**（全前沿版 → 0.5）。
+## I. P1 Research Gaps (New Feature)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: for a user-selected group of literature, AI extracts a “who did what” comparison table and presents research gaps (gaps + conflicts), each traceable; users decide, and results persist in evidence sets. **Scope is limited to “within selected literature”** (full-frontier version → 0.5).
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| GM1 | 所选文献：用户可从一个证据集或勾选一组论文发起分析 | 两种入口各发起一次成功 | 必做 |
-| GM2 | 对照表：AI 自动提议列、用户可增删改；每个非空单元格可溯源原文 | 点任一单元格跳回原文锚点 | 必做 |
-| GM3 | 研究空白：呈现稀疏/空的属性组合 + AI 标注的结论冲突，每条可溯源 | 走查空白与冲突标注 | 必做 |
-| GM4 | 范围限定：产品文案与 AI 输出均限定"所选文献内"，**零**"全领域没人做过"措辞 | 专门回归测试扫措辞 | 必做 |
-| GM5 | 拍板：AI **不**输出"这是创新点"类替用户判定的结论 | 回归测试扫输出 | 必做 |
-| GM6 | 沉淀：对照表 + 选中空白可写入证据集并读回完整、保序 | 存入再读回比对 | 必做 |
-| GM7 | **前置抽取质量 spike**：真实 15–20 篇验准确率 / 篇数上限 / BYOK 成本，结论先于核心实现 | spike 三项量化结论 | **前置（必做）** |
+| GM1 | Selected literature: users can initiate analysis from an evidence set or checked papers | Successfully initiate once from each entry | Required |
+| GM2 | Comparison table: AI proposes columns; users can add/delete/edit; each nonempty cell traces to source text | Click any cell to jump to its source anchor | Required |
+| GM3 | Research gaps: show sparse/empty attribute combinations + AI-marked conflicting conclusions, each traceable | Walk through gap and conflict annotations | Required |
+| GM4 | Scope: product copy and AI output both say “within selected literature,” with **zero** claims that nobody in the entire field has done it | Dedicated wording regression scan | Required |
+| GM5 | User decision: AI **does not** decide for users with conclusions such as “this is an innovation” | Regression scan of output | Required |
+| GM6 | Persistence: comparison table + selected gaps can be written to evidence sets and read back completely in order | Store, reread, compare | Required |
+| GM7 | **Prerequisite extraction-quality spike**: validate accuracy / paper-count limits / BYOK costs on 15–20 real papers before core implementation | Three quantified spike conclusions | **Prerequisite (required)** |
 
 ---
 
-## 二、P2 证据集/笔记基础体验（已有优化）
+<a id="二p2-证据集笔记基础体验已有优化"></a>
 
-**目标**：对齐"证据集 = 主题容器，笔记 = 容器里的备注"心智；支持随时补笔记/补证据；承接 P1 产物落地。
+## II. P2 Evidence-Set/Note Basics (Existing-Feature Improvement)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: align with “evidence set = topic container; notes = comments inside it”; allow adding notes/evidence anytime and accommodate P1 artifacts.
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| EN1 | 详情页可**直接补证据 / 补笔记**（不限 Agent 对话场景）| 详情页直接操作成功 | 必做 |
-| EN2 | 一个证据集可有**多条笔记** | 连加 2+ 条 | 必做 |
-| EN3 | 笔记与证据**并列**、各自可管理；证据可溯源 | 分别管理 + 点击溯源 | 必做 |
-| EN4 | 删除单个笔记/证据不影响其余成员 | 删单个后其余完整 | 必做 |
-| EN5 | P1 产物（对照表 + 选中空白）可沉淀其中 | 存入读回 | 必做 |
+| EN1 | Detail pages can **directly add evidence / notes**, beyond Agent conversations | Direct detail-page operations succeed | Required |
+| EN2 | One evidence set supports **multiple notes** | Add 2+ consecutively | Required |
+| EN3 | Notes and evidence are **peers**, individually manageable; evidence remains traceable | Manage each + click source | Required |
+| EN4 | Deleting one note/evidence item leaves other members intact | Delete one and check the rest | Required |
+| EN5 | P1 artifacts (comparison table + selected gaps) can persist here | Store and reread | Required |
 
-> 一条笔记/证据同属多个证据集的**多归属**能力本期不要求（可后续放开）；本期底线 = "随时补、可多条"。
+> **Multiple membership**, where one note/evidence item belongs to multiple sets, is not required this phase (may open later); the minimum is “add anytime, support multiple items.”
 
 ---
 
-## 三、P3 安全边界（已有优化 · 公开发布上线门禁）
+<a id="三p3-安全边界已有优化-&#45;公开发布上线门禁"></a>
 
-**目标**：prompt / 数据披露分级与脱敏，收口内部 prompt、原始工具 I/O、思考、敏感数据的各产品出口。实现方案见 [`prompt-disclosure-redaction-spec.md`](../../specs/0.4.0/prompt-disclosure-redaction-spec.md)。
+## III. P3 Security Boundaries (Existing-Feature Improvement · Public Release Gate)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: classify and redact prompt / data disclosure, closing product exits for internal prompts, raw tool I/O, thinking, and sensitive data. Implementation: [`prompt-disclosure-redaction-spec.md`](../../specs/0.4.0/prompt-disclosure-redaction-spec.md).
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| SB1 | spec P0 上线门禁全过（debug copy / 导出 / 权限 IPC / 能力包配置页 / 第三方 telemetry / error / 打包产物 / SDK 注入面 逐项"0 命中"）| 采用 spec §15 上线门禁清单 | **必做（发布门禁）** |
-| SB2 | spec P1（完整 prompt registry、发布产物扫描、SDK 注入面实测等）纳入上线前窗口 | 逐项核对 | 观察 |
+| SB1 | All spec P0 release gates pass (“0 hits” for each of debug copy / export / permission IPC / capability-pack configuration page / third-party telemetry / error / packaged artifacts / SDK injection surface) | Use spec §15 release-gate checklist | **Required (release gate)** |
+| SB2 | Include spec P1 (complete prompt registry, release-artifact scanning, actual SDK injection-surface tests, etc.) in the prerelease window | Check each item | Observe |
 
-> P2（上线后治理）→ 0.5+。
+> P2 (postrelease governance) → 0.5+.
 
 ---
 
-## 四、面向 0.5 的前置探索：Google Scholar 抓取可行性（不计入 0.4 交付范围）
+<a id="四面向-05-的前置探索google-scholar-抓取可行性不计入-04-交付范围"></a>
 
-> **追踪 issue**：[#722 [spike] GS 抓取可行性探索](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/722)（GS-E1~E4 验收 checklist · 双 owner 工程+法务）
+## IV. Preparatory Exploration for 0.5: Google Scholar Scraping Feasibility (Outside 0.4 Delivery Scope)
 
-**定位**：GS（无 API 源接入标杆，[ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) D2/D3）的**正式接入是 0.5 新功能**（见 [0.5 north-star](../0.5/north-star.md) §五 P5）；但"我们的 user-local 抓取能不能稳定抓到 GS 论文"是技术未知数，须**在 0.4 期间并行探索出结论**给 0.5 兜底。**只探索、不在 0.4 做正式集成**；可并行、不阻塞研究空白主线。
+> **Tracking issue**: [#722 [spike] GS scraping feasibility exploration](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/722) (GS-E1~E4 acceptance checklist · dual owners: engineering + legal)
 
-**第一优先级**：让检索 Agent 经"我们自己的实现方式"（user-local 抓取）直接抓 GS，并定出 fallback 方案。
+**Positioning**: formal GS integration (the benchmark non-API source, [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) D2/D3) **is a new 0.5 feature** (see [0.5 north-star](../0.5/north-star.md) §V P5). Whether our user-local scraping can reliably retrieve GS papers is technically unknown, so **parallel exploration during 0.4 must produce conclusions** to support 0.5. **Explore only; no formal 0.4 integration**; parallel and nonblocking for research gaps.
 
-| # | 审计标准（探索产出）| 验证方式 | 优先级 |
+**Top priority**: let the search Agent scrape GS directly through our own implementation (user-local scraping), and define fallbacks.
+
+| # | Audit criterion (exploration output) | Verification | Priority |
 |---|---------|---------|--------|
-| GS-E1 | user-local 抓取 GS 的真实**可用率 / 延迟 / CAPTCHA 命中率 / 封锁率**有量化结论 | spike 跑真实查询出四项指标 | 前置（面向 0.5）|
-| GS-E2 | 选定并验证一条 user-local 抓取技术路径（headless 选型 + 反爬应对 + GS 页面解析），出最小 PoC | PoC 跑通"查询 → 结构化结果 + 回链" | 前置（面向 0.5）|
-| GS-E3 | fallback 链结论：L2 第三方 SERP API（BYOK 兑底）+ L3 一键直达 GS（安全地板）的接入成本与边界 | 三层降级链各自可行性评估 | 前置（面向 0.5）|
-| GS-E4 | 法务并行确认"提供抓取工具 vs 代为抓取"的 ToS / 声誉边界 | 法务给出边界结论 | 前置（面向 0.5）|
+| GS-E1 | Quantified actual GS user-local scraping **availability / latency / CAPTCHA rate / blocking rate** | Run real queries in the spike for all four metrics | Prerequisite (for 0.5) |
+| GS-E2 | Select and verify a user-local scraping path (headless choice + anti-scraping responses + GS page parsing), producing a minimal PoC | PoC completes “query → structured results + backlinks” | Prerequisite (for 0.5) |
+| GS-E3 | Fallback-chain conclusions: integration costs/boundaries for L2 third-party SERP API (BYOK fallback) + L3 one-click GS navigation (safety floor) | Feasibility assessment for each of three fallback layers | Prerequisite (for 0.5) |
+| GS-E4 | Legal concurrently confirms ToS / reputational boundaries for “providing scraping tools vs scraping on users' behalf” | Legal boundary conclusion | Prerequisite (for 0.5) |
 
-**过阈判定**：达标 → 0.5 把 L1（user-local）做成主路径；不达标 → 0.5 以 L2（SERP API）为主、L1 尽力而为、L3 永远在。ASCI 服务端**永不自抓**（ADR-014 D2）。
+**Threshold decision**: pass → make L1 (user-local) the primary 0.5 path; fail → use L2 (SERP API) as primary, L1 best-effort, and always retain L3. ASCI servers **never scrape directly** (ADR-014 D2).
 
 ---
 
-## 五、实施顺序
+<a id="五实施顺序"></a>
+
+## V. Implementation Order
 
 ```
-并行起步：
-  P3 安全边界 P0（上线门禁，独立、复用现有脱敏基建，可立即开工）
-  P2 证据集/笔记基础体验（增量、低风险）
-  P1 前置抽取质量 spike（拿真实论文跑 GM7）
-  [面向 0.5] GS 抓取可行性探索 spike（user-local 抓取 + fallback 链；不阻塞 0.4 主线，结论交 0.5 E5）
+Parallel start:
+  P3 security P0 (release gate, independent, reuse existing redaction, start immediately)
+  P2 evidence-set/note basics (incremental, low risk)
+  P1 prerequisite extraction-quality spike (GM7 on real papers)
+  [For0.5] GS scraping-feasibility spike (user-local + fallbacks; nonblocking0.4, conclusions to0.5 E5)
 
-spike 出结论后：
-  P1 核心：所选文献 → 对照表 → 研究空白 → 拍板 → 沉淀（衔接 P2）
+After spike conclusions:
+  P1 core: selected literature → table → gaps → user decision → persistence (P2 integration)
 ```
 
-依赖：P1 沉淀 ⬅ P2 证据集补充能力；P1 核心 ⬅ GM7 spike 结论。P3 独立。GS 探索独立并行、不阻塞任何 0.4 支柱。
+Dependencies: P1 persistence ⬅ P2 evidence-set additions; P1 core ⬅ GM7 spike conclusions. P3 is independent. GS exploration proceeds independently in parallel and blocks no 0.4 pillar.
 
-## 六、不做的事
+<a id="六不做的事"></a>
 
-- 研究空白·全前沿版（开放世界）→ 0.5（依赖文献深钻全套语料）。
-- 无 API 源（GS）正式接入 → 0.5（E5）；**0.4 仅并行探索可行性、不做正式集成**。
-- 实验设计 → 0.6+（需先谈实验室合作）。
-- 写作 / 数据分析 / 实验日志 能力包、默认页改造、Supervisor 自主编排多包、自进化个性化、可插拔 renderer 通用框架 → 不做。
+## VI. Out of Scope
+
+- Full-frontier research gaps (open world) → 0.5 (depends on the full deep-literature corpus).
+- Formal non-API source (GS) integration → 0.5 (E5); **0.4 explores feasibility in parallel only, without formal integration**.
+- Experiment design → 0.6+ (requires laboratory partnership discussions first).
+- Writing / data analysis / experiment-log capability packs, default-page redesign, Supervisor autonomous multi-pack orchestration, self-evolution personalization, generic pluggable renderer framework → excluded.

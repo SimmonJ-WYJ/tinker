@@ -1,61 +1,75 @@
-# 0.4 设计输入：默认页改造（中心对话框 + 总控 Agent）
+<a id="04-设计输入默认页改造中心对话框-&#45;总控-agent"></a>
 
-> **来源**：本文档由 [0.3 north-star.md §三-D](../../0.3/north-star.md#section-3-d) 在 2026-05-12 决策时从主文档抽出，保留作为 0.4 设计输入。0.3.0 公开发布版本保留 0.1 / 0.2 现有入口范式，**不交付**本文档任一项。
-> **状态**：设计储备，待 0.4 milestone 启动时由产研 Lead 正式纳入 0.4 north-star。
-> **不要把本文档当作 0.3 范围**：0.3 审计、0.3 进度风险、0.3 交付物均不包含此处任何条目。
+# 0.4 design input: default-page redesign (central chat input + Orchestrator Agent)
+
+> **Source**: Extracted from [0.3 north-star.md §3-D](../../0.3/north-star.md#section-3-d) by the 2026-05-12 decision and retained as 0.4 design input. The 0.3.0 public release preserves the existing 0.1 / 0.2 entry paradigm and **delivers none** of these items.
+> **Status**: Design reserve, awaiting formal inclusion in the 0.4 north-star by the product/engineering Lead when the milestone starts.
+> **Do not treat this document as 0.3 scope**: No items here belong to 0.3 audits, schedule risks, or deliverables.
 
 ---
 
-## 一、背景：为何把默认页改造从 0.3 抽出到 0.4
+<a id="一背景为何把默认页改造从-03-抽出到-04"></a>
 
-| 决策项 | 0.3 原计划 | 决策后 | 理由 |
+## 1. Background: why move the default-page redesign from 0.3 to 0.4
+
+| Decision item | Original 0.3 plan | After decision | Reason |
 |--------|----------|--------|------|
-| §三-D 全部内容 | 0.3.0 必做 | 整体推迟 0.4 | 2 周窗口偏紧，且默认页改造涉及总控 Agent 路由 / 自然语言意图识别 / 快捷入口卡片 3 块新工作，与账户 / 服务器 / 能力包接入并发会挤爆窗口 |
-| 用户主路径 | 中心对话框 + 总控 Agent 自动路由到能力包 | 保留 0.1 / 0.2 现有入口范式 | 在 0.3.0 公开发布版本，用户从已安装的能力包（左侧"配置"页 → 能力包板块）或现有快捷入口进入场景任务 |
+| All of §3-D | Required for 0.3.0 | Entirely deferred to 0.4 | Tight 2-week window; redesign adds Orchestrator routing / natural-language intent recognition / shortcut cards, overloading the window alongside accounts / servers / capability-pack integration |
+| Main user path | Central chat input + Orchestrator automatically routes to packs | Preserve existing 0.1 / 0.2 entry paradigm | In public 0.3.0, users start scenario tasks from installed packs (left “Configuration” page → capability-pack section) or existing shortcuts |
 
-> **产品风险已识别**：默认页改造推迟意味着 0.3.0 公开发布时"从配置驱动到能力包驱动"的产品价值叙事在主使用路径上几乎看不到——用户进入 ASCI 时还是看到 0.1/0.2 的旧入口。**已与产研 Lead 复核并接受该权衡**（2026-05-12 决策记录在 0.3 §十），理由是：能力包概念在 0.3.0 仍可在左侧"配置"页可见，且 0.4 启动时间紧随 0.3.0 公开发布（无大窗口空档）。
-
----
-
-## 二、新页面结构（0.4 设计输入）
-
-- 屏幕中央：单一对话输入框（总控 Agent / Orchestrator 接收用户意图）
-- 对话框下方：快捷场景入口卡片（与已安装能力包 1:1，如"开始一次文献检索""做一篇综述""导入 Zotero 论文"）
-- 对话框上方：可选最近会话快速回到
-- 移除当前"先选模型 / 选 Skill"的前置步骤
+> **Product risk identified**: Deferring the default-page redesign makes the “configuration-driven to capability-pack-driven” value narrative almost invisible on the main user path at public 0.3.0 launch; ASCI still opens with the old 0.1/0.2 entry points. **Reviewed with and accepted by the product/engineering Lead** (2026-05-12 decision recorded in 0.3 §10), because capability packs remain visible in the left “Configuration” page in 0.3.0 and 0.4 starts shortly after public 0.3.0 release (no large gap).
 
 ---
 
-## 三、总控 Agent 行为（0.4 设计输入）
+<a id="二新页面结构04-设计输入"></a>
 
-- 接收自然语言意图 → 调用 0.2 §三-4 Orchestrator → 路由到对应能力包的子 Agent
-- 意图不清晰时：反问澄清（不直接选包）
-- 未安装能力包时：提示"需要安装 X 包"并提供一键跳转到 0.3 §三-C 安装入口
+## 2. New page structure (0.4 design input)
+
+- Screen center: Single chat input (Orchestrator receives user intent)
+- Below input: Scenario shortcut cards (1:1 with installed packs, e.g. “Start a literature search,” “Write a review,” “Import Zotero papers”)
+- Above input: Optional recent sessions for quick return
+- Remove the prerequisite of selecting a model / Skill first
 
 ---
 
-## 四、原 0.3 §三-D 审计标准（保留作为 0.4 候选审计项）
+<a id="三总控-agent-行为04-设计输入"></a>
 
-| # | 审计标准 | 验证方式 | 备注 |
+## 3. Orchestrator Agent behavior (0.4 design input)
+
+- Receive natural-language intent → invoke 0.2 §3-4 Orchestrator → route to the corresponding pack's sub-Agent
+- Unclear intent: Ask for clarification (do not select a pack directly)
+- Pack not installed: Prompt “Install pack X” and provide one-click navigation to the 0.3 §3-C installation entry
+
+---
+
+<a id="四原-03-三-d-审计标准保留作为-04-候选审计项"></a>
+
+## 4. Original 0.3 §3-D audit criteria (retained as 0.4 candidates)
+
+| # | Audit criterion | Validation | Notes |
 |---|---------|---------|------|
-| DH1 | 新建会话默认页符合 §二 结构（中心对话框 + 下方快捷入口 + 上方最近会话）| UI 走查 + 截图归档 | 0.4 候选 |
-| DH2 | 用自然语言"帮我搜一下 RAG 综述"发起任务，总控 Agent 正确路由到文献检索包并完成检索 | 端到端跑 3 个不同意图（检索 / 综述 / Zotero 导入），路由正确率 ≥ 95% | 0.4 候选 |
-| DH3 | 快捷入口卡片数量 = 已安装能力包数（含 2 个首发包：文献检索 / 文献综述），点击卡片直接进入对应能力包的场景任务 | 卸载文献综述包 → 对应卡片同步消失 | 0.4 候选 |
-| DH4 | 未安装能力包时意图触发引导：用户说"帮我做一篇综述"但未装文献综述包，总控提示安装并跳转左侧"配置"页 → 能力包板块 | 卸载文献综述包后用上述指令验证 | 0.4 候选 |
+| DH1 | New-session default page matches §2 structure (central input + shortcuts below + recent sessions above) | UI walkthrough + archived screenshots | 0.4 candidate |
+| DH2 | Start with natural language “Find me RAG reviews” (English translation); Orchestrator correctly routes to literature-search pack and completes search | Run 3 intents end-to-end (search / review / Zotero import), routing accuracy ≥95% | 0.4 candidate |
+| DH3 | Shortcut count = installed pack count (including 2 launch packs: literature search / literature review); clicking directly starts the pack's scenario task | Uninstall literature review → its card disappears | 0.4 candidate |
+| DH4 | Missing-pack intent triggers guidance: User says “Write me a review” (English translation) without literature-review pack; Orchestrator prompts installation and navigates to left “Configuration” page → capability-pack section | Uninstall literature review and verify the above instruction | 0.4 candidate |
 
 ---
 
-## 五、不做（推迟到 V1）
+<a id="五不做推迟到-v1"></a>
 
-- 意图识别的 RAG / 历史会话学习（0.4 设计输入为规则 + LLM 短路由）
-- 多能力包协同的总控编排（首发 2 包不相互调用）
-- 个性化快捷入口排序
+## 5. Exclusions (deferred to V1)
+
+- RAG / historical-session learning for intent recognition (0.4 input uses rules + short LLM routing)
+- Orchestrator coordination across packs (2 launch packs do not invoke each other)
+- Personalized shortcut ordering
 
 ---
 
-## 六、对 0.3 的影响（已闭环）
+<a id="六对-03-的影响已闭环"></a>
 
-- 0.3 §三-D 章节缩为指针段，仅保留章节占位避免编号断裂，指针指向本文档
-- 0.3 §十 "推迟到 0.4" 表保留 §三-D（DH1-DH4 全部）条目
-- 0.3 §九 "与 0.2 关系" 不引用 §三-D 任何内容
-- 0.3 §七 用户激活路径（AC1-AC3）不依赖中心对话框，L3 引导通过 Proposal 决策动作触发，不依赖 §三-D
+## 6. Impact on 0.3 (resolved)
+
+- 0.3 §3-D shrinks to a pointer paragraph, keeping its placeholder to preserve numbering and pointing here
+- 0.3 §10 “Deferred to 0.4” table retains §3-D (all DH1-DH4)
+- 0.3 §9 “Relationship to 0.2” references none of §3-D
+- 0.3 §7 activation path (AC1-AC3) does not depend on central input; L3 guidance triggers through Proposal decisions, independent of §3-D

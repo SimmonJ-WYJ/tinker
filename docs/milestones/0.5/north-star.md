@@ -1,122 +1,140 @@
-# 0.5 北极星目标（文献深钻 + 研究空白·全前沿版）
+<a id="05-北极星目标文献深钻-&#45;研究空白全前沿版"></a>
 
-> **定位**：把 ASCI 的"文献前门"从实时打 flaky 外部 API，升级为**自建的、又快又准的检索数据服务**（ASCI 第一个数据服务底座）；同时让研究空白从"用户手头几十篇"扩到"整个领域所有论文"。
-> **截止**：待定。
-> **前置依赖**：0.4.0 交付（研究空白·小版 + 证据集/笔记基础体验 + 安全边界）· [ADR-013](../../adr/ADR-013-literature-relevance-service.md) / [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) / [ADR-012](../../adr/ADR-012-local-embedding-vector-index.md) 签字 · [ADR-002](../../adr/ADR-002-server-stack.md) 扩出检索 workload。
-> **设计哲学**：**不囤论文，囤相关性**。检索/重排默认跑用户 BYOK（ASCI 服务端零每查询推理成本），服务端只托管 index/语料，守本地优先 + 隐私红线。
+# 0.5 North-Star Goals (Deep Literature Reading + Research Gaps, Full-Frontier Edition)
+
+> **Positioning**: upgrade ASCI's literature entry point from live calls to flaky external APIs into a **self-hosted, fast, accurate search data service** (ASCI's first data-service foundation); expand research gaps from the user's few dozen papers to all papers in a field.
+> **Deadline**: TBD.
+> **Prerequisites**: 0.4.0 delivery (research gaps, small edition + basic evidence-set/note experience + safety boundaries) · sign-off on [ADR-013](../../adr/ADR-013-literature-relevance-service.md) / [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) / [ADR-012](../../adr/ADR-012-local-embedding-vector-index.md) · extend [ADR-002](../../adr/ADR-002-server-stack.md) to retrieval workloads.
+> **Design philosophy**: **store relevance, not papers**. Retrieval/reranking defaults to user BYOK (zero per-query server inference cost for ASCI); the server hosts only index/corpus, respecting local-first and privacy boundaries.
 >
-> **单一权威源边界**：
-> - 本文档 = 0.5 的 **目标 + 审计标准 + 优先级 + 实施顺序** 权威源。
-> - **需求细节** 以 [`docs/specs/0.5.0/0.5.0-prd.md`](../../specs/0.5.0/0.5.0-prd.md) 为准。
-> - **架构 / 许可 / 成本 / 反转** 以 [ADR-013](../../adr/ADR-013-literature-relevance-service.md) / [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) 为准；**领域语言** 以 [`CONTEXT.md`](../../../CONTEXT.md) 为准。
+> **Single-source-of-truth boundaries**:
+> - This document is authoritative for 0.5 **goals + audit criteria + priorities + implementation order**.
+> - **Requirement details** follow [`docs/specs/0.5.0/0.5.0-prd.md`](../../specs/0.5.0/0.5.0-prd.md).
+> - **Architecture / licensing / cost / reversibility** follow [ADR-013](../../adr/ADR-013-literature-relevance-service.md) / [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md); **domain language** follows [`CONTEXT.md`](../../../CONTEXT.md).
 
-**范围声明**：3 已有优化（文献语料底座、智能检索与重排、全文加速）+ 2 新功能（研究空白·全前沿版、无 API 源接入 / GS 直抓）。
-**审计原则**：每条审计标准可"是/否"或数值验证，标注优先级。
-**优先级标签**：必做 / 前置 / 观察 / 0.6 二发。
+**Scope**: 3 existing-capability improvements (literature corpus foundation, intelligent retrieval/reranking, full-text acceleration) + 2 new features (full-frontier research gaps, non-API sources / direct GS scraping).
+**Audit principle**: every criterion can be validated as yes/no or numerically and carries a priority.
+**Priority labels**: required / prerequisite / observe / second release in 0.6.
 
 ---
 
-## 〇、痛点 → 支柱映射
+<a id="〇痛点-&#45;支柱映射"></a>
 
-| 真痛点 | 支柱 | 一句话解法 |
+## 0. Pain Points → Pillars
+
+| Real pain point | Pillar | One-sentence solution |
 |--------|------|-----------|
-| 检索**不全** | P1 文献语料底座 | 自建 OpenAlex 全量元数据 index，覆盖长尾 |
-| 检索**不准** | P2 智能检索与重排 | agentic 迭代 + 混合(BM25⊕dense)召回 + LLM 重排 |
-| 精读 **慢** | P3 全文加速 | 复用开源解析 + 命中可合法缓存 OA 全文秒开，否则按需现抓 |
-| 空白判断**范围窄** | P4 研究空白全前沿版 | 所选文献从"手头几十篇"扩到领域级召回语料 |
-| 检索**不全**（无 API 源长尾）| P5 无 API 源接入 / GS 直抓 | user-local 抓取直抓 GS，补 OpenAlex 缺的灰文献 / 非英文 / 学位论文 |
+| **Incomplete** retrieval | P1 Literature corpus foundation | Self-host a complete OpenAlex metadata index covering the long tail |
+| **Inaccurate** retrieval | P2 Intelligent retrieval/reranking | Agentic iteration + hybrid (BM25⊕dense) recall + LLM reranking |
+| **Slow** close reading | P3 Full-text acceleration | Reuse open-source parsing + instantly open legally cacheable OA full text on hits; otherwise fetch on demand |
+| **Narrow scope** for gap judgments | P4 Full-frontier research gaps | Expand selected literature from a few dozen available papers to a field-level retrieved corpus |
+| **Incomplete** retrieval (non-API long tail) | P5 Non-API sources / direct GS scraping | User-local direct GS scraping fills OpenAlex gaps in gray literature / non-English work / theses |
 
 ---
 
-## 一、P1 文献语料底座（已有优化/基础设施）
+<a id="一p1-文献语料底座已有优化基础设施"></a>
 
-**目标**：自建 OpenAlex 元数据 index + 缓存可合法再分发的 OA 全文，守许可红线（[ADR-013](../../adr/ADR-013-literature-relevance-service.md)）。
+## 1. P1 Literature Corpus Foundation (Existing Improvement / Infrastructure)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: self-host an OpenAlex metadata index + cache legally redistributable OA full text, respecting licensing boundaries ([ADR-013](../../adr/ADR-013-literature-relevance-service.md)).
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| C1 | OpenAlex 全量元数据落服务端 index，检索打 index 不再实时扇出 | 同一查询命中本地 index、毫秒级、不依赖外部源存活 | 必做 |
-| C2 | 可合法再分发的 OA 全文（peS2o/S2ORC ODC-By + PMC oa_comm CC0/CC-BY）入缓存 | 抽样核验每篇带 license、NC/ND 已剔除 | 必做 |
-| C3 | arXiv / 非 OA / NC-ND **不入库**，走按需现抓 + 回链 | 审计语料无 arXiv 默认许可全文；arXiv 结果带回链 | 必做 |
-| C4 | GDPR 摄取合规（robots/ai.txt、opt-out 名单、作者邮箱假名化、TDM Art.4）| 合规清单逐条勾验 | 必做 |
-| C5 | **前置 spike①**：三档真实月成本 / 工程人月 | 内部 infra spike 出量化结论 | **前置** |
+| C1 | Full OpenAlex metadata in server index; search the index instead of live fan-out | Same query hits local index in milliseconds, independent of external-source availability | Required |
+| C2 | Legally redistributable OA full text (peS2o/S2ORC ODC-By + PMC oa_comm CC0/CC-BY) cached | Sample-check per-paper licenses and exclusion of NC/ND | Required |
+| C3 | arXiv / non-OA / NC-ND **not stored**; fetch on demand + backlink | Corpus audit finds no default-license arXiv full text; arXiv results include backlinks | Required |
+| C4 | GDPR-compliant ingestion (robots/ai.txt, opt-out lists, author-email pseudonymization, TDM Art.4) | Check compliance list item by item | Required |
+| C5 | **Prerequisite spike①**: real monthly costs / engineering person-months at three scales | Internal infra spike provides quantified conclusions | **Prerequisite** |
 
 ---
 
-## 二、P2 智能检索与重排（已有优化 · 差异化核心）
+<a id="二p2-智能检索与重排已有优化-&#45;差异化核心"></a>
 
-**目标**：在语料之上做"做别人做不到的点"——agentic 迭代检索 + 混合召回 + LLM 重排，跑 BYOK。
+## 2. P2 Intelligent Retrieval and Reranking (Existing Improvement · Core Differentiator)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: deliver capabilities others cannot on top of the corpus—agentic iterative retrieval + hybrid recall + LLM reranking, using BYOK.
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| S1 | 混合检索（BM25 ⊕ dense）替代裸词面召回 | 评测集 recall 较裸 BM25 显著提升 | 必做 |
-| S2 | LLM 重排把 canonical / 紧扣专业的顶到前 N | "随便一搜秒回一二十篇紧扣专业"golden path | 必做 |
-| S3 | agentic 迭代检索（沿引文链/查询演化多轮）替代一次性检索 | 复杂查询多轮召回 > 一次性 | 必做 |
-| S4 | 检索/重排默认跑用户 BYOK，服务端零每查询推理成本 | 审计调用链：推理在用户 channel | 必做 |
-| S5 | 接现有 lit-search 能力包（searcher/relevance-scorer），不另起炉灶 | 现有包指向新 index + 重排即生效 | 必做 |
-| S6 | **前置 spike②**：agentic 检索/重排评测集量化"扛专业质疑" | 自建小评测集出量化结论 | **前置** |
+| S1 | Hybrid retrieval (BM25 ⊕ dense) replaces plain lexical recall | Evaluation-set recall improves significantly over plain BM25 | Required |
+| S2 | LLM reranking brings canonical / closely relevant specialist papers into top N | Golden path: a casual search instantly returns ten to twenty closely relevant papers | Required |
+| S3 | Agentic iterative retrieval (multiple rounds along citation chains/query evolution) replaces one-shot retrieval | Multi-round recall > one-shot for complex queries | Required |
+| S4 | Retrieval/reranking defaults to user BYOK, zero server inference cost per query | Audit call chain: inference uses the user's channel | Required |
+| S5 | Integrate existing lit-search capability pack (searcher/relevance-scorer), without a separate system | Existing pack works by pointing to new index + reranker | Required |
+| S6 | **Prerequisite spike②**: quantify specialist scrutiny using an agentic retrieval/reranking evaluation set | Small in-house evaluation set produces quantified conclusions | **Prerequisite** |
 
 ---
 
-## 三、P3 重点领域全文加速（已有优化）
+<a id="三p3-重点领域全文加速已有优化"></a>
 
-**目标**：逐篇精读从分钟级降到秒级（[ADR-013](../../adr/ADR-013-literature-relevance-service.md) P3 + [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md)）。
+## 3. P3 Full-Text Acceleration in Priority Fields (Existing Improvement)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: reduce close reading per paper from minutes to seconds ([ADR-013](../../adr/ADR-013-literature-relevance-service.md) P3 + [ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md)).
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| R1 | 复用开源 SOTA 解析（MinerU/olmOCR），不自研 | 解析质量/速度达基线、未自研 | 必做 |
-| R2 | 命中可合法缓存 OA 全文的论文精读"秒开"（预解析+预切分）| 命中论文打开精读 < 秒级 | 必做 |
-| R3 | 未命中按需现抓 + 解析 + RAG，结果可缓存（守许可）| 非 OA 论文精读可用、缓存合规 | 必做 |
-| R4 | 全文 RAG 接入检索→精读闭环 | 检索到的论文可直接深读问答 | 可降级 |
+| R1 | Reuse open-source SOTA parsing (MinerU/olmOCR), rather than building our own | Parsing quality/speed meets baseline; no in-house parser | Required |
+| R2 | Instantly open close reading for legally cacheable OA full-text hits (preparsed + prechunked) | Hit papers open for close reading in < seconds | Required |
+| R3 | Misses fetch + parse + RAG on demand; results cacheable subject to licensing | Non-OA close reading works and caching is compliant | Required |
+| R4 | Full-text RAG connects retrieval→close-reading loop | Retrieved papers support direct deep-reading Q&A | May degrade |
 
 ---
 
-## 四、P4 研究空白·全前沿版（新功能）
+<a id="四p4-研究空白全前沿版新功能"></a>
 
-**目标**：复用研究空白的产品形态（对照表 / 空白判定 / 拍板 / 沉淀），**只把所选文献从"用户手头几十篇"换成"智能检索召回的领域级语料"**；守可信底线、显式披露召回边界。
+## 4. P4 Full-Frontier Research Gaps (New Feature)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: reuse the research-gap product form (comparison table / gap judgment / decision / retention), **changing only selected literature from the user's few dozen papers to a field-level corpus retrieved intelligently**; preserve trustworthiness and explicitly disclose retrieval limits.
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| GF1 | 给定研究方向 → 召回领域级语料 → 产出领域级对照表与研究空白，每条可溯源 | 端到端走查 | 必做 |
-| GF2 | **召回边界显式披露**（搜了哪些源 / 覆盖 / 可能漏什么）| UI 走查见边界说明 | 必做 |
-| GF3 | AI 输出**零**"全世界绝对没人做过 / 这是创新点"措辞 | 回归测试扫措辞 | 必做 |
+| GF1 | Research direction → field-level corpus retrieval → field-level comparison table and research gaps, each traceable | End-to-end walkthrough | Required |
+| GF2 | **Explicit retrieval boundaries** (sources searched / coverage / possible omissions) | UI walkthrough shows boundary disclosure | Required |
+| GF3 | **Zero** AI claims such as "absolutely nobody in the world has done this / this is novel" | Regression scans wording | Required |
 
 ---
 
-## 五、P5 无 API 源接入 / GS 直抓（新功能）
+<a id="五p5-无-api-源接入-&#45;gs-直抓新功能"></a>
 
-**目标**：让检索 Agent 经 user-local 抓取**直抓 Google Scholar**，补 OpenAlex 缺的长尾（灰文献 / 引文 / 非英文 / 学位论文 / 部分非 OA）；结果实时现抓 + 外链、**永不落 Corpus**（[ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) D1–D3）。前置可行性已在 **0.4 期间并行探索**（见 [0.4 north-star](../0.4/north-star.md) §四）。
+## 5. P5 Non-API Sources / Direct GS Scraping (New Feature)
 
-| # | 审计标准 | 验证方式 | 优先级 |
+**Goal**: let the retrieval Agent **scrape Google Scholar directly** through user-local fetching, filling OpenAlex's long tail (gray literature / citations / non-English work / theses / some non-OA); fetch live + external links, **never store in Corpus** ([ADR-014](../../adr/ADR-014-non-api-sources-and-demand-driven-fill.md) D1–D3). Prerequisite feasibility is already being explored **in parallel during 0.4** (see [0.4 north-star](../0.4/north-star.md) §4).
+
+| # | Audit criterion | Verification | Priority |
 |---|---------|---------|--------|
-| NA1 | 检索 Agent 经 L1（user-local 抓取）直接拿到 GS 结果，实时现抓 + 外链 | 端到端走查：一次查询返回带回链的 GS 结果 | 必做（依赖 0.4 探索过阈）|
-| NA2 | fallback 链就位：L2 第三方 SERP API（BYOK 兑底）+ L3 一键直达 GS（安全地板）| L1 失败可降级 L2，全挂时 L3 永远在 | 必做 |
-| NA3 | ASCI 服务端**永不自抓**；GS 结果**永不落 Corpus** | 审计调用链 + 语料无 GS 抓取内容 | 必做 |
-| NA4 | 过阈定档：0.4 探索达标 → L1 主路径；不达标 → L2 为主、L1 尽力而为、L3 永远在 | 据 0.4 GS-E1~E4 结论定档 | 必做 |
+| NA1 | Retrieval Agent gets GS results directly through L1 (user-local fetching), live + external links | End-to-end walkthrough: one query returns GS results with backlinks | Required (depends on 0.4 exploration passing thresholds) |
+| NA2 | Fallback chain ready: L2 third-party SERP API (BYOK fallback) + L3 one-click GS access (safety floor) | L1 failure degrades to L2; L3 remains available if all fail | Required |
+| NA3 | ASCI server **never scrapes itself**; GS results **never enter Corpus** | Audit call chain + no GS-scraped content in corpus | Required |
+| NA4 | Threshold-based tier: 0.4 exploration passes → L1 primary; otherwise → L2 primary, L1 best effort, L3 always available | Set tier from 0.4 GS-E1~E4 conclusions | Required |
 
-> 0.5 只接 **GS 一个标杆源**（观察档）；扩源（ResearchGate / CNKI / 万方 / 出版商页）→ 0.6/V1，以 GS 实战为门。
+> 0.5 integrates **GS as the only reference source** (observe tier); more sources (ResearchGate / CNKI / Wanfang / publisher pages) → 0.6/V1, gated on real GS experience.
 
 ---
 
-## 六、实施顺序
+<a id="六实施顺序"></a>
+
+## 6. Implementation Order
 
 ```
-阶段1·地基 + spike（并行）
-  P1 ▸ OpenAlex 元数据 index 摄取 + 合规清单（含 C5 成本 spike）
-  P2 ▸ S6 agentic 检索/重排评测集
-阶段2·软件层（差异化核心）
-  P2 ▸ 混合召回 + LLM 重排 + agentic 迭代，接现有 lit-search 包（跑 BYOK）
-阶段3·精读 + 新功能
-  P1 ▸ OA 全文语料缓存
-  P3 ▸ 解析复用 + 命中秒开 + 按需现抓
-  P4 ▸ 研究空白·全前沿版（复用既有形态，换输入源 + 披露召回边界）
-  P5 ▸ 无 API 源·GS 直抓（接 lit-search 源层 + fallback 链；依赖 0.4 探索结论，独立并行）
+Phase 1 · Foundation + spikes (parallel)
+  P1 ▸ OpenAlex metadata-index ingestion + compliance list (C5 cost spike)
+  P2 ▸ S6 agentic retrieval/rerank evaluation set
+Phase 2 · Software (core differentiation)
+  P2 ▸ Hybrid recall + LLM reranking + agentic iteration, existing lit-search pack (BYOK)
+Phase 3 · Deep reading + new features
+  P1 ▸ OA full-text corpus cache
+  P3 ▸ Reuse parsing + instant hits + on-demand fetching
+  P4 ▸ Full-frontier research gaps (existing form, new input + retrieval boundaries)
+  P5 ▸ Non-API GS scraping (lit-search sources + fallback; depends on 0.4 exploration, independent/parallel)
 ```
 
-依赖：P4 ⬅ P1/P2/P3 就位；P2 软件层 ⬅ 阶段1 spike 结论。P5 ⬅ 0.4 GS 探索结论（与 P1/P2/P3 正交，可独立并行）。
+Dependencies: P4 ⬅ P1/P2/P3 ready; P2 software layer ⬅ phase 1 spike conclusions. P5 ⬅ 0.4 GS exploration conclusions (independent of P1/P2/P3 and can run in parallel).
 
-## 七、不做的事
+<a id="七不做的事"></a>
 
-- 全量语义向量 embedding（2 亿+）→ 不做（成本/新鲜度对 4 人不划算，ADR-013）。
-- 自托管全量原始全文（含 arXiv 缓存、非 OA、NC-ND）→ 不做（许可红线，只缓存可合法再分发 OA 子集）。
-- 0.6 查询飞轮（查询/点击/采纳信号驱动相关性）→ 0.6 opt-in（撞隐私红线，需重定义 + 披露）。
-- 实验设计 → 0.6+（实验室合作 track，需先谈合作方）。
+## 7. Exclusions
+
+- Full semantic vector embeddings (200 million+) → excluded (cost/freshness is not worthwhile for a 4-person team, ADR-013).
+- Self-hosting all raw full text (including arXiv cache, non-OA, NC-ND) → excluded (licensing boundary; cache only legally redistributable OA subset).
+- 0.6 query flywheel (query/click/adoption signals driving relevance) → 0.6 opt-in (privacy boundary requires redefinition + disclosure).
+- Experimental design → 0.6+ (lab-collaboration track; discuss partners first).

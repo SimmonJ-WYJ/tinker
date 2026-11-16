@@ -1,15 +1,17 @@
-# 图像编辑静默失败修复
+<a id="图像编辑静默失败修复"></a>
 
-状态：实施中。用户已同意先修复收费后静默失败，再完善尺寸和费用提示。
+# Fix Silent Image Editing Failures
 
-设计：OpenAI兼容转换拒绝无正文和工具的响应，包括纯空白；桥接返回可识别且脱敏的错误，429保留状态、限流分类与受限的Retry-After。编排流结束必须有终态，空成功必须报错；用户中止、watchdog保持既有流程。不自动重放图片操作。错误沿用现有持久化、事件和恢复通路，中英文文案同步。
+Status: implementation in progress. The user agreed to fix silent failures after charging first, then improve size and cost notices.
 
-图片卡片读取实际自然尺寸，提示文字不能保证原尺寸；本地没有可信报价或账单，不显示伪造费用，以中转账单为准。单次生成审批时展示计费提示，不更改权限策略。
+Design: OpenAI-compatible conversion rejects responses with neither body nor tools, including whitespace-only responses; the bridge returns identifiable, redacted errors, preserving the status, rate-limit classification, and bounded Retry-After for 429. Orchestration streams must end in a terminal state; empty successes must report an error. User cancellation and the watchdog retain their existing flows. Do not automatically replay image operations. Errors reuse existing persistence, events, and recovery paths, with synchronized English and Chinese copy.
 
-实施计划：
-1. openai-compat、openai-bridge新增空正文、空流、429、脱敏测试；观察失败，再实现转换守门与错误分类。运行`bun test packages/core/src/providers/openai-compat.test.ts apps/electron/src/main/lib/openai-bridge.test.ts`。
-2. agent-turn-outcome新增无result、空成功、文本、工具、replay、子任务、中止测试。先失败再接入编排收尾。agent-response-failure验证中英恢复文案。
-3. GeneratedImage测试load事件显示实际尺寸及费用说明，中英文切换不漏键；不加载时不显示虚构尺寸。PermissionBanner验证仅生图审批展示计费提示。
-4. 运行typecheck、全量bun test、electron:build；独立源码副本验证，不部署或覆盖正式包，提供补丁和验证日志。
+Image cards read actual natural dimensions; notices must not guarantee the original size. Without a trustworthy local quote or bill, do not display fabricated costs; defer to the relay bill. Show a billing notice when approving a single generation without changing permission policy.
 
-约束：保留正式目录所有改动；Git查询阻塞时不写正式目录。在已验收源码副本修复。账单先前今日总额¥1.4717，含用户自测；本次先本地模拟，不产生真实计费。
+Implementation plan:
+1. Add empty-body, empty-stream, 429, and redaction tests to openai-compat and openai-bridge; observe failures, then implement conversion guards and error classification. Run `bun test packages/core/src/providers/openai-compat.test.ts apps/electron/src/main/lib/openai-bridge.test.ts`.
+2. Add tests for no result, empty success, text, tools, replay, subtasks, and cancellation to agent-turn-outcome. Observe failures before connecting orchestration finalization. Use agent-response-failure to verify English and Chinese recovery copy.
+3. Test GeneratedImage load events for actual dimensions and cost explanations, with no missing keys when switching English/Chinese; show no invented dimensions before loading. Verify PermissionBanner shows billing notices only for image-generation approval.
+4. Run typecheck, full bun test, and electron:build; validate in an isolated source copy, without deploying or overwriting the production package, and provide a patch and verification logs.
+
+Constraints: preserve all changes in the production directory; do not write there when Git queries are blocked. Fix the accepted source copy. The earlier billing total for today was ¥1.4717, including user testing; this round uses local simulations first and incurs no real charges.

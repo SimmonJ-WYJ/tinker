@@ -1,62 +1,74 @@
-# MVP 修复验证记录
+<a id="mvp-修复验证记录"></a>
 
-基线 main `0cbdd72cd2f9717358b766a85d2f7c0f7762bd84`。本轮采用现有 Electron / React 18.3.1 / TypeScript 生产栈，未切换 Rust/Tauri，也未生成或安装新安装包。Electron 包版本由仓库自动脚本更新为 0.1.610。
+# MVP Fix Validation Record
 
-## 已实现
+Baseline main `0cbdd72cd2f9717358b766a85d2f7c0f7762bd84`. This round uses the existing Electron / React 18.3.1 / TypeScript production stack, without switching to Rust/Tauri or generating/installing a new package. Repository automation updated the Electron package version to 0.1.610.
 
-- 普通明确生图、参考图编辑与常规连续请求按当前原始用户消息授权，不因宿主工具本身再弹收费/权限卡。默认单张，数量只解析输出要求，不把参考图数量当生成数量。
-- 讨论故障、问价格、转述、代码任务、否定、引用内容不能自动授权。未知意图与超出请求范围仍确认；不将工具加入全局白名单，不放开危险操作。
-- 当前会话已上传/生成的有效参考图受路径、真实文件类型、大小和选中版本校验。`latest` 固定到当前用户回合开始时的可用版本，不能因生成新图漂移。
-- hook、canUseTool 和实际 MCP handler 共用范围校验。继续复用原账本，重复请求不增加收费调用；取消、旧调用和晚到批准不能继承新回合授权。
-- `next` 排队不取消当前生图，`now` 成功软中断才撤销旧授权；按本轮登记 UUID 对应的实际 SDK 用户回显换回合。已处理注入失败、历史/初始/重试 UUID 和旧请求隔离。
-- 图片卡默认只保留双语模型署名，保留预览、编辑、保存、对比及缺失文件/父版本提示；不删除底层引用和版本数据。
-- 自有登录页、loopback 回调文案使用 Tinker 双语资源；修复开始/取消重复点击、晚到、卸载与异常状态清理。外部 Google 配置和兼容路径/ID 不变。
-- 修复已有 workspace 锁元数据与源码版本不一致，支持 frozen 安装，没有第三方依赖升级。
+<a id="已实现"></a>
 
-## 自动检查
+## Implemented
 
-| 检查 | 结果 |
+- Ordinary explicit image generation, reference-image editing, and regular consecutive requests are authorized from the current original user message, without an extra billing/permission card solely because of the host tool. Default one image; quantity parsing covers output requirements only, not reference-image counts.
+- Troubleshooting discussions, pricing questions, reported speech, coding tasks, negation, and quoted content cannot automatically authorize. Unknown intent and requests beyond scope still require confirmation; tools are not globally allowlisted and dangerous operations are not enabled.
+- Valid uploaded/generated references in the current session undergo path, actual file type, size, and selected-version validation. `latest` is pinned to the available version at the start of the current user turn and cannot drift when new images are generated.
+- The hook, canUseTool, and actual MCP handler share scope validation. The existing ledger remains in use; duplicate requests do not add billable calls. Cancellation, old calls, and late approval cannot inherit new-turn authorization.
+- `next` queues without cancelling current generation; `now` revokes old authorization only after successful soft interruption. Turns switch according to the actual SDK user echo corresponding to the UUID registered in this round. Injection failure, historical/initial/retry UUIDs, and old-request isolation are handled.
+- Image cards default to bilingual model attribution only, retaining preview, edit, save, comparison, and missing-file/parent-version notices; underlying references and version data remain.
+- Owned login pages and loopback callback copy use bilingual Tinker resources; duplicate start/cancel clicks, late responses, unmounting, and exceptional-state cleanup are fixed. External Google configuration and compatibility paths/IDs remain unchanged.
+- Fixed existing workspace lock metadata/source-version mismatch, enabling frozen installation without third-party dependency upgrades.
+
+<a id="自动检查"></a>
+
+## Automated Checks
+
+| Check | Result |
 |---|---|
-| 全库 `bun run lint` | 通过，退出 0 |
-| 全 monorepo `bun run typecheck` | 六个 workspace 均退出 0 |
-| 全库 `bun test` | 3287 pass，0 skip，0 fail，369 文件，44.50 秒 |
-| `bun run electron:build` | 通过，退出 0 |
-| 图片授权/执行/队列专项 | 99 pass，0 fail，已包含于整库结果，不重复相加 |
-| Google loopback 与登录组件 | 合成本机 HTTP 回调及双语组件通过，不访问 Google |
-| frozen 安装 | 1303 installs / 1273 packages，无改动，退出 0 |
-| 锁文件第三方图 | 1395 条完整 package 记录含 URL/integrity 与 HEAD 结构完全一致，仅 workspace 元数据变更 |
-| `git diff --check` | 通过 |
+| Repository-wide `bun run lint` | Passed, exit 0 |
+| Full monorepo `bun run typecheck` | All six workspaces exited 0 |
+| Repository-wide `bun test` | 3287 pass, 0 skip, 0 fail, 369 files, 44.50 seconds |
+| `bun run electron:build` | Passed, exit 0 |
+| Image authorization/execution/queue checks | 99 pass, 0 fail, already included in repository-wide results; not added again |
+| Google loopback and login components | Synthetic local HTTP callbacks and bilingual components passed, without accessing Google |
+| Frozen installation | 1303 installs / 1273 packages, unchanged, exit 0 |
+| Lockfile third-party graph | 1395 complete package records including URL/integrity structurally identical to HEAD; only workspace metadata changed |
+| `git diff --check` | Passed |
 
-测试运行于新建的临时配置和运行时根目录，不使用真实 token 或生图渠道。实际 adapter 与 MCP handler 通过隔离子进程注入假 SDK 消息、假网络和附件写入验证，共六次假 API 调用，不等于连接真实服务验收。
+Tests use newly created temporary configuration and runtime roots, without real tokens or image-generation channels. Actual adapters and MCP handlers were verified through isolated subprocesses injecting fake SDK messages, fake networking, and attachment writes, with six fake API calls total; this does not constitute actual-service connectivity acceptance.
 
-## 桌面 UI 验证
+<a id="桌面-ui-验证"></a>
 
-复用临时 Electron 39.5.1 QA 壳，加载本次编译的 main/preload/renderer。配置、运行时、Chromium 数据均在临时目录，阻止外部网络、协议注册和全局快捷键，不读取用户 shell profile，不启动用户安装版。
+## Desktop UI Validation
 
-| 场景 | 英文 | 中文 |
+Reused a temporary Electron 39.5.1 QA shell loading this build's main/preload/renderer. Configuration, runtime, and Chromium data all reside in temporary directories; external networking, protocol registration, and global shortcuts are blocked. No user shell profile is read and no installed user app is launched.
+
+| Scenario | English | Chinese |
 |---|---|---|
-| Tinker 登录品牌与 Google 入口 | 通过 | 通过 |
-| 开始双击只发送一次假 OAuth IPC | 通过 | 通过 |
-| 等待态、重复取消、返回登录页 | 通过 | 通过 |
-| 图片简洁模型署名，无费用详情堆叠 | 通过 | 通过 |
-| 放大预览打开/关闭 | 通过 | 通过 |
-| 选图编辑引用增加/移除 | 通过 | 通过 |
-| 保存 IPC 与父/当前版本对比 | 通过 | 通过 |
-| Escape 关闭对比 | 通过 | 通过 |
+| Tinker login branding and Google entry | Passed | Passed |
+| Double-clicking start sends one fake OAuth IPC | Passed | Passed |
+| Waiting state, duplicate cancellation, return to login | Passed | Passed |
+| Concise image model attribution without stacked cost details | Passed | Passed |
+| Open/close enlarged preview | Passed | Passed |
+| Add/remove selected-image edit references | Passed | Passed |
+| Save IPC and parent/current-version comparison | Passed | Passed |
+| Escape closes comparison | Passed | Passed |
 
-UI 结果共两次假登录开始、两次取消、两次假保存，未重复发出。视觉截图使用合成图片和空账户数据，保存在 `docs/qa/2026-11-08-mvp`。隐藏窗口截图关闭过渡动画以避开淡入中间帧，未验证全部动效。登录使用实际生产路由；图片组件在隔离 renderer fixture 中加载，不能外推为真实生成完成后的整条用户会话流程已验收。
+UI results total two fake login starts, two cancellations, and two fake saves, with no duplicate sends. Visual screenshots use synthetic images and empty account data, saved in `docs/qa/2026-11-08-mvp`. Hidden-window screenshots disable transitions to avoid intermediate fade-in frames; not all motion was verified. Login uses the actual production route; image components load in an isolated renderer fixture, so these results do not establish acceptance of an entire real user session after completed generation.
 
-## 审查
+<a id="审查"></a>
 
-独立只读 review 与 simplify/reuse 检查完成。意图误判、参考数量扩权、队列消费与 UUID/旧调用问题修复后，未留 Critical 或 Important 项。新增状态集中在共享纯规则及小宿主协调模块，继续使用既有账本、图片索引和路径校验，没有平行收费或存储实现。新模块单行语句的可读性清理为非阻塞后续项。
+## Review
 
-## 尚未完成
+Independent read-only review and simplify/reuse checks complete. After fixes for intent misclassification, authorization expansion through reference counts, queue consumption, and UUID/old-call issues, no Critical or Important items remain. New state is concentrated in shared pure rules and a small host coordination module, reusing the existing ledger, image index, and path validation without parallel billing or storage implementations. Readability cleanup of single-line statements in new modules is a nonblocking follow-up.
 
-- 未进行真实 Google 授权、真实收费生图、模型执行和用户数据会话恢复，不声称第一轮 MVP 的全部人工流程已验收。
-- 多条 `next` 被 CLI 合并时，保守采用最后实际消费且登记的原始用户消息，不叠加前序授权；含歧义时仍可要求精确确认。
-- 既有流内追加 API 仅传文本，当前没有扩展其新增附件或显式选图元数据。选中确定版本的编辑已通过常规 `sendMessage` 路径验证，不能将其外推到流内所有复合输入。
-- 外部 Google 同意屏幕品牌未核实或修改，内部 `~/.asci`、兼容协议与工具 ID 保留。
-- Tinker 2 的独立未提交 Rust/Tauri/React 工作保留原处，未逐项移植，见审计报告。
-- 未运行 Rust 原生构建或整机性能对照，本轮没有 Rust 源码变更，也没有内存改善结论。
+<a id="尚未完成"></a>
 
-远端分支、提交、draft PR、checks/status/Actions 状态在发布后单独核验，不把本地通过称为远端 CI 通过。安装版、真实数据与密钥保持原状。
+## Outstanding
+
+- No actual Google authorization, paid image generation, model execution, or user-data session restoration; no claim that all manual first-round MVP flows were accepted.
+- When the CLI merges multiple `next` messages, conservatively use the last actually consumed and registered original user message, without accumulating earlier authorization; ambiguity can still require precise confirmation.
+- The existing in-stream append API carries only text; new attachments and explicit selected-image metadata were not extended. Editing a selected fixed version was validated through ordinary `sendMessage`, which cannot be extrapolated to all compound in-stream input.
+- External Google consent-screen branding was neither verified nor modified; internal `~/.asci`, compatibility protocols, and tool IDs remain.
+- Separate uncommitted Rust/Tauri/React work in Tinker 2 remains in place, without item-by-item migration; see the audit report.
+- No Rust native build or whole-machine performance comparison; this round changes no Rust source and provides no memory-improvement conclusion.
+
+Remote branch, commit, draft PR, and checks/status/Actions state are verified separately after publication; local passes are not remote CI passes. The installed version, real data, and keys remain unchanged.

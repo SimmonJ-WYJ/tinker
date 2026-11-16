@@ -1,25 +1,35 @@
-# 文本选择功能使用指南
+<a id="文本选择功能使用指南"></a>
 
-## 概述
+# Text Selection Feature Guide
 
-为 AI 生成的内容添加了划词选择功能，用户可以选中文本后执行以下操作：
-- **Ask in sidebar**: 在侧边栏中对选中内容提问
-- **Add to chat**: 将选中内容作为引用添加到当前对话框
+<a id="概述"></a>
 
-## 功能组件
+## Overview
 
-### 1. 核心组件
+Text selection has been added to AI-generated content, allowing users to select text and perform these actions:
+- **Ask in sidebar**: Ask about the selected content in the sidebar
+- **Add to chat**: Add the selected content as a quote in the current chat input
+
+<a id="功能组件"></a>
+
+## Feature Components
+
+<a id="1-核心组件"></a>
+
+### 1. Core Components
 
 #### `TextSelectionToolbar`
-浮动工具栏组件，显示在选中文本上方。
+A floating toolbar component displayed above selected text.
 
 #### `SelectableMessageResponse`
-包装了 `MessageResponse` 的组件，添加了文本选择功能。
+A component wrapping `MessageResponse` to add text selection.
 
 #### `useTextSelection` Hook
-处理文本选择逻辑和工具栏位置计算。
+Handles text selection logic and toolbar position calculations.
 
-### 2. 状态管理
+<a id="2-状态管理"></a>
+
+### 2. State Management
 
 #### `text-selection-atoms.ts`
 ```typescript
@@ -30,11 +40,15 @@ export const pendingQuoteAtom = atom<SelectedTextQuote | null>(null)
 export const sidebarQuoteAtom = atom<SelectedTextQuote | null>(null)
 ```
 
-## 使用方法
+<a id="使用方法"></a>
 
-### 在 AI 消息中启用文本选择
+## Usage
 
-将原来的 `MessageResponse` 替换为 `SelectableMessageResponse`：
+<a id="在-ai-消息中启用文本选择"></a>
+
+### Enable Text Selection in AI Messages
+
+Replace the original `MessageResponse` with `SelectableMessageResponse`:
 
 ```tsx
 import { SelectableMessageResponse } from '@/components/ai-elements/message'
@@ -50,9 +64,11 @@ import { SelectableMessageResponse } from '@/components/ai-elements/message'
 </SelectableMessageResponse>
 ```
 
-### 在输入框组件中处理引用
+<a id="在输入框组件中处理引用"></a>
 
-监听 `pendingQuoteAtom` 并将引用插入到输入框：
+### Handle Quotes in the Input Component
+
+Listen to `pendingQuoteAtom` and insert quotes into the input:
 
 ```tsx
 import { useAtom } from 'jotai'
@@ -77,9 +93,11 @@ function YourInputComponent() {
 }
 ```
 
-### 在侧边栏中处理引用
+<a id="在侧边栏中处理引用"></a>
 
-监听 `sidebarQuoteAtom` 并打开侧边栏：
+### Handle Quotes in the Sidebar
+
+Listen to `sidebarQuoteAtom` and open the sidebar:
 
 ```tsx
 import { useAtom } from 'jotai'
@@ -105,11 +123,15 @@ function YourSidebarComponent() {
 }
 ```
 
-## 样式定制
+<a id="样式定制"></a>
 
-### 工具栏样式
+## Style Customization
 
-工具栏使用 Tailwind CSS 类名，可以通过修改 `TextSelectionToolbar` 组件来定制：
+<a id="工具栏样式"></a>
+
+### Toolbar Styles
+
+The toolbar uses Tailwind CSS classes and can be customized by modifying the `TextSelectionToolbar` component:
 
 ```tsx
 // 修改背景色
@@ -122,9 +144,11 @@ className="border border-border/60"
 className="shadow-lg"
 ```
 
-### 工具栏位置
+<a id="工具栏位置"></a>
 
-工具栏默认显示在选中文本上方居中位置。如需调整：
+### Toolbar Position
+
+By default, the toolbar is centered above selected text. To adjust it:
 
 ```tsx
 style={{
@@ -134,51 +158,59 @@ style={{
 }}
 ```
 
-## 注意事项
+<a id="注意事项"></a>
 
-1. **仅对 AI 消息启用**: 文本选择功能仅应用于 AI 生成的内容（`MessageResponse`），用户消息不需要此功能。
+## Notes
 
-2. **性能优化**: `useTextSelection` Hook 使用事件委托和节流，确保在大量文本时性能良好。
+1. **Enable only for AI messages**: Text selection applies only to AI-generated content (`MessageResponse`); user messages do not need it.
 
-3. **工具栏自动关闭**: 
-   - 点击工具栏外部区域
-   - 点击工具栏按钮
-   - 开始新的文本选择
+2. **Performance optimization**: The `useTextSelection` Hook uses event delegation and throttling for good performance with large amounts of text.
 
-4. **响应式**: 工具栏位置会根据选中文本的位置动态计算，适配不同屏幕尺寸。
+3. **Automatic toolbar dismissal**:
+   - Click outside the toolbar
+   - Click a toolbar button
+   - Start a new text selection
 
-## 文件结构
+4. **Responsive behavior**: Toolbar positioning is dynamically calculated from the selected text position to accommodate different screen sizes.
+
+<a id="文件结构"></a>
+
+## File Structure
 
 ```
 apps/electron/src/renderer/
 ├── atoms/
-│   └── text-selection-atoms.ts          # 状态管理
+│   └── text-selection-atoms.ts          # State management
 ├── components/
 │   └── ai-elements/
-│       ├── message.tsx                  # 导出 SelectableMessageResponse
-│       ├── selectable-message-response.tsx  # 可选择的消息响应
-│       └── text-selection-toolbar.tsx   # 文本选择工具栏
+│       ├── message.tsx                  # Export SelectableMessageResponse
+│       ├── selectable-message-response.tsx  # Selectable message response
+│       └── text-selection-toolbar.tsx   # Text selection toolbar
 └── hooks/
-    └── useTextSelection.ts              # 文本选择 Hook
+    └── useTextSelection.ts              # Text selection Hook
 ```
 
-## 待实现功能
+<a id="待实现功能"></a>
 
-以下功能需要在实际集成时完成：
+## Features Still to Implement
 
-1. ✅ 文本选择工具栏 UI
-2. ✅ 文本选择逻辑和位置计算
-3. ✅ 状态管理 atoms
-4. ⏳ 输入框集成 - 需要修改 `rich-text-input.tsx` 监听 `pendingQuoteAtom`
-5. ⏳ 侧边栏集成 - 需要创建或修改侧边栏组件监听 `sidebarQuoteAtom`
-6. ⏳ 在实际的 Agent 会话组件中使用 `SelectableMessageResponse`
+Complete these features during actual integration:
 
-## 示例截图
+1. ✅ Text selection toolbar UI
+2. ✅ Text selection logic and position calculations
+3. ✅ State management atoms
+4. ⏳ Input integration - modify `rich-text-input.tsx` to listen to `pendingQuoteAtom`
+5. ⏳ Sidebar integration - create or modify sidebar components to listen to `sidebarQuoteAtom`
+6. ⏳ Use `SelectableMessageResponse` in the actual Agent session component
+
+<a id="示例截图"></a>
+
+## Example Screenshots
 
 ```
 ┌─────────────────────────────────────┐
 │  💬 1 selection                     │
 │  ├─ Ask in sidebar  ├─ Add to chat │
 └─────────────────────────────────────┘
-        ↓ 显示在选中文本上方
+        ↓ Displayed above selected text
 ```

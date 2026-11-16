@@ -1,24 +1,34 @@
-# 日期时间约定（dayjs）
+<a id="日期时间约定dayjs"></a>
 
-> 全仓库日期 / 时间处理统一走 [dayjs](https://day.js.org/)。禁止裸 `new Date(...)` 做格式化、禁止
-> `.toLocale*`、禁止手搓 `padStart` 拼时间串。由 `asci/no-raw-date-format` ESLint 规则守门（warn 级）。
+# Date and Time Conventions (dayjs)
+
+> All repository date/time handling uses [dayjs](https://day.js.org/). Do not use bare `new Date(...)` for formatting,
+> `.toLocale*`, or hand-built time strings with `padStart`. Enforced by the `asci/no-raw-date-format` ESLint rule (warn level).
 
 ---
 
-## 1. 为什么 dayjs
+<a id="1-为什么-dayjs"></a>
 
-- 不可变 API（`.add` / `.subtract` 返回新实例），算术清晰；
-- 插件化、体积小，已注册 `utc` / `localizedFormat` / `customParseFormat`；
-- locale 系统与界面语言联动（zh-cn / en），告别散落各处的 `'zh-CN'` 硬编码。
+## 1. Why dayjs
 
-## 2. 两层入口
+- Immutable API (`.add` / `.subtract` return new instances), with clear arithmetic;
+- Small, plugin-based library with `utc` / `localizedFormat` / `customParseFormat` registered;
+- Locale follows interface language (zh-cn / en), eliminating scattered hardcoded `'zh-CN'` values.
 
-| 层 | 模块 | 用途 | i18n |
+<a id="2-两层入口"></a>
+
+## 2. Two Entry Layers
+
+| Layer | Module | Purpose | i18n |
 |----|------|------|------|
-| 基础（无关界面语言） | `@asci/shared`（`packages/shared/src/utils/date-time.ts`） | 构造 / 算术 / ISO 互转；主进程与渲染进程通用 | 解耦（CLAUDE.md §7.4） |
-| 展示（随界面语言） | `@/utils/dayjs`（`apps/electron/src/renderer/utils/dayjs.ts`） | 本地化格式化 helper + locale 同步 | 随 `languageAtom` |
+| Foundation (independent of interface language) | `@asci/shared` (`packages/shared/src/utils/date-time.ts`) | Construction / arithmetic / ISO conversion; shared by main and renderer | Decoupled (CLAUDE.md §7.4) |
+| Display (follows interface language) | `@/utils/dayjs` (`apps/electron/src/renderer/utils/dayjs.ts`) | Localized formatting helpers + locale synchronization | Follows `languageAtom` |
 
-### 2.1 基础 helper（`@asci/shared`）
+<a id="21-基础-helperascishared"></a>
+
+### 2.1 Foundation Helpers (`@asci/shared`)
+
+The original code comments describe current ISO strings, current millisecond timestamps, conversion of arbitrary input to ISO/milliseconds, and the configured dayjs instance for formatting and arithmetic; replacement expressions are preserved.
 
 ```ts
 import { nowIso, nowMs, toIso, toMs, dayjs } from '@asci/shared'
@@ -30,7 +40,11 @@ toMs(x)         // 任意输入 → 毫秒数    ← 替代 new Date(x).getTime(
 dayjs(x)        // 已配置实例，做 .format/.add/.subtract/.diff/.year() 等
 ```
 
-### 2.2 展示 helper（`@/utils/dayjs`，仅渲染进程）
+<a id="22-展示-helperutilsdayjs仅渲染进程"></a>
+
+### 2.2 Display Helpers (`@/utils/dayjs`, Renderer Only)
+
+Original comments describe localized date (LL), date/time (L LT), time with seconds (LTS), and message time (MM/DD HH:mm within this year, YYYY/MM/DD HH:mm across years).
 
 ```ts
 import { formatDate, formatDateTime, formatTime, formatMessageTime, dayjs } from '@/utils/dayjs'
@@ -41,12 +55,13 @@ formatTime(x)         // 时:分:秒，本地化（LTS）     ← 替代 .toLoca
 formatMessageTime(x)  // 今年 MM/DD HH:mm，跨年 YYYY/MM/DD HH:mm
 ```
 
-locale 随界面语言自动切换：`setAppLanguage()`（`renderer/lib/i18n.ts`）在每次切语言时调用
-`syncDayjsLocale()`，把 dayjs 全局 locale 设为 `zh-cn` / `en`。无需在组件里手动传 locale。
+Locale automatically follows interface language: `setAppLanguage()` (`renderer/lib/i18n.ts`) calls `syncDayjsLocale()` whenever language changes, setting dayjs global locale to `zh-cn` / `en`. Components need not pass locale manually.
 
-### 2.3 相对时间（"3 分钟前"）
+<a id="23-相对时间3-分钟前"></a>
 
-相对时间**不走** dayjs 的 relativeTime 插件，而走 i18n token 化的 hook，保证与界面文案体系一致：
+### 2.3 Relative Time (“3 Minutes Ago”)
+
+Relative time **does not use** dayjs's relativeTime plugin; it uses an i18n-token-based hook to remain consistent with interface copy. The original comment specifies millisecond timestamp input; convert ISO strings with toMs(iso).
 
 ```ts
 import { useFormatRelativeTime } from '@/utils/format-relative-time'
@@ -54,7 +69,11 @@ const fmt = useFormatRelativeTime()
 fmt(nowMs())   // 入参为毫秒时间戳；ISO 串先 toMs(iso)
 ```
 
-## 3. 反模式（会被 lint warn / review 拦）
+<a id="3-反模式会被-lint-warn-&#45;review-拦"></a>
+
+## 3. Antipatterns (Flagged by Lint Warnings / Review)
+
+The original comments mark bare Date formatting and manually assembled strings as invalid, and foundation helpers as the valid alternative for construction/value extraction.
 
 ```ts
 // ❌ 裸 Date 格式化
@@ -78,17 +97,21 @@ const iso = nowIso()
 const ms = toMs(x)
 ```
 
-## 4. 例外（保留原生 Date / Date.now）
+<a id="4-例外保留原生-date-&#45;datenow"></a>
 
-以下场景**允许**保留原生写法，不在 lint 检测范围：
+## 4. Exceptions (Retain Native Date / Date.now)
 
-- `packages/ui/`（如 `CodeBlock.tsx` 的流式计时）—— 不依赖 `@asci/shared`，且为高频计时取值，`Date.now()` 数值用法合法；
-- `apps/electron/resources/**`（ASR / OCR / MCP 子进程独立打包）—— ESLint 已 ignore；为减小子进程 bundle 不引入 `@asci/shared`；
-- `apps/electron/scripts/**`（构建 / dev 脚本工具）—— 构建计时，非 App 运行逻辑。
+The following **may** retain native usage and are outside lint coverage:
 
-裸 `Date.now()` / `dayjs(x).valueOf()` 这类**取数值**用法本身合法，lint 不报警；规则只拦"用裸 Date 做格式化"。
+- `packages/ui/` (such as streaming timing in `CodeBlock.tsx`): no `@asci/shared` dependency, and high-frequency timing values; numeric `Date.now()` usage is valid;
+- `apps/electron/resources/**` (separately bundled ASR / OCR / MCP subprocesses): already ignored by ESLint; exclude `@asci/shared` to keep subprocess bundles small;
+- `apps/electron/scripts/**` (build / dev script tools): build timing, rather than application runtime logic.
 
-## 5. 守门
+Bare `Date.now()` / `dayjs(x).valueOf()` **numeric value extraction** is valid and produces no lint warning; the rule blocks only formatting through bare Date.
 
-- ESLint：`asci/no-raw-date-format`（warn），定义见 `eslint-rules/no-raw-date-format.js`，注册见 `eslint.config.js`；
-- 豁免：`// eslint-disable-next-line asci/no-raw-date-format -- <理由>`。
+<a id="5-守门"></a>
+
+## 5. Enforcement
+
+- ESLint: `asci/no-raw-date-format` (warn), defined in `eslint-rules/no-raw-date-format.js`, registered in `eslint.config.js`;
+- Exemption: `// eslint-disable-next-line asci/no-raw-date-format -- <理由>` (the placeholder means the reason).

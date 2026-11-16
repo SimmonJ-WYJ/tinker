@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>首次下载后 · 启动与登录流程</title>
+<title>After First Download · Startup and Sign-In Flow</title>
 <style>
   :root{
     --text:#1f1f1d; --soft:#6f6f69; --faint:#9a9a93;
@@ -26,7 +26,7 @@
 
   .layout{display:flex;gap:24px;max-width:1140px;margin:0 auto;padding:24px 20px 60px;align-items:flex-start;}
 
-  /* 左侧步骤流水线 */
+  /* Left step pipeline */
   .steps{width:330px;flex:none;}
   .step{display:flex;gap:12px;cursor:pointer;border-radius:12px;padding:10px 12px;border:1px solid transparent;}
   .step:hover{background:#f3f2f0;}
@@ -40,7 +40,7 @@
   .step .gate.none{background:#efeee9;color:var(--faint);}
   .conn{height:10px;width:1px;background:var(--hair);margin-left:24px;}
 
-  /* 右侧屏幕 */
+  /* Right screen */
   .screenwrap{flex:1;min-width:0;position:sticky;top:78px;}
   .frame{background:#fff;border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08);height:560px;display:flex;flex-direction:column;}
   .titlebar{height:34px;display:flex;align-items:center;gap:7px;padding:0 12px;border-bottom:1px solid var(--hair);background:#fafafa;}
@@ -85,18 +85,18 @@
 </head>
 <body>
   <div class="top">
-    <b>首次下载后 · 启动与登录流程</b>
+    <b>After First Download · Startup and Sign-In Flow</b>
     <span class="sp"></span>
-    <button id="prev">← 上一步</button>
-    <button class="primary" id="next">下一步 →</button>
-    <button id="replay">↺ 重播</button>
+    <button id="prev">← Previous</button>
+    <button class="primary" id="next">Next →</button>
+    <button id="replay">↺ Replay</button>
   </div>
 
   <div class="layout">
-    <!-- 左：步骤流水线 -->
+    <!-- Left: step pipeline -->
     <div class="steps" id="stepList"></div>
 
-    <!-- 右：屏幕 + 说明 -->
+    <!-- Right: screen + explanation -->
     <div class="screenwrap">
       <div class="frame">
         <div class="titlebar"><i class="tb-r"></i><i class="tb-y"></i><i class="tb-g"></i></div>
@@ -107,60 +107,60 @@
   </div>
 
   <div class="note">
-    <b>要点：</b>登录由渲染根 <code>App.tsx</code> 的 <code>LOGIN_ENABLED</code> 控制，默认 true（<code>vite define: ASCI_SKIP_LOGIN !== '1'</code>）→ <b>打包下载版强制登录</b>；
-    打包版 <code>app.isPackaged</code> 为真 → 无 dev bypass，必须真实登录。登录是进入应用内容前的<b>唯一硬门槛</b>，位于 <code>RouteGuard</code>、<code>AppShell</code> 之前；onboarding 在 AppShell 之内，<b>登录成功后才出现</b>。
+    <b>Key points:</b>Sign-in is controlled by renderer root <code>App.tsx</code> and <code>LOGIN_ENABLED</code> and defaults to true (<code>vite define: ASCI_SKIP_LOGIN !== '1'</code>) → <b>Downloaded packaged builds require sign-in</b>；
+    In packaged builds, <code>app.isPackaged</code> is true → no dev bypass; real sign-in required. Sign-in is the <b>only hard gate</b>, before <code>RouteGuard</code>, <code>AppShell</code> ; onboarding is inside AppShell and <b>appears only after successful sign-in</b>。
   </div>
 
 <script>
   const STEPS = [
-    { n:'1', title:'下载安装 → 启动', gate:null,
-      cap:['启动应用','用户双击打开下载安装的 App。主进程开始初始化。'],
+    { n:'1', title:'Download/install → launch', gate:null,
+      cap:['Launch app','The user double-clicks the installed App. The main process begins initialization.'],
       screen:'boot' },
-    { n:'2', title:'主进程 boot', gate:null,
-      cap:['main/index.ts','创建主窗口、加载已构建的界面；初始化 AuthService、注册 auth IPC、尝试 getCurrentUser() 恢复登录态。打包版无 dev bypass。'],
+    { n:'2', title:'Main-process boot', gate:null,
+      cap:['main/index.ts','Create the main window and load the built UI; initialize AuthService, register auth IPC, and try getCurrentUser() to restore sign-in. Packaged builds have no dev bypass.'],
       screen:'boot' },
-    { n:'3', title:'AuthSplash · 检查登录态', gate:'RouteGuard',
-      cap:['RouteGuard：checking','useInitAuth() 调 getCurrentUser()。状态 uninitialized/checking 时显示 AuthSplash（转圈）。'],
+    { n:'3', title:'AuthSplash · Check sign-in', gate:'RouteGuard',
+      cap:['RouteGuard: checking','useInitAuth() calls getCurrentUser(). Show AuthSplash (spinner) while uninitialized/checking.'],
       screen:'splash' },
-    { n:'4', title:'登录页（首次：无 token）', gate:'RouteGuard',
-      cap:['RouteGuard：unauthenticated → LoginPage','首次用户无 token → 未登录 → 显示登录页。这就是「登录加入的位置」——在主界面之前。'],
+    { n:'4', title:'Sign-in page (first use: no token)', gate:'RouteGuard',
+      cap:['RouteGuard: unauthenticated → LoginPage','First-time user without token → unauthenticated → sign-in page. This is where sign-in fits: before the main interface.'],
       screen:'login' },
-    { n:'5', title:'OPENSCI 授权中', gate:'RouteGuard',
-      cap:['oauth-pending 子态','点「使用 OPENSCI 登录」→ 打开浏览器 OIDC 授权 → asci:// deeplink 回调。期间显示授权中 + 取消。'],
+    { n:'5', title:'OPENSCI authorization', gate:'RouteGuard',
+      cap:['oauth-pending substate','Click Sign in with OPENSCI → browser OIDC authorization → asci:// deeplink callback. Show authorizing + Cancel in the meantime.'],
       screen:'pending' },
-    { n:'6', title:'登录成功 → 主界面', gate:'RouteGuard',
-      cap:['RouteGuard：authenticated → AppShell','拿到 token → 状态 authenticated → 渲染 AppShell（应用主界面）。'],
+    { n:'6', title:'Signed in → main interface', gate:'RouteGuard',
+      cap:['RouteGuard: authenticated → AppShell','Receive token → authenticated state → render AppShell (main app interface).'],
       screen:'app' },
-    { n:'7', title:'首次：onboarding 引导', gate:null,
-      cap:['AppShell 内 · SpotlightOverlay','若是首次安装，onboarding spotlight 此时才开始（配置模型 → 连 Zotero → 新建任务）。登录之后，不在登录之前。'],
+    { n:'7', title:'First use: onboarding', gate:null,
+      cap:['Inside AppShell · SpotlightOverlay','On first install, onboarding spotlight starts now (configure model → connect Zotero → new task). After sign-in, not before.'],
       screen:'onboard' },
   ];
   let i = 0;
   const $ = s=>document.querySelector(s);
 
-  // 左侧步骤列表
+  // Left step list
   const list = $('#stepList');
   STEPS.forEach((s,idx)=>{
     const el = document.createElement('div');
     el.className='step'; el.dataset.i=idx;
     el.innerHTML = `<div class="num">${s.n}</div><div class="body"><h4>${s.title}</h4>
-      ${s.gate?`<span class="gate">${s.gate}</span>`:`<span class="gate none">无门控</span>`}</div>`;
+      ${s.gate?`<span class="gate">${s.gate}</span>`:`<span class="gate none">No gate</span>`}</div>`;
     el.onclick=()=>go(idx);
     list.appendChild(el);
     if(idx<STEPS.length-1){ const c=document.createElement('div'); c.className='conn'; list.appendChild(c); }
   });
 
   function screenHTML(kind){
-    if(kind==='boot') return `<div class="center"><div><div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div><div class="muted">正在启动…</div><div class="spinner"></div></div></div>`;
-    if(kind==='splash') return `<div class="center"><div><div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div><div style="font-weight:600">ASCI</div><div class="spinner"></div><div class="muted">检查登录状态…</div></div></div>`;
+    if(kind==='boot') return `<div class="center"><div><div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div><div class="muted">Starting…</div><div class="spinner"></div></div></div>`;
+    if(kind==='splash') return `<div class="center"><div><div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div><div style="font-weight:600">ASCI</div><div class="spinner"></div><div class="muted">Checking sign-in…</div></div></div>`;
     if(kind==='login') return `<div class="center"><div class="card">
         <div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div>
-        <h2>欢迎使用 ASCI</h2><p>登录以同步你的项目与文献库。数据默认存于本地。</p>
-        <button class="full">使用 OPENSCI 登录</button><button class="ghost">取消</button></div></div>`;
+        <h2>Welcome to ASCI</h2><p>Sign in to sync your projects and library. Data is stored locally by default.</p>
+        <button class="full">Sign in with OPENSCI</button><button class="ghost">Cancel</button></div></div>`;
     if(kind==='pending') return `<div class="center"><div class="card">
         <div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div>
-        <h2>欢迎使用 ASCI</h2><div class="spinner"></div><div class="muted">正在打开 OPENSCI 完成授权…</div>
-        <button class="ghost" style="margin-top:16px">取消</button></div></div>`;
+        <h2>Welcome to ASCI</h2><div class="spinner"></div><div class="muted">Opening OPENSCI to authorize…</div>
+        <button class="ghost" style="margin-top:16px">Cancel</button></div></div>`;
     if(kind==='app') return shell(false);
     if(kind==='onboard') return shell(true);
     return '';
@@ -168,15 +168,15 @@
   function shell(withOnboard){
     return `<div class="shell">
       <div class="sb">
-        <div class="p">生物学</div>
+        <div class="p">Biology</div>
         <div class="n">🔍 Search</div>
         <div class="n ${withOnboard?'spot':''}">⚙ Configure</div>
         <div class="n">📚 Library</div>
         <div class="n">＋ New task</div>
       </div>
-      <div class="main">${withOnboard?'':'<span style="color:#9a9a93">应用主界面</span>'}</div>
+      <div class="main">${withOnboard?'':'<span style="color:#9a9a93">Main app interface</span>'}</div>
       ${withOnboard?`<div class="dim"></div>
-        <div class="tip"><div class="k">1 / 3</div><h4>配置模型</h4><p>连接你的 LLM 渠道，开始任务的第一步。</p></div>`:''}
+        <div class="tip"><div class="k">1 / 3</div><h4>Configure model</h4><p>Connect your LLM channel, the first step toward starting a task.</p></div>`:''}
     </div>`;
   }
 

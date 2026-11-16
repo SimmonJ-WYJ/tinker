@@ -1,49 +1,61 @@
-# 对话流与引用图片来源
+<a id="对话流与引用图片来源"></a>
 
-状态：实现、独立复审、真实浏览器验收与最终聚合检查完成。交付分支 feat/message-reference-flow；main 由用户人工合并。领域语言沿用现有 SDK message / image version / attachment。
+# Conversation Flow and Referenced Image Sources
 
-## 基线与协作边界
+Status: Implementation, independent review, real-browser acceptance, and final aggregate checks complete. Delivery branch feat/message-reference-flow; main is merged manually by the user. Domain language retains existing SDK message / image version / attachment terms.
 
-- 工作区 `/tmp/tinker-message-reference-20261108`，分支 `feat/message-reference-flow`。
-- 起点 main `fbde681`，已快进纳入已交付 Google 打包修复 `77d5f36`、`3cfc286`，保留其独立提交。
-- 生图续作在另一工作区实现。本轮不修改 `image-request-authorization.ts`、`image-turn-context.ts`、`image-turn-factory.ts`、`agent-orchestrator.ts` 或该任务测试。生图提交 c4cbab6 已在引用 UI 提交 865b59c 后串行整合，合并提交 f946135；Google、引用 UI 和生图修复均保留独立提交。
-- 当前用户运行的是 `/Volumes/Tinker 0.1.611-arm64/Tinker.app`，本轮不安装、替换或调用付费生图。
+<a id="基线与协作边界"></a>
 
-## 设计真相源
+## Baseline and Collaboration Boundaries
 
-旧节点 `106:178` 已不存在。当前画板为 `115:599`，消息区 `115:604`，位于 Chating 页面 `115:597`。已读取高保真上下文和截图。本机用户截图保留 Library ID `libfile_26c6a0fa40b88191bb5071fb01549d99`，通过支持的传输方式实际落地并查看。
+- Workspace `/tmp/tinker-message-reference-20261108`, branch `feat/message-reference-flow`.
+- Starting main `fbde681`; fast-forwarded to include delivered Google packaging fixes `77d5f36`, `3cfc286`, preserving their separate commits.
+- Image generation continuation is implemented in another workspace. This round does not modify `image-request-authorization.ts`, `image-turn-context.ts`, `image-turn-factory.ts`, `agent-orchestrator.ts`, or that task's tests. Image generation commit c4cbab6 was integrated sequentially after reference UI commit 865b59c, in merge f946135; Google, reference UI, and image generation fixes retain separate commits.
+- The user currently runs `/Volumes/Tinker 0.1.611-arm64/Tinker.app`; this round does not install, replace, or call paid image generation.
 
-- 内容列最大宽 832；桌面顶部留白 64；相邻回合间距 40。
-- 上传图片独立于气泡：预览 112×148，圆角 8，点击查看完整原图。
-- 用户气泡最大宽 480，内边距 16，圆角 14，浅色表面 #F4F5F6。
-- 内嵌引用卡 448×72，内边距 12，间距 12，圆角 8，浅色表面 #FBFBFC；缩略图 72×48。
-- 正文 16/24；引用文案 12/18；静态 Logo 与图标遵循真实源资产，用户照片仅为动态数据示例。
-- 深色通过语义 token 适配，不把开发 ID、内部模型调用参数或假进度塞进界面。
+<a id="设计真相源"></a>
 
-## 来源与持久化
+## Design Source of Truth
 
-给已发送的 `UserImageEditReference` 增加可选 `sourceMessageId`，指向产生该确定图片的 assistant SDK UUID。保存时由 `appendSDKMessages` 使用当前会话已有的成功生图 tool_use / tool_result、精确 imageId 与 localPath 验证并补齐。图片 ID、文件名、原图路径及其他消息内容保持原样，不依赖 latest、不伪造来源、不回写真实历史。
+Old node `106:178` no longer exists. The current artboard is `115:599`, message area `115:604`, on Chating page `115:597`. High-fidelity context and screenshots were read. The local user screenshot retains Library ID `libfile_26c6a0fa40b88191bb5071fb01549d99` and was actually transferred using a supported method and viewed.
 
-旧消息没有 sourceMessageId 时可从该用户消息之前的同一套确定绑定恢复；后来才出现的同名产物不会反向成为旧引用。过期/不存在的旧 UUID 只能恢复到唯一匹配的实际图片来源；来源缺失、歧义、没有稳定 UUID 时显示不可定位状态，图片本身仍可预览。上传附件不产生引用卡。
+- Maximum content column width 832; desktop top whitespace 64; adjacent turn spacing 40.
+- Uploaded images sit outside bubbles: preview 112×148, radius 8; clicking opens the complete original.
+- User bubbles: maximum width 480, padding 16, radius 14, light surface #F4F5F6.
+- Embedded reference cards: 448×72, padding 12, gap 12, radius 8, light surface #FBFBFC; thumbnail 72×48.
+- Body 16/24; reference text 12/18; static Logo and icons follow actual source assets; user photos are dynamic-data examples only.
+- Adapt dark mode through semantic tokens; keep development IDs, internal model-call parameters, and fake progress out of the UI.
 
-共享纯 helper 放在 `packages/shared/src/agent/image-reference-source.ts`；持久化入口只接入 helper。UI 的版本收集与选择带上来源 UUID，乐观消息和历史消息行为一致。无新增 IPC。
+<a id="来源与持久化"></a>
 
-## 导航与交互
+## Sources and Persistence
 
-- 引用缩略图打开现有 ImageLightbox，Escape/关闭后返回触发按钮。
-- 来源按钮映射真实 SDK UUID 到当前已渲染回合，不把 WeakMap 的临时 group ID 持久化。
-- 跳转先保存阅读锚点和相对位置，停止自动吸底，滚动到来源并短暂高亮。
-- 返回按钮按栈恢复刚才位置和焦点；连续跳转、多次返回、重复点击、消息加载/布局变化均不把用户送到错误消息。
-- 切换会话清空导航状态；减少动态效果下使用即时滚动；缺来源、图片读取/解码失败保留稳定卡片和明确的双语 fallback。
-- 生图状态依据真实调用显示生成中、全部完成、部分失败、未完成、停止或失败，保留折叠过程详情，数量不冒充推理进度。
-- 软中断 result 与硬停止的宿主 `asci_turn_stopped` system 事实归属原回合，继续对话不会清掉历史停止状态；无终止记录的旧历史不能凭空恢复停止事实。
-- 点击停止即时同步现有运行与停止 atom，保留的 live 消息不再冒充仍在生成。
-- 输入框沿用实际附件、模型/模式与停止逻辑，按当前画板调整尺寸和层级。
+Add optional `sourceMessageId` to sent `UserImageEditReference`, pointing to the assistant SDK UUID that produced the exact image. During saving, `appendSDKMessages` validates and fills it using existing successful image generation tool_use / tool_result in the current conversation, exact imageId, and localPath. Image IDs, filenames, original image paths, and other message content remain unchanged; do not rely on latest, fabricate provenance, or rewrite real history.
 
-## 实施顺序与验证
+When old messages lack sourceMessageId, restore it using the same exact binding before that user message; later artifacts with the same name cannot retroactively become old reference sources. Stale/missing old UUIDs may recover only to a uniquely matching actual image source. Missing/ambiguous sources or absent stable UUIDs show an unlocatable state; images remain previewable. Uploaded attachments do not create reference cards.
 
-1. 先写来源绑定/旧 ID/歧义/上传区分测试，确认失败，再实现 helper 与实际 JSONL 保存重开回归。
-2. 新增来源导航 provider、用户附件/气泡组件和引用卡，复用查看器、按钮和 i18n。
-3. 对齐消息流、状态和 composer，新增亮暗语义 token 并同步 docs/design.md。
-4. 合成数据在实际浏览器/Electron 验证新旧会话重开、跳转/高亮/返回、多次跳转、重复点击、关闭预览、缺失来源、坏图、上传图、桌面和窄窗、en/zh、减少动态效果。保存本地证据，不读真实会话或调用付费生成。
-5. 跑相关测试、lint、全库 typecheck/test 与 renderer/main 构建，复核后仅推任务源代码/测试/必要文档到私有仓库。若创建 PR，仅 Draft；不合并 main、不启用自动合并、不改现用应用。
+The shared pure helper lives at `packages/shared/src/agent/image-reference-source.ts`; persistence only integrates the helper. UI version collection and selection carry the source UUID, with matching behavior for optimistic and historical messages. No new IPC.
+
+<a id="导航与交互"></a>
+
+## Navigation and Interaction
+
+- Reference thumbnails open existing ImageLightbox; Escape/close restores focus to the trigger button.
+- Source buttons map actual SDK UUIDs to currently rendered turns; temporary WeakMap group IDs are not persisted.
+- Navigation first saves the reading anchor and relative position, stops automatic bottom sticking, then scrolls to and briefly highlights the source.
+- Back buttons restore position and focus from a stack; consecutive jumps, multiple returns, repeated clicks, and message loading/layout changes must not send users to the wrong message.
+- Switching conversations clears navigation state; reduced motion uses instant scrolling. Missing sources and image read/decode failures preserve stable cards and explicit bilingual fallbacks.
+- Image generation status uses actual calls to show generating, all complete, partial failure, incomplete, stopped, or failed, preserving collapsible process details; counts do not masquerade as reasoning progress.
+- Soft-interruption results and hard-stop host `asci_turn_stopped` system facts belong to the original turn; continuing the conversation does not erase historical stop state. Old history without terminal records cannot recover invented stop facts.
+- Clicking stop immediately synchronizes existing running and stop atoms; retained live messages no longer appear to be generating.
+- The composer retains actual attachments, model/mode, and stop logic, with dimensions and hierarchy adjusted to the current artboard.
+
+<a id="实施顺序与验证"></a>
+
+## Implementation Sequence and Validation
+
+1. Write source-binding/old-ID/ambiguity/upload-distinction tests first, observe failures, then implement the helper and actual JSONL save/reopen regression.
+2. Add source navigation provider, user attachment/bubble components, and reference cards, reusing viewer, buttons, and i18n.
+3. Align message flow, statuses, and composer; add light/dark semantic tokens and synchronize docs/design.md.
+4. Use synthetic data in a real browser/Electron to validate reopening new/old conversations, jump/highlight/back, multiple jumps, repeated clicks, preview close, missing sources, broken images, uploaded images, desktop/narrow windows, en/zh, and reduced motion. Save local evidence; do not read real conversations or call paid generation.
+5. Run relevant tests, lint, repository-wide typecheck/test, and renderer/main builds. After review, push only task source code/tests/necessary documentation to the private repository. Any PR must be Draft; do not merge main, enable auto-merge, or change the current app.

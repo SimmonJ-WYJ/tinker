@@ -1,138 +1,168 @@
-# 配置页 Skill 板块 Spec（Config Skill Panel）
+<a id="配置页-skill-板块-specconfig-skill-panel"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：#421（Epic 2 切片 2.2 / CP-2）
-> **关联 PR**：（开 PR 时回填）
-> **依赖输入**：#414（2 内置包 A3 契约接入，已 CLOSED）· `docs/specs/0.3.0/0.3.0-prd.md` §1（能力包 vs Skill）/§Epic 2 · `docs/specs/capability-package-spec.md`
-> **领域语言事实源**：0.3.0-prd.md §1「能力包 vs Skill」
+# Configuration Skill Panel Spec (Config Skill Panel)
+
+> **Status**: draft · awaiting review
+> **Related issue**: #421 (Epic 2 slice 2.2 / CP-2)
+> **Related PR**: (fill in when opened)
+> **Input dependencies**: #414 (2 built-in packs A3 contract integration, CLOSED) · `docs/specs/0.3.0/0.3.0-prd.md` §1 (capability packs vs Skills)/§Epic 2 · `docs/specs/capability-package-spec.md`
+> **Domain language source of truth**: 0.3.0-prd.md §1 "Capability packs vs Skills"
 
 ---
 
-## 1. 概述与定位
+<a id="1-概述与定位"></a>
 
-左侧「配置」页（[`ConfigView`](../../../apps/electron/src/renderer/components/config/ConfigView.tsx) 已存在）的 **Skill 板块**。当前为 `comingSoon` 占位，本 spec 落地为可用面板：
+## 1. Overview and Positioning
 
-- 展示当前工作区的**所有 Skill**，标注**来源两类**（系统内置 / 来自能力包）
-- 单 Skill **启用/禁用**开关
-- 按**来源 / 状态**过滤 + 搜索
-- 每个 Skill 的**反向链接**：被哪些能力包引用
-- 与能力包板块平级,Settings 不再承载 Skill 管理（消除双入口）
+The **Skill section** on the left-side Configuration page (existing [`ConfigView`](../../../apps/electron/src/renderer/components/config/ConfigView.tsx)). Currently a `comingSoon` placeholder; this spec delivers a working panel:
 
-### 1.1 Non-scope（明确不做）
+- Show **all Skills** in the current workspace, labeled with **two source categories** (built-in / from capability packs)
+- Per-Skill **enable/disable** toggle
+- Filter by **source / status** + search
+- **Backlinks** from each Skill to capability packs referencing it
+- Peer to the capability-pack section; Settings no longer manages Skills (remove duplicate entry points)
 
-- ❌ 不暴露「从其他工作区导入 / 从源同步」入口（PRD §199：`importSource` 是内部机制，不暴露为「用户自装」）
-- ❌ 不开放第三方 Skill 自装（0.3 范围外）
-- ❌ 不做批量启停（`skills.json` 已有 `header.*` key，但 #421 AC 未要求，YAGNI）
-- ❌ 不做删除入口（启停足够；删除属高级管理，不在本切片）
-- ❌ 不做「打开文件夹」按钮（当前无 `shell.openPath` IPC，新增需四联同步；AC 未要求，YAGNI）
+<a id="11-non-scope明确不做"></a>
 
-## 2. 关键设计决策
+### 1.1 Non-scope (Explicit Exclusions)
 
-### 2.1 「来源两类」由能力包交叉引用派生（不读 `importSource`）
+- ❌ No "Import from another workspace / Sync from source" entry (PRD §199: `importSource` is internal, not exposed as user installation)
+- ❌ No user-installed third-party Skills (outside 0.3)
+- ❌ No bulk enable/disable (`skills.json` already has `header.*` keys, but #421 AC does not require it, YAGNI)
+- ❌ No delete action (toggles suffice; deletion is advanced management, outside this slice)
+- ❌ No "Open folder" button (no current `shell.openPath` IPC; adding it requires four-layer synchronization and is not required by AC, YAGNI)
 
-`SkillMeta` 上的 `importSource` 是工作区同步的内部元数据，PRD 明确不暴露。来源判定改为与能力包做交叉引用：
+<a id="2-关键设计决策"></a>
+
+## 2. Key Design Decisions
+
+<a id="21-来源两类由能力包交叉引用派生不读-importsource"></a>
+
+### 2.1 Derive the Two Source Categories from Pack Cross-References (Do Not Read `importSource`)
+
+`importSource` on `SkillMeta` is internal workspace-sync metadata that the PRD explicitly keeps hidden. Determine source by cross-referencing capability packs:
 
 ```
-被某能力包 manifest.skillRefs 引用 → source = 'capability-package'（来自能力包）
-否则                              → source = 'builtin'（系统内置）
+Referenced by a pack's manifest.skillRefs → source = 'capability-package' (from pack)
+Otherwise                               → source = 'builtin' (built-in)
 ```
 
-**好处**：零后端改动；与反向链接同源（同一份 refIndex）。
+**Benefits**: zero backend changes; same source as backlinks (same refIndex).
 
-### 2.2 反向链接 = 同一份交叉引用,自动随能力包刷新（满足 AC3）
+<a id="22-反向链接-&#45;同一份交叉引用自动随能力包刷新满足-ac3"></a>
 
-「被哪些能力包使用」用同一份反向索引派生。面板挂载 / 收到 `CAPABILITIES_CHANGED` 事件时重新拉取并重建索引，因此卸载/切换能力包后反向链接自动更新——无需额外逻辑。
+### 2.2 Backlinks = Same Cross-Reference, Automatically Refreshed with Packs (AC3)
 
-### 2.3 来自能力包的 Skill 锁定为开启，不可单独禁用
+Derive "Used by which packs" from the same reverse index. Fetch again and rebuild on mount / `CAPABILITIES_CHANGED`, so backlinks update automatically after pack uninstall/switch, without extra logic.
 
-能力包默认启用、不可禁用、开箱即用（#414 Codex 风）。若其引用的 Skill 可被单独禁用，能力包就会缺能力、无法工作——这与「不可禁用」矛盾。因此：
+<a id="23-来自能力包的-skill-锁定为开启不可单独禁用"></a>
 
-- **来自能力包**的 Skill（`usedByPacks.length > 0`）→ 开关锁定（disabled），由能力包托管；行内显示 🔒 + tooltip「由能力包提供，默认启用、不可单独禁用」。`onToggle` 同时做防御性拦截。
-- **系统内置**（无任何有效能力包引用）的 Skill → 才可自由启停。
+### 2.3 Skills from Capability Packs Are Locked On and Cannot Be Disabled Individually
 
-> 这让「来源两类 + 反向链接」具备实际约束意义，而非纯展示。
-> 边界：若某能力包引用了一个磁盘上已禁用的 Skill（数据不一致），开关如实反映 `enabled` 状态但仍锁定；修复该不一致不在本面板职责内。
-> manifest 校验失败的包不计入引用（`buildSkillRefIndex` 跳过），其「被引用」的 Skill 视为系统内置、可启停——因为坏包本就不提供能力。
+Capability packs are enabled by default, cannot be disabled, and work out of the box (#414 Codex style). Individually disabling referenced Skills would leave packs missing capabilities and unable to work, contradicting non-disableability. Therefore:
 
-## 3. 架构与数据流
+- Skills **from capability packs** (`usedByPacks.length > 0`) → disabled toggle, managed by pack; show 🔒 + tooltip "Provided by a capability pack, enabled by default and cannot be disabled individually." Also defensively block in `onToggle`.
+- **Built-in** Skills (no valid pack references) → freely enable/disable.
 
-**零新增 IPC**——复用既有通道：
+> This gives the two source categories and backlinks actual constraint semantics rather than display-only meaning.
+> Boundary: if a pack references a Skill already disabled on disk (inconsistent data), the switch truthfully reflects `enabled` while remaining locked; fixing that inconsistency is outside this panel's responsibility.
+> Packs with invalid manifests do not count as references (`buildSkillRefIndex` skips them); their referenced Skills are treated as built-in and toggleable because invalid packs provide no capabilities.
 
-| 数据 | 通道 / API | 现状 |
+<a id="3-架构与数据流"></a>
+
+## 3. Architecture and Data Flow
+
+**Zero new IPC**—reuse existing channels:
+
+| Data | Channel / API | Current state |
 |------|-----------|------|
-| Skill 列表（含 active+inactive） | `window.electronAPI.getWorkspaceSkills(slug)` → `agent:get-skills` | ✅ 已有 |
-| 单 Skill 启停 | `window.electronAPI.toggleWorkspaceSkill(slug, skillSlug, enabled)` → `agent:toggle-skill` | ✅ 已有 |
-| Skill 目录（打开文件夹） | `window.electronAPI.getWorkspaceSkillsDir(slug)` → `agent:get-skills-dir` | ✅ 已有 |
-| 能力包列表（含 `skillRefs[]`） | `window.electronAPI.capabilityPack.list()` | ✅ 已有 |
-| 当前工作区 slug | `currentAgentWorkspaceIdAtom` | ✅ 已有 |
-| 能力变更事件 | `onCapabilitiesChanged`（`CAPABILITIES_CHANGED`） | ✅ 已有 |
+| Skill list (active+inactive) | `window.electronAPI.getWorkspaceSkills(slug)` → `agent:get-skills` | ✅ Existing |
+| Per-Skill toggle | `window.electronAPI.toggleWorkspaceSkill(slug, skillSlug, enabled)` → `agent:toggle-skill` | ✅ Existing |
+| Skill directory (open folder) | `window.electronAPI.getWorkspaceSkillsDir(slug)` → `agent:get-skills-dir` | ✅ Existing |
+| Capability-pack list (including `skillRefs[]`) | `window.electronAPI.capabilityPack.list()` | ✅ Existing |
+| Current workspace slug | `currentAgentWorkspaceIdAtom` | ✅ Existing |
+| Capability-change event | `onCapabilitiesChanged` (`CAPABILITIES_CHANGED`) | ✅ Existing |
 
-**数据流**：
+**Data flow**:
 
 ```
-挂载 / CAPABILITIES_CHANGED →
-  并行 [ capabilityPack.list(), getWorkspaceSkills(currentWorkspaceId) ]
-  → 构建 refIndex: Map<skillSlug, packId[]>
-  → 派生 SkillRowVM { ...skillMeta, source, usedByPacks }
-  → 渲染（应用 search / sourceFilter / statusFilter）
+Mount / CAPABILITIES_CHANGED →
+  Parallel [ capabilityPack.list(), getWorkspaceSkills(currentWorkspaceId) ]
+  → Build refIndex: Map<skillSlug, packId[]>
+  → Derive SkillRowVM { ...skillMeta, source, usedByPacks }
+  → Render (apply search / sourceFilter / statusFilter)
 ```
 
-## 4. 组件单元（单一职责）
+<a id="4-组件单元单一职责"></a>
 
-| 单元 | 职责 | 依赖 |
+## 4. Component Units (Single Responsibility)
+
+| Unit | Responsibility | Dependencies |
 |------|------|------|
-| `SkillPanel`（新增 `components/config/SkillPanel.tsx`） | 拉数据、维护 `search`/`sourceFilter`/`statusFilter` state、订阅 `CAPABILITIES_CHANGED`、loading/error/empty 三态 | `currentAgentWorkspaceIdAtom`、`electronAPI`、`useT('skills')` |
-| `SkillRow`（同文件内子组件） | 单 Skill 行：名称（`nameI18n[lang] ?? name`）、描述、来源徽章、`usedByPacks` 行内 chip、`Switch` 启停 | props |
-| `filterSkills(skills, {search, source, status})`（纯函数，可单测） | 过滤逻辑 | 无 |
-| `buildSkillRefIndex(packs)`（纯函数，可单测） | 构建 `Map<skillSlug, packId[]>` | 无 |
+| `SkillPanel` (new `components/config/SkillPanel.tsx`) | Fetch data, maintain `search`/`sourceFilter`/`statusFilter` state, subscribe to `CAPABILITIES_CHANGED`, loading/error/empty states | `currentAgentWorkspaceIdAtom`, `electronAPI`, `useT('skills')` |
+| `SkillRow` (subcomponent in same file) | Per-Skill row: name (`nameI18n[lang] ?? name`), description, source badge, inline `usedByPacks` chips, `Switch` toggle | props |
+| `filterSkills(skills, {search, source, status})` (pure, unit-testable) | Filtering | None |
+| `buildSkillRefIndex(packs)` (pure, unit-testable) | Build `Map<skillSlug, packId[]>` | None |
 
-三态、卡片+阴影、语义 token 样式对齐现有 [`CapabilityPackPanel`](../../../apps/electron/src/renderer/components/config/CapabilityPackPanel.tsx)。
+Align three states, cards/shadows, and semantic tokens with existing [`CapabilityPackPanel`](../../../apps/electron/src/renderer/components/config/CapabilityPackPanel.tsx).
 
-## 5. 交互（已确认）
+<a id="5-交互已确认"></a>
 
-- 顶部：搜索框（`view.searchAll`）
-- 两组 chip 过滤器：
-  - **来源**：全部 / 系统内置 / 来自能力包
-  - **状态**：全部 / 启用 / 禁用（复用 `view.filter.*`）
-- 列表：每行展示来源徽章 + 反向链接行内 chip（`来自能力包` 的 skill 显示「被使用：包A、包B」；`系统内置` 仅显示来源徽章无 chip）+ 启停 `Switch`
-- 启停：调 `toggleWorkspaceSkill` + 乐观更新；失败回滚 + inline 错误 + 重新拉取校正
+## 5. Interaction (Confirmed)
 
-## 6. 错误处理
+- Top: search input (`view.searchAll`)
+- Two chip-filter groups:
+  - **Source**: All / Built-in / From capability pack
+  - **Status**: All / Enabled / Disabled (reuse `view.filter.*`)
+- List: each row shows source badge + inline backlink chips (Skills `来自能力包`—from capability packs—show "Used by: Pack A, Pack B"; `系统内置`—built-in—show source badge only) + enable/disable `Switch`
+- Toggle: call `toggleWorkspaceSkill` + optimistic update; on failure roll back + inline error + refetch to reconcile
 
-| 场景 | 处理 |
+<a id="6-错误处理"></a>
+
+## 6. Error Handling
+
+| Scenario | Handling |
 |------|------|
-| `currentWorkspaceId` 为空 | 显示「无活动工作区」提示，不调 API |
-| `getWorkspaceSkills` / `list()` 抛错 | error 态（对齐 CapabilityPackPanel 的 `loadError` 样式） |
-| `toggleWorkspaceSkill` 失败 | 回滚开关态 + inline 错误 + reload 校正 |
-| 列表为空 | empty 态（`view.empty.category`） |
-| 过滤后为空 | `view.empty.filtered` |
+| Empty `currentWorkspaceId` | Show "No active workspace" without calling API |
+| `getWorkspaceSkills` / `list()` throws | Error state (match CapabilityPackPanel `loadError` styling) |
+| `toggleWorkspaceSkill` fails | Roll back toggle + inline error + reload to reconcile |
+| Empty list | Empty state (`view.empty.category`) |
+| Empty after filtering | `view.empty.filtered` |
 
-## 7. i18n（en + zh 同步，`skills` ns）
+<a id="7-i18nen-&#45;zh-同步skills-ns"></a>
 
-`skills` ns 已有大部分 key（`view.*`/`row.*`/`filter.*`/`categories.*`）。需补：
+## 7. i18n (Synchronize en + zh, `skills` Namespace)
 
-- `source.builtin` = 系统内置 / Built-in
-- `source.fromPack` = 来自能力包 / From capability pack
-- 来源过滤标签：`view.filter.sourceAll` / `sourceBuiltin` / `sourceFromPack`（或复用 `source.*`）
-- `view.usedBy` = 被使用：{{packs}} / Used by: {{packs}}
+The `skills` namespace already has most keys (`view.*`/`row.*`/`filter.*`/`categories.*`). Add:
 
-`config.json` 的 `skillsPanel.comingSoon` 不再引用 → 删除（en+zh 同步）。改动受 `key-parity.test.ts` 守门。
+- `source.builtin` = Chinese equivalent of Built-in / Built-in
+- `source.fromPack` = Chinese equivalent of From capability pack / From capability pack
+- Source filter labels: `view.filter.sourceAll` / `sourceBuiltin` / `sourceFromPack` (or reuse `source.*`)
+- `view.usedBy` = Chinese equivalent of Used by: {{packs}} / Used by: {{packs}}
 
-## 8. 测试（BDD/TDD）
+`skillsPanel.comingSoon` in `config.json` is no longer referenced → delete in en+zh together. Changes guarded by `key-parity.test.ts`.
 
-- `filterSkills` 纯函数单测：搜索 / 来源 / 状态 / 组合
-- `buildSkillRefIndex` 纯函数单测：多包引用同一 skill、无引用、空列表
-- 组件交互在 `bun run dev` 手验 golden path + 切 zh↔en 无 raw key
+<a id="8-测试bddtdd"></a>
 
-## 9. AC 映射
+## 8. Tests (BDD/TDD)
 
-| AC | 满足方式 |
+- `filterSkills` pure-function unit tests: search / source / status / combinations
+- `buildSkillRefIndex` pure-function unit tests: multiple packs referencing one skill, no references, empty list
+- Manually check component golden path in `bun run dev` + switch zh↔en without raw keys
+
+<a id="9-ac-映射"></a>
+
+## 9. AC Mapping
+
+| AC | Satisfaction |
 |----|---------|
-| 展示全部 Skill 含来源 | `getWorkspaceSkills` × `refIndex` 派生 source |
-| 单启停 + 来源/状态过滤 | `toggleWorkspaceSkill` + `filterSkills` |
-| 反向链接随能力包更新 | `CAPABILITIES_CHANGED` 触发 reload（自动） |
-| Settings 无双入口 | 复核确认（探查显示 `settings-tab.ts` 已无 agent/skill tab，大概率已满足；PR 描述说明） |
+| Show all Skills with sources | `getWorkspaceSkills` × `refIndex` derives source |
+| Individual toggles + source/status filters | `toggleWorkspaceSkill` + `filterSkills` |
+| Backlinks update with capability packs | `CAPABILITIES_CHANGED` triggers reload automatically |
+| No duplicate Settings entry | Review to confirm (inspection shows `settings-tab.ts` no longer has agent/skill tabs, likely already satisfied; explain in PR) |
 
-## 10. 受影响包 / 版本
+<a id="10-受影响包-&#45;版本"></a>
 
-- `apps/electron`：新增 `SkillPanel.tsx`、改 `ConfigView.tsx`、改 locale `skills`/`config`、新增纯函数单测 → `package.json` patch +1（仅开 PR 时一次）
+## 10. Affected Packages / Versions
+
+- `apps/electron`: add `SkillPanel.tsx`, change `ConfigView.tsx`, locale `skills`/`config`, add pure-function tests → `package.json` patch +1 (once, only when opening PR)

@@ -1,8 +1,10 @@
-# 历史归档
+<a id="历史归档"></a>
 
-本目录存放从主线剥离但仍有参考价值的历史资料：
+# Historical Archive
 
-- `release-notes/` — 历史版本的 release notes（项目版本线已从 0.9.x rebase 到 0.1.x 基线，见 commit `99e97e4`）
-- `sdk-upgrade-notes.md` — Claude Agent SDK 历次 Breaking Changes 记录（当前仍有效的加固方案保留在 `CLAUDE.md` 中）
+This directory contains historical material removed from the mainline that remains useful for reference:
 
-归档来源：见各文件的 git 历史。
+- `release-notes/` — Release notes for historical versions (the project's version line was rebased from 0.9.x to the 0.1.x baseline; see commit `99e97e4`)
+- `sdk-upgrade-notes.md` — Records of successive Claude Agent SDK Breaking Changes (hardening measures still in effect remain in `CLAUDE.md`)
+
+Archive origins: See each file's git history.

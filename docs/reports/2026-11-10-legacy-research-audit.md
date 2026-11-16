@@ -1,126 +1,144 @@
-> 基线审计记录：本文与配套 JSON 保存清理前的文件/功能盘点，不随源码删除而改写原计数。后续已实施和保留边界见[科研退役执行记录](./2026-11-10-research-retirement.md)。
+> Baseline audit record: This document and companion JSON preserve the precleanup file/feature inventory; original counts are not rewritten as source is deleted. Subsequent implementation and retained boundaries are in the [Research Retirement Execution Record](./2026-11-10-research-retirement.md).
 
-# ASCI 旧品牌与科研资产保留审计（2026-11-10）
+<a id="asci-旧品牌与科研资产保留审计2026-11-10"></a>
 
-审计对象：Tinker 分支基线 `4ca339592668581c1dc36abc9097fc9bf0aa1650`。所有下述行号均以该 commit 为准；为避免并行迁移的工作区修改改变结论，清单从 `git archive HEAD` 生成，证据从 `git show HEAD:<path>` / `git grep ... HEAD` 读取。本报告没有自行联网确认远端最新 tip，远端与基线的对应关系由主任务提供。审计只新增本报告和相邻 JSON 清单，没有修改、删除源码、旧文档或用户数据，没有运行 GUI、测试、构建、commit 或 push。
+# ASCI Legacy Branding and Research Asset Retention Audit (2026-11-10)
 
-## 结论
+Audit target: Tinker branch baseline `4ca339592668581c1dc36abc9097fc9bf0aa1650`. All line references below use that commit. To avoid concurrent migration edits changing conclusions, inventory was generated from `git archive HEAD`; evidence read through `git show HEAD:<path>` / `git grep ... HEAD`. This report did not independently check the latest remote tip online; the parent task supplied remote-to-baseline correspondence. The audit adds only this report and adjacent JSON inventory, without modifying/deleting source, old documents, or user data, or running GUI, tests, builds, commit, or push.
 
-**旧 ASCI 文档与科研能力大量保留；Tinker 的通用产品改造已经隐藏了一部分入口，并按请求选择运行时，但科研系统没有被移除。** “源码仍在”“有静态接线”“普通用户可从常规界面直接进入”“已在安装包中实测”是四个不同结论，本审计仅证明前三者中的具体接线，不宣称运行通过。
+<a id="结论"></a>
 
-- 旧品牌不只存在于内部 ID：当前 agent 指令入口 `CLAUDE.md:10` 仍把产品定义为面向科研的 ASCI，`CONTEXT.md:1-3` 仍称 ASCI 对话流；会话工作区自动生成的指令 `apps/electron/src/main/lib/config-paths.ts:25-38` 仍明确告诉 Agent 宿主是 ASCI。
-- `apps/electron/src/renderer/lib/product-surface.ts:2` 的 `RESEARCH_UI_ENABLED=false` 只收起特定 renderer 入口。它不会关闭主进程 IPC、科研数据库、论文 watcher、能力包分发或全部科研界面。
-- 右侧论文页仍是默认 tab：`apps/electron/src/renderer/atoms/right-panel-tabs.ts:45-48`，同文件 `:217-222` 还将新会话的 activeId 初始化为 session-papers。标签栏在 `apps/electron/src/renderer/components/app-shell/RightPanelTabBar.tsx:264-275` 遍历 tabs，无科研开关过滤；对应内容在 `RightPanelTabContent.tsx:79-88` 挂载。因此在有当前会话且右栏打开时，论文页仍有常规静态界面入口，且默认激活。
-- 运行时已做任务分流：科研意图进入 `research`；普通通用任务默认使用精简上下文。不能因为科研 prompt/MCP 仍在仓库中就断言每次普通聊天都会加载。带显式 Skill/MCP 引用的通用请求仍有额外遗留加载边界，详见下文。
-- 许可、原作者归属、数据路径和协议名字应单独处理，不能按 `ASCI` 关键词全量替换或删除。
+## Conclusion
 
-## 完整清单与计数
+**Extensive ASCI documentation/research capabilities remain; Tinker's general-product changes hide some entries and select runtimes per request, but the research system has not been removed.** Source existence, static wiring, ordinary UI accessibility, and installed-package runtime verification are four distinct conclusions. This audit establishes specific wiring among the first three, not successful execution.
 
-相邻文件 `2026-11-10-legacy-research-inventory.json` 包含 **2,911 个 tracked 文件/符号链接的完整文件名清单**，每项的检索组标记、文件名命中标记和独占归属类别。`files` 唯一文件表的零基下标就是 file ID，类别索引与 term bitmask 的解码规则见 `file_table_encoding`；按类别或标记筛选即可取得全部对应文件名。资源集合用 file ID 引用，不重复路径；未命中项也完整保留。精确调用链行号见本报告，不在 JSON 重复每一行文本命中。
+- Old branding extends beyond internal IDs: active Agent instructions `CLAUDE.md:10` still define ASCI as research-oriented; `CONTEXT.md:1-3` still describes ASCI conversation flow; generated session-workspace instructions `apps/electron/src/main/lib/config-paths.ts:25-38` explicitly identify the host as ASCI.
+- `RESEARCH_UI_ENABLED=false` in `apps/electron/src/renderer/lib/product-surface.ts:2` hides selected renderer entries only; it does not disable main IPC, research DB, paper watcher, pack distribution, or all research interfaces.
+- Papers remains the default right-side tab: `apps/electron/src/renderer/atoms/right-panel-tabs.ts:45-48`, with new-session activeId=session-papers at `:217-222`. `apps/electron/src/renderer/components/app-shell/RightPanelTabBar.tsx:264-275` iterates tabs without research filtering; `RightPanelTabContent.tsx:79-88` mounts content. Thus with a current session and open right panel, Papers has an ordinary static entry and defaults active.
+- Runtime routes research intent to `research`; ordinary tasks default to reduced context. Repository prompt/MCP presence does not mean every ordinary chat loads them. Explicit Skill/MCP references retain additional loading boundaries, below.
+- Treat licenses, original attribution, data paths, and protocol names separately; never replace/delete all `ASCI` matches indiscriminately.
 
-- 扫描 UTF-8 文本/链接目标文字：2,770；二进制或非 UTF-8 内容排除：141（仍记录其文件名，不对图片、PDF 做 OCR）。`AGENTS.md` 是指向 `CLAUDE.md` 的 tracked 符号链接，未重复跟随计数。
-- 路径或内容至少命中一组：**1,572 文件**；未命中：1,339。
-- 不区分大小写的原始 `asci` 子串：948 文件；排除相邻英文字母的 ASCI token：894 文件；OPENSCI：114；中文科研词：436；英文科研词：879；科研服务名：690。这些集合有交集，不能相加。
-- 54 个文件仅命中原始 `asci` 而没有 ASCI token，例如 ASCII 编码、Fascism、期刊名称中的子串；它们不应直接算作品牌残留。
+<a id="完整清单与计数"></a>
 
-下表是互斥的路径归属分类，合计 1,572。它是**匹配文件数量**，不是功能数量，也不是逐条确认应清理的文件数量。
+## Full Inventory and Counts
 
-| 分类（JSON key） | 命中文件数 | 判读方式 |
+Adjacent `2026-11-10-legacy-research-inventory.json` contains **all 2,911 tracked file/symlink names**, search-group flags, filename-match flags, and exclusive ownership categories. Zero-based indices in unique `files` are file IDs; category/term-bitmask decoding is in `file_table_encoding`. Filter categories/flags for complete filenames. Asset sets reference file IDs without repeated paths; unmatched entries also remain. Exact call-chain lines are in this report rather than duplicated text hits in JSON.
+
+- UTF-8 text/link targets scanned: 2,770; binary/non-UTF-8 excluded: 141 (filenames retained; no image/PDF OCR). `AGENTS.md` is a tracked symlink to `CLAUDE.md`, not followed/counting twice.
+- At least one path/content group match: **1,572 files**; unmatched: 1,339.
+- Case-insensitive raw `asci` substring: 948 files; ASCI token excluding adjacent English letters: 894; OPENSCI: 114; Chinese research terms: 436; English research terms: 879; research-service names: 690. Sets overlap and cannot be summed.
+- 54 files match only raw `asci`, not the ASCI token, e.g. ASCII encoding, Fascism, journal-name substrings; do not automatically count as brand residue.
+
+Exclusive path categories below sum to 1,572. These are **matched file counts**, not feature counts or confirmed cleanup counts.
+
+| Category (JSON key) | Matching Files | Interpretation |
 |---|---:|---|
-| root_product_and_agent_docs | 3 | README、CLAUDE、CONTEXT，含当前指令冲突 |
-| current_reference_docs_and_qa | 28 | ADR、架构、构建、开发说明；需按当前源码校验 |
-| historical_docs_and_proposals | 41 | history、0.2、milestones、feedback、proposals、disabled upstream workflows |
-| design_specs_not_runtime_authority | 78 | 设计方案；状态和日期不等于实现/可达性 |
-| prior_audit_and_qa_evidence | 4 | 既有报告与验证资料；不复用为本次实测证据 |
-| bundled_skills_and_assets | 292 | 包括科研技能、通用技能里的科研示例 |
-| bundled_capability_packs | 19 | 3 个科研能力包的全部文件 |
-| bundled_mcp_and_resources | 87 | 检索 MCP、Zotero 等资源；不含被优先归入测试的条目 |
-| main_runtime | 245 | 主进程服务、存储、IPC、prompt、MCP |
-| preload_bridge | 7 | renderer ↔ main 接口 |
-| renderer_runtime | 270 | 页面、组件、atoms、hooks 等 |
-| renderer_locales | 54 | 当前与被收起页面的翻译文本 |
-| shared_core_ui_packages | 83 | 共享类型、常量、Zotero 客户端、schema 等 |
-| tests_fixtures | 294 | 独立测试/fixture 路径；bundled skill 自带文件按资源归属优先 |
-| build_scripts_config_other | 65 | 打包、脚本、配置、其他路径 |
-| licenses_attribution | 2 | 命中关键词的 LICENSE/NOTICE 类文件；其他许可仍完整保留在全量清单 |
+| root_product_and_agent_docs | 3 | README, CLAUDE, CONTEXT, including current instruction conflicts |
+| current_reference_docs_and_qa | 28 | ADR, architecture, build/development docs; verify against current source |
+| historical_docs_and_proposals | 41 | history, 0.2, milestones, feedback, proposals, disabled upstream workflows |
+| design_specs_not_runtime_authority | 78 | Designs; status/date do not establish implementation/accessibility |
+| prior_audit_and_qa_evidence | 4 | Prior reports/validation, not reused as current runtime evidence |
+| bundled_skills_and_assets | 292 | Research skills and research examples in general skills |
+| bundled_capability_packs | 19 | All files in 3 research packs |
+| bundled_mcp_and_resources | 87 | Search MCP, Zotero resources; excludes entries prioritized as tests |
+| main_runtime | 245 | Main services, storage, IPC, prompts, MCP |
+| preload_bridge | 7 | renderer ↔ main interfaces |
+| renderer_runtime | 270 | Pages, components, atoms, hooks, etc. |
+| renderer_locales | 54 | Translations for current/hidden pages |
+| shared_core_ui_packages | 83 | Shared types, constants, Zotero clients, schemas, etc. |
+| tests_fixtures | 294 | Standalone test/fixture paths; bundled skill files prioritized as assets |
+| build_scripts_config_other | 65 | Packaging, scripts, configuration, other paths |
+| licenses_attribution | 2 | Keyword-matching LICENSE/NOTICE files; other licenses remain in full inventory |
 
-全文和路径联合检索：`ASCI/asci`、`OPENSCI`、`科研/论文/文献/学术/综述/研究空白/证据集`、`research/scientific/scholar/academic/literature/paper(s)/citation(s)/evidence-set`、`Zotero/PubMed/arXiv/paper-search/papers-rg/litreview/lit-review/lit-search/research-gap/OpenAlex/Semantic Scholar/bioRxiv/EuropePMC/Crossref`。JSON `methodology.patterns` 是可重放的精确正则。泛词 research/paper 也会命中市场调研、业务写作、样例和科学库说明，所以语义处置必须以本报告的调用链和人工判断为准。
+Combined content/path search: `ASCI/asci`, `OPENSCI`, `科研/论文/文献/学术/综述/研究空白/证据集` (research/papers/literature/academic/reviews/research gaps/evidence sets), `research/scientific/scholar/academic/literature/paper(s)/citation(s)/evidence-set`, `Zotero/PubMed/arXiv/paper-search/papers-rg/litreview/lit-review/lit-search/research-gap/OpenAlex/Semantic Scholar/bioRxiv/EuropePMC/Crossref`. JSON `methodology.patterns` holds exact replayable regexes. Broad research/paper terms also match market research, business writing, examples, and scientific-library descriptions; disposition requires these call chains and human judgment.
 
-额外按路径盘点全部打包技能，不依赖关键词：**99 个 SKILL.md 入口、883 个技能文件**（包括通用 Office/图表等，不能全称为科研专用）；3 个能力包、19 个文件：`lit-search`、`lit-review`、`research-gap`。所有入口名与文件名见 JSON 的 `retained_asset_sets`。这补足了 biopython、scanpy 等不一定包含上述检索词的科学工具资产。
+Additional complete path-based bundled-skill inventory independent of keywords: **99 SKILL.md entries, 883 skill files** (including general Office/charts, not all research-specific); 3 packs/19 files: `lit-search`, `lit-review`, `research-gap`. All names/paths are in JSON `retained_asset_sets`, covering scientific tools such as biopython/scanpy that may lack search terms.
 
-## 文档：历史保留与当前权威入口
+<a id="文档历史保留与当前权威入口"></a>
 
-| 资产 | 证据 | 判断 |
+## Documentation: Historical Retention and Current Authority
+
+| Asset | Evidence | Assessment |
 |---|---|---|
-| 当前 Tinker README | `README.md:3,18,26,32` | 当前产品叫 Tinker；明示演进自 ASCI、保留 @asci 命名、候选数据隔离、保留原作归属，并链接历史 README |
-| 当前 agent 规则 | `CLAUDE.md:10,20,45,221`；`AGENTS.md -> CLAUDE.md` | 仍面向科研 ASCI、旧仓库 issue tracker、旧目录说明；是仍生效的入口，不是仅归档 |
-| 当前领域语言 | `CONTEXT.md:1-3,66-106,174-190` | 保留论文、证据集、Corpus、科研相关性服务语言；包含当前、目标和未来设计，不能把未来 Corpus 视为已上线 |
-| 历史 README | `docs/history/ASCI-README.md`；`README.md:32` | 明确历史归档，应保留来源和演进记录 |
-| 科研设计文档 | `docs/specs/0.4.0/research-gap-spec.md`、`docs/specs/evidence-set-research.md`、Zotero/引用跳转等 specs | 完整保留；“设计存在”不能代替运行代码核对 |
-| 当前通用产品表面设计 | `docs/specs/tinker-general-product-surface.md:3,7-18,22,26` | 明确仅隐藏入口、不移除数据/后台；声明 native E2E 待完成。文档说 Rust migration paused，是当时范围说明，不阻止用户本次授权的下一步迁移 |
-| 既有路线与讨论 | `docs/milestones/`、`docs/feedback/`、`docs/0.2/`、`docs/proposals/` | 历史目标、反馈、静态 demo 和提案，不能默认解释为当前产品承诺 |
-| 规范与架构 | `docs/architecture.md`、`docs/agent-sdk-integration.md`、`docs/adr/` | 仍由 CLAUDE 导航使用，内容混有旧科研架构；应逐域同步，不能直接整体归档 |
+| Current Tinker README | `README.md:3,18,26,32` | Product named Tinker; explicitly evolved from ASCI, retains @asci names, Candidate data isolation, original attribution, historical README link |
+| Current Agent rules | `CLAUDE.md:10,20,45,221`; `AGENTS.md -> CLAUDE.md` | Still research-oriented ASCI, old issue tracker/directory descriptions; active authority, not archive only |
+| Current domain language | `CONTEXT.md:1-3,66-106,174-190` | Papers/evidence sets/Corpus/relevance service; mixes current/target/future design, so future Corpus is not deployed functionality |
+| Historical README | `docs/history/ASCI-README.md`; `README.md:32` | Explicit archive; retain provenance/evolution |
+| Research designs | `docs/specs/0.4.0/research-gap-spec.md`, `docs/specs/evidence-set-research.md`, Zotero/citation-navigation specs | Fully retained; design presence does not replace source review |
+| Current general-product surface design | `docs/specs/tinker-general-product-surface.md:3,7-18,22,26` | Explicit entry hiding without data/background removal; native E2E pending. Its Rust migration paused statement reflects scope then, not a prohibition on this user-authorized migration |
+| Prior roadmaps/discussions | `docs/milestones/`, `docs/feedback/`, `docs/0.2/`, `docs/proposals/` | Historical goals, feedback, static demos/proposals, not automatically current promises |
+| Specifications/architecture | `docs/architecture.md`, `docs/agent-sdk-integration.md`, `docs/adr/` | Still navigated by CLAUDE, with old research architecture mixed in; synchronize by domain rather than wholesale archive |
 
-JSON 将“历史/提案”按路径分类；并未认定该目录内每项决定都失效。规范是否仍有效需结合 superseding ADR 与当前源码。完整的 41 个命中历史文件、78 个 spec、28 个参考文件可从 JSON 文件表按 area_id 过滤取得，不以本表举例代替全量文件名。
+JSON historical/proposal classification is path-based, not a finding that every decision there expired. Validity requires superseding ADRs/current source. All 41 matched historical files, 78 specs, and 28 references can be retrieved by area_id filtering; examples here do not replace full filenames.
 
-## 科研功能：入口与实际接线
+<a id="科研功能入口与实际接线"></a>
 
-| 功能/表面 | 当前静态状态 | 路径与门控证据 |
+## Research Features: Entries and Actual Wiring
+
+| Feature/Surface | Current Static Status | Path and Gate Evidence |
 |---|---|---|
-| Zotero 设置主导航 | 收起；旧显式入口仍可渲染 | `components/settings/SettingsPanel.tsx:60-61,80`；`SettingsDialog.tsx:43` 把恢复的旧 Zotero tab 改为 MCP，但没有删除显式 Zotero render case |
-| MCP 设置中的 Zotero / paper-search | 内建两行隐藏；用户配置行保留 | `components/settings/agent/McpSection.tsx:62` 只对 isBuiltin 过滤两种名字；不是禁用服务 |
-| 首次引导连接 Zotero | 自动跳过研究阶段 | `components/onboarding/SpotlightOverlay.tsx:96-108`；不等于关闭其服务 |
-| @ 论文/集合/证据集入口与预取 | 根级分类收起，预取跳过 | `components/agent/at-mention-suggestion.tsx:234,274`；旧引用类型与主进程处理仍在 |
-| 助手回答加入证据集 | 按 renderer 开关隐藏 | `components/agent/SDKMessageRenderer.tsx:873`；复制、反馈等通用行为仍可用 |
-| 会话论文列表/筛选/批量 Zotero 导入 | **右栏常规静态入口仍保留** | `atoms/right-panel-tabs.ts:45-48` → `RightPanelTabBar.tsx:264-275` → `RightPanelTabContent.tsx:79-80` → `components/agent/SessionPapersPanel.tsx`。AppShell 仅要求有会话、conversations 视图、panelOpen (`AppShell.tsx:62`) |
-| 检索结果打开论文页 | 结果触发入口仍接线 | `components/agent/tool-result-renderers/paper-search-result.tsx:56` upsert session-papers tab；不受 RESEARCH_UI_ENABLED 限制 |
-| Agent 请求 Zotero 批量导入 | MCP→事件→renderer 仍接线 | `main/lib/agent-orchestrator-mcp.ts:79-93` → `renderer/hooks/useGlobalAgentListeners.ts:900-909` 激活论文 tab、开右栏、存 pending selection；不是仅保留工具定义 |
-| 研究空白对照表 | MCP、事件、结果组件、右栏渲染保留 | `main/lib/agent-orchestrator-mcp.ts:109-118`；`renderer/hooks/useGlobalAgentListeners.ts:648`；`RightPanelTabContent.tsx:81-88`；`components/agent/tool-result-renderers/research-gap-result.tsx` |
-| 全局 Library / Notes | 主导航不再展示；路由分支和界面仍存在 | `components/app-shell/LeftSidebar.tsx:466-490` 为新任务/项目/会话主结构；`components/tabs/MainArea.tsx:49-75` 仍按 activeView library/notes 渲染。仅证明条件路由保留，不宣称用户常规导航可达 |
-| 引用图谱 | 全局 modal 与 IPC 保留 | `renderer/App.tsx:63,68` 挂 GraphModal；`main/ipc.ts:44` 注册；`preload/domains/papers.ts:342`；`components/citation-graph/useCitationGraph.ts:50-86` 发起/取消/订阅 |
-| 论文、笔记、证据集、综述对象与数据库 | 主进程存储与 IPC 保留 | `main/index.ts:335-337,359-364` 初始化及历史证据集归属回填；`main/ipc.ts:41`；`main/ipc/papers.ts`、`main/lib/objects/` repositories/schema/migrations |
-| Zotero PDF 解析、段落总结、向量索引 | 主进程启动路径保留；受用户开关约束 | `main/index.ts:514-521` 仅 zoteroEnabled 且有 mainWindow 时启动 parser/generator/embedding/自动 diff；子能力还有各自配置判断，不等于全都默认开启 |
-| 会话论文实时监听 | 主进程仍启动 | `main/index.ts:507-508` startSessionPapersWatcher，与 renderer 开关无关 |
-| 旧演示与 mock 数据 | 源码保留，不能作为生产数据功能证据 | `atoms/session-evidence-atoms.ts:2,43,116-118` 标注 mock；`components/library/evidence-set-detail/CreateSetNoteDialog.tsx`、`AddPapersToSetDialog.tsx` 仍有 mock 路径；`LeftSidebar.tsx:115` ZoteroConnectBadge 仅定义/测试引用，不能凭组件存在认定侧栏已显示 |
+| Zotero settings navigation | Hidden; old explicit entry still renders | `components/settings/SettingsPanel.tsx:60-61,80`; `SettingsDialog.tsx:43` restores old Zotero tab as MCP but retains explicit Zotero render case |
+| Zotero / paper-search in MCP settings | Two built-in rows hidden; user-configured rows retained | `components/settings/agent/McpSection.tsx:62` filters those names only when isBuiltin; services not disabled |
+| Onboarding Zotero connection | Research stage auto-skipped | `components/onboarding/SpotlightOverlay.tsx:96-108`; does not stop services |
+| @ paper/collection/evidence-set entries and prefetch | Root categories hidden, prefetch skipped | `components/agent/at-mention-suggestion.tsx:234,274`; old reference types/main handling remain |
+| Add assistant answer to evidence set | Hidden by renderer switch | `components/agent/SDKMessageRenderer.tsx:873`; general copy/feedback remain |
+| Session paper list/filter/batch Zotero import | **Ordinary static right-panel entry retained** | `atoms/right-panel-tabs.ts:45-48` → `RightPanelTabBar.tsx:264-275` → `RightPanelTabContent.tsx:79-80` → `components/agent/SessionPapersPanel.tsx`. AppShell requires only a session, conversations view, panelOpen (`AppShell.tsx:62`) |
+| Search-result paper-page opening | Result-triggered entry wired | `components/agent/tool-result-renderers/paper-search-result.tsx:56` upserts session-papers tab, ungated by RESEARCH_UI_ENABLED |
+| Agent Zotero batch-import request | MCP→event→renderer wired | `main/lib/agent-orchestrator-mcp.ts:79-93` → `renderer/hooks/useGlobalAgentListeners.ts:900-909` activates paper tab, opens right panel, saves pending selection; beyond tool definitions |
+| Research-gap comparison table | MCP/events/result component/right rendering retained | `main/lib/agent-orchestrator-mcp.ts:109-118`; `renderer/hooks/useGlobalAgentListeners.ts:648`; `RightPanelTabContent.tsx:81-88`; `components/agent/tool-result-renderers/research-gap-result.tsx` |
+| Global Library / Notes | Main navigation hidden; route branches/UI remain | `components/app-shell/LeftSidebar.tsx:466-490` shows new task/project/session structure; `components/tabs/MainArea.tsx:49-75` still renders activeView library/notes. Establishes conditional routing only, not ordinary navigation accessibility |
+| Citation graph | Global modal/IPC retained | `renderer/App.tsx:63,68` mounts GraphModal; `main/ipc.ts:44` registers; `preload/domains/papers.ts:342`; `components/citation-graph/useCitationGraph.ts:50-86` starts/cancels/subscribes |
+| Paper/note/evidence-set/review objects and DB | Main storage/IPC retained | `main/index.ts:335-337,359-364` initializes/backfills historical evidence-set ownership; `main/ipc.ts:41`; `main/ipc/papers.ts`, `main/lib/objects/` repositories/schema/migrations |
+| Zotero PDF parsing, paragraph summarization, vector index | Main startup path retained, user-gated | `main/index.ts:514-521` starts parser/generator/embedding/auto diff only with zoteroEnabled + mainWindow; subfeatures have individual checks, not all default-on |
+| Live session paper watcher | Still starts in main | `main/index.ts:507-508` startSessionPapersWatcher, independent of renderer switch |
+| Old demos/mock data | Source retained, not production-feature evidence | `atoms/session-evidence-atoms.ts:2,43,116-118` marked mock; `components/library/evidence-set-detail/CreateSetNoteDialog.tsx`, `AddPapersToSetDialog.tsx` retain mocks; ZoteroConnectBadge at `LeftSidebar.tsx:115` is definition/test-only, not proof of visible sidebar display |
 
-表中 `components/`、`atoms/`、`hooks/` 相对 `apps/electron/src/renderer/`；`main/`、`preload/` 相对 `apps/electron/src/`。
+`components/`, `atoms/`, `hooks/` are relative to `apps/electron/src/renderer/`; `main/`, `preload/` to `apps/electron/src/`.
 
-主进程 IPC 没有跟 renderer 开关一起移除：`apps/electron/src/main/ipc.ts:32-44` 无条件注册 papers、Zotero、citation-graph 域。preload 聚合器 `apps/electron/src/preload/index.ts:22-41,63-95,114-124` 仍暴露 zotero、workspacePapers、notes、evidenceSets、reviews、papers、citationGraph 和 paperSearch；具体桥接在 `preload/domains/papers.ts`、`zotero.ts`、`media.ts`，shared 通道/类型在 `packages/shared/src/types/papers-ipc.ts`、`zotero.ts`、`citation-graph.ts` 等。这里证明完整桥接层仍在，不证明每项 handler 已被本次实际调用。
+Main IPC was not removed with renderer gates: `apps/electron/src/main/ipc.ts:32-44` unconditionally registers papers, Zotero, citation-graph domains. Preload aggregator `apps/electron/src/preload/index.ts:22-41,63-95,114-124` still exposes zotero, workspacePapers, notes, evidenceSets, reviews, papers, citationGraph, paperSearch; bridges in `preload/domains/papers.ts`, `zotero.ts`, `media.ts`, shared channels/types in `packages/shared/src/types/papers-ipc.ts`, `zotero.ts`, `citation-graph.ts`, etc. This establishes the full bridge remains, not actual invocation of every handler this round.
 
-## 请求运行时：科研 prompt、MCP、Agent 与技能
+<a id="请求运行时科研-promptmcpagent-与技能"></a>
 
-1. **意图选择是生产门控。** `packages/shared/src/agent/runtime-policy.ts:21-34`：中文论文/文献/综述、Zotero 或特定英文论文意图、科学引用、粘性科研续聊进入 research，启用 workspace context 与 subagents；简单寒暄进入 conversation；普通 general/coding 默认不加载 workspace context。显式 Skill/MCP 引用的 general/coding 使用 workspace context，但不启用 subagents。
-2. **宿主使用该门控。** `apps/electron/src/main/lib/agent-orchestrator.ts:668-696` 传入科学引用与历史状态，只在 includeWorkspaceContext 时执行 buildMcpServers；`:1076-1084` 仅 includeSubagents 时加载能力包；`:1268-1304` 在精简 prompt 与完整 prompt / project settingSources / workspace plugin 之间选择；`:1349-1358` seed 内建 SubAgent/Skill/MCP registry。
-3. **科研专用包仍分发且可按研究路径加载。** `main/index.ts:348,354,372` seed/upgrade default skills、seed capability packs；`electron-builder.yml:122-130` 将默认技能与能力包带入打包资源。`config-paths.ts:722-727` 定义生产与开发资源来源；`:711-720` 的实际升级策略是按 manifest version 覆盖。`main/index.ts:370-371` 的“已存在保留、不覆盖”注释已落后于 helper 实现，不能以该注释判断升级行为。
-4. **3 个科研能力包完整保留。** `apps/electron/default-capability-packs/{lit-search,lit-review,research-gap}/manifest.json:8-13` 声明 scenario Agent，目录还保留检索、引文扩展、综述提案、reader/body-writer/fact-checker、column-proposer/cell-extractor/gap-analyzer 等子 Agent prompt；loader 在 `main/lib/capability-pack-loader.ts:147-155` 扫描注册。每包全文件清单见 JSON。
-5. **科研大 prompt 仍有效用于完整上下文路径。** `main/lib/agent-prompt-builder.ts:338,349-383` 已声明 Tinker 的通用身份、科学是 specialization；同文件 `:392-408` 保留 Zotero 导入/论文分层读取规则，`:683-713` 保留检索 MUST-ROUTE 和结果持久化规则，`:805-823` 保留科研 Skill 路由/综述强制生产链。这些不是只存在于历史 Markdown。
-6. **普通任务仍有加载边界可收紧。** `main/lib/agent-orchestrator-mcp.ts:65-129` 在函数被调用后注册 papers-rg、asci-zotero、litreview、researchgap、searchplan，session 类工具仅以 sessionId 存在为条件。`includeScientificServices` 在 `:207` 只传给 preparePaperSearchRuntime；`main/lib/mcp/runtime-scope.ts:7` 非科研只移除 paper-search。因此带显式 Skill/MCP 引用的 general 请求也会走 builder，仍可能得到其余研究工具和完整 prompt；默认无引用的 ordinary general 请求不会走该路径。
-7. **全局 MCP 可用性与 renderer 显示不同。** `main/lib/mcp/global-config.ts:110-134` 合并用户配置与内建服务，Zotero 默认 fallback false，OCR true、ASR false；`main/lib/mcp/builtin-mcp-resolver.ts:57-82` 由 Zotero 主开关及子开关控制；`:112-113` paper-search 在 uv 存在时 enabled。最终 builder `:135-137` 仅注入 enabled 服务，再由 runtime-scope 对非科研移除 paper-search。不能把“设置行隐藏”读成“检索默认关闭”。
-8. **后台科研服务仍和通用媒体能力耦合。** OCR/ASR 的 enabled 条件目前依赖 zoteroEnabled (`builtin-mcp-resolver.ts:69-82`)，ZoteroSettings 还承担媒体缓存/下载控制。后续迁移应先拆共享设置，避免移除科研入口时同时丢失通用图片/语音/PDF 能力。
+## Request Runtime: Research Prompts, MCP, Agents, and Skills
 
-## ASCI 名字的语义处置
+1. **Intent selection gates production.** `packages/shared/src/agent/runtime-policy.ts:21-34`: Chinese paper/literature/review, Zotero, specific English paper intents, scientific references, and sticky research continuation select research, enabling workspace context/subagents. Simple greetings select conversation; ordinary general/coding omit workspace context by default. Explicit Skill/MCP references in general/coding include workspace context without subagents.
+2. **Host applies the gate.** `apps/electron/src/main/lib/agent-orchestrator.ts:668-696` passes scientific references/history and runs buildMcpServers only with includeWorkspaceContext; `:1076-1084` loads packs only with includeSubagents; `:1268-1304` selects reduced vs. full prompt / project settingSources / workspace plugins; `:1349-1358` seeds built-in SubAgent/Skill/MCP registries.
+3. **Research packs remain distributed/loadable through research paths.** `main/index.ts:348,354,372` seeds/upgrades skills and seeds packs; `electron-builder.yml:122-130` packages defaults. `config-paths.ts:722-727` defines production/development sources; actual upgrade at `:711-720` overwrites by manifest version. Comment at `main/index.ts:370-371` saying existing assets are preserved is stale; do not infer behavior from it.
+4. **All 3 research packs remain.** `apps/electron/default-capability-packs/{lit-search,lit-review,research-gap}/manifest.json:8-13` declares scenario Agents; directories retain search/citation expansion/review proposal/reader/body-writer/fact-checker/column-proposer/cell-extractor/gap-analyzer subagent prompts. `main/lib/capability-pack-loader.ts:147-155` scans/registers. JSON lists every file per pack.
+5. **Large research prompts remain active for full-context paths.** `main/lib/agent-prompt-builder.ts:338,349-383` defines general Tinker identity and science specialization; `:392-408` retains Zotero import/layered paper reading, `:683-713` search MUST-ROUTE/result persistence, `:805-823` research Skill routing/mandatory review-production chains. These extend beyond historical Markdown.
+6. **Ordinary loading boundaries can tighten.** Once called, `main/lib/agent-orchestrator-mcp.ts:65-129` registers papers-rg, asci-zotero, litreview, researchgap, searchplan, with session tools gated only by sessionId. `includeScientificServices` at `:207` reaches only preparePaperSearchRuntime; `main/lib/mcp/runtime-scope.ts:7` removes only paper-search for nonresearch. Explicit Skill/MCP general requests run this builder and may receive remaining research tools/full prompts; default ordinary general without references does not.
+7. **Global MCP availability differs from renderer visibility.** `main/lib/mcp/global-config.ts:110-134` merges user/built-in services, fallback Zotero false, OCR true, ASR false. `main/lib/mcp/builtin-mcp-resolver.ts:57-82` uses Zotero master/subswitches; `:112-113` enables paper-search if uv exists. Final builder `:135-137` injects enabled services only; runtime-scope then removes paper-search for nonresearch. Hidden settings rows do not imply default-disabled search.
+8. **Research background services remain coupled to general media.** OCR/ASR enabled currently depends on zoteroEnabled (`builtin-mcp-resolver.ts:69-82`); ZoteroSettings controls media cache/downloads. Split shared settings before migration so research-entry removal preserves general image/voice/PDF capabilities.
 
-| 类别 | 明确例子与证据 | 建议 |
+<a id="asci-名字的语义处置"></a>
+
+## Semantic Treatment of the ASCI Name
+
+| Category | Explicit Examples/Evidence | Recommendation |
 |---|---|---|
-| 仍生效的旧产品/Agent 身份 | `CLAUDE.md:10`、`CONTEXT.md:1-3`、`main/lib/config-paths.ts:25-38`；该工作区 marker 实际在 `:973,1020` 写出 | 单独规划文档/身份同步；需遵守 CLAUDE 对修改 README/CLAUDE 的明确规则，不由审计顺手改动 |
-| 仍面向用户的科研措辞 | `renderer/locales/en/auth/profile.json:18,21,26` 和 zh `:18`；`components/settings/ProfileSettings.tsx:241` 使用 deleteAccountDescription | 账户页仍说研究数据/本地科研库，应中英同步审查；不把翻译文件所有未被使用的 key 当可达 UI |
-| 用户可见的兼容路径提示 | `renderer/locales/{en,zh}/auth/{conflict,errors,menu}.json` | 保留真实路径兼容语义；候选隔离环境中是否应展示计算后的路径需另验，不能只换品牌字样 |
-| 内部兼容契约 | `@asci/*`、ASCI_* env、MCP asci-*、`asci.db`、`~/.asci(-dev)`、`asci://` (`main/lib/auth-deeplink-parser.ts:18`)、appId (`electron-builder.yml:4`) | 当前保留有理由；重命名要有 schema/存储/OAuth/打包兼容方案，不能文本批量替换 |
-| 实际外链/服务依赖 | LoginPage `:209,216` 和 AboutSettings `:481-482` 使用 ASCI 政策常量；`packages/shared/src/constants/legal.ts:12-15` 指向 OPENSCI ASCI 政策路径；`constants/github-repo.ts:13` 仍指原仓库名 | 这是实接线，不只是常量名。审计没有访问外链或验证服务归属/内容，变更需明确产品目标 |
-| 归属、许可与来源 | `NOTICE:1-5,8-16`、`README.md:32`、`LICENSE` 及 bundled skill LICENSE.txt | 保留；不要误报为待删除品牌残留 |
-| 品牌资产与打包注释 | `electron-builder.yml:132-134` 打包 resources/asci-logos；`:163-169` 仍有 ASCI 应用/路径注释 | 文件名/资源确实保留；未目视二进制图标，不能宣称视觉已全部换成 Tinker 或全部显示旧图标 |
-| 独立旧 Tauri 原型 | `apps/tauri-prototype/src/main.tsx:14`、`index.html:1`、`src-tauri/tauri.conf.json:3,5` | 仍显示 ASCI 技术验证原型，并保留旧 productName/identifier。它是独立 workspace，页面明确未接入聊天、登录、模型和项目数据；不能与正式 Electron 或本轮 `apps/tinker-rust` 的迁移能力混为一谈 |
+| Active old product/Agent identity | `CLAUDE.md:10`, `CONTEXT.md:1-3`, `main/lib/config-paths.ts:25-38`; workspace marker written at `:973,1020` | Plan docs/identity synchronization separately, following explicit README/CLAUDE modification rules; audit does not edit opportunistically |
+| User-facing research wording | `renderer/locales/en/auth/profile.json:18,21,26` and zh `:18`; `components/settings/ProfileSettings.tsx:241` uses deleteAccountDescription | Account still describes research data/local research library; review bilingually, without treating all unused locale keys as accessible UI |
+| Visible compatibility-path hints | `renderer/locales/{en,zh}/auth/{conflict,errors,menu}.json` | Preserve actual path semantics; separately validate computed paths in Candidate isolation, not mere brand replacement |
+| Internal compatibility contracts | `@asci/*`, ASCI_* env, MCP asci-*, `asci.db`, `~/.asci(-dev)`, `asci://` (`main/lib/auth-deeplink-parser.ts:18`), appId (`electron-builder.yml:4`) | Retention has reasons; renaming requires schema/storage/OAuth/packaging compatibility, not bulk replacement |
+| Actual links/service dependencies | LoginPage `:209,216`, AboutSettings `:481-482` use ASCI policy constants; `packages/shared/src/constants/legal.ts:12-15` links OPENSCI ASCI policies; `constants/github-repo.ts:13` retains original repo | Actual wiring, not constant names alone. No external-link/content/ownership verification; changes require explicit product goals |
+| Attribution/licenses/provenance | `NOTICE:1-5,8-16`, `README.md:32`, `LICENSE`, bundled skill LICENSE.txt | Preserve; do not misclassify as removable branding |
+| Brand assets/packaging comments | `electron-builder.yml:132-134` packages resources/asci-logos; `:163-169` retains ASCI app/path comments | Filenames/resources remain; binary icons not visually inspected, so neither complete Tinker replacement nor universally old icons is established |
+| Separate old Tauri prototype | `apps/tauri-prototype/src/main.tsx:14`, `index.html:1`, `src-tauri/tauri.conf.json:3,5` | Still ASCI technical prototype with old productName/identifier; separate workspace explicitly lacks chat/login/model/project data, distinct from production Electron/current `apps/tinker-rust` migration |
 
-## 后续技术迁移边界
+<a id="后续技术迁移边界"></a>
 
-本审计不执行移除科研代码。下一步迁移应以可回归边界推进：
+## Future Technical Migration Boundaries
 
-1. 先将普通会话上下文与科研上下文的选择契约固定，保留旧会话历史与权限语义；Rust 侧迁移围绕普通 conversation profile，避免顺带改 SQLite、科研索引或用户渠道格式。
-2. 单独梳理显式 Skill/MCP 的 general 路径，决定是否继续注入全部研究工具/完整 prompt；形成具体验收案例后再收紧。
-3. 明确右侧论文默认 tab、账户科研文案、显式 library/notes 路由是否要继续保留。当前“隐藏科研”的策略覆盖不完整，但这是产品范围决定，不是本审计的删除授权。
-4. 将 OCR/ASR/PDF 与 Zotero 设置依赖拆开后，再讨论研究模块按需加载或独立能力包。保留可读取历史数据的兼容层。
-5. 文档同步区分当前规则、历史证据和作者归属；用户本次未授权改 README/CLAUDE，本报告只指出冲突。迁移实现应有独立 spec/report 和适当验证，不以此只读审计当作测试通过证据。
+This audit does not remove research code. Advance with regressible boundaries:
 
-## 覆盖限制
+1. Fix ordinary-vs-research context-selection contracts first, preserving historical sessions/permission semantics. Rust migration centers ordinary conversation profile without incidental SQLite/research-index/user-channel-format changes.
+2. Review explicit Skill/MCP general paths separately; decide whether all research tools/full prompts remain, then tighten only after concrete acceptance cases.
+3. Decide whether default Papers tab, research account copy, explicit library/notes routes remain. Current hiding is incomplete, but this is product scope, not audit deletion authorization.
+4. Split OCR/ASR/PDF from Zotero settings before on-demand research loading/independent packs, retaining historical-read compatibility.
+5. Separate current rules, historical evidence, author attribution in docs. This user request did not authorize README/CLAUDE edits; report flags conflicts only. Migration needs independent spec/report and validation; this read-only audit is not passing-test evidence.
 
-“完整”指基线 tracked tree 的文件名及指定词组扫描完整，不代表自然语言语义、所有传递依赖或可运行功能已经穷尽验证。未扫描未跟踪/忽略文件、真实 ~/.asci 配置和会话、历史删除文件、远端分支、二进制内容；未读取真实用户凭据配置或输出实际令牌。没有调用网络、GUI、构建或业务测试，故无法保证 Scholar/PubMed/arXiv 等远端源、Zotero 本机连接、native 安装包、OAuth 或科研链路本轮可运行。路径和调用链证明保留与接线，运行验证留给后续明确范围的验收。
+<a id="覆盖限制"></a>
+
+## Coverage Limitations
+
+Complete means all baseline tracked filenames and specified-term scans, not exhaustive natural-language meaning, transitive dependencies, or executable functionality. Excludes untracked/ignored files, real ~/.asci configuration/sessions, historical deletions, remote branches, binary contents; no real credential configuration read or actual tokens output. No network, GUI, builds, or business tests; cannot guarantee Scholar/PubMed/arXiv sources, local Zotero connection, native installations, OAuth, or research pipelines work this round. Paths/call chains establish retention/wiring; actual runtime validation awaits explicitly scoped acceptance.

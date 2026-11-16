@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>证据集 = 研究主题容器 · 高保真原型（贴合 ASCI 设计系统）</title>
+<title>Evidence Sets = Research Topic Containers · High-Fidelity Prototype (ASCI Design System)</title>
 <style>
-  /* ===== 真实 token（docs/design.md / tokens.css，HSL 分量） ===== */
+  /* ===== Actual tokens (docs/design.md / tokens.css, HSL components) ===== */
   :root {
     --background: 0 0% 100%; --foreground: 0 0% 3.9%;
     --muted: 0 0% 96.1%; --muted-foreground: 0 0% 45.1%;
@@ -38,7 +38,7 @@
   .shell-bg { background: linear-gradient(135deg, hsl(var(--background)), hsl(var(--muted))); }
   .hidden { display: none !important; }
 
-  /* demo 条 */
+  /* demo bar */
   .demo-bar { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; background: hsl(var(--muted)); border-bottom: 1px solid hsl(var(--border)); font-size: 12px; color: hsl(var(--muted-foreground)); }
   .demo-bar .dlabel { font-weight: 600; color: hsl(var(--foreground) / .6); }
   .demo-bar .stage-tabs { display: flex; gap: 4px; }
@@ -49,7 +49,7 @@
 
   .shell { display: flex; height: calc(100vh - 40px); overflow: hidden; position: relative; }
 
-  /* 左侧栏（应用导航） */
+  /* Sidebar (app navigation) */
   .sidebar-wrap { padding: 8px 0 8px 8px; flex: none; }
   .sidebar { width: 230px; height: 100%; background: hsl(var(--background) / .95); backdrop-filter: blur(20px); border-radius: 16px; box-shadow: var(--shadow-xl); display: flex; flex-direction: column; overflow: hidden; }
   .dark .sidebar { border: 1px solid hsl(var(--border) / .4); }
@@ -67,18 +67,18 @@
   .sb-bottom { padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid hsl(var(--border) / .5); }
   .avatar { width: 28px; height: 28px; border-radius: 10px; background: hsl(var(--secondary)); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
 
-  /* 主区 */
+  /* Main area */
   .main { flex: 1; min-width: 0; padding: 8px; display: flex; }
   .main-card { flex: 1; background: hsl(var(--card)); border-radius: 12px; box-shadow: var(--shadow-minimal); border: 1px solid hsl(var(--border) / .6); display: flex; overflow: hidden; }
   .dark .main-card { border-color: hsl(var(--border) / .3); box-shadow: none; }
 
-  /* ===== 证据集页：左容器列表 + 右详情 ===== */
+  /* ===== Evidence-set page: left container list + right details ===== */
   .es-list { width: 320px; flex: none; border-right: 1px solid hsl(var(--border) / .6); display: flex; flex-direction: column; min-height: 0; }
   .es-list-head { padding: 14px 16px 10px; }
   .es-list-head .ttl { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
   .es-list-head .sub { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 2px; }
   .es-search { display: flex; align-items: center; gap: 8px; height: 34px; border: 1px solid hsl(var(--input)); border-radius: 8px; padding: 0 10px; margin-top: 10px; color: hsl(var(--muted-foreground)); font-size: 13px; }
-  /* tag 筛选条 */
+  /* tag filter bar */
   .tag-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 6px; border-bottom: 1px solid hsl(var(--border) / .5); }
   .tag-filter .flabel { font-size: 11px; color: hsl(var(--muted-foreground)); width: 100%; margin-bottom: 2px; }
   .es-rows { flex: 1; overflow-y: auto; padding: 8px; }
@@ -91,7 +91,7 @@
   .es-row .meta { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 6px; display: flex; align-items: center; gap: 8px; }
   .es-row .meta .dot { opacity: .5; }
 
-  /* 右详情 */
+  /* Right details */
   .es-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .det-head { padding: 16px 20px 12px; border-bottom: 1px solid hsl(var(--border) / .5); }
   .det-head .row1 { display: flex; align-items: center; gap: 8px; }
@@ -101,7 +101,7 @@
   .det-head .times { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 8px; display: flex; gap: 12px; }
   .det-body { flex: 1; overflow-y: auto; padding: 6px 20px 20px; }
 
-  /* 区块（笔记 / 证据 并列） */
+  /* Sections (peer Notes / Evidence) */
   .sec { margin-top: 16px; }
   .sec-head { display: flex; align-items: center; gap: 8px; padding: 4px 2px 8px; position: sticky; top: 0; background: hsl(var(--card)); z-index: 2; }
   .sec-head .si { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: hsl(var(--secondary)); color: hsl(var(--foreground) / .7); font-size: 12px; flex: none; }
@@ -109,7 +109,7 @@
   .sec-head .cnt { font-size: 12px; color: hsl(var(--muted-foreground)); }
   .sec-head .grow { flex: 1; }
 
-  /* 成员卡 */
+  /* Member cards */
   .mcard { border-radius: 10px; background: hsl(var(--card)); box-shadow: var(--shadow-minimal); padding: 11px 13px; margin-bottom: 8px; position: relative; }
   .dark .mcard { border: 1px solid hsl(var(--border) / .5); box-shadow: none; }
   .mcard .acts { position: absolute; top: 8px; right: 9px; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
@@ -117,21 +117,21 @@
   .iconbtn { width: 26px; height: 26px; border: 0; background: transparent; border-radius: 6px; color: hsl(var(--foreground) / .5); cursor: pointer; display: grid; place-items: center; font-size: 13px; }
   .iconbtn:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
   .iconbtn.danger:hover { background: hsl(var(--destructive) / .12); color: hsl(var(--destructive)); }
-  /* 笔记卡 */
+  /* Note cards */
   .mcard.note .ntext { font-size: 13.5px; line-height: 1.55; color: hsl(var(--foreground) / .9); padding-right: 56px; white-space: pre-wrap; }
   .mcard .stamp { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 8px; }
-  /* 证据卡 */
+  /* Evidence cards */
   .mcard.ev .quote { font-size: 13px; line-height: 1.5; color: hsl(var(--foreground) / .88); border-left: 2px solid hsl(var(--border)); padding-left: 10px; padding-right: 56px; }
   .mcard.ev .srcline { display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 12px; color: hsl(var(--muted-foreground)); }
   .mcard.ev .srcline .kic { width: 18px; height: 18px; border-radius: 5px; background: hsl(var(--secondary)); display: grid; place-items: center; font-size: 10px; flex: none; }
   .mcard.ev .srcline .stitle { color: hsl(var(--foreground) / .75); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mcard.ev .srcline .jump { margin-left: auto; color: hsl(var(--foreground) / .6); cursor: pointer; display: inline-flex; align-items: center; gap: 3px; flex: none; }
   .mcard.ev .srcline .jump:hover { color: hsl(var(--foreground)); }
-  /* 来自研究空白：唯一语义色（warning 琥珀，关联研究空白来源） */
+  /* From research gaps: sole semantic color (warning amber, links to gap source) */
   .gap-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 8px; font-size: 10px; font-weight: 600; background: hsl(var(--warning) / .14); color: hsl(var(--warning)); }
   .dark .gap-badge { color: hsl(38 92% 62%); }
   .mcard.fromgap { border-left: 3px solid hsl(var(--warning) / .55); }
-  /* 结构化笔记内嵌迷你对照表 */
+  /* Mini comparison table in structured note */
   .minitable { margin-top: 9px; border-radius: 8px; overflow: hidden; border: 1px solid hsl(var(--border) / .7); font-size: 11.5px; }
   .minitable table { border-collapse: collapse; width: 100%; }
   .minitable th, .minitable td { border-bottom: 1px solid hsl(var(--border) / .6); border-right: 1px solid hsl(var(--border) / .6); padding: 5px 8px; text-align: left; }
@@ -139,19 +139,19 @@
   .minitable tbody th { font-weight: 600; background: hsl(var(--card)); }
   .minitable .empty { background: repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--muted) / .7) 4px, hsl(var(--muted) / .7) 8px); }
 
-  /* 内联新增笔记 */
+  /* Inline note creation */
   .add-note-box { border-radius: 10px; border: 1px dashed hsl(var(--foreground) / .25); padding: 10px; margin-bottom: 8px; }
   .add-note-box textarea { width: 100%; border: 0; resize: vertical; min-height: 60px; background: transparent; color: hsl(var(--foreground)); font: inherit; outline: none; }
   .add-note-box .box-act { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 
-  /* 空态 */
+  /* Empty state */
   .empty-sec { font-size: 12.5px; color: hsl(var(--muted-foreground)); padding: 6px 2px 2px; }
 
-  /* footer：找研究空白 */
+  /* footer: find research gaps */
   .det-foot { border-top: 1px solid hsl(var(--border) / .5); padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
   .det-foot .ftxt { font-size: 12px; color: hsl(var(--muted-foreground)); flex: 1; }
 
-  /* 组件 */
+  /* Components */
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 8px; font-size: 13.5px; font-weight: 500; border: 0; cursor: pointer; white-space: nowrap; transition: background .12s; }
   .btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
   .btn-primary:hover { background: hsl(var(--primary) / .9); }
@@ -166,7 +166,7 @@
 
   .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 600; }
   .badge-secondary { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
-  /* tag chip（中性，组织性而非状态语义） */
+  /* tag chip (neutral, organizational rather than state semantics) */
   .tagchip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 10px; font-size: 12px; background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground) / .85); cursor: pointer; border: 1px solid transparent; }
   .tagchip:hover { background: hsl(var(--accent)); }
   .tagchip.on { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
@@ -174,7 +174,7 @@
   .tagchip .x:hover { opacity: 1; }
   .tagchip.add { border: 1px dashed hsl(var(--foreground) / .3); background: transparent; color: hsl(var(--muted-foreground)); }
 
-  /* 弹层（补证据选择器 / 溯源预览） */
+  /* Overlays (evidence picker / provenance preview) */
   .scrim { position: absolute; inset: 0; background: hsl(0 0% 0% / .28); display: none; z-index: 40; }
   .scrim.show { display: block; }
   .dialog { position: absolute; z-index: 50; width: 440px; max-height: 70%; left: 50%; top: 14%; transform: translateX(-50%); background: hsl(var(--popover)); border: 1px solid hsl(var(--border)); border-radius: 12px; box-shadow: var(--shadow-xl); display: none; flex-direction: column; overflow: hidden; }
@@ -194,14 +194,14 @@
   .pick .padd { margin-left: auto; font-size: 12px; color: hsl(var(--foreground) / .55); flex: none; }
   .dialog .dfoot { padding: 10px 16px; border-top: 1px solid hsl(var(--border) / .6); display: flex; justify-content: flex-end; gap: 8px; }
 
-  /* 溯源小气泡 */
+  /* Provenance popover */
   .pop { position: fixed; z-index: 100; width: 300px; background: hsl(var(--popover)); border: 1px solid hsl(var(--border)); border-radius: 10px; box-shadow: var(--shadow-md); padding: 12px; display: none; }
   .pop.show { display: block; }
   .pop .pp { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
   .pop .pq { font-size: 12px; color: hsl(var(--muted-foreground)); border-left: 2px solid hsl(var(--border)); padding-left: 8px; margin-bottom: 8px; line-height: 1.45; }
   .pop .pl { font-size: 11px; color: hsl(var(--muted-foreground)); }
 
-  /* ===== Sheet 抽屉形态（从论文面板点开，复用同一详情） ===== */
+  /* ===== Sheet drawer (opened from paper panel, reuses details) ===== */
   .lib-faded { flex: 1; padding: 18px 22px; color: hsl(var(--muted-foreground)); font-size: 13px; overflow: hidden; }
   .lib-faded .lh { font-size: 15px; font-weight: 600; color: hsl(var(--foreground) / .8); margin-bottom: 4px; }
   .lib-faded .lp { max-width: 520px; line-height: 1.6; }
@@ -219,255 +219,255 @@
 <body class="shell-bg">
 
 <div class="demo-bar">
-  <span class="dlabel">▶ 原型演示</span>
-  <span>切换看两种载体：</span>
+  <span class="dlabel">▶ Prototype demo</span>
+  <span>Switch between two surfaces:</span>
   <div class="stage-tabs">
-    <button data-view="page" class="active">证据集页（列表+详情）</button>
-    <button data-view="sheet">Sheet 抽屉（从论文点开）</button>
+    <button data-view="page" class="active">Evidence sets (list + details)</button>
+    <button data-view="sheet">Sheet drawer (from a paper)</button>
   </div>
   <span class="spacer"></span>
-  <span>非产品 UI · ASCI 真实 token</span>
-  <button class="tbtn" onclick="document.body.classList.toggle('dark')" title="切换亮/暗">◐</button>
+  <span>Demo UI · Actual ASCI tokens</span>
+  <button class="tbtn" onclick="document.body.classList.toggle('dark')" title="Toggle light/dark">◐</button>
 </div>
 
 <div class="shell">
-  <!-- 左侧栏 -->
+  <!-- Sidebar -->
   <div class="sidebar-wrap"><div class="sidebar">
-    <div class="sb-top"><div class="sb-icon" title="搜索">⌕</div><div class="sb-icon" title="文献库">▤</div><div class="sb-icon new" title="新会话">＋</div></div>
-    <div class="sb-label">导航</div>
+    <div class="sb-top"><div class="sb-icon" title="Search">⌕</div><div class="sb-icon" title="Library">▤</div><div class="sb-icon new" title="New session">＋</div></div>
+    <div class="sb-label">Navigation</div>
     <div class="sb-list">
-      <div class="sb-item"><span class="ic">▤</span><span class="tx">文献库</span></div>
-      <div class="sb-item active"><span class="ic">▦</span><span class="tx">证据集</span></div>
-      <div class="sb-item"><span class="ic">◫</span><span class="tx">综述</span></div>
-      <div class="sb-item"><span class="ic">◷</span><span class="tx">会话历史</span></div>
+      <div class="sb-item"><span class="ic">▤</span><span class="tx">Library</span></div>
+      <div class="sb-item active"><span class="ic">▦</span><span class="tx">Evidence sets</span></div>
+      <div class="sb-item"><span class="ic">◫</span><span class="tx">Review</span></div>
+      <div class="sb-item"><span class="ic">◷</span><span class="tx">Session history</span></div>
     </div>
-    <div class="sb-bottom"><div class="avatar">研</div><div style="font-size:13px;color:hsl(var(--foreground) / .7)">研究者</div><div class="sb-icon" style="margin-left:auto">⚙</div></div>
+    <div class="sb-bottom"><div class="avatar">R</div><div style="font-size:13px;color:hsl(var(--foreground) / .7)">Researcher</div><div class="sb-icon" style="margin-left:auto">⚙</div></div>
   </div></div>
 
-  <!-- 视图 A：证据集页 -->
+  <!-- View A: evidence-set page -->
   <div class="main view active" id="view-page"><div class="main-card">
 
-    <!-- 左：容器列表 + tag 筛选 -->
+    <!-- Left: container list + tag filters -->
     <div class="es-list">
       <div class="es-list-head">
-        <div class="ttl"><span style="opacity:.6">▦</span>证据集</div>
-        <div class="sub">围绕一个主题沉淀材料的容器</div>
-        <div class="es-search"><span>⌕</span><span>搜索证据集…</span></div>
+        <div class="ttl"><span style="opacity:.6">▦</span>Evidence sets</div>
+        <div class="sub">A container for materials around a topic</div>
+        <div class="es-search"><span>⌕</span><span>Search evidence sets…</span></div>
       </div>
       <div class="tag-filter" id="tagFilter">
-        <span class="flabel">按标签筛选</span>
-        <span class="tagchip on" data-tag="__all" onclick="filterTag(this,'__all')">全部</span>
-        <span class="tagchip" data-tag="小样本" onclick="filterTag(this,'小样本')"># 小样本</span>
-        <span class="tagchip" data-tag="对比学习" onclick="filterTag(this,'对比学习')"># 对比学习</span>
-        <span class="tagchip" data-tag="在读" onclick="filterTag(this,'在读')"># 在读</span>
-        <span class="tagchip" data-tag="待写作" onclick="filterTag(this,'待写作')"># 待写作</span>
+        <span class="flabel">Filter by tag</span>
+        <span class="tagchip on" data-tag="__all" onclick="filterTag(this,'__all')">All</span>
+        <span class="tagchip" data-tag="小样本" onclick="filterTag(this,'小样本')"># Few-shot</span>
+        <span class="tagchip" data-tag="对比学习" onclick="filterTag(this,'对比学习')"># Contrastive learning</span>
+        <span class="tagchip" data-tag="在读" onclick="filterTag(this,'在读')"># Reading</span>
+        <span class="tagchip" data-tag="待写作" onclick="filterTag(this,'待写作')"># To write</span>
       </div>
       <div class="es-rows" id="esRows">
         <div class="es-row active" data-tags="小样本,在读" onclick="selectRow(this)">
-          <div class="nm"><span class="ti">▦</span>小样本图像分类</div>
-          <div class="rtags"><span class="badge badge-secondary"># 小样本</span><span class="badge badge-secondary"># 在读</span></div>
-          <div class="meta"><span>4 笔记</span><span class="dot">·</span><span>6 证据</span><span class="dot">·</span><span>2 天前</span></div>
+          <div class="nm"><span class="ti">▦</span>Few-shot image classification</div>
+          <div class="rtags"><span class="badge badge-secondary"># Few-shot</span><span class="badge badge-secondary"># Reading</span></div>
+          <div class="meta"><span>4 Notes</span><span class="dot">·</span><span>6 Evidence</span><span class="dot">·</span><span>2 days ago</span></div>
         </div>
         <div class="es-row" data-tags="对比学习,待写作" onclick="selectRow(this)">
-          <div class="nm"><span class="ti">▦</span>对比学习正负样本策略</div>
-          <div class="rtags"><span class="badge badge-secondary"># 对比学习</span><span class="badge badge-secondary"># 待写作</span></div>
-          <div class="meta"><span>2 笔记</span><span class="dot">·</span><span>9 证据</span><span class="dot">·</span><span>5 天前</span></div>
+          <div class="nm"><span class="ti">▦</span>Contrastive learning positive/negative strategies</div>
+          <div class="rtags"><span class="badge badge-secondary"># Contrastive learning</span><span class="badge badge-secondary"># To write</span></div>
+          <div class="meta"><span>2 Notes</span><span class="dot">·</span><span>9 Evidence</span><span class="dot">·</span><span>5 days ago</span></div>
         </div>
         <div class="es-row" data-tags="对比学习,在读" onclick="selectRow(this)">
-          <div class="nm"><span class="ti">▦</span>扩散模型采样加速</div>
-          <div class="rtags"><span class="badge badge-secondary"># 对比学习</span><span class="badge badge-secondary"># 在读</span></div>
-          <div class="meta"><span>1 笔记</span><span class="dot">·</span><span>4 证据</span><span class="dot">·</span><span>上周</span></div>
+          <div class="nm"><span class="ti">▦</span>Diffusion model sampling acceleration</div>
+          <div class="rtags"><span class="badge badge-secondary"># Contrastive learning</span><span class="badge badge-secondary"># Reading</span></div>
+          <div class="meta"><span>1 Notes</span><span class="dot">·</span><span>4 Evidence</span><span class="dot">·</span><span>Last week</span></div>
         </div>
         <div class="es-row" data-tags="待写作" onclick="selectRow(this)">
-          <div class="nm"><span class="ti">▦</span>少样本 NER 评测口径</div>
-          <div class="rtags"><span class="badge badge-secondary"># 待写作</span></div>
-          <div class="meta"><span>3 笔记</span><span class="dot">·</span><span>3 证据</span><span class="dot">·</span><span>3 周前</span></div>
+          <div class="nm"><span class="ti">▦</span>Few-shot NER evaluation criteria</div>
+          <div class="rtags"><span class="badge badge-secondary"># To write</span></div>
+          <div class="meta"><span>3 Notes</span><span class="dot">·</span><span>3 Evidence</span><span class="dot">·</span><span>3 weeks ago</span></div>
         </div>
       </div>
     </div>
 
-    <!-- 右：详情（笔记区 / 证据区 并列） -->
+    <!-- Right: details (peer Notes / Evidence sections) -->
     <div class="es-detail" id="detailRoot">
       <div class="det-head">
         <div class="row1">
-          <span class="cname">小样本图像分类</span>
-          <span class="iconbtn" title="重命名">✎</span>
+          <span class="cname">Few-shot image classification</span>
+          <span class="iconbtn" title="Rename">✎</span>
           <span class="grow"></span>
         </div>
         <div class="det-tags">
-          <span class="tagchip">小样本 <span class="x" title="移除标签">×</span></span>
-          <span class="tagchip">在读 <span class="x" title="移除标签">×</span></span>
-          <span class="tagchip add" onclick="alert('原型：弹出标签输入')">＋ 标签</span>
+          <span class="tagchip">Few-shot <span class="x" title="Remove tag">×</span></span>
+          <span class="tagchip">Reading <span class="x" title="Remove tag">×</span></span>
+          <span class="tagchip add" onclick="alert('Prototype: open tag input')">＋ Tag</span>
         </div>
-        <div class="times"><span>创建于 6 月 12 日</span><span>更新于 2 天前</span></div>
+        <div class="times"><span>Created June 12</span><span>Updated 2 days ago</span></div>
       </div>
 
       <div class="det-body" id="detBody">
 
-        <!-- 笔记区 -->
+        <!-- Notes section -->
         <div class="sec">
           <div class="sec-head">
-            <span class="si">✎</span><span class="sn">笔记</span><span class="cnt" id="noteCount">· 4</span>
+            <span class="si">✎</span><span class="sn">Notes</span><span class="cnt" id="noteCount">· 4</span>
             <span class="grow"></span>
-            <span class="add-link" onclick="toggleAddNote()">＋ 补笔记</span>
+            <span class="add-link" onclick="toggleAddNote()">＋ Add note</span>
           </div>
           <div id="addNoteSlot"></div>
           <div id="noteList">
-            <!-- Epic1 沉淀：结构化对照表笔记 -->
+            <!-- Epic1 retention: structured comparison-table note -->
             <div class="mcard note fromgap">
-              <div class="acts"><button class="iconbtn" title="编辑">✎</button><button class="iconbtn danger" title="删除笔记" onclick="removeNote(this)">🗑</button></div>
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span class="gap-badge">◫ 来自研究空白</span></div>
-              <div class="ntext">18 篇小样本分类工作的对照表：按 5 个维度铺开，可一眼比对。</div>
+              <div class="acts"><button class="iconbtn" title="Edit">✎</button><button class="iconbtn danger" title="Delete note" onclick="removeNote(this)">🗑</button></div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span class="gap-badge">◫ From research gaps</span></div>
+              <div class="ntext">Comparison of 18 few-shot classification papers across 5 dimensions, for at-a-glance comparison.</div>
               <div class="minitable">
                 <table>
-                  <thead><tr><th>论文</th><th>数据集</th><th>骨干</th><th>预训练</th><th>few-shot</th></tr></thead>
+                  <thead><tr><th>Paper</th><th>Dataset</th><th>Backbone</th><th>Pretraining</th><th>few-shot</th></tr></thead>
                   <tbody>
-                    <tr><th>Wang 2023</th><td>miniIN</td><td>RN-12</td><td>否</td><td class="empty"></td></tr>
-                    <tr><th>Liu 2023</th><td>tieredIN</td><td>ViT-S</td><td>是</td><td>5w-1s</td></tr>
-                    <tr><th>Chen 2024</th><td>miniIN</td><td class="empty"></td><td>是</td><td>5w-5s</td></tr>
+                    <tr><th>Wang 2023</th><td>miniIN</td><td>RN-12</td><td>No</td><td class="empty"></td></tr>
+                    <tr><th>Liu 2023</th><td>tieredIN</td><td>ViT-S</td><td>Yes</td><td>5w-1s</td></tr>
+                    <tr><th>Chen 2024</th><td>miniIN</td><td class="empty"></td><td>Yes</td><td>5w-5s</td></tr>
                   </tbody>
                 </table>
               </div>
-              <div class="stamp">沉淀自「小样本图像分类 · 研究空白」分析 · 完整保序</div>
+              <div class="stamp">Saved from Few-shot image classification · Research gaps analysis · Complete and ordered</div>
             </div>
-            <!-- 普通自由笔记 -->
+            <!-- Ordinary free notes -->
             <div class="mcard note">
-              <div class="acts"><button class="iconbtn" title="编辑">✎</button><button class="iconbtn danger" title="删除笔记" onclick="removeNote(this)">🗑</button></div>
-              <div class="ntext">few-shot 设置这一列很多论文写得含糊，后面要单独核对 1-shot / 5-shot 的口径再下结论。</div>
-              <div class="stamp">2 天前</div>
-            </div>
-            <div class="mcard note">
-              <div class="acts"><button class="iconbtn" title="编辑">✎</button><button class="iconbtn danger" title="删除笔记" onclick="removeNote(this)">🗑</button></div>
-              <div class="ntext">Wang 2023 与 Liu 2023 在同设置下准确率结论相反，值得作为切入点细读。</div>
-              <div class="stamp">3 天前</div>
+              <div class="acts"><button class="iconbtn" title="Edit">✎</button><button class="iconbtn danger" title="Delete note" onclick="removeNote(this)">🗑</button></div>
+              <div class="ntext">Many papers describe few-shot settings vaguely; verify 1-shot / 5-shot criteria separately before concluding.</div>
+              <div class="stamp">2 days ago</div>
             </div>
             <div class="mcard note">
-              <div class="acts"><button class="iconbtn" title="编辑">✎</button><button class="iconbtn danger" title="删除笔记" onclick="removeNote(this)">🗑</button></div>
-              <div class="ntext">这个主题先聚焦"无预训练 + 跨域"的组合，似乎没人系统做过。</div>
-              <div class="stamp">6 月 12 日</div>
+              <div class="acts"><button class="iconbtn" title="Edit">✎</button><button class="iconbtn danger" title="Delete note" onclick="removeNote(this)">🗑</button></div>
+              <div class="ntext">Wang 2023 and Liu 2023 report opposing accuracy conclusions under the same settings, a useful starting point for close reading.</div>
+              <div class="stamp">3 days ago</div>
+            </div>
+            <div class="mcard note">
+              <div class="acts"><button class="iconbtn" title="Edit">✎</button><button class="iconbtn danger" title="Delete note" onclick="removeNote(this)">🗑</button></div>
+              <div class="ntext">Focus this topic on no pretraining + cross-domain, which seems not to have been studied systematically.</div>
+              <div class="stamp">June 12</div>
             </div>
           </div>
         </div>
 
-        <!-- 证据区 -->
+        <!-- Evidence section -->
         <div class="sec">
           <div class="sec-head">
-            <span class="si">❝</span><span class="sn">证据</span><span class="cnt" id="evCount">· 6</span>
+            <span class="si">❝</span><span class="sn">Evidence</span><span class="cnt" id="evCount">· 6</span>
             <span class="grow"></span>
-            <span class="add-link" onclick="openPicker()">＋ 补证据</span>
+            <span class="add-link" onclick="openPicker()">＋ Add evidence</span>
           </div>
           <div id="evList">
-            <!-- Epic1 沉淀：选中空白条目 -->
+            <!-- Epic1 retention: selected gap items -->
             <div class="mcard ev fromgap">
-              <div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div>
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span class="gap-badge">◫ 选中空白</span></div>
-              <div class="quote">「无预训练 × few-shot 跨域」这一组合在所选 18 篇内无人覆盖。</div>
-              <div class="srcline"><span class="kic">◫</span><span class="stitle">研究空白分析 · 空白格子</span><span class="jump" onclick="pop(event,'空白 · 组合','支撑：Wang 2023 / Chen 2024 行 × 预训练列','对照表定位')">在表中定位 ↗</span></div>
+              <div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span class="gap-badge">◫ Selected gap</span></div>
+              <div class="quote">No pretraining × few-shot cross-domain is uncovered in the selected 18 papers.</div>
+              <div class="srcline"><span class="kic">◫</span><span class="stitle">Research-gap analysis · Empty cell</span><span class="jump" onclick="pop(event,'Gap · Combination','Support: Wang 2023 / Chen 2024 rows × Pretraining column','Comparison-table location')">Locate in table ↗</span></div>
             </div>
-            <!-- 论文证据 -->
+            <!-- PaperEvidence -->
             <div class="mcard ev">
-              <div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div>
+              <div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div>
               <div class="quote">“We evaluate all methods on the standard 5-way 1-shot and 5-shot miniImageNet benchmark…”</div>
-              <div class="srcline"><span class="kic">▤</span><span class="stitle">Wang et al. 2023, CVPR · §4.1</span><span class="jump" onclick="pop(event,'Wang 2023 · §4.1','“We evaluate all methods on the standard 5-way…”','论文原文锚点')">跳到原文 ↗</span></div>
+              <div class="srcline"><span class="kic">▤</span><span class="stitle">Wang et al. 2023, CVPR · §4.1</span><span class="jump" onclick="pop(event,'Wang 2023 · §4.1','“We evaluate all methods on the standard 5-way…”','Original-paper anchor')">Go to source ↗</span></div>
             </div>
             <div class="mcard ev">
-              <div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div>
+              <div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div>
               <div class="quote">“Pre-training on a large base set significantly boosts cross-domain few-shot accuracy.”</div>
-              <div class="srcline"><span class="kic">▤</span><span class="stitle">Liu et al. 2023, NeurIPS · §5.2</span><span class="jump" onclick="pop(event,'Liu 2023 · §5.2','“Pre-training on a large base set significantly…”','论文原文锚点')">跳到原文 ↗</span></div>
+              <div class="srcline"><span class="kic">▤</span><span class="stitle">Liu et al. 2023, NeurIPS · §5.2</span><span class="jump" onclick="pop(event,'Liu 2023 · §5.2','“Pre-training on a large base set significantly…”','Original-paper anchor')">Go to source ↗</span></div>
             </div>
-            <!-- 综述证据 -->
+            <!-- ReviewEvidence -->
             <div class="mcard ev">
-              <div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div>
-              <div class="quote">综述指出度量学习类方法在 1-shot 下普遍优于元学习类，但差距随 shot 数增加而缩小。</div>
-              <div class="srcline"><span class="kic">◫</span><span class="stitle">《小样本学习综述》· 第 3.2 节</span><span class="jump" onclick="pop(event,'综述 · §3.2','度量学习类方法在 1-shot 下普遍优于…','综述句子锚点')">跳到综述 ↗</span></div>
+              <div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div>
+              <div class="quote">The review finds metric learning generally outperforms meta-learning at 1-shot, with the gap narrowing as shots increase.</div>
+              <div class="srcline"><span class="kic">◫</span><span class="stitle">Few-Shot Learning Review· Section 3.2</span><span class="jump" onclick="pop(event,'Review · §3.2','Metric learning generally outperforms at 1-shot…','Review-sentence anchor')">Go to review ↗</span></div>
             </div>
-            <!-- 对话证据 -->
+            <!-- Conversation evidence -->
             <div class="mcard ev">
-              <div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div>
-              <div class="quote">Agent：这 18 篇里只有 6 篇明确写了 few-shot 设置，其余需要人工核对。</div>
-              <div class="srcline"><span class="kic">◷</span><span class="stitle">会话「小样本图像分类 · 研究空白」</span><span class="jump" onclick="pop(event,'会话快照','这 18 篇里只有 6 篇明确写了 few-shot…','对话消息锚点')">跳到会话 ↗</span></div>
+              <div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div>
+              <div class="quote">Agent: Only 6 of these 18 papers state few-shot settings explicitly; the rest need manual checks.</div>
+              <div class="srcline"><span class="kic">◷</span><span class="stitle">Session「Few-shot image classification · Research gaps」</span><span class="jump" onclick="pop(event,'Session snapshot','Only 6 of these 18 papers explicitly state few-shot…','Conversation-message anchor')">Go to conversation ↗</span></div>
             </div>
             <div class="mcard ev">
-              <div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div>
+              <div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div>
               <div class="quote">“Our metric-based approach reaches 67.2% on 5-way 1-shot without any pre-training.”</div>
-              <div class="srcline"><span class="kic">▤</span><span class="stitle">Wang et al. 2023, CVPR · §4.2</span><span class="jump" onclick="pop(event,'Wang 2023 · §4.2','“Our metric-based approach reaches 67.2%…”','论文原文锚点')">跳到原文 ↗</span></div>
+              <div class="srcline"><span class="kic">▤</span><span class="stitle">Wang et al. 2023, CVPR · §4.2</span><span class="jump" onclick="pop(event,'Wang 2023 · §4.2','“Our metric-based approach reaches 67.2%…”','Original-paper anchor')">Go to source ↗</span></div>
             </div>
           </div>
         </div>
       </div>
 
       <div class="det-foot">
-        <span class="ftxt">在这组材料上展开 AI 对照分析，产出会沉淀回这里</span>
-        <button class="btn btn-outline" onclick="alert('原型：进入研究空白分析（Epic1 流程）')"><span class="ic">◫</span>找研究空白</button>
+        <span class="ftxt">Run AI comparison on these materials; outputs will be saved here</span>
+        <button class="btn btn-outline" onclick="alert('Prototype: enter research-gap analysis (Epic1)')"><span class="ic">◫</span>Find research gaps</button>
       </div>
     </div>
   </div></div>
 
-  <!-- 视图 B：Sheet 抽屉形态 -->
+  <!-- View B: Sheet drawer -->
   <div class="main view" id="view-sheet"><div class="main-card" style="position:relative">
     <div class="lib-faded">
-      <div class="lh">文献库 · Wang et al. 2023</div>
-      <div class="lp">Few-Shot Image Classification via Metric Learning. CVPR 2023. — 这是论文详情页；右下的「所属证据集」徽章点开会以抽屉(Sheet)形态浮出证据集详情，承载同一套「笔记区 / 证据区」版面。</div>
-      <div class="es-badge" onclick="document.getElementById('demoSheet').scrollIntoView()">▦ 所属证据集：小样本图像分类</div>
+      <div class="lh">Library · Wang et al. 2023</div>
+      <div class="lp">Few-Shot Image Classification via Metric Learning. CVPR 2023. — This is paper details; the bottom-right Evidence sets badge opens a Sheet drawer using the same Notes / Evidence layout.</div>
+      <div class="es-badge" onclick="document.getElementById('demoSheet').scrollIntoView()">▦ Evidence sets：Few-shot image classification</div>
     </div>
 
     <div class="sheet" id="demoSheet">
-      <button class="btn btn-ghost btn-sm sh-close" onclick="switchView('page')">收起 ✕</button>
+      <button class="btn btn-ghost btn-sm sh-close" onclick="switchView('page')">Collapse ✕</button>
       <div class="det-head" style="padding-right:90px">
-        <div class="row1"><span class="cname">小样本图像分类</span><span class="iconbtn" title="重命名">✎</span></div>
+        <div class="row1"><span class="cname">Few-shot image classification</span><span class="iconbtn" title="Rename">✎</span></div>
         <div class="det-tags">
-          <span class="tagchip">小样本 <span class="x">×</span></span>
-          <span class="tagchip">在读 <span class="x">×</span></span>
-          <span class="tagchip add">＋ 标签</span>
+          <span class="tagchip">Few-shot <span class="x">×</span></span>
+          <span class="tagchip">Reading <span class="x">×</span></span>
+          <span class="tagchip add">＋ Tag</span>
         </div>
-        <div class="times"><span>创建于 6 月 12 日</span><span>更新于 2 天前</span></div>
+        <div class="times"><span>Created June 12</span><span>Updated 2 days ago</span></div>
       </div>
       <div class="det-body">
         <div class="sec">
-          <div class="sec-head"><span class="si">✎</span><span class="sn">笔记</span><span class="cnt">· 4</span><span class="grow"></span><span class="add-link">＋ 补笔记</span></div>
+          <div class="sec-head"><span class="si">✎</span><span class="sn">Notes</span><span class="cnt">· 4</span><span class="grow"></span><span class="add-link">＋ Add note</span></div>
           <div class="mcard note">
-            <div class="acts"><button class="iconbtn" title="编辑">✎</button><button class="iconbtn danger" title="删除笔记">🗑</button></div>
-            <div class="ntext">这个主题先聚焦"无预训练 + 跨域"的组合，似乎没人系统做过。</div>
-            <div class="stamp">6 月 12 日</div>
+            <div class="acts"><button class="iconbtn" title="Edit">✎</button><button class="iconbtn danger" title="Delete note">🗑</button></div>
+            <div class="ntext">Focus this topic on no pretraining + cross-domain, which seems not to have been studied systematically.</div>
+            <div class="stamp">June 12</div>
           </div>
         </div>
         <div class="sec">
-          <div class="sec-head"><span class="si">❝</span><span class="sn">证据</span><span class="cnt">· 6</span><span class="grow"></span><span class="add-link">＋ 补证据</span></div>
+          <div class="sec-head"><span class="si">❝</span><span class="sn">Evidence</span><span class="cnt">· 6</span><span class="grow"></span><span class="add-link">＋ Add evidence</span></div>
           <div class="mcard ev">
-            <div class="acts"><button class="iconbtn danger" title="从本集移除">⊘</button></div>
+            <div class="acts"><button class="iconbtn danger" title="Remove from this set">⊘</button></div>
             <div class="quote">“Our metric-based approach reaches 67.2% on 5-way 1-shot without any pre-training.”</div>
-            <div class="srcline"><span class="kic">▤</span><span class="stitle">Wang et al. 2023, CVPR · §4.2</span><span class="jump">跳到原文 ↗</span></div>
+            <div class="srcline"><span class="kic">▤</span><span class="stitle">Wang et al. 2023, CVPR · §4.2</span><span class="jump">Go to source ↗</span></div>
           </div>
         </div>
       </div>
-      <div class="det-foot"><span class="ftxt">同一详情、抽屉载体</span><button class="btn btn-outline"><span class="ic">◫</span>找研究空白</button></div>
+      <div class="det-foot"><span class="ftxt">Same details, drawer surface</span><button class="btn btn-outline"><span class="ic">◫</span>Find research gaps</button></div>
     </div>
   </div></div>
 </div>
 
-<!-- 补证据：库对象选择器 -->
+<!-- Add evidence: library-object picker -->
 <div class="scrim" id="scrim" onclick="closePicker()"></div>
 <div class="dialog" id="picker">
   <div class="dhead">
-    <div class="dt">补充证据</div>
-    <div class="ds">从已有材料里引用一条，点击后保留可溯源链路</div>
+    <div class="dt">Add evidence</div>
+    <div class="ds">Reference existing material while retaining traceability</div>
   </div>
   <div class="seg">
-    <button class="active" onclick="segPick(this,'paper')">论文</button>
-    <button onclick="segPick(this,'review')">综述</button>
-    <button onclick="segPick(this,'conv')">历史对话</button>
+    <button class="active" onclick="segPick(this,'paper')">Paper</button>
+    <button onclick="segPick(this,'review')">Review</button>
+    <button onclick="segPick(this,'conv')">Past conversations</button>
   </div>
   <div class="dlist" id="pickList"></div>
   <div class="dfoot">
-    <button class="btn btn-ghost btn-sm" onclick="closePicker()">取消</button>
+    <button class="btn btn-ghost btn-sm" onclick="closePicker()">Cancel</button>
   </div>
 </div>
 
-<!-- 溯源气泡 -->
+<!-- Provenance popover -->
 <div class="pop" id="pop"></div>
 
 <script>
-  // ---- 视图切换 ----
+  // ---- View switching ----
   function switchView(v){
     document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
     document.getElementById('view-'+v).classList.add('active');
@@ -475,7 +475,7 @@
   }
   document.querySelectorAll('.demo-bar .stage-tabs button').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
 
-  // ---- tag 筛选 ----
+  // ---- tag filtering ----
   function filterTag(el, tag){
     document.querySelectorAll('#tagFilter .tagchip').forEach(c=>c.classList.remove('on'));
     el.classList.add('on');
@@ -485,7 +485,7 @@
     });
   }
 
-  // ---- 列表选中（原型：仅切高亮，详情用同一份 demo 数据） ----
+  // ---- List selection (prototype: highlight only, same demo details) ----
   function selectRow(el){
     document.querySelectorAll('#esRows .es-row').forEach(r=>r.classList.remove('active'));
     el.classList.add('active');
@@ -493,34 +493,34 @@
     document.querySelector('#detailRoot .cname').textContent = nm;
   }
 
-  // ---- 补笔记（内联自由笔记） ----
+  // ---- Add note (inline free note) ----
   function toggleAddNote(){
     const slot=document.getElementById('addNoteSlot');
     if(slot.childElementCount){ slot.innerHTML=''; return; }
-    slot.innerHTML = '<div class="add-note-box"><textarea placeholder="写一条笔记…（无需划词，直接记录你的想法）" autofocus></textarea><div class="box-act"><button class="btn btn-ghost btn-sm" onclick="cancelAddNote()">取消</button><button class="btn btn-primary btn-sm" onclick="saveAddNote()">保存笔记</button></div></div>';
+    slot.innerHTML = '<div class="add-note-box"><textarea placeholder="Write a note… (record your ideas without highlighting)" autofocus></textarea><div class="box-act"><button class="btn btn-ghost btn-sm" onclick="cancelAddNote()">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveAddNote()">Save note</button></div></div>';
     slot.querySelector('textarea').focus();
   }
   function cancelAddNote(){ document.getElementById('addNoteSlot').innerHTML=''; }
   function saveAddNote(){
     const ta=document.querySelector('#addNoteSlot textarea');
-    const txt=(ta.value||'').trim()||'（空笔记）';
+    const txt=(ta.value||'').trim()||'(empty note)';
     const card=document.createElement('div');
     card.className='mcard note';
-    card.innerHTML='<div class="acts"><button class="iconbtn" title="编辑">✎</button><button class="iconbtn danger" title="删除笔记" onclick="removeNote(this)">🗑</button></div><div class="ntext"></div><div class="stamp">刚刚</div>';
+    card.innerHTML='<div class="acts"><button class="iconbtn" title="Edit">✎</button><button class="iconbtn danger" title="Delete note" onclick="removeNote(this)">🗑</button></div><div class="ntext"></div><div class="stamp">Just now</div>';
     card.querySelector('.ntext').textContent=txt;
     document.getElementById('noteList').prepend(card);
     document.getElementById('addNoteSlot').innerHTML='';
     bumpCount('noteCount', 1);
   }
   function removeNote(btn){
-    // 笔记：删除（软删可恢复语义）
+    // Notes: delete (recoverable soft deletion)
     const card=btn.closest('.mcard');
     card.style.opacity=.4;
-    if(confirm('删除这条笔记？（可在回收区恢复）')){ card.remove(); bumpCount('noteCount', -1); }
+    if(confirm('Delete this note? (Recoverable from trash)')){ card.remove(); bumpCount('noteCount', -1); }
     else { card.style.opacity=1; }
   }
 
-  // ---- 补证据（库对象选择器） ----
+  // ---- Add evidence (library-object picker) ----
   const PICK_DATA = {
     paper: [
       {t:'Chen et al. 2024, ICLR', m:'Cross-domain few-shot without pre-training', k:'▤'},
@@ -528,19 +528,19 @@
       {t:'Kumar et al. 2023, CVPR', m:'On the role of backbone capacity', k:'▤'},
     ],
     review: [
-      {t:'《小样本学习综述》· §4.1', m:'度量学习 vs 元学习对比', k:'◫'},
-      {t:'《跨域迁移综述》· §2.3', m:'跨域设置的评测协议', k:'◫'},
+      {t:'Few-Shot Learning Review· §4.1', m:'Metric learning vs meta-learning', k:'◫'},
+      {t:'Cross-Domain Transfer Review· §2.3', m:'Cross-domain evaluation protocol', k:'◫'},
     ],
     conv: [
-      {t:'会话「少样本 NER 精读」', m:'Agent 总结的 3 个评测口径分歧', k:'◷'},
-      {t:'会话「对比学习正负样本」', m:'关于负样本数量的结论', k:'◷'},
+      {t:'Session: Few-shot NER close reading', m:'3 evaluation disagreements summarized by Agent', k:'◷'},
+      {t:'Session: Contrastive positive/negative examples', m:'Findings on negative-example counts', k:'◷'},
     ],
   };
   let curSeg='paper';
   function renderPickList(){
     const list=document.getElementById('pickList');
     list.innerHTML = PICK_DATA[curSeg].map((d,i)=>(
-      `<div class="pick" onclick="addEvidence(${i})"><span class="pk">${d.k}</span><div style="min-width:0;flex:1"><div class="ptitle">${d.t}</div><div class="pmeta">${d.m}</div></div><span class="padd">＋ 引用</span></div>`
+      `<div class="pick" onclick="addEvidence(${i})"><span class="pk">${d.k}</span><div style="min-width:0;flex:1"><div class="ptitle">${d.t}</div><div class="pmeta">${d.m}</div></div><span class="padd">＋ Reference</span></div>`
     )).join('');
   }
   function openPicker(){ curSeg='paper'; document.querySelectorAll('#picker .seg button').forEach((b,i)=>b.classList.toggle('active', i===0)); renderPickList(); document.getElementById('scrim').classList.add('show'); document.getElementById('picker').classList.add('show'); }
@@ -551,9 +551,9 @@
     const card=document.createElement('div');
     card.className='mcard ev';
     const quoteByKind = curSeg==='paper' ? '“…relevant passage quoted from the source paragraph…”'
-      : curSeg==='review' ? '综述相关句子引文（保留原文）'
-      : 'Agent 回答片段快照';
-    card.innerHTML='<div class="acts"><button class="iconbtn danger" title="从本集移除" onclick="removeEvidence(this)">⊘</button></div><div class="quote"></div><div class="srcline"><span class="kic">'+d.k+'</span><span class="stitle"></span><span class="jump" onclick="pop(event,\''+d.t+'\',\''+quoteByKind+'\',\'来源锚点\')">'+(curSeg==='conv'?'跳到会话 ↗':curSeg==='review'?'跳到综述 ↗':'跳到原文 ↗')+'</span></div>';
+      : curSeg==='review' ? 'Relevant review-sentence quotation (original retained)'
+      : 'Agent response excerpt snapshot';
+    card.innerHTML='<div class="acts"><button class="iconbtn danger" title="Remove from this set" onclick="removeEvidence(this)">⊘</button></div><div class="quote"></div><div class="srcline"><span class="kic">'+d.k+'</span><span class="stitle"></span><span class="jump" onclick="pop(event,\''+d.t+'\',\''+quoteByKind+'\',\'Source anchor\')">'+(curSeg==='conv'?'Go to conversation ↗':curSeg==='review'?'Go to review ↗':'Go to source ↗')+'</span></div>';
     card.querySelector('.quote').textContent=quoteByKind;
     card.querySelector('.stitle').textContent=d.t;
     document.getElementById('evList').prepend(card);
@@ -561,7 +561,7 @@
     closePicker();
   }
   function removeEvidence(btn){
-    // 证据：从本集移除（来源对象留库）
+    // Evidence: remove from set (source stays in library)
     const card=btn.closest('.mcard');
     card.remove(); bumpCount('evCount', -1);
   }
@@ -572,7 +572,7 @@
     el.textContent='· '+n;
   }
 
-  // ---- 溯源气泡 ----
+  // ---- Provenance popover ----
   function pop(e, title, quote, loc){
     e.stopPropagation();
     const p=document.getElementById('pop');

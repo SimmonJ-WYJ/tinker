@@ -1,49 +1,63 @@
-# ADR-006：UI 框架库扩展边界——右侧产物 renderer 可注册（而非整体布局可注册）
+<a id="adr-006ui-框架库扩展边界右侧产物-renderer-可注册而非整体布局可注册"></a>
 
-| 字段 | 内容 |
+# ADR-006: UI Framework Library Extension Boundary: Registrable Right-Hand Artifact Renderers (Rather Than Whole Layouts)
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed（grill-with-docs 会话裁决 2026-06-01，待产研 Lead 签字）|
-| **决策日期** | 2026-06-01 |
-| **拍板人** | （待填，建议产研 Lead）|
-| **决策时点硬约束** | 0.4 P1「UI 框架库」实现 issue 开出前 |
-| **关联** | 0.4 P1（新能力包：写作 / 数据分析）· [0.3 north-star §三-C.5](../milestones/0.3/north-star.md) · [0.3.0 PRD §1 能力包 vs Skill](../specs/0.3.0/0.3.0-prd.md) · [CONTEXT.md Agent 编排领域](../../CONTEXT.md) |
+| **Status** | Proposed (grill-with-docs session decision 2026-06-01, awaiting Product/Engineering Lead sign-off) |
+| **Decision date** | 2026-06-01 |
+| **Decision owner** | (TBD; Product/Engineering Lead suggested) |
+| **Hard decision deadline** | Before opening the 0.4 P1 “UI Framework Library” implementation issue |
+| **Related** | 0.4 P1 (new capability packs: writing / data analysis) · [0.3 north-star §III-C.5](../milestones/0.3/north-star.md) · [0.3.0 PRD §1 Capability Pack vs Skill](../specs/0.3.0/0.3.0-prd.md) · [CONTEXT.md Agent orchestration domain](../../CONTEXT.md) |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-0.3 §三-C.5 把"多 UI 框架注册 + 切换机制"推迟到 0.4+，并用了"主程序仅内置 1 个 UI 框架，0.4+ 可扩展为**多种** UI 框架"的措辞。0.4 P1 要新增**写作包**（右侧富文本/Markdown 编辑器）与**数据分析包**（右侧图表/表格）等**不同形态**的能力包，必须先建立框架扩展机制。
+## I. Background
 
-**代码现状（2026-06-01 探查）**：当前**完全没有框架抽象**——manifest 有 `uiFramework` 字段（enum 仅 `'conversation-and-artifact'`），但 loader 读入后**从不使用**，不传给 renderer；`AppShell.tsx` 的"左导航 + 中对话 + 右产物"三层布局与 `RightPanelTabContent.tsx` 的 5 种 TabKind 分发**全部硬编码**。任何新形态都得手改这两处。
+0.3 §III-C.5 postponed “multiple UI framework registration + switching” to 0.4+, using the wording “the main app includes only 1 UI framework; 0.4+ can extend to **multiple** UI frameworks.” 0.4 P1 adds capability packs with **different forms**, including a **writing pack** (right-hand rich-text/Markdown editor) and a **data analysis pack** (right-hand charts/tables), so a framework extension mechanism must be established first.
 
-## 二、决策维度
+**Current code (2026-06-01 investigation)**: there is **no framework abstraction at all**. The manifest has a `uiFramework` field (enum only `'conversation-and-artifact'`), but the loader **never uses** it after reading and does not pass it to the renderer; the “left navigation + center conversation + right artifact” three-part layout in `AppShell.tsx` and dispatch for 5 TabKind variants in `RightPanelTabContent.tsx` are **entirely hardcoded**. Every new form requires manual changes in both places.
 
-扩展的**粒度**：能力包能注册的是"整个工作区布局"，还是仅"右侧产物面板的内容渲染器"？
+<a id="二决策维度"></a>
 
-## 三、候选方案
+## II. Decision Dimension
 
-| | 边界 A：右侧产物 renderer 可注册（**选中**） | 边界 B：整体布局可注册 |
+Extension **granularity**: can capability packs register an “entire workspace layout,” or only “content renderers for the right-hand artifact panel”?
+
+<a id="三候选方案"></a>
+
+## III. Options
+
+| | Boundary A: registrable right-hand artifact renderers (**selected**) | Boundary B: registrable whole layouts |
 |---|---|---|
-| 抽象范围 | 保留"左导航 + 中对话 + 右产物"骨架，仅右侧产物 renderer 按能力包注册 | 能力包可定义完全不同的工作区布局，对话可退为辅助 |
-| 产品形态 | Agent 对话**始终是主角**，新形态只换右侧（写作→编辑器、数据→图表） | 编辑器/notebook 可成主角，对话退居浮窗/底栏 |
-| 差异化 | ✅ 守住 ASCI "Agent 主导" | ❌ 滑向"传统编辑器/notebook + AI 辅助"，与 Cursor/Notion AI 同质化 |
-| 与默认页 P3 一致性 | ✅ 与"对话框中心 + Supervisor 编排"前提一致 | ❌ 与对话主入口前提冲突 |
-| 工程量 | 中 | 高 |
+| Abstraction scope | Retain the “left navigation + center conversation + right artifact” skeleton; only right-hand artifact renderers register by capability pack | Capability packs can define entirely different workspace layouts, with conversation becoming secondary |
+| Product form | Agent conversation **always leads**; new forms replace only the right side (writing→editor, data→charts) | Editor/notebook can lead, with conversation in a floating window/bottom bar |
+| Differentiation | ✅ Preserve ASCI's “Agent-led” approach | ❌ Drift toward “traditional editor/notebook + AI assistance,” resembling Cursor/Notion AI |
+| Consistency with default page P3 | ✅ Consistent with “conversation-centered + Supervisor orchestration” | ❌ Conflicts with conversation as the primary entry point |
+| Engineering effort | Medium | High |
 
-## 四、决策
+<a id="四决策"></a>
 
-**采用边界 A：UI 框架库 = 单一框架「对话主 + 右侧产物」的右侧产物 renderer 可注册。**
+## IV. Decision
 
-- 能力包契约新增"右侧产物 renderer 类型"声明；`manifest.uiFramework` / renderer 选择逻辑真正接通（消除当前"读了不用"的死字段）。
-- 写作包、数据分析包按"右侧 renderer 契约"实现各自的产物面板。
-- 实验日志包推迟 0.5（第三个新形态，0.4 只验证 2 个）。
+**Adopt boundary A: UI framework library = registrable right-hand artifact renderers within a single “conversation-led + right-hand artifact” framework.**
 
-## 五、反转 / 收敛
+- Add a “right-hand artifact renderer type” declaration to the capability-pack contract; actually connect `manifest.uiFramework` / renderer selection logic (eliminating the current unused field).
+- Writing and data analysis packs implement their artifact panels under the “right-hand renderer contract.”
+- Defer the experiment-log pack to 0.5 (the third new form; 0.4 validates only 2).
 
-收敛 0.3 §三-C.5"0.4+ 可扩展为**多种** UI 框架"的措辞：0.4 不做"多布局框架注册"，只做"单框架 + 右侧产物 renderer 可注册"。"整体布局可注册"（边界 B）留待 V1 视需要再评估。
+<a id="五反转-&#45;收敛"></a>
 
-## 六、后果
+## V. Revision / Narrowing
 
-- **正向**：守住 Agent 主导差异化；成本可控；为后续新形态包（实验日志等）提供稳定的右侧 renderer 注册点。
-- **负向 / 受限**：能力包的形态自由度被框住——任何需要"非对话主导"布局的场景（如全屏 notebook）0.4 做不了。
-- **风险**：若未来出现强需要整体布局的科研场景，需另立 ADR 引入边界 B，且已有包的 renderer 契约可能要适配。
+Narrow the 0.3 §III-C.5 wording “0.4+ can extend to **multiple** UI frameworks”: 0.4 implements “one framework + registrable right-hand artifact renderers,” not “multiple-layout framework registration.” Reevaluate “registrable whole layouts” (boundary B) for V1 if needed.
+
+<a id="六后果"></a>
+
+## VI. Consequences
+
+- **Positive**: preserves Agent-led differentiation, controls cost, and provides a stable right-hand renderer registration point for later pack forms (such as experiment logs).
+- **Negative / constrained**: limits capability-pack form flexibility; scenarios requiring a layout that is not conversation-led (such as a full-screen notebook) cannot be supported in 0.4.
+- **Risk**: if future research scenarios strongly require whole layouts, a separate ADR must introduce boundary B, potentially requiring adaptation of existing pack renderer contracts.

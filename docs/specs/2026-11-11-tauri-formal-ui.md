@@ -1,90 +1,116 @@
-# M2A：原正式 React UI 的 Tauri/Rust 独立宿主
+<a id="m2a原正式-react-ui-的-taurirust-独立宿主"></a>
 
-状态：实施中。基线：63fdde632dcb625df1f5736d9f7ea5270f5de547。关联：已合并 PR #21。领域事实源：CONTEXT.md 和真实源码。
+# M2A: Independent Tauri/Rust Host for the Original Production React UI
 
-## 目标与全局约束
+Status: In progress. Baseline: 63fdde632dcb625df1f5736d9f7ea5270f5de547. Related: Merged PR #21. Domain sources of truth: CONTEXT.md and actual source.
 
-用户要求加速技术迁移，复用现有正式 UI 与交互。本批使用同一个 apps/electron/src/renderer/main.tsx、App、CSS、Jotai 状态，交付独立 Tauri 测试宿主，直接调用 Rust DesktopRuntime，不嵌入 Electron/Node 后端。
+<a id="目标与全局约束"></a>
 
-- 正式 Electron/SDK 默认链路、旧 Lab、用户安装版与真实数据保持不变。
-- 仅新标记的隔离根、合成配置和 numeric loopback 模拟服务，不读取真实凭据/会话，不付费，不安装到 Applications。
-- 保留现有 API 参数、返回值、同步与 unsubscribe 语义。未实现能力明确拒绝，禁止 Proxy 空成功。
-- 同步设置返回 true 必须代表持久化已确认；关闭必须保存最后 500ms 内尚未 debounce 的标签状态，存储失败不得默默关闭。
-- Rust 平台状态与会话 journal 分离，安全根、schema、大小限制、原子持久化、错误脱敏。renderer 不得控制 root/端点/密钥。
-- 新 identifier、独立应用包、最小窗口与 IPC 权限；无通配文件/命令执行，无任意外部导航。
-- 新用户文案走 en/zh i18n，不改布局、样式和生产默认。README.md/CLAUDE.md 不修改，说明落本 spec 与报告。
-- 单个实现代理串行写入，同任务独立审查。不得清理用户文件或覆盖其它 worktree。安全分支正常提交、推送、Draft PR，不合并、部署或安装。
+## Goals and Global Constraints
 
-## 决策与能力边界
+The user requested faster technical migration while reusing the current production UI and interactions. This batch uses the same apps/electron/src/renderer/main.tsx, App, CSS, and Jotai state to deliver an independent Tauri test host calling Rust DesktopRuntime directly, without embedding the Electron/Node backend.
 
-选择纯 preload domain 工厂注入 transport，复用完整 API 形状。Electron 适配保持 ipcRenderer/contextBridge。Tauri 先初始化真实宿主快照与事件桥，再动态 import 原 renderer。原静态 Electron Sentry 依赖和 CSP 在独立 Tauri 构建适配，不影响 Electron 构建。
+- Preserve the production Electron/SDK default chain, old Lab, installed user app, and real data.
+- Use only newly marked isolated roots, synthetic configuration, and numeric-loopback mock services; no real credential/session reads, paid calls, or Applications installation.
+- Preserve existing API parameters, return values, synchronous behavior, and unsubscribe semantics. Explicitly reject unimplemented capabilities; no empty-success Proxy.
+- A synchronous settings return of true must represent confirmed persistence. Closing must save tab state from the final 500ms before debounce; storage failure must not silently close the window.
+- Separate Rust platform state from the session journal: safe roots, schemas, size limits, atomic persistence, error redaction. Renderer must not control roots/endpoints/keys.
+- New identifier, separate app bundle, minimal window/IPC permissions; no wildcard files/command execution or arbitrary external navigation.
+- New user-facing copy uses en/zh i18n; no layout, style, or production-default changes. Do not modify README.md/CLAUDE.md; explanations belong in this spec and report.
+- One implementation agent writes serially, with independent review of the same task. No user-file cleanup or overwriting other worktrees. Normal commits, push, and Draft PR on a safe branch, without merge, deployment, or installation.
 
-Tauri 原生 Rust 平台服务提供设置、主题/语言、合成用户档案、工作区、引导、标签等启动和会话所需 API。会话发送/上下文/流式/取消/失败/重启继续使用现有 DesktopRuntime。不可用的附件、图片、OAuth、通用工具等不能伪装成功。
+<a id="决策与能力边界"></a>
 
-当前 provider sink/context/journal 仅支持文本，无 typed tool events、call/result、权限协调器和 runner。实际工具闭环 M2B 依赖这些扩展，另批实现，优先只读合成文件工具；deny/cancel/expired/wrong-run 必须零执行。此批不把单独权限卡或 toy 按钮算作工具迁移。
+## Decisions and Capability Boundaries
 
-## 实现计划
+Choose pure preload domain factories with transport injection, reusing the full API shape. The Electron adapter retains ipcRenderer/contextBridge. Tauri initializes actual host snapshots and the event bridge before dynamically importing the original renderer. Adapt original static Electron Sentry dependencies and CSP in the separate Tauri build, without affecting Electron builds.
 
-### Task 1：纯 API 工厂与 Electron 适配
+The Tauri native Rust platform service supplies startup/session APIs for settings, theme/language, synthetic profiles, workspaces, onboarding, and tabs. Session sending/context/streaming/cancellation/failure/restart continue using existing DesktopRuntime. Unavailable attachments, images, OAuth, general tools, etc. cannot falsely succeed.
 
-范围：apps/electron/src/preload/{transport.ts,api.ts,helpers.ts,index.ts,domains/*} 及对应测试。
-把六 domain 的 Electron 依赖变为显式 transport 注入；导出 createDesktopApi(transport) 返回同一个 ElectronAPI。transport 支持 invoke、readSync、subscribe、getPathForFile。Electron adapter 放唯一 Electron 入口，保持现有方法通道/参数/返回值/同步执行和 unsubscribe。纯 api/domain/helpers 不得 runtime import Electron/Node。
+Current provider sink/context/journal support text only, with no typed tool events, call/result, permission coordinator, or runner. Actual M2B tool loops depend on those extensions and belong in a later batch, prioritizing read-only synthetic-file tools; deny/cancel/expired/wrong-run must yield zero execution. Standalone permission cards or toy buttons do not count as tool migration.
 
-先写行为测试，通过可记录 transport 验证全部 API 方法形状、代表性四联参数、事件 unsubscribe、同步 settings/theme/chrome/telemetry 和 webUtils 路径语义，覆盖零参数与 namespace。原 Electron 构建/typecheck 不变。不要实现 Tauri transport 或 Rust 平台。不要改生产 UI。
+<a id="实现计划"></a>
 
-### Task 2：Rust 平台状态与可信启动边界
+## Implementation Plan
 
-新增 formal_platform 模块与可信启动边界，共享 DTO 保持薄。固定白名单平台服务与DesktopRuntime共用严格标记隔离根。原生宿主于下一任务接线，旧 Lab 仍 None。提供 fixed allowlist 的平台 invoke/bootstrap、typed bounded mutations，版本化快照、revision 与持久化 ack。设置、用户/工作区和初始主题的事实源必须可重启恢复。写失败不提前更新缓存。窗口关闭 token 验证匹配 renderer flush，超时/失败保留窗口。
+<a id="task-1纯-api-工厂与-electron-适配"></a>
 
-先行为测试根/标记/schema/未知字段/大小、并发 revision、重复 mutation、原子失败和重启。测试 handler 而非仅辅助函数。原真实用户路径不得访问。主 binary 的 production defaults 和 Lab 不变。
+### Task 1: Pure API Factory and Electron Adapter
 
-### Task 3：原生会话适配与独立宿主
+Scope: apps/electron/src/preload/{transport.ts,api.ts,helpers.ts,index.ts,domains/*} and corresponding tests.
+Replace Electron dependencies in six domains with explicit transport injection; export createDesktopApi(transport), returning the same ElectronAPI. Transport supports invoke, readSync, subscribe, getPathForFile. Put the Electron adapter in the sole Electron entry, preserving existing method channels/parameters/return values/synchronous execution/unsubscribe. Pure api/domain/helpers must not runtime-import Electron/Node.
 
-新增 FormalAgentHost 持有会话 active/polling/generation，复用 DesktopRuntime 与既有投影契约，页面刷新不丢执行事实。固定 IPC/session/profile 映射与参数边界。GET_SDK_MESSAGES 恢复时须主动提供完整 text_snapshot、requestId 与后续增量，晚到响应不进入别的请求。host持有取消、退出、断流的生命周期。新增独立binary/config，FormalHost 持有唯一 Arc<DesktopRuntime>，旧Lab 的 DesktopHostState(None) 与默认命令保持。新binary只注册受actor/generation/关闭边界约束的formal命令，不额外暴露可绕过这些边界的旧Lab通用命令。
+Write behavioral tests first, using a recording transport to verify all API method shapes, representative four-layer parameters, event unsubscribe, synchronous settings/theme/chrome/telemetry, and webUtils path semantics, including zero arguments and namespaces. Preserve original Electron build/typecheck. Do not implement Tauri transport or Rust platform; do not change production UI.
 
-预览专用宿主内嵌受控 Rust numeric-loopback HTTP/SSE mock，稳定标记测试渠道/模型与逻辑configRevision，随机端口仅为宿主传输定位。这个fixture不属于核心provider，不访问真实服务。独立app无需Node/Electron/devserver。先测宿主真实服务门面、分页/刷新/重复/取消/失败/错误投影，未支持能力明确拒绝。
+<a id="task-2rust-平台状态与可信启动边界"></a>
 
-### Task 4：同 renderer 的 Tauri transport 与生命周期
+### Task 2: Rust Platform State and Trusted Startup Boundary
 
-独立 Vite/entry/transport、受限 event 桥、原生会话事件订阅和 Rust projection/polling 契约、平台缓存与关闭 participant。复用 M1 纯逻辑，避免 Node router 打入 WebView。注册事件后再 mount。同步 API 从已确认 cache 读取；updateSettingsSync 不能假 ack。正式 main.tsx 只添加非视觉且 Tauri 明确门控的 close flush participant，原 Electron 路径保持。
+Add formal_platform and a trusted startup boundary; keep shared DTOs thin. Fixed-allowlist platform services share the strictly marked isolated root with DesktopRuntime. Native host wiring comes next; old Lab remains None. Provide fixed-allowlist platform invoke/bootstrap, typed bounded mutations, versioned snapshots, revision, and persistence ack. Settings, user/workspace, and initial-theme sources of truth must recover after restart. Write failures must not update caches early. Window-close tokens validate matching renderer flush; timeout/failure keeps the window open.
 
-通过同 DTO 接线通道/模型、创建/列表/历史、发送/多轮/流式/停止/错误/重启恢复，晚到响应只属于对应 requestId。独立构建 CSP 支持必要 Tauri IPC，Sentry 使用受控适配，不引入真实网络。测试协议映射、参数失败、取消、乱序、关闭最新 atom 与失败不关闭。
+Behavioral tests first: root/marker/schema/unknown fields/size, concurrent revisions, duplicate mutations, atomic failures, and restart. Test handlers, not just helpers. Never access real user paths. Main binary production defaults and Lab remain unchanged.
 
-### Task 5：可运行包、原生验收与最终守门
+<a id="task-3原生会话适配与独立宿主"></a>
 
-构建独立 identifier 的 .app，不写 Applications。不依赖 Node/Electron/dev server；如需模拟 provider，交付明确启动器和合成服务，无服务时明确失败。原生验收可使用 owned QA binary 内部驱动 WKWebView、记录截图与合成 HTTP/journal，不能向产品 renderer 暴露任意 eval 或绕过系统权限。
+### Task 3: Native Session Adapter and Independent Host
 
-覆盖启动/退出、双模型/effort、多轮 Unicode、流式、取消/重复、失败草稿/部分内容、刷新/关闭重开、中英主题与最后 debounce 窗口保存。区分 DOM 自动化与系统鼠标测试，截图对照原正式 UI，不承诺跨引擎像素一致。
+Add FormalAgentHost owning session active/polling/generation, reusing DesktopRuntime and existing projection contracts; page refresh must not lose execution facts. Fix IPC/session/profile mappings and parameter boundaries. GET_SDK_MESSAGES recovery must proactively provide complete text_snapshot, requestId, and subsequent deltas; late responses cannot enter other requests. The host owns cancellation, exit, and disconnection lifecycle. Add a separate binary/config: FormalHost owns the sole Arc<DesktopRuntime>; old Lab DesktopHostState(None) and default commands remain. New binary registers only formal commands constrained by actor/generation/close boundaries, without exposing old Lab generic commands that could bypass them.
 
-最终 Rust fmt/test/clippy，前端与全仓 typecheck/Bun/lint，Electron build、Tauri build，独立 review/simplify，敏感信息及 production default 差异审查。fetch/merge 最新 main 后安全提交推送 Draft PR，核验完整 head/checks/status/Actions，无记录不能写 CI 通过。
+Embed a controlled Rust numeric-loopback HTTP/SSE mock in the preview host, with stable test-channel/model labels and logical configRevision; random ports serve only host transport location. This fixture is not a core provider and accesses no real service. The separate app requires no Node/Electron/devserver. First test the host's actual service facade, pagination/refresh/duplicates/cancellation/failure/error projection; reject unsupported capabilities explicitly.
 
-## 回滚与交付
+<a id="task-4同-renderer-的-tauri-transport-与生命周期"></a>
 
-独立测试应用退出即可回到原 Electron，原数据从未迁入。可逐提交 revert 本批源码，新增隔离数据仅在明确识别且另获删除授权时清理。报告列实际测试、未运行范围、源 SHA、应用路径与哈希、签名公证状态、GitHub PR/CI、未迁移功能。不能称完整产品/真实服务/全部 UI 行为已验收。
+### Task 4: Same-renderer Tauri Transport and Lifecycle
 
-## Task4 审查修复：关闭与初始化失败契约
+Separate Vite/entry/transport, restricted event bridge, native session event subscriptions and Rust projection/polling contract, platform cache, and close participant. Reuse M1 pure logic to keep Node routers out of WebView. Register events before mounting. Synchronous APIs read confirmed cache; updateSettingsSync must not fake acknowledgment. Production main.tsx adds only a nonvisual, explicitly Tauri-gated close-flush participant; original Electron path remains.
 
-- tabs/settings hydration 任一失败后，该 document 不再自动持久化；StrictMode 的迟到成功不能解除失败屏障。关闭/刷新仍须满足成功恢复与最新 Jotai flush。
-- attach/detach/恢复 attach 共用确认后推进的短控制队列。观察水位在实际发送 attach 时采样；history 等待 attach 确认，dispose 排入最后 detach。长 SEND 不进入该队列。
-- bootstrap 在途原生环境保留最新 revision/sequence，并在 baseline 到达后重放；entry 首屏读取同一更新后的缓存。
-- `closeReady(generation, closeToken, committedRevision)` 只做不可逆取消/drain/join，并保存 native receipt；它本身不关闭窗口。同 token 重试返回 pending/最终结果，不重复回收。准备期拒绝可由确认后的 `abortClose` 恢复；已过期/已取消的同一 token 的 abort 确认幂等。不可逆取消失败以 `closeFailed` 区分，后台仍回收 host/mock，保留失败 receipt。
-- 只有已确认成功的同 generation/token/revision 才能执行窄 `closeWindow`，此最后授权没有 renderer deadline。closeReady 等待超时后 renderer 保持冻结，晚到结果不会自动关闭。用户再次通过原生窗口关闭或 Quit 请求，可查询同 token；若仍 pending/失败则留窗，成功后才重新明确授权 closeWindow。未知提交期间 reload 不执行；不把已回收的 host 假装恢复可用。
-- 上述协议故障注入与 Tauri mock-runtime/真实 actor 测试不等同于 WKWebView 原生 UI 验收；Task5 须单独验证窗口关闭、菜单与交互。
+Wire channels/models, creation/lists/history, sending/multiturn/streaming/stop/errors/restart through the same DTO; late responses belong only to their requestId. Separate-build CSP supports required Tauri IPC; Sentry uses a controlled adapter without real networking. Test protocol mapping, parameter failures, cancellation, reordering, latest-atom closing, and failure keeping the window open.
 
-## Task5：原生 QA 隔离与构建配置校验
+<a id="task-5可运行包原生验收与最终守门"></a>
 
-正式与 QA binary 复用 `formal_launch`，两入口显式传不同 identifier；在创建 Builder、窗口和数据之前拒绝配置串用。Tauri 2.10 的 context 宏按配置目录加载默认文件，因此两个直接 Cargo 构建脚本均显式设置 TAURI_CONFIG，不能只相信宏的文件名参数。
+### Task 5: Runnable Bundle, Native Acceptance, and Final Gates
 
-`formal-native-qa` 是仅 macOS 的可选 feature，独立 `tinker-formal-native-qa` binary 与 `com.tinker.formal-native-qa` identifier。只有 QA 入口传入 ready callback，普通入口即便 all-features 编译也不启动控制器；普通交付构建不启用该 feature。公开 WKWebView evaluateJavaScript/takeSnapshot 仅用于本进程原 React renderer 的合成验收，无新增 renderer IPC 或网络控制端点。
+Build an .app with an independent identifier, without writing Applications. No Node/Electron/devserver dependencies; if a mock provider is needed, deliver an explicit launcher and synthetic service, with explicit failure when absent. Native acceptance may drive WKWebView inside an owned QA binary and record screenshots/synthetic HTTP/journal, without arbitrary eval exposed to the product renderer or bypassing system permissions.
 
-QA evidence 必须是 canonical `/private/tmp/tinker-tauri-checks-*/native-qa/<batch>` 目录。原合成 profile 仍受 TrustedRoot 独立 marker 校验。测试目录中 command.json/result-N.json 为有界本地验收协议（至多256个动作、30分钟）；eval、snapshot、records、focus、fullscreen、window、reload、close 只作用于 owned main window。截图固定 snapshot-N.png，不接收任意输出路径。可用 `scripts/native-qa-command.py` 提交动作；build-native-qa.ts 只构建 QA，禁止把 QA binary 作为普通包交付。
+Cover startup/exit, two models/effort, multiturn Unicode, streaming, cancellation/duplicates, failed drafts/partial content, refresh/close/reopen, Chinese/English themes, and final debounce-window persistence. Distinguish DOM automation from system-mouse testing; compare screenshots to original production UI without promising cross-engine pixel equivalence.
 
-本轮在 macOS 26.5.1 arm64 使用真实编辑器输入、Send/Stop、模型/effort/设置 DOM 控件，结合 native fullscreen/CloseRequested、owned HTTP 元数据与 journal/进程重启验收。DOM 事件不是系统鼠标自动化；不承诺跨引擎像素一致。更多故障注入、>128 backlog 和真实产品未迁移能力必须在验收报告中区分通过与未运行。
+Final Rust fmt/test/clippy, frontend and repository-wide typecheck/Bun/lint, Electron build, Tauri build, independent review/simplify, sensitive-information and production-default diff review. Fetch/merge latest main before safe commit/push/Draft PR; verify full head/checks/status/Actions. No records does not mean CI passed.
 
-### Task5 review 补证
+<a id="回滚与交付"></a>
 
-QA 现使用独立 `native-qa-dist` 与 `vite.native-qa.config.ts`，专用 entry 先 await 正式 entry，再加载同一默认 Jotai store 的有限 atom probe。原 App、CSS 和正常 formal-dist 不变。正式 UI 当前未挂载 SidebarProjectFilesSection，所以 projectFiles 的400ms退出持久化验收明确使用白盒atom注入，不声称有真实可点的面板toggle。
+## Rollback and Delivery
 
-LaunchProbe 仅由 QA binary 显式传入：文档初始化前安装有界 console/error/rejection/CSP 观察器；原生事件泵最多暂扣1024个真实 EventEnvelope 并计未读text_delta，再释放给同一个WebView。此计数位于native delivery边界，不把总chunk数或actor内部队列饱和推断为未读积压。固定旧generation/旧run envelope 用不同marker验证过滤。菜单Quit使用自身NSApplication/NSMenu公开performActionForItemAtIndex激活真实menu item，不直接调用公共close action冒充菜单。
+Exiting the independent test app returns to original Electron; original data was never migrated. Revert batch source commit by commit; clean new isolated data only when explicitly identified and separately authorized for deletion. Report actual tests, unrun scope, source SHA, app path/hash, signing/notarization status, GitHub PR/CI, and unmigrated features. Do not claim complete-product/real-service/all-UI-behavior acceptance.
 
-QA result-N.json 改为同目录create_new临时文件、完整写入/sync、rename原子发布，失败明确stderr诊断并停止driver。测试验证失败不会破坏已有完整receipt。early观察记录Zod allowsEval能力探测被现有CSP拒绝并catch回false，及未迁移论文/feedback读取的明确unsupported；不放宽CSP，不以假空数据消除错误。所有补证在Task5报告追加，不覆盖既有未运行历史。
+<a id="task4-审查修复关闭与初始化失败契约"></a>
+
+## Task4 Review Fixes: Close and Initialization-failure Contracts
+
+- Any tabs/settings hydration failure blocks further automatic persistence by that document; late StrictMode success cannot clear the failure barrier. Closing/refreshing still requires successful recovery and latest Jotai flush.
+- attach/detach/recovery attach share a short control queue that advances after acknowledgment. Sample observed watermark when attach is actually sent; history waits for attach acknowledgment, dispose queues final detach. Long SEND does not enter this queue.
+- During bootstrap, the native environment retains latest revision/sequence and replays after baseline arrives; entry's first screen reads the same updated cache.
+- `closeReady(generation, closeToken, committedRevision)` performs only irreversible cancel/drain/join and saves a native receipt; it does not close the window. Same-token retries return pending/final results without duplicate cleanup. Preparation rejection can recover after confirmed `abortClose`; abort acknowledgment for the same expired/cancelled token is idempotent. Irreversible cancellation failure uses `closeFailed`, with host/mock still reclaimed in the background and failed receipt retained.
+- Only confirmed success for the same generation/token/revision permits the narrow `closeWindow`; this final authorization has no renderer deadline. After closeReady wait timeout, the renderer stays frozen and late results cannot automatically close it. Another native close or Quit request may query the same token; pending/failure keeps the window open, while success requires renewed explicit closeWindow authorization. Reload does not execute during unknown commit state; a reclaimed host is not falsely restored as usable.
+- Protocol fault injection and Tauri mock-runtime/actual-actor tests do not equal native WKWebView UI acceptance; Task5 must separately validate window closing, menus, and interactions.
+
+<a id="task5原生-qa-隔离与构建配置校验"></a>
+
+## Task5: Native QA Isolation and Build Configuration Validation
+
+Production and QA binaries share `formal_launch`, explicitly passing different identifiers; reject crossed configuration before creating Builder, windows, or data. Tauri 2.10 context macros load default files by configuration directory, so both direct-Cargo build scripts explicitly set TAURI_CONFIG rather than trusting the macro filename argument.
+
+`formal-native-qa` is a macOS-only optional feature, with separate `tinker-formal-native-qa` binary and `com.tinker.formal-native-qa` identifier. Only the QA entry supplies the ready callback; the ordinary entry never starts a controller even under all-features compilation. Normal delivery builds disable this feature. Public WKWebView evaluateJavaScript/takeSnapshot serve synthetic acceptance of this process's original React renderer only, with no new renderer IPC or network control endpoint.
+
+QA evidence must use canonical `/private/tmp/tinker-tauri-checks-*/native-qa/<batch>`. Original synthetic profiles remain subject to TrustedRoot's separate marker checks. command.json/result-N.json in the test directory form a bounded local acceptance protocol (max 256 actions, 30 minutes); eval, snapshot, records, focus, fullscreen, window, reload, close affect only the owned main window. Screenshots are fixed snapshot-N.png, with no arbitrary output paths. Use `scripts/native-qa-command.py` to submit actions; build-native-qa.ts builds QA only, and QA binaries must not be delivered as ordinary bundles.
+
+This round uses macOS 26.5.1 arm64, actual editor input, Send/Stop, and model/effort/settings DOM controls, alongside native fullscreen/CloseRequested, owned HTTP metadata, and journal/process restart acceptance. DOM events are not system-mouse automation; cross-engine pixel equivalence is not promised. Acceptance reports must distinguish passed and unrun additional fault injection, >128 backlog, and unmigrated real-product capabilities.
+
+<a id="task5-review-补证"></a>
+
+### Task5 Review Supplementary Evidence
+
+QA now uses separate `native-qa-dist` and `vite.native-qa.config.ts`; its entry awaits the formal entry before loading a limited atom probe against the same default Jotai store. Original App, CSS, and ordinary formal-dist remain unchanged. The current production UI does not mount SidebarProjectFilesSection, so projectFiles 400ms exit-persistence acceptance explicitly uses white-box atom injection, without claiming a real clickable panel toggle.
+
+LaunchProbe is passed explicitly only by the QA binary: before document initialization, install bounded console/error/rejection/CSP observers; the native event pump can temporarily hold at most 1024 actual EventEnvelope instances and count unread text_delta before releasing them to the same WebView. This count sits at native delivery, without inferring unread backlog from total chunks or internal actor queue saturation. Fixed old-generation/old-run envelopes use different markers to verify filtering. Menu Quit invokes the real menu item through public performActionForItemAtIndex on its own NSApplication/NSMenu, rather than treating a direct public close action as menu validation.
+
+QA result-N.json now uses same-directory create_new temporary files, complete write/sync, and atomic rename publication; failure produces explicit stderr diagnostics and stops the driver. Tests confirm failures preserve existing complete receipts. Early observations record Zod allowsEval capability probing rejected by existing CSP and caught as false, plus explicit unsupported unmigrated paper/feedback reads; CSP is not relaxed and errors are not hidden with fake empty data. Append all supplementary evidence to the Task5 report, preserving prior unrun history.

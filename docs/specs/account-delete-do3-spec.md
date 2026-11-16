@@ -1,52 +1,64 @@
-# 账户删除（DO-3）Spec：清服务端身份 + 行为遥测，本地研究库保留
+<a id="账户删除do-3spec清服务端身份-&#45;行为遥测本地研究库保留"></a>
 
-> **状态**：设计 + 实现中（分支 `claude/hopeful-chebyshev-87cfb0`）
-> **关联 issue**：[#428](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/428)（DO-3）· blocked-by [#420](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/420)（OPENSCI 登录端到端）
-> **关联 PR**：待开
-> **领域语言事实源**：[`CONTEXT.md`](../../CONTEXT.md) §数据所有权（Data Ownership）
-> **PRD 来源**：[`docs/specs/0.3.0/0.3.0-prd.md`](./0.3.0/0.3.0-prd.md) Epic 4 切片 4.3（DO-3）
-> **姊妹 spec**：[`data-export-do2-spec.md`](./data-export-do2-spec.md)（DO-2，同 Epic 数据所有权）
+# Account Deletion (DO-3) Spec: Remove Server Identity + Behavioral Telemetry, Retain the Local Research Library
+
+> **Status**: Design + implementation in progress (branch `claude/hopeful-chebyshev-87cfb0`)
+> **Related issue**: [#428](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/428) (DO-3) · blocked-by [#420](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/420) (OPENSCI end-to-end sign-in)
+> **Related PR**: Not yet opened
+> **Domain language source of truth**: [`CONTEXT.md`](../../CONTEXT.md) §Data Ownership
+> **PRD source**: [`docs/specs/0.3.0/0.3.0-prd.md`](./0.3.0/0.3.0-prd.md) Epic 4 slice 4.3 (DO-3)
+> **Sibling spec**: [`data-export-do2-spec.md`](./data-export-do2-spec.md) (DO-2, same data-ownership Epic)
 
 ---
 
-## 1. 目标与验收
+<a id="1-目标与验收"></a>
 
-用户在 Settings **账户 tab** 一键删除账户（GDPR Art.17 被遗忘权）：清空 ASCI 服务端的
-**身份映射 + 行为遥测数据**；本地研究库（设备级 SQLite）**保留不删**。删除前有明确**二次确认**
-与**影响说明**。
+## 1. Goal and Acceptance
 
-| # | 验收（来自 issue / PRD） |
+Users delete their account from the Settings **Account tab** (GDPR Art.17 right to erasure), clearing
+**identity mapping + behavioral telemetry** from ASCI servers while **retaining** the device-level SQLite local research library. Require explicit **secondary confirmation**
+and an **impact explanation** before deletion.
+
+| # | Acceptance (from issue / PRD) |
 |---|------|
-| DO-3 | 触发删除 → 服务端用户记录 + 行为数据清空 → 本地研究库保留可见 |
-| 二次确认 | 删除前有明确二次确认 + 影响说明（不误操作） |
+| DO-3 | Trigger deletion → server user record + behavioral data cleared → local research library remains visible |
+| Secondary confirmation | Clear second confirmation + impact explanation before deletion (prevent accidental actions) |
 
-## 2. 关键决策
+<a id="2-关键决策"></a>
 
-| # | 决策点 | 裁决 | 理由 |
+## 2. Key Decisions
+
+| # | Decision Point | Decision | Reason |
 |---|--------|------|------|
-| D1 | 服务端删除端点 | **ASCI-Server `DELETE /me`**（ASCI-Server#2 接口表）：`Authorization: Bearer {access_token}`，删本地身份映射 + 演化遥测事件，**幂等 204**；dev/stub 模式走本地 stub 模拟成功 | 接口已在 ASCI-Server#2 冻结；base URL = ASCI-Server（RS），**与 Hydra issuer 不同源**（issuer 仅 OAuth），经 `auth-config.json` 的 `asciServerBaseUrl` 配置，默认 dev `localhost:6060` |
-| D2 | 行为遥测删除归属 | `DELETE /me` 清 **ASCI-Server 侧**身份映射 + 演化遥测事件（`/events` 通道）；桌面端额外 `telemetryService.clearUser()` 停止 PostHog uid 归属 | PostHog 行为分析与 ASCI-Server 演化遥测物理隔离（ADR-011）；`DELETE /me` 覆盖项目自管的 RS 数据，PostHog 历史数据删除是独立 ops（桌面端无 admin key，仅停归属） |
-| D3 | UI 入口位置 | **账户 tab（`ProfileSettings.tsx`）**，登出按钮下方 | 按 PRD §200 原意；与登录态身份信息同页 |
-| D4 | 二次确认形态 | **对话框 + 影响说明 bullet + 显式勾选 acknowledge 才放开删除按钮** | GDPR 不可逆操作，单点确认不足；勾选 = 明确二次确认 |
-| D5 | 本地数据处置 | **完全不动** `~/.asci[-dev]/asci.db`、reviews 正文、owner-marker.json | 「本地研究库设备级保留」是 DO-3 核心承诺；owner-marker 指向已删 uid 无害（设备级归属元数据） |
-| D6 | 删除成功后客户端态 | 清 token + 清 User 缓存 + 解除 dev-bypass + 发新事件 `account-deleted` → renderer 退回登录门 | 账户已不存在，必须登出；与 `logout` 区分以便 UI 给不同 toast |
-| D7 | 删除后是否开浏览器全局登出 | **不开**。仅清本地 | 账户已被服务端删除，Hydra 会话由服务端一并失效；再开浏览器登出页会 404/困惑 |
-| D8 | 删除失败行为 | **保留本地登录态**，返回错误，UI toast 报错让用户重试 | 服务端未删成功就清本地 = 用户失去入口却数据仍在服务端，违反「确认即删除」 |
+| D1 | Server deletion endpoint | **ASCI-Server `DELETE /me`** (ASCI-Server#2 interface table): `Authorization: Bearer {access_token}`, removes local identity mapping + evolution telemetry events, **idempotent 204**; dev/stub uses local simulated success | Interface frozen in ASCI-Server#2; base URL = ASCI-Server (RS), **different origin from Hydra issuer** (OAuth only); configured through `asciServerBaseUrl` in `auth-config.json`, default dev `localhost:6060` |
+| D2 | Behavioral telemetry deletion ownership | `DELETE /me` removes **ASCI-Server-side** identity mapping + evolution telemetry (`/events` channel); desktop additionally calls `telemetryService.clearUser()` to stop PostHog uid attribution | PostHog analytics and ASCI-Server evolution telemetry are physically separate (ADR-011); `DELETE /me` covers self-managed RS data; historical PostHog deletion is separate ops (desktop lacks admin key; stops attribution only) |
+| D3 | UI entry | **Account tab (`ProfileSettings.tsx`)**, below sign-out | Follows PRD §200 intent; same page as signed-in identity |
+| D4 | Secondary confirmation | **Dialog + impact bullets + explicit acknowledge checkbox before enabling deletion** | Irreversible GDPR action needs more than one click; checkbox is explicit second confirmation |
+| D5 | Local data | **Leave unchanged** `~/.asci[-dev]/asci.db`, reviews bodies, owner-marker.json | Device-level retention is DO-3's core promise; owner-marker pointing to deleted uid is harmless device-ownership metadata |
+| D6 | Client state after success | Clear tokens + cached User + dev-bypass; emit new `account-deleted` event → renderer returns to sign-in gate | Account no longer exists; sign out; distinguish from `logout` for a different toast |
+| D7 | Browser global logout after deletion | **No**, clear locally only | Server deletes account and invalidates Hydra session; opening logout page again yields 404/confusion |
+| D8 | Deletion failure | **Preserve local sign-in**, return error, show retry toast | Clearing local state before successful deletion removes access while server data remains, violating confirmed deletion |
 
-## 3. 代码事实（设计依据）
+<a id="3-代码事实设计依据"></a>
 
-- 鉴权 = 桌面 public client 直连 Hydra OIDC（`auth-opensci-client.ts`）；桌面持 token + 缓存 `User`
-- 登出（`auth-service.ts:116`）：RP-initiated logout URL + `tokenStore.clear()` + `clearCachedUser()` + 发 `logout` 事件
-- 遥测（`telemetry-service.ts`）：`distinct_id` 登录态 = OPENSCI uid，登出/失效回落匿名 deviceId；`identifyUser()` / `clearUser()` 由 `index.ts:417` 的 `onAuthStateChanged` 驱动
-- dev-bypass（`auth-dev-bypass.ts`）：走 stub 路径（`getCachedUser()` 返回 null）
-- IPC 四联约定：`auth-ipc.ts` 常量 → `ipc.ts` 的 `registerAuthIpc` → `preload/index.ts` → renderer
-- auth ns i18n：`locales/{en,zh}/auth/profile.json`，经 `locales/en/auth.ts` 聚合，`key-parity.test.ts` 守门
+## 3. Code Facts (Design Basis)
 
-## 4. 设计
+- Authentication = desktop public client connects directly to Hydra OIDC (`auth-opensci-client.ts`); desktop holds tokens + cached `User`.
+- Sign-out (`auth-service.ts:116`): RP-initiated logout URL + `tokenStore.clear()` + `clearCachedUser()` + `logout` event.
+- Telemetry (`telemetry-service.ts`): Signed-in `distinct_id` = OPENSCI uid; sign-out/expiry falls back to anonymous deviceId; `identifyUser()` / `clearUser()` driven by `onAuthStateChanged` in `index.ts:417`.
+- dev-bypass (`auth-dev-bypass.ts`): Stub path (`getCachedUser()` returns null).
+- Four-way IPC: `auth-ipc.ts` constants → `registerAuthIpc` in `ipc.ts` → `preload/index.ts` → renderer.
+- auth namespace i18n: `locales/{en,zh}/auth/profile.json`, aggregated through `locales/en/auth.ts`, guarded by `key-parity.test.ts`.
 
-### 4.1 服务端删除契约（ASCI-Server#2 接口表）
+<a id="4-设计"></a>
 
-`OpensciAuthClient` 新增：
+## 4. Design
+
+<a id="41-服务端删除契约asci-server2-接口表"></a>
+
+### 4.1 Server Deletion Contract (ASCI-Server#2 Interface Table)
+
+Add to `OpensciAuthClient`. The retained comment specifies idempotent deletion of identity/evolution telemetry; 401/403 → token-expired (sign in again), other 4xx/5xx → oauth-provider-error, network → network-error.
 
 ```ts
 /** 删除账户：调 ASCI-Server DELETE /me 清身份映射 + 演化遥测事件，幂等 204。
@@ -54,11 +66,13 @@
 deleteAccount(accessToken: string): Promise<Result<void>>
 ```
 
-- 端点：`DELETE {asciServerBaseUrl}me`，`Authorization: Bearer {accessToken}`，成功 204
-- `asciServerBaseUrl` = ASCI-Server（RS）base，**与 Hydra issuer 不同源**；默认 dev `http://localhost:6060`，经 `auth-config.json` 的 `asciServerBaseUrl` 覆盖（测试/生产域名；生产 URL 待平台报备加白）
-- 注：ASCI-Server 转纯 Resource Server 后，`/me`、`DELETE /me`、`/events` 在 RS；登录/刷新/登出已移至桌面端直连 Hydra
+- Endpoint: `DELETE {asciServerBaseUrl}me`, `Authorization: Bearer {accessToken}`, success 204.
+- `asciServerBaseUrl` = ASCI-Server (RS) base, **different origin from Hydra issuer**; default dev `http://localhost:6060`, overridable in `auth-config.json` via `asciServerBaseUrl` (test/production domains; production URL pending platform allowlisting).
+- Note: After ASCI-Server became a pure Resource Server, `/me`, `DELETE /me`, `/events` reside on RS; sign-in/refresh/sign-out moved to direct desktop→Hydra connections.
 
 ### 4.2 AuthService.deleteAccount()
+
+The original pseudocode below preserves real OIDC and stub paths, leaves local state on failure, clears tokens/cache/dev-bypass on success, retains the local research library, and emits account-deleted.
 
 ```
 deleteAccount():
@@ -79,57 +93,69 @@ deleteAccount():
 
 ### 4.3 AuthStub.deleteAccount(uid)
 
-删 `users.json` / `credentials.json` / `oauth-links.json` 中该 uid 的记录 + revoke 其全部 session
-（复用 `revokeAllSessions` 语义）。dev fixture 删后下次 `getCurrentUser` 不再自动登录（已 `disableBypassForRuntime`）。
+Remove the uid's records from `users.json` / `credentials.json` / `oauth-links.json` and revoke all sessions
+(reuse `revokeAllSessions` semantics). After deleting a dev fixture, the next `getCurrentUser` no longer signs in automatically (`disableBypassForRuntime` already applied).
 
-### 4.4 新事件 `account-deleted`
+<a id="44-新事件-account-deleted"></a>
 
-- `AuthStateChangedEvent` union 加 `| { type: 'account-deleted' }`
-- `GlobalListeners.tsx`：与 `logout` 同样清 atom 回登录页，但 toast 用 `account-deleted` 成功文案
-- `index.ts` 的 `onAuthStateChanged`：`account-deleted` 并入 `logout`/`session-expired` 分支 → `telemetryService.clearUser()`（停止 uid 归属；服务端负责真正删 PostHog 数据）
+### 4.4 New `account-deleted` Event
 
-### 4.5 IPC 四联
+- Add `| { type: 'account-deleted' }` to the `AuthStateChangedEvent` union.
+- `GlobalListeners.tsx`: Clear atoms and return to sign-in like `logout`, but show the `account-deleted` success toast.
+- `onAuthStateChanged` in `index.ts`: Add `account-deleted` to `logout`/`session-expired` branch → `telemetryService.clearUser()` (stop uid attribution; server handles actual PostHog deletion).
 
-| 层 | 位置 | 内容 |
+<a id="45-ipc-四联"></a>
+
+### 4.5 Four-Way IPC
+
+| Layer | Location | Content |
 |----|------|------|
-| 常量+类型 | `packages/shared/src/types/auth-ipc.ts` + `auth.ts` | `AUTH_CHANNELS.DELETE_ACCOUNT='auth:delete-account'`；`AuthStateChangedEvent` 加 `account-deleted` |
-| main | `apps/electron/src/main/ipc.ts`（`registerAuthIpc`） | `ipcMain.handle(DELETE_ACCOUNT, () => svc.deleteAccount())` |
+| Constants + types | `packages/shared/src/types/auth-ipc.ts` + `auth.ts` | `AUTH_CHANNELS.DELETE_ACCOUNT='auth:delete-account'`; add `account-deleted` to `AuthStateChangedEvent` |
+| main | `apps/electron/src/main/ipc.ts` (`registerAuthIpc`) | `ipcMain.handle(DELETE_ACCOUNT, () => svc.deleteAccount())` |
 | preload | `apps/electron/src/preload/index.ts` | `deleteAccount: () => Promise<Result<void>>` |
-| renderer | `ProfileSettings.tsx` + 新 `DeleteAccountDialog.tsx` | 按钮 + 二次确认对话框 |
+| renderer | `ProfileSettings.tsx` + new `DeleteAccountDialog.tsx` | Button + secondary-confirmation dialog |
 
-### 4.6 UI 与 i18n
+<a id="46-ui-与-i18n"></a>
 
-- `ProfileSettings.tsx`：登出按钮下方加「删除账户」按钮（destructive 文字样式），点开 `DeleteAccountDialog`
-- 新组件 `components/auth/DeleteAccountDialog.tsx`：
-  - 影响说明 bullet：服务端身份+遥测清空（不可恢复）/ 本地研究库保留在本设备 / 删除后退出登录
-  - 勾选框 acknowledge → 放开 destructive「删除账户」按钮
-  - 成功：atom 由 `GlobalListeners` 的 `account-deleted` 驱动；失败：toast 报错
-- i18n：`auth` ns `profile.deleteAccount` + `profile.deleteConfirm.*`，en + zh 同步（key-parity 守门）
+### 4.6 UI and i18n
 
-### 4.7 测试
+- `ProfileSettings.tsx`: Add Delete Account button (destructive text style) below sign-out, opening `DeleteAccountDialog`.
+- New `components/auth/DeleteAccountDialog.tsx`:
+  - Impact bullets: server identity+telemetry cleared irreversibly / local research library stays on this device / deletion signs out.
+  - Acknowledge checkbox → enables destructive Delete Account button.
+  - Success: atoms driven by `account-deleted` through `GlobalListeners`; failure: error toast.
+- i18n: `auth` namespace `profile.deleteAccount` + `profile.deleteConfirm.*`, synchronized en + zh (key-parity guard).
 
-| 测试 | 验证 |
+<a id="47-测试"></a>
+
+### 4.7 Tests
+
+| Test | Verification |
 |------|------|
-| `auth-service` 单测 | stub 路径删除成功 → 清 token/缓存 + 发 `account-deleted`；删除失败 → 保留本地态、不发事件 |
-| `auth-stub` 单测 | `deleteAccount(uid)` 后 `getUserByUid` 为 null、session 全 revoke |
-| key-parity | en/zh `profile.deleteConfirm.*` 对齐 |
+| `auth-service` unit tests | Successful stub deletion → clear tokens/cache + emit `account-deleted`; failure → preserve local state, no event |
+| `auth-stub` unit tests | After `deleteAccount(uid)`, `getUserByUid` is null and all sessions revoked |
+| key-parity | en/zh `profile.deleteConfirm.*` aligned |
 
-## 5. 实现计划
+<a id="5-实现计划"></a>
 
-1. **shared**：`DELETE_ACCOUNT` 通道 + `account-deleted` 事件类型
-2. **main**：`OpensciAuthClient.deleteAccount` 契约 + `AuthStub.deleteAccount` + `AuthService.deleteAccount` + IPC 注册 + `index.ts` 遥测分支 + preload 桥接
-3. **renderer**：`DeleteAccountDialog` + `ProfileSettings` 入口 + i18n en/zh
-4. **测试**：auth-service / auth-stub 单测
-5. **收尾**：`typecheck` / `bun test` / `simplify` 复盘；版本递增 `packages/shared`、`apps/electron`
+## 5. Implementation Plan
+
+1. **shared**: `DELETE_ACCOUNT` channel + `account-deleted` event type.
+2. **main**: `OpensciAuthClient.deleteAccount` contract + `AuthStub.deleteAccount` + `AuthService.deleteAccount` + IPC registration + telemetry branch in `index.ts` + preload bridge.
+3. **renderer**: `DeleteAccountDialog` + `ProfileSettings` entry + en/zh i18n.
+4. **Tests**: auth-service / auth-stub unit tests.
+5. **Finish**: `typecheck` / `bun test` / `simplify` review; increment `packages/shared`, `apps/electron` versions.
 
 ## 6. Out of Scope
 
-- 真实 OPENSCI 删除端点的服务端实现（本 spec 只定契约 + dev stub）
-- 本地研究库删除 / 二次「连本地一起删」选项（DO-3 明确保留本地）
-- 删除后导出引导（用户可先走 DO-2 再删，不做强绑定）
-- 账户冻结 / 软删 / 撤销删除宽限期（V1 不做）
+- Actual server implementation of OPENSCI deletion (this spec defines contract + dev stub only).
+- Local research-library deletion / secondary delete-local-too option (DO-3 explicitly preserves local data).
+- Export guidance after deletion (users may run DO-2 first; no mandatory coupling).
+- Account freezing / soft deletion / grace period for reversal (not in V1).
 
-## 7. 残留开放问题
+<a id="7-残留开放问题"></a>
 
-- `asciServerBaseUrl` 测试/生产域名待定（默认 dev `localhost:6060`；生产 URL 待平台报备加白名单后填入 `auth-config.json` 或构建期注入）
-- PostHog 行为分析历史数据的 GDPR 删除是独立 ops（与 ASCI-Server `DELETE /me` 无关，桌面端仅 `clearUser()` 停归属）；是否需要服务端侧再补一条 PostHog 删除链路由产品/ops 决定
+## 7. Remaining Open Questions
+
+- Test/production `asciServerBaseUrl` domains TBD (default dev `localhost:6060`; production URL added to `auth-config.json` or build-time injection after platform allowlisting).
+- GDPR deletion of historical PostHog behavioral analytics is separate ops (unrelated to ASCI-Server `DELETE /me`; desktop only stops attribution via `clearUser()`); product/ops decide whether a server-side PostHog deletion path is needed.

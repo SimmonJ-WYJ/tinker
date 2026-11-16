@@ -1,166 +1,194 @@
-# 0.1 内测反馈汇总
+<a id="01-内测反馈汇总"></a>
 
-**来源**：20260425_内部反馈.md + 20260426_用户反馈整理.md
-**整理日期**：2026-04-27
-**最近回填**：2026-05-08（Issue/PR 列回填 + 孤儿 issue 与 0.1 增量多语言需求并入）
-**范围**：0.1 必做 / 0.1 加餐 / 0.2 延后
+# 0.1 internal-test feedback summary
 
-> **Issue/PR 列说明**：F-# 与 GitHub Issues / PRs 的映射依据见 `ya-docs/feedback/0.1/issue-mapping-draft.md`。
-> 一个 F-# 对应多 PR 时以 `/` 分隔；无对应填 `—`。
+**Sources**: `20260425_内部反馈.md` (internal feedback) + `20260426_用户反馈整理.md` (user feedback compilation)
+**Compiled**: 2026-04-27
+**Latest backfill**: 2026-05-08 (Issue/PR columns + orphan issues and incremental 0.1 multilingual requirements)
+**Scope**: 0.1 required / 0.1 extras / deferred to 0.2
 
----
-
-## C 组：基础体验可靠
-
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
-|-----|------|------|------|------|-------|-----|
-| F01 | Mac 安装慢，Windows 需手动装 Python/Node.js/Git，360 拦截误删 | `Bug` | **0.1 必做** | 阻塞 C1 | — | #41 / #50 |
-| F02 | Windows 装不上、卸不掉（3 次失败，D 盘不支持） | `Bug` | **0.1 必做** | 阻塞 C1 | — | #50 / #66 |
-| F03 | 安装包强制默认 C 盘，不支持自定义路径 | `功能优化` | **0.1 必做** | F02 根因之一，纳入 C1 | — | #50 |
-| F04 | 无文献库时被强制要求先建库，无法直接做综述 | `Bug` | **0.1 必做** | 阻塞 C3 | — | — |
-| F05 | 会话回退到某节点后再提问报错，会话作废 | `Bug` | **0.1 必做** | 阻塞 C4 | — | — |
-| F06 | 跨页面切换卡顿（文献库→工作区有明显延迟） | `性能` | **0.1 必做** | 影响所有操作 | — | #67 |
-| F08 | Windows 输入框"被吃掉"，内容发不出，需重启（2 台复现） | `Bug` | **0.1 必做** | 核心交互阻断 | — | — |
+> **Issue/PR columns**: See `ya-docs/feedback/0.1/issue-mapping-draft.md` for F-# to GitHub Issue / PR mappings.
+> Multiple PRs for one F-# use `/`; no mapping uses `—`.
 
 ---
 
-## A 组：检索可信度
+<a id="c-组基础体验可靠"></a>
 
-### A0 — 检索前确认检索计划
+## Group C: Basic experience reliability
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
 |-----|------|------|------|------|-------|-----|
-| F10 | 文献检索和综述都缺少澄清用户需求的环节，检索前需确认关键词和范围 | `功能优化` | **0.1 必做** | 阻塞 A0 | #28 | #43 |
-| F11 | 输入"最新进展"等模糊词，系统直接照搜，不追问时间/学科范围 | `UX交互` | **0.1 必做** | 阻塞 A0 | #28 | #43 |
-| F12 | 第二轮检索被当成新课题重新从头跑，没有基于第一轮结果增量补充 | `功能优化` | **0.1 加餐** | 体验改善，非阻断 | — | — |
-
-### A1/A2/A3/A4 — 结果准确与透明
-
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
-|-----|------|------|------|------|-------|-----|
-| F13 | AI 幻觉：作者/论文张冠李戴，标题对但作者错 | `Bug` | **0.1 必做** | 阻塞 A1 | #28 | #43 / #44 / #48 |
-| F14 | 字段缺失时默认填 1970 年 / Zhang 1982 等虚假值 | `Bug` | **0.1 必做** | 阻塞 A2 | — | #58 |
-| F15 | 时间字段混淆：分不清是发表时间还是抓取时间 | `UX交互` | **0.1 必做** | 阻塞 A2 | — | — |
-| F16 | 部分结果缺摘要/关键词，界面未标注"不可获取" | `UX交互` | **0.1 必做** | 阻塞 A2 | — | — |
-| F17 | 检索源不透明，单条结果未标注来自哪个数据库 | `UX交互` | **0.1 必做** | 阻塞 A3 | — | #43 |
-| F18 | 搜不到时用相似/同名论文凑数，不提示"未命中" | `Bug` | **0.1 必做** | 阻塞 A4 | — | — |
-
-### A 组其他 — 检索质量与效率
-
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
-|-----|------|------|------|------|-------|-----|
-| F19 | 论文检索召回率不足（应有 400+ 只命中 176；应有 3 只 1） | `功能优化` | **0.1 必做** | 检索核心能力 | — | #43 / #58 |
-| F20 | 搜不到非 OA 论文（用户自己的论文都搜不到），需支持用户配置检索源/绑定机构账号 | `功能优化` | **0.1 必做** | 检索覆盖度是必须项，实现路径可多种 | — | — |
-| F21 | 检索相关度只匹配"研究方法"，匹配不到"研究对象" | `功能优化` | **0.1 必做** | 相关度排序核心逻辑 | — | — |
-| F22 | 检索结果列表缺少相关度评分（0-100 或星级） | `UX交互` | **0.1 必做** | 无评分用户只能逐条点开判断 | #26 | — |
-| F23 | 文献检索列表需支持多维度筛选，默认按相关度排序 | `功能优化` | **0.1 必做** | 检索结果可用性基础 | #26 | — |
-| F24 | Agent 输出论文数量可能和实际本轮检索论文数量不一致 | `Bug` | **0.1 必做** | 数据不一致，信任问题 | — | — |
-| F25 | 期望按 DOI 自动获取 PDF（结合学校 IP） | `功能优化` | **延后 0.2** | 资源层建设，工作量大 | — | — |
-| F26 | 文献检索列表支持多选加入 Zotero | `功能优化` | **0.1 加餐** | 单篇已可用，多选是效率提升 | — | — |
-| F59 | 相似主题连续检索 3 次后，本次检索窗口空白 | `Bug` | **0.1 必做** | 检索结果可信度，连续使用阻断 | #60 | — |
+| F01 | Slow Mac installation; Windows requires manual Python/Node.js/Git installation; 360 blocks and deletes files incorrectly | `Bug` | **0.1 required** | Blocks C1 | — | #41 / #50 |
+| F02 | Cannot install/uninstall on Windows (3 failures, D drive unsupported) | `Bug` | **0.1 required** | Blocks C1 | — | #50 / #66 |
+| F03 | Installer forces default C drive, no custom path | `功能优化` (Feature improvement) | **0.1 required** | One root cause of F02, included in C1 | — | #50 |
+| F04 | Without a library, forced to create one before writing a review | `Bug` | **0.1 required** | Blocks C3 | — | — |
+| F05 | Asking after reverting to a conversation node errors and invalidates session | `Bug` | **0.1 required** | Blocks C4 | — | — |
+| F06 | Lag switching pages (noticeable library→workspace delay) | `性能` (Performance) | **0.1 required** | Affects all operations | — | #67 |
+| F08 | Windows input is “swallowed,” cannot send content, requires restart (reproduced on 2 machines) | `Bug` | **0.1 required** | Blocks core interaction | — | — |
 
 ---
 
-## B 组：综述可追溯
+<a id="a-组检索可信度"></a>
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
+## Group A: Search trustworthiness
+
+<a id="a0-&#45;检索前确认检索计划"></a>
+
+### A0 — Confirm search plan before searching
+
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
 |-----|------|------|------|------|-------|-----|
-| F27 | 综述引用必须可定位、可跳转（点击引用标记→定位论文条目） | `功能优化` | **0.1 必做** | 阻塞 B1、B2 | #29 | #44 |
-| F28 | Claim 组件：综述观点悬停展示来源段落预览 | `功能优化` | **0.1 必做** | 阻塞 B3 | #30 | #44 |
-| F29 | 思考链需展示"结论→证据"因果路径，不只是关键词列表 | `UX交互` | **0.1 必做** | 阻塞 B4 | #32 | — |
-| F30 | 综述格式不像学术综述，缺少背景→现状→方法对比→争议→展望的逻辑框架 | `功能优化` | **0.1 必做** | 综述是核心产出，格式不学术化就失去入口价值 | #33 | — |
-| F31 | 综述只基于摘要/Meta，未基于 PDF 全文做语义理解 | `功能优化` | **延后 0.2** | PDF 解析管道属资源层建设，不陷入无限战争 | #34（spike: #36/#37 CLOSED）| #63 |
+| F10 | Search and review lack clarification; confirm keywords and scope before searching | `功能优化` (Feature improvement) | **0.1 required** | Blocks A0 | #28 | #43 |
+| F11 | Vague terms like “latest advances” trigger direct search without asking time/discipline scope | `UX交互` (UX interaction) | **0.1 required** | Blocks A0 | #28 | #43 |
+| F12 | Second-round search treated as new topic, restarting instead of incrementally supplementing first results | `功能优化` (Feature improvement) | **0.1 extra** | Experience improvement, not blocking | — | — |
 
-## D 组：透明度
+<a id="a1a2a3a4-&#45;结果准确与透明"></a>
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
+### A1/A2/A3/A4 — Accurate and transparent results
+
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
 |-----|------|------|------|------|-------|-----|
-| F32 | 中英文查询未自动分流，英文课题应路由英文源、中文路由中文源 | `功能优化` | **0.1 必做** | 阻塞 D2 | — | — |
-| F33 | 检索详情页缺少统计概览（总数、年份分布、检索源分布、相关度分布） | `UX交互` | **0.1 必做** | 阻塞 D3 | — | — |
-| F34 | 任务跑得久（30-60 分钟），缺少进度条和 ETA，只有滚动日志 | `UX交互` | **0.1 必做** | 无进度反馈的高耗时任务体验不可接受 | — | — |
-| F35 | 默认权限弹窗太多，每一步都被打断确认 | `UX交互` | **0.1 必做** | 高频打断，用户要求默认完全自动 | — | #31 |
-| F36 | AI 生成图表后找不到文件，落在临时目录关闭即丢 | `Bug` | **0.1 必做** | 文件应存持久化目录，对话气泡内给出可点击路径 | — | — |
+| F13 | AI hallucination: mismatched authors/papers, correct title but wrong author | `Bug` | **0.1 required** | Blocks A1 | #28 | #43 / #44 / #48 |
+| F14 | Missing fields default to fabricated values like 1970 / Zhang 1982 | `Bug` | **0.1 required** | Blocks A2 | — | #58 |
+| F15 | Ambiguous date fields: publication vs retrieval time unclear | `UX交互` (UX interaction) | **0.1 required** | Blocks A2 | — | — |
+| F16 | Some results lack abstracts/keywords without “Unavailable” labels | `UX交互` (UX interaction) | **0.1 required** | Blocks A2 | — | — |
+| F17 | Search sources opaque; individual results omit source database | `UX交互` (UX interaction) | **0.1 required** | Blocks A3 | — | #43 |
+| F18 | Missing results replaced with similar/same-title papers without “No match” notice | `Bug` | **0.1 required** | Blocks A4 | — | — |
+
+<a id="a-组其他-&#45;检索质量与效率"></a>
+
+### Other Group A items — Search quality and efficiency
+
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
+|-----|------|------|------|------|-------|-----|
+| F19 | Insufficient paper recall (176 of expected 400+; 1 of expected 3) | `功能优化` (Feature improvement) | **0.1 required** | Core search capability | — | #43 / #58 |
+| F20 | Cannot find non-OA papers (including users' own); support configurable sources/institution accounts | `功能优化` (Feature improvement) | **0.1 required** | Search coverage required; multiple implementation paths possible | — | — |
+| F21 | Relevance matches methods but not research objects | `功能优化` (Feature improvement) | **0.1 required** | Core relevance ranking | — | — |
+| F22 | Results lack relevance scores (0-100 or stars) | `UX交互` (UX interaction) | **0.1 required** | Without scores users must open each result to judge | #26 | — |
+| F23 | Support multidimensional result filters, relevance sorting by default | `功能优化` (Feature improvement) | **0.1 required** | Basic result usability | #26 | — |
+| F24 | Agent-reported paper count may differ from actual current-turn search count | `Bug` | **0.1 required** | Data inconsistency, trust issue | — | — |
+| F25 | Automatic PDF retrieval by DOI (using institutional IP) desired | `功能优化` (Feature improvement) | **Deferred to 0.2** | Resource-layer construction, substantial effort | — | — |
+| F26 | Multi-select search results to add to Zotero | `功能优化` (Feature improvement) | **0.1 extra** | Single-paper works; multi-select improves efficiency | — | — |
+| F59 | Search window blank after 3 consecutive similar-topic searches | `Bug` | **0.1 required** | Search trustworthiness, blocks repeated use | #60 | — |
 
 ---
 
-## E 组：UX 与工作流增强
+<a id="b-组综述可追溯"></a>
 
-### Zotero 集成
+## Group B: Traceable reviews
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | 是否已经完成 | 负责人 | Issue | PR |
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
+|-----|------|------|------|------|-------|-----|
+| F27 | Review citations must locate/jump to papers (click marker→paper entry) | `功能优化` (Feature improvement) | **0.1 required** | Blocks B1, B2 | #29 | #44 |
+| F28 | Claim component: Hover review claims to preview source paragraphs | `功能优化` (Feature improvement) | **0.1 required** | Blocks B3 | #30 | #44 |
+| F29 | Thinking chain should show conclusion→evidence causal paths, not just keywords | `UX交互` (UX interaction) | **0.1 required** | Blocks B4 | #32 | — |
+| F30 | Review lacks academic structure: background→current state→method comparison→debates→outlook | `功能优化` (Feature improvement) | **0.1 required** | Review is core output; nonacademic format loses entry-point value | #33 | — |
+| F31 | Review uses abstracts/Meta only, without semantic understanding of PDF full text | `功能优化` (Feature improvement) | **Deferred to 0.2** | PDF parsing is resource-layer construction; avoid endless scope | #34 (spike: #36/#37 CLOSED) | #63 |
+
+<a id="d-组透明度"></a>
+
+## Group D: Transparency
+
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
+|-----|------|------|------|------|-------|-----|
+| F32 | No automatic Chinese/English query routing; English topics should use English sources and Chinese topics Chinese sources | `功能优化` (Feature improvement) | **0.1 required** | Blocks D2 | — | — |
+| F33 | Search details lack statistics (total, year/source/relevance distributions) | `UX交互` (UX interaction) | **0.1 required** | Blocks D3 | — | — |
+| F34 | Long tasks (30-60 minutes) lack progress/ETA, showing only scrolling logs | `UX交互` (UX interaction) | **0.1 required** | Long tasks without progress feedback are unacceptable | — | — |
+| F35 | Too many default permission dialogs, confirming every step | `UX交互` (UX interaction) | **0.1 required** | Frequent interruptions; users request full automation by default | — | #31 |
+| F36 | AI-generated charts lost in temporary directories on close; users cannot find files | `Bug` | **0.1 required** | Persist files and provide clickable paths in chat bubbles | — | — |
+
+---
+
+<a id="e-组ux-与工作流增强"></a>
+
+## Group E: UX and workflow improvements
+
+<a id="zotero-集成"></a>
+
+### Zotero integration
+
+| F-# | Feedback | Type | Decision | Reason | Completed? | Owner | Issue | PR |
 |-----|------|------|------|------|------|------|-------|-----|
-| F37 | 新建科研项目，在新项目中，Zotero相关的MCP都不见了 | `Bug` | **0.1 必做** | 核心集成不可用 | ❌未完成 | - | #61（跨切 F40）| #20 |
-| F39 | Zotero 添加论文时支持选择集合（目前只能进当前Zotero客户端已选中的集合） | `功能优化` | **0.1 必做** | 用户明确需求 | ❌未完成 | - | — | — |
-| F40 | 用户期望直接对接 Zotero，不另做一套文献管理，包括论文下载打通 | `功能优化` | **0.1 必做** | 影响产品策略，做好 Zotero 双向同步 | ❌未完成 | - | #61（跨切 F37）+ #38（CLOSED spike）| #63 / #5 |
-| F41 | Zotero 引用论文时，命名为"xxx等-文件名"，应该展示为原文标题 | `bug` | **0.1 必做** | 文件可读性 | ❌未完成 | - | — | #47 |
-| F58 | Zotero 已连接但文献库入口仍显示连接 Zotero 引导 Tag | `Bug` | **0.1 必做** | 状态指示器与实际不一致 | ❌未完成 | - | #27 | — |
+| F37 | Zotero MCPs disappear in newly created research projects | `Bug` | **0.1 required** | Core integration unavailable | ❌Incomplete | - | #61 (cross-cuts F40) | #20 |
+| F39 | Choose collection when adding papers to Zotero (currently only the client's selected collection) | `功能优化` (Feature improvement) | **0.1 required** | Explicit user requirement | ❌Incomplete | - | — | — |
+| F40 | Users expect direct Zotero integration, not separate library management, including paper downloads | `功能优化` (Feature improvement) | **0.1 required** | Product strategy impact; implement two-way Zotero sync well | ❌Incomplete | - | #61 (cross-cuts F37) + #38 (CLOSED spike) | #63 / #5 |
+| F41 | Zotero references named “xxx et al.-filename” should show original paper title | `bug` | **0.1 required** | File readability | ❌Incomplete | - | — | #47 |
+| F58 | Library entry still shows Connect Zotero guidance Tag after connection | `Bug` | **0.1 required** | Indicator mismatches reality | ❌Incomplete | - | #27 | — |
 
-### 项目/文件管理
+<a id="项目文件管理"></a>
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | 是否已经完成 | 负责人 | Issue | PR |
+### Project/file management
+
+| F-# | Feedback | Type | Decision | Reason | Completed? | Owner | Issue | PR |
 |-----|------|------|------|------|------|------|-------|-----|
-| F38 | 对话框的引用面板交互优化：面板放大、支持上下左右快捷键、有更清晰的路由、标识 Zotero 已下载 PDF | `UX交互` | **0.1 必做** | 高频操作效率 | ✅已完成 | Alex | — | #65 / #69 |
-| F43 | 项目文件支持拖拽到对话框引用 | `功能优化` | **0.1 必做** | 文献引用基础交互 | ✅已完成 | Alex | — | — |
-| F44 | 项目文件右键菜单新增引用按钮 | `功能优化` | **0.1 必做** | 文献引用入口 | ✅已完成 | Alex | — | — |
-| F46 | Agent 对话框 Chrome 未做项目隔离（切项目不切对话框） | `Bug` | **0.1 必做** | 项目隔离是基础预期 | ❌未完成 | - | — | — |
+| F38 | Improve chat reference panel: enlarge, support all arrow shortcuts, clearer routing, mark Zotero-downloaded PDFs | `UX交互` (UX interaction) | **0.1 required** | Frequent-operation efficiency | ✅Complete | Alex | — | #65 / #69 |
+| F43 | Drag project files into chat as references | `功能优化` (Feature improvement) | **0.1 required** | Basic paper-reference interaction | ✅Complete | Alex | — | — |
+| F44 | Add reference action to project-file context menu | `功能优化` (Feature improvement) | **0.1 required** | Paper-reference entry | ✅Complete | Alex | — | — |
+| F46 | Agent chat Chrome lacks project isolation (switching projects keeps chat) | `Bug` | **0.1 required** | Project isolation is fundamental | ❌Incomplete | - | — | — |
 
-### 通用 UX 改进
+<a id="通用-ux-改进"></a>
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | 是否已经完成 | 负责人 | Issue | PR |
+### General UX improvements
+
+| F-# | Feedback | Type | Decision | Reason | Completed? | Owner | Issue | PR |
 |-----|------|------|------|------|------|------|-------|-----|
-| F47 | 加入 Zotero 按钮颜色（建议不用红色） | `UX交互` | **0.1 必做** | 红色=危险暗示，不符合语义 | ✅已完成 | Simmon | — | #65 / #69 |
-| F48 | Preview 键盘操作：左右翻页、上下切换文件 | `UX交互` | **0.1 必做** | 高频操作效率 | ✅已完成 | Simmon | — | #65 / #69 |
-| F49 | 检索详情页 / 已加入 Zotero 详情页 / 文献库 Preview 布局不一致，需统一复用组件 | `功能优化` | **0.1 必做** | 减少维护成本，体验一致 | ❌未完成 | Simmon | — | — |
-| F50 | 框选综述文字呼出横向菜单：引用、反馈 | `UX交互` | **0.1 必做** | 引用操作入口 | ❌未完成 | Simmon | — | — |
-| F51 | Agent 对话框用户选择组件交互和 UI 优化 | `UX交互` | **0.1 必做** | 核心交互组件 | ❌未完成 | Alex | — | — |
-| F52 | 选择弹窗 tool 的 UI 优化 | `UX交互` | **0.1 必做** | 高频交互组件 | ✅已完成 | Alex | — | #65 / #69 |
-| F53 | 版本更新检测，左侧 sidebar 头像/设置入口增加蓝色提示 | `功能优化` | **0.1 必做** | 用户触达新版本 | ✅已完成 | Alex | — | #64 / #69 |
-| F54 | 重新设计设置组件交互和分组 | `UX交互` | **0.1 必做** | 设置复杂度上升需重新组织 | ✅已完成 | Alex | — | #64 / #69 / #70 |
-| F55 | 设计应用启动 Onboarding 流程（品牌形象、依赖配置向导） | `功能优化` | **0.1 必做** | 首次体验决定留存 | ✅已完成 | Simmon | — | #65 / #69 |
-| F56 | 工作区会话名超长时省略号与编辑按钮重叠遮挡 | `Bug` | **0.1 必做** | 运行中按钮被遮挡，可读性受损 | ❌未完成 | - | #15 | — |
-| F57 | 上下文容量提示「200.0k」应显示为「200k」 | `UX交互` | **0.1 必做** | 整数末尾 `.0` 多余 | ❌未完成 | - | #16 | — |
-| F60 | 编辑渠道后选中模型未联动校验，仍调用旧 modelId | `Bug` | **0.1 必做** | 渠道切换路径数据一致性 | ❌未完成 | - | #62 | — |
+| F47 | Add-to-Zotero button color (avoid red suggested) | `UX交互` (UX interaction) | **0.1 required** | Red implies danger, semantically wrong | ✅Complete | Simmon | — | #65 / #69 |
+| F48 | Preview keyboard: left/right pages, up/down files | `UX交互` (UX interaction) | **0.1 required** | Frequent-operation efficiency | ✅Complete | Simmon | — | #65 / #69 |
+| F49 | Inconsistent search details / added-to-Zotero details / library Preview layouts; reuse unified components | `功能优化` (Feature improvement) | **0.1 required** | Lower maintenance, consistent experience | ❌Incomplete | Simmon | — | — |
+| F50 | Select review text to open horizontal quote/feedback menu | `UX交互` (UX interaction) | **0.1 required** | Reference-operation entry | ❌Incomplete | Simmon | — | — |
+| F51 | Improve user-choice component interaction/UI in Agent chat | `UX交互` (UX interaction) | **0.1 required** | Core interaction component | ❌Incomplete | Alex | — | — |
+| F52 | Improve choice-dialog tool UI | `UX交互` (UX interaction) | **0.1 required** | Frequent interaction component | ✅Complete | Alex | — | #65 / #69 |
+| F53 | Update detection: blue indicator on left-sidebar avatar/settings | `功能优化` (Feature improvement) | **0.1 required** | Notify users of new versions | ✅Complete | Alex | — | #64 / #69 |
+| F54 | Redesign settings interaction/grouping | `UX交互` (UX interaction) | **0.1 required** | Increased settings complexity needs reorganization | ✅Complete | Alex | — | #64 / #69 / #70 |
+| F55 | Design startup Onboarding (branding, dependency setup wizard) | `功能优化` (Feature improvement) | **0.1 required** | First experience determines retention | ✅Complete | Simmon | — | #65 / #69 |
+| F56 | Long workspace session names make ellipsis overlap edit button | `Bug` | **0.1 required** | Running button obscured, readability harmed | ❌Incomplete | - | #15 | — |
+| F57 | Context-capacity “200.0k” should display “200k” | `UX交互` (UX interaction) | **0.1 required** | Trailing `.0` unnecessary for integers | ❌Incomplete | - | #16 | — |
+| F60 | Editing channel fails to revalidate selected model, still calls old modelId | `Bug` | **0.1 required** | Channel-switch data consistency | ❌Incomplete | - | #62 | — |
 
 ---
 
-## F 组：0.1 增量需求 — 多语言支持
+<a id="f-组01-增量需求-&#45;多语言支持"></a>
 
-> 0.1.0 周期内新增的产品需求，与原 D 组 F32（检索源中英文路由）不同维度。
-> 落地 0.1 north-star C5 "支持多语言，默认英文"。
+## Group F: Incremental 0.1 requirements — multilingual support
 
-| F-# | 反馈 | 类型 | 判定 | 理由 | Issue | PR |
+> New requirements during the 0.1.0 cycle, separate from Group D F32 Chinese/English search-source routing.
+> Implements 0.1 north-star C5 “Multilingual support, English by default.”
+
+| F-# | Feedback | Type | Decision | Reason | Issue | PR |
 |-----|------|------|------|------|-------|-----|
-| F61 | i18n 框架接入：默认英文 + 设置页语言切换器 | `功能优化` | **0.1 必做** | 多语言基础工单，#62/#63 依赖之 | #52 | — |
-| F62 | 全量界面文案翻译：导航 / 设置 / 文献库 / 会话 / Onboarding | `功能优化` | **0.1 必做** | 0.1 范围内全量界面双语化 | #53 | — |
-| F63 | 内置 prompt 英文化 + Agent 输入输出语言路由 | `功能优化` | **0.1 必做** | Agent 表现强依赖 prompt 语言一致性 | #54 | — |
+| F61 | i18n framework: English default + settings language selector | `功能优化` (Feature improvement) | **0.1 required** | Multilingual foundation ticket; #62/#63 depend on it | #52 | — |
+| F62 | Translate all UI copy: navigation / settings / library / sessions / Onboarding | `功能优化` (Feature improvement) | **0.1 required** | Fully bilingual UI within 0.1 scope | #53 | — |
+| F63 | English built-in prompts + Agent input/output language routing | `功能优化` (Feature improvement) | **0.1 required** | Agent behavior depends strongly on consistent prompt language | #54 | — |
 
 ---
 
-## 统计
+<a id="统计"></a>
 
-> 2026-05-08 回填后已重新核算，与之前数字略有差异（原版本统计有少量算术误差，本次一并修正）。
+## Statistics
 
-| 判定 | 数量 |
+> Recalculated after 2026-05-08 backfill; slightly different from earlier figures (minor arithmetic errors in original counts corrected together).
+
+| Decision | Count |
 |------|------|
-| 0.1 必做 | 55 |
-| 0.1 加餐 | 2（F12、F26） |
-| 延后 0.2 | 2（F25、F31） |
+| 0.1 required | 55 |
+| 0.1 extra | 2 (F12, F26) |
+| Deferred to 0.2 | 2 (F25, F31) |
 
-| 类型 | 数量 |
+| Type | Count |
 |------|------|
 | Bug | 17 |
-| UX交互 | 17 |
-| 功能优化 | 24 |
-| 性能 | 1 |
+| UX interaction | 17 |
+| Feature improvement | 24 |
+| Performance | 1 |
 
-| 组 | F-# 数量 |
+| Group | F-# count |
 |----|----------|
-| C 组 基础体验 | 7 |
-| A 组 检索可信度 | 18（含 F59）|
-| B 组 综述可追溯 | 5 |
-| D 组 透明度 | 5 |
-| E 组 UX 与工作流 | 21（含 F56/F57/F58/F60）|
-| F 组 多语言支持 | 3 |
-| **合计** | **59** |
+| Group C Basic experience | 7 |
+| Group A Search trustworthiness | 18 (including F59) |
+| Group B Review traceability | 5 |
+| Group D Transparency | 5 |
+| Group E UX/workflow | 21 (including F56/F57/F58/F60) |
+| Group F Multilingual support | 3 |
+| **Total** | **59** |
 
-**交付日期**：2026-05-20
+**Delivery date**: 2026-05-20

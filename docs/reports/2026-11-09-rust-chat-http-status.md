@@ -1,71 +1,87 @@
-# Rust HTTP/SSE迁移阶段报告
+<a id="rust-httpsse迁移阶段报告"></a>
 
-状态：限定范围的本机HTTP/IPC自动化验证和独立审查已完成，准备按正常钩子提交安全分支及Draft PR。非完整产品/原生窗口验收。
+# Rust HTTP/SSE migration stage report
 
-## 范围及基线
+Status: Scoped local HTTP/IPC automated validation and independent review are complete; ready to submit a safe branch and Draft PR through normal hooks. This is not full product/native-window acceptance.
 
-- 基线：main `b61ee1a8b7a04053643eb8da63dc43afee738459`
-- 工作树：`/private/tmp/tinker-chat-http-20261109`
-- 分支：`feat/rust-chat-http-stream`
-- 规格：[HTTP/SSE适配](../specs/2026-11-09-rust-chat-http-stream.md)
-- 依据：[Chat Completions官方协议](https://developers.openai.com/api/reference/resources/chat)，以及现有生产OpenAI-compatible适配源码
+<a id="范围及基线"></a>
 
-本批实现单轮文本Chat Completions HTTP/SSE适配，接入既有RunProvider、RunController和真实Tauri命令handler。可信Rust宿主可通过`RunHostState::with_chat_http`注入配置，renderer不能任意选择端点、模型或凭据。默认桌面入口仍使用离线provider，本批没有增加模型配置UI或切换生产执行路径。多轮上下文、工具、生图、项目和完整产品切换均未实现。旧DTO中的providerKind/offlineScenario字段仍是兼容元数据，不能作为网络来源展示或线上模型已启用的依据；实际来源取决于可信宿主注入，正式接入前还需单独完善配置和展示契约。
+## Scope and baseline
 
-## 实现与边界
+- Baseline: main `b61ee1a8b7a04053643eb8da63dc43afee738459`
+- Worktree: `/private/tmp/tinker-chat-http-20261109`
+- Branch: `feat/rust-chat-http-stream`
+- Specification: [HTTP/SSE adaptation](../specs/2026-11-09-rust-chat-http-stream.md)
+- Basis: [Official Chat Completions protocol](https://developers.openai.com/api/reference/resources/chat) and existing production OpenAI-compatible adapter source
 
-- 支持分片UTF-8、LF/CRLF/CR、流首BOM、可空元数据、usage尾块及完成标志
-- 受控错误、断流和取消保留已持久化片段，沿用去重、晚到事件隔离与重启恢复语义
-- HTTP仅允许numeric loopback，HTTPS域名必须由可信宿主显式提供地址pin，禁用系统DNS后备
-- 原域名仍用于TLS证书验证，地址解析/更新须由未来另获授权宿主负责，本批没有外部TLS或DNS请求
-- 禁止代理、重定向、自动重试，限制网络等待、总执行预算、正文、帧和输出大小
-- 固定错误码，不保留上游错误body、URL、headers或reqwest异常原文，配置不实现Debug
-- 对已配置伪key跨帧反射做暂存拦截，测试检查IPC及整个JSONL中无完整伪key
+This batch implements single-turn text Chat Completions HTTP/SSE adaptation, connecting existing RunProvider, RunController, and real Tauri command handlers. A trusted Rust host can inject configuration through `RunHostState::with_chat_http`; the renderer cannot arbitrarily choose endpoints, models, or credentials. The default desktop entry still uses the offline provider; this batch adds no model-configuration UI and does not switch the production execution path. Multi-turn context, tools, image generation, projects, and full product switching remain unimplemented. The old DTO's providerKind/offlineScenario fields remain compatibility metadata and cannot indicate network provenance or that online models are enabled; actual provenance depends on trusted-host injection, and formal integration still requires separate configuration/display contracts.
 
-## 本轮验证
+<a id="实现与边界"></a>
 
-| 检查 | 当前结果 |
+## Implementation and boundaries
+
+- Supports fragmented UTF-8, LF/CRLF/CR, initial stream BOM, nullable metadata, trailing usage chunks, and completion markers
+- Controlled errors, broken streams, and cancellation retain persisted fragments, preserving deduplication, late-event isolation, and restart recovery semantics
+- HTTP allows numeric loopback only; HTTPS domains require explicit trusted-host address pins, with system DNS fallback disabled
+- Original domains remain in TLS certificate validation; future separately authorized hosts must resolve/update addresses; this batch makes no external TLS or DNS requests
+- Disables proxies, redirects, and automatic retries; bounds network waits, total execution budget, body, frames, and output sizes
+- Fixed error codes; retain no upstream error body, URL, headers, or raw reqwest exceptions; configuration does not implement Debug
+- Buffers and blocks configured fake-key reflections across frames; tests check that IPC and all JSONL contain no complete fake key
+
+<a id="本轮验证"></a>
+
+## Validation in this round
+
+| Check | Current result |
 |---|---|
-| 全仓`bun run typecheck` | 6个workspace通过 |
-| 全仓`bun run lint` | 通过 |
-| 全仓`bun test`（允许合成回环测试） | 3376通过，4跳过，0失败，380文件 |
-| Rust Lab Vite build | 通过，32模块 |
-| `git diff --check` | 通过 |
-| Rust全量`cargo test --offline --locked` | 118通过，0失败，子进程辅助重复计数另计 |
-| Rust `cargo fmt --check` | 通过 |
-| Rust `cargo clippy --all-targets -- -D warnings` | 通过，未压制警告 |
-| 原生Rust binary build | 通过，仅编译，未启动GUI |
-| `bun run electron:build` | 通过，未启动或安装应用 |
-| 独立复核及simplify | 旧3项与新增输出预算P2均关闭，未确认剩余P1/P2 |
-| 原生UI/真实模型/产品验收 | 本轮未执行 |
+| Repository-wide `bun run typecheck` | 6 workspaces passed |
+| Repository-wide `bun run lint` | Passed |
+| Repository-wide `bun test` (synthetic loopback tests allowed) | 3376 passed, 4 skipped, 0 failed, 380 files |
+| Rust Lab Vite build | Passed, 32 modules |
+| `git diff --check` | Passed |
+| Full Rust `cargo test --offline --locked` | 118 passed, 0 failed; repeated subprocess-helper counts separate |
+| Rust `cargo fmt --check` | Passed |
+| Rust `cargo clippy --all-targets -- -D warnings` | Passed, no suppressed warnings |
+| Native Rust binary build | Passed; compiled only, GUI not launched |
+| `bun run electron:build` | Passed, application not launched or installed |
+| Independent review and simplify | Original 3 findings and added output-budget P2 closed; no confirmed remaining P1/P2 |
+| Native UI/real model/product acceptance | Not performed this round |
 
-日志保存在`/private/tmp/tinker-chat-http-checks-20261109`。Rust最终计数为53库、7协议、10传输、2历史IPC、4历史库、11执行IPC、12SDK历史、14会话历史、5生命周期，共118项，不重复累计两个子进程辅助测试。严格lint曾发现布尔表达式及测试helper未消费读取长度，均修正后重跑，未通过allow或跳过规则放行。默认sandbox首轮Bun有14项本机监听失败，提升至工具支持的回环测试权限后同套测试全通过。所有HTTP执行测试仅监听`127.0.0.1:0`，伪凭据和合成内容，不发送真实用户数据、不使用真实密钥、不产生模型费用。
+Logs are in `/private/tmp/tinker-chat-http-checks-20261109`. Final Rust counts: 53 library, 7 protocol, 10 transport, 2 history IPC, 4 history library, 11 execution IPC, 12 SDK history, 14 session history, 5 lifecycle, totaling 118; the two subprocess helpers are not counted twice. Strict lint found a boolean expression and a test helper ignoring read length; both were corrected and rerun without allow attributes or skipped rules. The first Bun run in the default sandbox had 14 local-listening failures; the same suite passed after elevating to tool-supported loopback-test permissions. All HTTP execution tests listen only on `127.0.0.1:0`, using fake credentials and synthetic content, sending no real user data, using no real keys, and incurring no model costs.
 
-HTTP专项最终包含7项协议测试、10项传输测试，以及11项IPC测试中的HTTP接线/错误脱敏/取消/重复/历史恢复用例。取消headers/body和超时均由本机服务端EOF/Reset验证连接释放，HTTP子进程退出后重新打开历史，整棵JSONL检查伪key未落盘。没有把这些测试称作线上或原生窗口验收。
+Final HTTP-specific coverage includes 7 protocol tests, 10 transport tests, and HTTP wiring/error redaction/cancellation/duplication/history recovery cases among 11 IPC tests. Local server EOF/Reset verifies connection release for cancellation during headers/body and timeouts. History reopens after HTTP subprocess exit; the entire JSONL tree is checked for persisted fake keys. These tests are not described as online or native-window acceptance.
 
-首轮独立静态审查发现三项P2：nullable字段误拒、BOM/CR丢帧、阻塞DNS导致取消后runtime退出可能等待。新增BOM/换行回归先实际失败，再修复。DNS通过显式pin和拒绝resolver封住后备路径，不能用numeric-loopback结果外推真实HTTPS验收。最终复核另发现P2：上游大文本片段、JSON转义及SecretGuard前缀合并可能超过完整JSONL事件预算。已在安全输出和完成刷新处统一按UTF8边界分片，每片原文≤2048字节，最坏JSON转义≤12288字节，留4096字节容纳既有元数据。真实IPC回归先失败再通过，覆盖中文16KiB、长key前缀与控制字符、8191引号前缀结束刷新，最终输出一致且completed。
+Initial independent static review found three P2 issues: rejection of nullable fields, lost BOM/CR frames, and blocking DNS potentially delaying runtime exit after cancellation. New BOM/newline regressions failed before fixes. Explicit pins and a rejecting resolver close DNS fallback; numeric-loopback results cannot establish real HTTPS acceptance. Final review found another P2: large upstream text fragments, JSON escaping, and SecretGuard prefix merging could exceed the full JSONL event budget. Safe output and completion flush now consistently split on UTF8 boundaries: raw text ≤2048 bytes per fragment, worst-case JSON escaping ≤12288 bytes, leaving 4096 bytes for existing metadata. Real IPC regressions failed then passed, covering 16KiB Chinese text, long key prefixes and control characters, and final flush after an 8191-quote prefix; final output matches and is completed.
 
-## 保护与验证限制
+<a id="保护与验证限制"></a>
 
-生产`apps/electron`、`packages`、`bun.lock`、Rust前端和run_store实现相对基线零差异。旧主仓、source、其它worktree、用户数据和安装版不写入；不改另一路QA合成数据。没有制作DMG、启动GUI、部署或安装。生产零差异只证明本批未改变生产源码，不代表新栈完整复刻了产品UI或全部功能。
+## Protection and validation limits
 
-本批使用真实HTTP socket和Tauri handler，WebView由Tauri MockRuntime提供，不能称原生窗口实测。真正线上模型、TLS握手、账户认证、模型兼容性与费用未验证。后续线上冒烟需明确服务、模型、一次性凭据用途、合成请求及费用上限。同步本地持久化耗时不受网络I/O计时器强制抢占，不将网络预算写成整个进程的硬实时上限。
+Production `apps/electron`, `packages`, `bun.lock`, Rust frontend, and run_store implementation have zero differences from baseline. No writes to the old main repository, source, other worktrees, user data, or installed version; no changes to the other QA synthetic data. No DMG, GUI launch, deployment, or installation. Zero production differences prove only that production source was unchanged in this batch, not complete replication of product UI or all features in the new stack.
 
-## 资源与审批历史
+This batch uses real HTTP sockets and Tauri handlers, with Tauri MockRuntime providing the WebView; it cannot be called native-window testing. Real online models, TLS handshakes, account authentication, model compatibility, and costs remain unverified. Future online smoke tests require explicit service, model, one-time credential purpose, synthetic requests, and cost caps. Network I/O timers do not forcibly preempt synchronous local persistence; the network budget is not a hard real-time cap for the entire process.
 
-曾因空闲3.27GiB触发4GiB停止线，暂停构建且未清理缓存或用户文件。用户自行释放空间后重新核验足够才恢复，始终单一Cargo构建者，复用既有`/private/tmp/tinker-rust-night-target`。共享缓存不是本批独占，不整目录清理。
+<a id="资源与审批历史"></a>
 
-首次回环绑定在默认sandbox返回`PermissionDenied / Operation not permitted`，不是审批拒绝。随后一次组合命令被自动审批以开发授权未明确拒绝，确认完全未执行后停止。协调侧补充经用户源消息核验的继续迁移授权，按原命令、目标、权限路线仅重试一次，session22046获执行，5测试4通过1预期失败。没有拆分或换工具绕过拒绝。后续回环验证通过正常支持的权限流程执行。
+## Resources and approval history
 
-## 回滚及下一步
+Free space of 3.27GiB triggered the 4GiB stop threshold; builds paused without clearing caches or user files. Work resumed only after the user freed space and sufficient capacity was rechecked. One Cargo builder was maintained throughout, reusing `/private/tmp/tinker-rust-night-target`. The shared cache is not exclusive to this batch and is not cleaned wholesale.
 
-未提交阶段可保留本隔离分支，不接入任何生产入口。发布后回滚为revert本批提交，或继续使用基线默认离线路径，不删除或反向迁移数据。现有外部命令、DTO、草稿/事件schema和只读历史保持兼容。正常pre-commit会自动增加根与Rust Lab包的patch版本，这些仅是版本元数据，不涉及生产依赖或UI变更。
+Initial loopback binding returned `PermissionDenied / Operation not permitted` in the default sandbox, not an approval rejection. A subsequent combined command was rejected by automatic approval because development authorization was unclear; work stopped after confirming no execution. Coordination supplied continued-migration authorization verified against the user's original message; the original command, target, and permission route were retried only once. Session22046 ran: 5 tests, 4 passed, 1 expected failure. No command splitting or tool switching bypassed rejection. Later loopback validation used the normal supported permission process.
 
-本报告随本批安全分支提交。准确提交SHA、Draft PR及远端CI查询结果见该PR和最终交付回复。没有checks/status/Actions记录时只能写无记录，不能称CI通过。
+<a id="回滚及下一步"></a>
 
-## 可复现检查命令
+## Rollback and next steps
 
-在仓库根执行，Cargo统一使用既有`CARGO_TARGET_DIR=/private/tmp/tinker-rust-night-target`，离线锁定依赖。回环测试通过工具支持的狭窄权限流程运行，Bun测试使用临时ASCI_CONFIG_HOME/ASCI_RUNTIMES_HOME和清理后的环境。
+Before commit, this isolated branch can remain disconnected from production entry points. After publication, revert this batch's commit or continue using the baseline default offline path, without deleting or reverse-migrating data. Existing external commands, DTOs, draft/event schemas, and read-only history stay compatible. Normal pre-commit automatically increments root and Rust Lab patch versions; these are version metadata only, without production dependency or UI changes.
+
+This report accompanies the safe branch commit. See its PR and final delivery response for exact commit SHA, Draft PR, and remote CI queries. Without checks/status/Actions records, report no records; do not claim CI passed.
+
+<a id="可复现检查命令"></a>
+
+## Reproducible check commands
+
+Run from the repository root; Cargo consistently uses existing `CARGO_TARGET_DIR=/private/tmp/tinker-rust-night-target` with offline locked dependencies. Loopback tests use the tool-supported narrow permission process; Bun tests use temporary ASCI_CONFIG_HOME/ASCI_RUNTIMES_HOME and a sanitized environment.
 
 ```sh
 cargo fmt --manifest-path apps/tinker-rust/src-tauri/Cargo.toml --check

@@ -1,23 +1,33 @@
 ---
-name: 运营反馈
-about: 运营团队/用户在使用中发现的问题或体验优化建议
+<a id="name-运营反馈about-运营团队用户在使用中发现的问题或体验优化建议labels-ops-feedback"></a>
+
+name: Operations Feedback
+about: Issues and experience improvements reported by operations or users
 labels: ops-feedback
 ---
 
-## 遇到了什么问题
+<a id="遇到了什么问题"></a>
 
-<!-- 用一句话说明，例如：Agent 执行到一半卡住没有返回结果 -->
+## What Went Wrong
 
-## 问题程度
+<!-- Describe the problem in one sentence, for example: The Agent got stuck halfway through execution and returned no result. -->
 
-- [ ] 功能完全不能用
-- [ ] 能用但结果不对
-- [ ] 能用但体验不好
+<a id="问题程度"></a>
 
-## 是否来自用户反馈
+## Severity
 
-- [ ] 是，来自真实用户
+- [ ] The feature is completely unusable
+- [ ] It works, but the result is incorrect
+- [ ] It works, but the experience is poor
 
-## 截图（可选）
+<a id="是否来自用户反馈"></a>
 
-<!-- 相关截图或录屏，没有可以不填 -->
+## Is This User Feedback
+
+- [ ] Yes, this came from a real user
+
+<a id="截图可选"></a>
+
+## Screenshots (Optional)
+
+<!-- Add relevant screenshots or recordings. Leave blank if unavailable. -->

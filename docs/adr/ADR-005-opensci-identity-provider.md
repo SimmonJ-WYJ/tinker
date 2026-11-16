@@ -1,50 +1,62 @@
-# ADR-005：OPENSCI 作为 ASCI 唯一身份提供方
+<a id="adr-005opensci-作为-asci-唯一身份提供方"></a>
 
-| 字段 | 内容 |
+# ADR-005: OPENSCI as ASCI's Sole Identity Provider
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed（grill-with-docs 会话裁决 2026-06-01，待产研 Lead 正式签字）|
-| **决策日期** | 2026-06-01 |
-| **拍板人** | （待填，建议产研 Lead）|
-| **关联** | [0.3.0 PRD](../specs/0.3.0/0.3.0-prd.md) Epic 1 / §3 · 0.3 north-star §一 / §十.2 · [ADR-002](./ADR-002-server-stack.md) ③认证策略 |
+| **Status** | Proposed (grill-with-docs session decision 2026-06-01, awaiting formal product/engineering Lead signature) |
+| **Decision date** | 2026-06-01 |
+| **Decision maker** | (to be filled; product/engineering Lead recommended) |
+| **Related** | [0.3.0 PRD](../specs/0.3.0/0.3.0-prd.md) Epic 1 / §3 · 0.3 north-star §I / §X.2 · [ADR-002](./ADR-002-server-stack.md) ③ Authentication strategy |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-0.3 引入用户账户体系以支持公开发布（身份、行为遥测归属、未来跨设备同步）。0.3 north-star §一原计划**自建 ASCI 独立账户体系**（Email + 密码注册/重置、Google/ORCID OAuth 直接接入），§一.2 将 `linkedOpenSciId` 仅作"预留位"，§十.2 明确"**不做 OPENSCI OAuth 绑定（仅预留字段）**"。
+## I. Background
 
-0.3 启动前的产研复盘改变了这一方向：ASCI 隶属 OPENSCI 生态，应统一身份，不另起一套账户。
+0.3 introduces user accounts for public release (identity, attribution of behavioral telemetry, future cross-device synchronization). 0.3 north-star §I originally planned **an independent ASCI account system** (email + password registration/reset, direct Google/ORCID OAuth), with §I.2 reserving `linkedOpenSciId` only as a placeholder and §X.2 explicitly excluding **OPENSCI OAuth binding (field reservation only)**.
 
-## 二、决策
+The product/engineering retrospective before 0.3 changed direction: ASCI belongs to the OPENSCI ecosystem and should share its identity system rather than build another account system.
 
-**ASCI 不自建账户体系，委托 OPENSCI 作为唯一登录入口（OAuth/OIDC）。**
+<a id="二决策"></a>
 
-- 登录唯一入口 = OPENSCI；Email/Google/ORCID 等具体登录方式由 OPENSCI 提供。
-- ASCI 服务端仅持有**用户映射表**（OPENSCI uid → ASCI user），用途限于身份与行为遥测归属，**不存储 profile**。
-- 用户 profile（昵称/头像/机构/学科）**实时读 OPENSCI，只读展示**。
-- ASCI 本地仅加密缓存 OPENSCI 颁发的 token（safeStorage，刷新轮转）。
-- 强制登录。
+## II. Decision
 
-## 三、理由与取舍（委托 vs 自建）
+**ASCI will not build its own account system; delegate the sole login entry to OPENSCI (OAuth/OIDC).**
 
-| | 委托 OPENSCI（选中） | 自建账户（否决） |
+- Sole login entry = OPENSCI; OPENSCI supplies specific methods such as Email/Google/ORCID.
+- ASCI's server holds only a **user mapping table** (OPENSCI uid → ASCI user), limited to identity and behavioral telemetry attribution; **no profile storage**.
+- User profiles (nickname/avatar/institution/discipline) are **read live from OPENSCI for read-only display**.
+- ASCI locally caches only OPENSCI-issued tokens, encrypted with safeStorage and refreshed through rotation.
+- Login is mandatory.
+
+<a id="三理由与取舍委托-vs-自建"></a>
+
+## III. Rationale and Tradeoffs (Delegation vs Independent Accounts)
+
+| | Delegate to OPENSCI (selected) | Independent accounts (rejected) |
 |---|---|---|
-| 生态身份 | ✅ 统一 OPENSCI 身份 | ❌ 又一套孤立账户 |
-| Lead-time | ✅ ASCI 免自申 Google/ORCID OAuth client、免建注册/密码/邮件验证链路 | ❌ OAuth verification + 邮件域认证 2-4 周 lead-time |
-| 安全面 | ✅ 不持密码/凭据，账户攻击面收敛到 OPENSCI | ❌ ASCI 自担密码存储/重置/防护 |
-| 控制力 | ❌ 登录方式与可用性受 OPENSCI 约束 | ✅ 完全自控 |
-| 依赖风险 | ❌ 强依赖 OPENSCI SSO 就绪（0.3 期间并行建设，中等风险）| ✅ 无外部强依赖 |
+| Ecosystem identity | ✅ Unified OPENSCI identity | ❌ Another isolated account system |
+| Lead-time | ✅ ASCI need not apply for Google/ORCID OAuth clients or build registration/password/email verification | ❌ OAuth verification + email domain authentication takes 2-4 weeks |
+| Security surface | ✅ No password/credential custody; account attack surface concentrated at OPENSCI | ❌ ASCI handles password storage/reset/protection |
+| Control | ❌ Login methods and availability constrained by OPENSCI | ✅ Full control |
+| Dependency risk | ❌ Strong dependence on OPENSCI SSO readiness (built in parallel during 0.3, medium risk) | ✅ No strong external dependency |
 
-净评估：在 ASCI 隶属 OPENSCI 生态的前提下，委托带来的"统一身份 + lead-time + 安全面收敛"显著优于自建，代价是引入对 OPENSCI SSO 就绪的强依赖（通过接口契约尽早冻结 + 降级路径缓解）。
+Net assessment: given ASCI's place in the OPENSCI ecosystem, unified identity + shorter lead-time + reduced security surface substantially outweigh independent accounts. The cost is a strong OPENSCI SSO readiness dependency, mitigated by freezing the interface contract early and providing a fallback path.
 
-## 四、与既有规划的反转
+<a id="四与既有规划的反转"></a>
 
-本决策**反转** north-star §一（"自建账户体系"）与 §十.2（"不做 OPENSCI OAuth 绑定"）。OPENSCI 从"预留绑定位"升为"唯一身份源"。
+## IV. Reversal of Existing Plans
 
-## 五、后果
+This decision **reverses** north-star §I (“independent account system”) and §X.2 (“no OPENSCI OAuth binding”). OPENSCI moves from a reserved binding field to the sole identity source.
 
-- north-star §一 U1/U2/U3（注册 / 邮箱验证 / 多 OAuth 绑定）**归 OPENSCI**，ASCI 不实现；U4/U5（token 本地加密 / 刷新轮转）ASCI 保留。
-- §二认证服务从"自建认证"变为"OPENSCI SSO 对接 + 用户映射 + 行为归属"。
-- §五-A 中 ORCID/Google OAuth client 申请的 lead-time **转移到 OPENSCI**；ASCI 侧新增"**OPENSCI SSO OAuth/OIDC 接口契约冻结 + 就绪时点**"作为发布前置依赖。
-- ADR-002 ③认证策略需据此收敛（认证对接 OPENSCI，而非自写/Auth0/Clerk）。
-- **风险**：OPENSCI SSO 在 0.3 期间并行建设，延误会阻塞账户 epic；缓解 = 接口契约尽早冻结，降级路径（临时 placeholder 登录 / 账户推 0.4）由产研 Lead 决策。
+<a id="五后果"></a>
+
+## V. Consequences
+
+- north-star §I U1/U2/U3 (registration / email verification / multiple OAuth bindings) **belong to OPENSCI** and are not implemented by ASCI; ASCI retains U4/U5 (local token encryption / refresh rotation).
+- §II authentication service becomes “OPENSCI SSO integration + user mapping + behavior attribution,” replacing independent authentication.
+- §V-A's ORCID/Google OAuth client application lead-time **moves to OPENSCI**; ASCI adds **OPENSCI SSO OAuth/OIDC contract freeze + readiness deadline** as release prerequisites.
+- ADR-002 ③ Authentication strategy must align (integrate OPENSCI rather than self-written/Auth0/Clerk).
+- **Risk**: OPENSCI SSO is built in parallel during 0.3; delays block the account epic. Mitigation = early contract freeze; product/engineering Lead decides fallback (temporary placeholder login / accounts deferred to 0.4).

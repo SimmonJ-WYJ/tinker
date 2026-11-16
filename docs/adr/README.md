@@ -1,59 +1,71 @@
 # Architecture Decision Records (ADR)
 
-本目录收录 ASCI 的架构决策记录（Architecture Decision Records）。
+This directory contains ASCI Architecture Decision Records.
 
-## 什么是 ADR
+<a id="什么是-adr"></a>
 
-ADR 是一份记录"为什么这样做"的轻量文档。每个 ADR 描述一个具体的架构决策、其背景、被考虑的候选方案，以及最终选择的理由。
+## What is an ADR
 
-**ADR 不是调研文档**——必须含调研 + 评审 + 拍板人 + 决策记录。结论一旦签字即为实施依据；变更需走 ADR 修订流程（新建 ADR 或将原 ADR 标记为 Superseded）。
+An ADR is a lightweight document recording why a choice was made. Each describes one specific architectural decision, its background, considered alternatives, and reasons for the final choice.
 
-## 状态约定
+**An ADR is more than a research document**: It must include research + review + decision maker + decision record. Once signed, the conclusion governs implementation; changes require ADR revision (create a new ADR or mark the original Superseded).
 
-- **Proposed**：方案提出，调研进行中或评审中
-- **Accepted**：决策已签字，开始实施
-- **Deprecated**：决策已弃用但未被新决策替代
-- **Superseded by ADR-XXX**：已被新决策取代
+<a id="状态约定"></a>
 
-## 索引
+## Status conventions
 
-| # | 标题 | 状态 | 决策时点硬约束 |
+- **Proposed**: Proposal raised, research or review in progress
+- **Accepted**: Decision signed, implementation begins
+- **Deprecated**: Decision abandoned without replacement
+- **Superseded by ADR-XXX**: Replaced by a new decision
+
+<a id="索引"></a>
+
+## Index
+
+| # | Title | Status | Hard decision deadline |
 |---|------|------|---------------|
-| [ADR-000](./ADR-000-common-convention.md) | 协作规范（分支 / commit / PR） | Accepted | 无 |
-| [ADR-001](./ADR-001-local-storage.md) | 本地存储后端选型 | Proposed | 0.2 V6e issue 开出前 |
-| [ADR-002](./ADR-002-server-stack.md) | 服务器后端栈选型 | Proposed | 0.3 启动前（0.2 Week 1 末） |
-| [ADR-003](./ADR-003-ui-design-system-layering.md) | UI 设计系统分层 | Proposed (Draft) | `docs/design.md` 落笔前、ESLint 调色板色拦截前 |
-| [ADR-004](./ADR-004-left-nav-notes-entry.md) | LeftSidebar "笔记" 入口 | Accepted (2026-05-18, lexa) | 0.2 V6a 实现 issue 开出前 |
-| [ADR-005](./ADR-005-opensci-identity-provider.md) | OPENSCI 作为唯一身份提供方 | Proposed | 0.3 账户 epic 实现 issue 开出前 |
-| [ADR-006](./ADR-006-ui-framework-extension-boundary.md) | UI 框架库扩展边界（右侧 renderer 可注册） | Proposed | 0.4 P1 UI 框架库实现 issue 开出前 |
-| [ADR-007](./ADR-007-evidence-set-topic-container.md) | 证据集 → 多归属主题容器（M:N） | Proposed | 0.4 P2 数据模型重构 issue 开出前 |
-| [ADR-008](./ADR-008-supervisor-autonomous-orchestration.md) | 总控 → Supervisor 自主编排多包 | Proposed | 0.4 P3 Supervisor/默认页实现 issue 开出前 |
-| [ADR-009](./ADR-009-o1-schema-generation.md) | O1 对象标准 schema 从 TS interface 生成（拒绝 zod 双源 / 手写） | Proposed | schema 发布即对外契约（#419 / #243） |
-| [ADR-010](./ADR-010-evidence-driven-scoring-agent.md) | F22 五维 → 证据驱动相关性主导评分（score），与 F22 耦合并行 | Accepted (2026-06-04, lee) | 检索面板排序切到 score 前（已落地） |
-| [ADR-011](./ADR-011-telemetry-architecture.md) | 遥测埋点架构（三层 / 主进程汇集 / 时区地域判定 / EU 驻留） | Accepted (2026-06-02) | 0.3 埋点 epic（#416/#426/#427）实现前 |
-| [ADR-012](./ADR-012-local-embedding-vector-index.md) | 文献向量索引用本地 ONNX 嵌入 | Accepted (2026-06-02, alan) | `feat/vector-store-evidence` 实现落地前 |
-| [ADR-013](./ADR-013-literature-relevance-service.md) | 文献检索数据服务（部分自建分层）| Proposed | 0.5 文献数据服务实现 issue 开出前；扩展 ADR-002 |
-| [ADR-014](./ADR-014-non-api-sources-and-demand-driven-fill.md) | 无 API 源接入 + 需求驱动语料填充 | Proposed | 0.5 文献数据服务实现 issue 开出前；扩展 ADR-013 |
+| [ADR-000](./ADR-000-common-convention.md) | Collaboration conventions (branch / commit / PR) | Accepted | None |
+| [ADR-001](./ADR-001-local-storage.md) | Local storage backend selection | Proposed | Before opening the 0.2 V6e issue |
+| [ADR-002](./ADR-002-server-stack.md) | Server backend stack selection | Proposed | Before 0.3 starts (end of 0.2 Week 1) |
+| [ADR-003](./ADR-003-ui-design-system-layering.md) | UI design system layering | Proposed (Draft) | Before writing `docs/design.md` and enforcing ESLint palette-color restrictions |
+| [ADR-004](./ADR-004-left-nav-notes-entry.md) | LeftSidebar “Notes” entry | Accepted (2026-05-18, lexa) | Before opening the 0.2 V6a implementation issue |
+| [ADR-005](./ADR-005-opensci-identity-provider.md) | OPENSCI as sole identity provider | Proposed | Before opening implementation issues for the 0.3 account epic |
+| [ADR-006](./ADR-006-ui-framework-extension-boundary.md) | UI framework library extension boundary (registerable right-side renderer) | Proposed | Before opening the 0.4 P1 UI framework implementation issue |
+| [ADR-007](./ADR-007-evidence-set-topic-container.md) | Evidence sets → multiple-membership topic containers (M:N) | Proposed | Before opening the 0.4 P2 data-model refactor issue |
+| [ADR-008](./ADR-008-supervisor-autonomous-orchestration.md) | Orchestrator → Supervisor autonomously orchestrates multiple packs | Proposed | Before opening the 0.4 P3 Supervisor/default-page implementation issue |
+| [ADR-009](./ADR-009-o1-schema-generation.md) | Generate O1 object-standard schema from TS interfaces (reject dual zod sources / handwriting) | Proposed | Schema becomes an external contract on release (#419 / #243) |
+| [ADR-010](./ADR-010-evidence-driven-scoring-agent.md) | Five-dimensional F22 → evidence-driven relevance-led scoring (score), coupled and parallel with F22 | Accepted (2026-06-04, lee) | Before switching search-panel sorting to score (implemented) |
+| [ADR-011](./ADR-011-telemetry-architecture.md) | Telemetry instrumentation architecture (three layers / main-process aggregation / timezone-region determination / EU residency) | Accepted (2026-06-02) | Before implementing the 0.3 instrumentation epic (#416/#426/#427) |
+| [ADR-012](./ADR-012-local-embedding-vector-index.md) | Local ONNX embeddings for literature vector index | Accepted (2026-06-02, alan) | Before landing `feat/vector-store-evidence` |
+| [ADR-013](./ADR-013-literature-relevance-service.md) | Literature search data service (partly self-built layers) | Proposed | Before opening 0.5 literature data-service implementation issues; extends ADR-002 |
+| [ADR-014](./ADR-014-non-api-sources-and-demand-driven-fill.md) | Non-API source integration + demand-driven corpus filling | Proposed | Before opening 0.5 literature data-service implementation issues; extends ADR-013 |
 
-## 命名约定
+<a id="命名约定"></a>
 
-`ADR-XXX-<short-kebab-slug>.md`，XXX 为三位数字编号，技术决策从 001 开始递增。
+## Naming convention
 
-`ADR-000` 为「元 ADR」，约束协作流程（分支 / commit / PR），独立于任何具体技术决策；其位置永远在索引最上方。
+`ADR-XXX-<short-kebab-slug>.md`, where XXX is a three-digit number; technical decisions increment from 001.
 
-## 编写模板
+`ADR-000` is a meta-ADR governing collaboration (branch / commit / PR), independent of any specific technical decision; it always appears first in the index.
 
-每份 ADR 应包含以下章节：
+<a id="编写模板"></a>
 
-1. **元信息**：状态、日期、拍板人、作者、关联文档
-2. **背景**：决策的起因、问题描述、约束条件、决策时点
-3. **决策维度 / 粒度**：要评估的关键问题
-4. **候选方案**：每个候选的优缺点、各维度评估
-5. **已排除方案**（可选）：明确排除的方案及原因
-6. **决策**：拍板结论 + 主要理由
-7. **后果**：正向 / 负向后果、风险、后续动作
+## Authoring template
 
-## 与 milestone 文档的关系
+Each ADR should include these sections:
 
-- [`ya-docs/milestones/0.2/north-star.md`](../../ya-docs/milestones/0.2/north-star.md) §六 F1 / F3 描述本目录下 ADR-001 / ADR-002 的决策时点硬约束与覆盖维度
-- [`ya-docs/milestones/0.3/north-star.md`](../../ya-docs/milestones/0.3/north-star.md) §二 引用 ADR-002 作为服务器实施依据
+1. **Metadata**: Status, date, decision maker, author, related documents
+2. **Background**: Decision motivation, problem, constraints, decision timing
+3. **Decision dimensions / granularity**: Key questions to evaluate
+4. **Alternatives**: Pros/cons and assessment against each dimension
+5. **Rejected alternatives** (optional): Explicit exclusions and reasons
+6. **Decision**: Final conclusion + principal reasons
+7. **Consequences**: Positive / negative outcomes, risks, follow-up actions
+
+<a id="与-milestone-文档的关系"></a>
+
+## Relationship to milestone documents
+
+- [`ya-docs/milestones/0.2/north-star.md`](../../ya-docs/milestones/0.2/north-star.md) §6 F1 / F3 describe hard decision deadlines and coverage dimensions for ADR-001 / ADR-002 in this directory
+- [`ya-docs/milestones/0.3/north-star.md`](../../ya-docs/milestones/0.3/north-star.md) §2 cites ADR-002 as the server implementation basis

@@ -1,22 +1,30 @@
-# 生成图片预览与放大查看
+<a id="生成图片预览与放大查看"></a>
 
-初始基线：`c646b75b5b0ba8013a704ae3b497eb8d70454ef0`。提交时已整合最新 main `4b0ad6a4a951ca8fb234587eb1fec40c0b52d6c2`。沿用既有图片版本与附件结构，叠加此前三项会话图片修复；不迁移技术栈、不修改真实数据、不替换安装版。
+# Generated Image Preview and Enlarged Viewer
 
-## 用户行为与范围
+Initial baseline: `c646b75b5b0ba8013a704ae3b497eb8d70454ef0`. Latest main `4b0ad6a4a951ca8fb234587eb1fec40c0b52d6c2` was integrated at submission. Reuse existing image versions and attachment structures on top of the previous three conversation image fixes; do not migrate the stack, modify real data, or replace the installed version.
 
-用户在对话中已经看到生成图片，右侧 Session Files 却报 Preview failed，部分链接点击也没有结果。目标是点击图片、明确对应的生成图链接或文件卡，直接进入可关闭、可保存、可缩放的原图查看器。
+<a id="用户行为与范围"></a>
 
-1. 右侧图片预览使用现有 `previewReadBinary` 桥接读取原始文件路径，再生成 Blob URL。避免 file URL 转义或 renderer origin 限制；不新增文件访问权限或 IPC。
-2. 图片链接与产物卡只在当前回合有成功生图工具结果、当前会话路径和唯一文件引用时接管。完整附件路径可区分同名图片；裸文件名有歧义时不猜测，不选择最新图替代。
-3. 其余链接、文件和未知旧标签保持现有处理。过去指向错误 cwd 的标签不能仅凭文件名自动恢复，需重新点击能明确关联原图的入口。
-4. 共享查看器支持按原比例适应窗口、放大/缩小、滚动查看、保存、关闭与 Escape；不编辑、裁切或重写原图/版本。键盘 +/-/0 对应缩放与复位。
-5. 读取失败显示本地化错误，精确引用可重新点击重试。快速切换、切换会话及卸载丢弃旧读取；Blob URL 在切换、卸载或解码失败时释放。关闭引用查看器清除额外 base64，不在历史回合中保留预览副本。
-6. 可访问名称、焦点返回与 en/zh 同步。只新增预览操作文案，不处理另行记录的计费批准或生成卡片文案。
+## User Behavior and Scope
 
-## 验收
+Users can already see generated images in the conversation, but Session Files on the right reports Preview failed, and some links produce no result when clicked. The goal is to open a closable, savable, zoomable original-image viewer by clicking an image, an unambiguously associated generated-image link, or a file card.
 
-使用合成数据验证特殊字符路径、文件缺失、损坏图片、唯一/歧义/跨会话引用、异步竞态、资源释放、关闭后重开、保存回调、焦点及自然比例；执行项目类型检查、全量 Bun 测试、Electron 构建及改动文件 ESLint。原生隔离 Electron 窗口与 390px 浏览器窗口验证显示、交互和双语。不能把隔离窗口视为安装包全流程验收。
+1. Right-side image previews read the original file path through the existing `previewReadBinary` bridge, then create a Blob URL. Avoid file URL escaping or renderer origin restrictions; add no file access permissions or IPC.
+2. Intercept image links and artifact cards only when the current turn has a successful image-generation tool result, a current-session path, and a unique file reference. Full attachment paths distinguish images with the same name; do not guess from ambiguous bare filenames or substitute the latest image.
+3. Other links, files, and unknown old tabs retain existing handling. Tabs previously pointing to an incorrect cwd cannot be automatically recovered from filenames alone; users must click an entry that unambiguously references the original image again.
+4. The shared viewer supports fitting the window at the natural aspect ratio, zooming in/out, scrolling, saving, closing, and Escape; it does not edit, crop, or rewrite originals/versions. Keyboard +/-/0 zoom and reset.
+5. Read failures show localized errors; precise references can be clicked again to retry. Rapid switching, session switching, and unmounting discard old reads; release Blob URLs on switching, unmounting, or decode failure. Closing the reference viewer clears extra base64 and retains no preview copy in historical turns.
+6. Synchronize accessible names, focus return, and en/zh. Add only preview operation copy; do not address separately recorded billing approval or generation-card copy.
 
-## 回退
+<a id="验收"></a>
 
-用户已授权 GitHub 提交，交付采用独立修复分支与 PR，不改安装版。原工作副本与备份保留。项目 diagnostics 保存完整相关源码快照、校验和与 tracked patch。可按文件逐项审阅与撤销本轮差异，保留此前用户工作，禁止整库 reset/clean。
+## Acceptance
+
+Use synthetic data to verify paths with special characters, missing files, corrupt images, unique/ambiguous/cross-session references, asynchronous races, resource release, reopening after closing, save callbacks, focus, and natural aspect ratios; run project type checking, all Bun tests, Electron builds, and ESLint for changed files. Verify display, interaction, and both languages in a native isolated Electron window and a 390px browser window. An isolated window does not constitute full installer acceptance.
+
+<a id="回退"></a>
+
+## Rollback
+
+The user authorized GitHub submission; deliver through a separate fix branch and PR without changing the installed version. Retain the original working copy and backups. Project diagnostics retain complete relevant source snapshots, checksums, and a tracked patch. Review and revert this round's changes file by file while preserving prior user work; repository-wide reset/clean is forbidden.

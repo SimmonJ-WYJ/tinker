@@ -1,53 +1,67 @@
-# ADR-008：总控 Agent 从「单路由」升级为「Supervisor 自主编排多包」
+<a id="adr-008总控-agent-从单路由升级为supervisor-自主编排多包"></a>
 
-| 字段 | 内容 |
+# ADR-008: Upgrade the Coordinator Agent from Single Routing to Supervisor-Led Autonomous Multi-Pack Orchestration
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed（grill-with-docs 会话裁决 2026-06-01，待产研 Lead 签字）|
-| **决策日期** | 2026-06-01 |
-| **拍板人** | （待填，建议产研 Lead）|
-| **决策时点硬约束** | 0.4 P3「Supervisor 编排 / 默认页」实现 issue 开出前 |
-| **关联** | 0.4 P3（默认页 + 总控 Agent）· P4（自进化 → 个性化编排）· [0.4 design-input default-page.md](../milestones/0.4/design-inputs/default-page.md) · [CONTEXT.md Agent 编排领域](../../CONTEXT.md) · 0.2 §零 Agent 主导哲学 |
+| **Status** | Proposed (grill-with-docs session decision 2026-06-01, awaiting product/engineering Lead signature) |
+| **Decision date** | 2026-06-01 |
+| **Decision maker** | (to be filled; product/engineering Lead recommended) |
+| **Hard decision deadline** | Before opening the implementation issue for 0.4 P3 “Supervisor orchestration / default page” |
+| **Related** | 0.4 P3 (default page + coordinator Agent) · P4 (self-evolution → personalized orchestration) · [0.4 design-input default-page.md](../milestones/0.4/design-inputs/default-page.md) · [CONTEXT.md Agent orchestration domain](../../CONTEXT.md) · 0.2 §0 Agent-led philosophy |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-`0.4/design-inputs/default-page.md`（2026-05-12，2 个能力包时的判断）把总控 Agent 定义为"接收意图 → Orchestrator → **路由到对应能力包的子 Agent**"，并在 §五明确"多能力包协同的总控编排"推迟 V1（"首发 2 包不相互调用"）。
+## I. Background
 
-0.4 P1 把能力包从 2 个扩到 4 个（检索 / 综述 / 写作 / 数据分析），而**检索→综述→写作天然是一条科研工作流链**。2 包时"不互调"的判断在 4 包下失效——用户的高层目标（"帮我检索 RAG 并写篇综述"）天然跨多个包。
+`0.4/design-inputs/default-page.md` (2026-05-12, when there were 2 capability packs) defines the coordinator Agent as “receive intent → Orchestrator → **route to the corresponding capability-pack subagent**,” with §V explicitly deferring multi-pack coordinator orchestration to V1 (“the 2 launch packs do not call each other”).
 
-ASCI 已有 supervisor→teammate 的派发机制（[CONTEXT.md 队友 Teammate](../../CONTEXT.md)：主 Agent 通过 Task/Agent 工具派发场景子 Agent）。
+0.4 P1 expands capability packs from 2 to 4 (search / review / writing / data analysis), while **search→review→writing naturally forms a research workflow chain**. The no-cross-calling decision for 2 packs no longer fits 4: high-level user goals (“search RAG and write a review for me”) naturally span multiple packs.
 
-## 二、决策维度
+ASCI already has supervisor→teammate dispatch ([CONTEXT.md Teammate](../../CONTEXT.md): the main Agent dispatches scenario subagents through Task/Agent tools).
 
-总控 Agent 的**能力档位**：单路由到一个包，还是自主编排多个包协同？编排由谁驱动——用户手编 workflow，还是 Agent 自主？
+<a id="二决策维度"></a>
 
-## 三、候选方案
+## II. Decision Dimension
 
-| | 单路由（design-input 现状） | 轻量串联 | Supervisor 自主编排（**选中**）|
+The coordinator Agent's **capability level**: route to a single pack or autonomously orchestrate multiple packs? Who drives orchestration: users hand-authoring workflows or the Agent autonomously?
+
+<a id="三候选方案"></a>
+
+## III. Options
+
+| | Single routing (current design-input) | Lightweight chaining | Autonomous Supervisor orchestration (**selected**) |
 |---|---|---|---|
-| 行为 | 识别意图 → 进一个包 | 包间提供"产物送下一包"一键串联 | 总控澄清需求后自主决定派哪些包、何序 |
-| 跨包工作流 | ❌ 用户手动切，链条断 | 半自动，用户逐步确认 | ✅ Agent 自主编排闭环 |
-| 编排驱动方 | — | 用户手动 | **Agent 自主**（非用户手编 workflow、非预定义流程）|
-| Agent 主导哲学 | 弱 | 中 | ✅ 纯正兑现 0.2 §零 |
-| 工程量 | 低 | 中 | 高 |
+| Behavior | Recognize intent → enter one pack | One-click “send artifact to next pack” chaining | Coordinator clarifies requirements, then independently chooses packs and sequence |
+| Cross-pack workflow | ❌ Users switch manually; chain breaks | Semiautomatic, users confirm each step | ✅ Agent closes the loop autonomously |
+| Orchestration driver | — | User, manually | **Agent, autonomously** (not hand-authored user workflows or predefined flows) |
+| Agent-led philosophy | Weak | Medium | ✅ Fully delivers 0.2 §0 |
+| Engineering effort | Low | Medium | High |
 
-## 四、决策
+<a id="四决策"></a>
 
-**采用 Supervisor 自主编排多包。**
+## IV. Decision
 
-- 用户在中心对话框给高层需求 → **Supervisor 先澄清需求**（对齐意图）→ **自主编排**能力包队友（场景子 Agent）协同完成；派谁、何序由 Supervisor 决定，**不由用户手编 workflow、非预定义流程**。
-- **用户控制点 = 需求澄清**；执行过程经对话流（执行步骤组 + 队友徽标）透明可见；最终产物可审查。
-- 默认页：中心对话框（Supervisor 入口，复杂 / 跨包 / 模糊意图）+ 快捷入口卡片（与能力包 1:1，直达单包，明确任务）。
+**Adopt autonomous Supervisor multi-pack orchestration.**
 
-## 五、反转
+- Users give high-level requirements in the central conversation → **Supervisor first clarifies requirements** (align intent) → **autonomously orchestrates** capability-pack teammates (scenario subagents) to collaborate; Supervisor chooses whom to dispatch and in what order, **without user-authored workflows or predefined flows**.
+- **User control point = requirements clarification**; conversation streams (execution-step groups + teammate badges) make execution transparent; final artifacts are reviewable.
+- Default page: central conversation (Supervisor entry for complex / cross-pack / ambiguous intent) + shortcut cards (1:1 with capability packs, direct single-pack entry for clear tasks).
 
-反转 `default-page.md` §五"首发 2 包不相互调用 + 多包协同编排推 V1"，及 §三"路由到对应能力包"的单路由定位。`CONTEXT.md` Agent 编排领域已记入该反转为 flagged ambiguity（总控能力档位）。
+<a id="五反转"></a>
 
-## 六、后果
+## V. Reversal
 
-- **关键前置基础设施**：需建**包间协同契约**——每个能力包声明"能力描述"（供 Supervisor 判断何时派它）+ "输入/输出"（供产物在队友间传递）。这是 0.2 一路预留的"对象 JSON Schema / A2A 数据交换层"的上层兑现。**P3 的重量在此，不在默认页 UI**。
-- 总控 Agent 升级 + 需求澄清环节设计。
-- 与 **P4** 收敛：自进化 5 类隐式信号 → 个性化 Supervisor 编排（越用越懂你派哪些包 / 什么模型）。
-- **待定安全阀**：用户能否在 Supervisor 编排过程中喊停 / 纠偏（CONTEXT.md flagged）。
-- **风险**：多步自主编排的可靠性（累积误差，科研高精度场景敏感）。**缓解 = 前置需求澄清 + 过程透明可见 + 最终产物审查**（而非强制节点暂停，以保 Agent 主导哲学）。
+Reverses `default-page.md` §V “2 launch packs do not call each other + multi-pack orchestration deferred to V1” and §III's single-routing “route to corresponding capability pack” position. The `CONTEXT.md` Agent orchestration domain records this reversal as flagged ambiguity (coordinator capability level).
+
+<a id="六后果"></a>
+
+## VI. Consequences
+
+- **Critical prerequisite infrastructure**: build a **cross-pack collaboration contract**. Each pack declares a capability description (for Supervisor dispatch decisions) + inputs/outputs (to transfer artifacts between teammates). This delivers the higher-level use of the object JSON Schema / A2A data exchange layer reserved since 0.2. **This is P3's substantial work, rather than the default-page UI**.
+- Upgrade the coordinator Agent and design requirements clarification.
+- Align with **P4**: 5 types of implicit self-evolution signals → personalized Supervisor orchestration (increasingly understands which packs / models suit the user).
+- **Open safety valve**: can users stop / correct Supervisor orchestration mid-execution (flagged in CONTEXT.md)?
+- **Risk**: reliability of autonomous multi-step orchestration (accumulating errors, sensitive in high-precision research). **Mitigation = upfront clarification + transparent execution + final artifact review**, rather than mandatory node pauses, preserving the Agent-led philosophy.

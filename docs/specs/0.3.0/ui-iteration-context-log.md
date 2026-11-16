@@ -1,93 +1,123 @@
-# UI 迭代上下文记录 — 每项改动的起因
+<a id="ui-迭代上下文记录-&#45;每项改动的起因"></a>
 
-> 目的:记录本轮 dogfood/设计走查中**每项改动是因为什么问题/反馈而做**(原因 → 改动),便于回溯与评审。
-> 两个批次:**批次 A** 已并入 `main`(PR #465);**批次 B** 为当前未提交的配置页 Codex 风重做。
+# UI Iteration Context Log — Reasons for Each Change
 
----
-
-## 0. 环境 / 部署阻断(本地起项目时)
-
-| 原因 | 改动 |
-|------|------|
-| 克隆后 `bun run dev` 启动即白屏:`better-sqlite3` 原生模块按 Node ABI 编译,Electron ABI 不匹配("Could not locate the bindings file") | 运行 `apps/electron` 的 `rebuild` 脚本为 Electron 39 重编译原生模块(换 Electron 大版本需重跑) |
-| 「添加笔记 / 加入证据集」点了无反应 | 根因:本地 `~/.asci-dev/objects.db` 停在 `user_version=1` 的**旧 schema**(notes.kind NOT NULL、无 body_path/source_id),新代码按新 schema 查询 → SqliteError 被主进程吞掉 → 前端表现为按钮失效。处理:备份并删除旧库,重启由新版 `001` 迁移重建。**底层缺陷**:`001-initial.sql` 被就地改写而非新增 `002`,真实老用户升级会同样中招(已记录,未修) |
+> Purpose: record **which problem/feedback prompted each change** in this dogfood/design walkthrough (reason → change), for traceability and review.
+> Two batches: **Batch A** merged into `main` (PR #465); **Batch B** is the current uncommitted Codex-style configuration-page redesign.
 
 ---
 
-## 批次 A — 已并入 PR #465(对话流 / 文献库 / 配置等打磨)
+<a id="0-环境-&#45;部署阻断本地起项目时"></a>
 
-### 笔记 / 证据集
-| 原因 | 改动 |
-|------|------|
-| 笔记卡片把论文标题当主标题加粗、"hello"(笔记内容)灰在下面——主次反了 | NotesView 笔记卡:内容置顶高亮、来源标题降为灰色副行 |
-| 证据集详情里划词原文引文与「证据条目」卡片重复 | `NoteDetailBody` 加 `hideQuote`,仅证据集面板隐藏该引文 |
-| 报「点进证据链白屏」 | 加临时 renderer 报错转发排查 → DB 重置后不复现 → 移除临时诊断代码 |
+## 0. Environment / Deployment Blockers (Starting Locally)
 
-### 配置 / 整页视图
-| 原因 | 改动 |
+| Reason | Change |
 |------|------|
-| 切到「配置」只换了中间内容,右侧仍残留 Agent 对话产物面板 | 根因:`AppShell.showRightPanel` 用排除列表漏了 `config`。改为正向判断 `activeView === 'conversations'`,整页视图一律不显示产物面板 |
-| 配置页能力包内容只占约一半宽、右侧大片空白 | `CapabilityPackPanel` 移除 `max-w-3xl`,内容撑满 |
-
-### @ 提及
-| 原因 | 改动 |
-|------|------|
-| @ 文件面板里工作区根文件不显示来源路径,用户不知文件从哪来 | 补 `sourcePath`(绝对路径)用于展示;`entry.path` 保持相对(仍作 mention id) |
-
-### 证据集视图布局
-| 原因 | 改动 |
-|------|------|
-| 最右预览栏无法收起、三栏宽度写死不能拖 | 新增 `ColumnResizer` + `notes-layout` atoms,三栏可拖拽改宽 + 预览栏可收起(localStorage 记忆) |
-| 收起按钮点击后整条预览栏(含再展开入口)消失 | 收起态保留窄竖条 + 展开按钮,可随时再展开 |
-
-### 对话流执行记录
-| 原因 | 改动 |
-|------|------|
-| 执行记录行结构不统一:箭头有的在左有的在尾、有的两个图标、Agent 名偏小、失败整行全红 | 抽共享 `FlowRow`:箭头统一行尾、单图标位、Agent 名 14px、失败仅"N 步失败"红;ContentBlock/ExecutionStepGroup 接入 |
-| 子 Agent 行用 ⊙ 字符图标、不能表达"子 Agent"、且与执行行未左对齐 | 换 `Bot` 图标(lucide),去药丸,size-3.5 + gap-2 与执行行同左边缘对齐 |
-
-### 全局排版
-| 原因 | 改动 |
-|------|------|
-| 占位符 / 空状态 / 提示类文字部分用了斜体,与"一律正体"规范不符 | 全局去掉这类文字的 `italic`(保留 blockquote 等内容引文);输入框占位符不再随 `suggestionActive` 变斜体 |
-
-### 加入 Zotero
-| 原因 | 改动 |
-|------|------|
-| 没装/没运行 Zotero 时点「加入 Zotero」直接弹"选位置"弹窗 → 加载 collection 失败 | 抽 `useZoteroReadyGate`:先 `ping`/`detectInstall` 检测,分支为 运行中→选位置 / 已装未运行→启动 / 未装→下载;覆盖 `ZoteroLinkDialog` + `ZoteroQuickAddDialog` |
-| 引导弹窗的文案排版应与文献库一致 | 抽共享 `GuardBanner`(琥珀卡片),文献库与弹窗共用 |
-| 未就绪时仍显示论文标题 | 未就绪态隐藏标题/作者,只留引导卡 |
-
-### 检索结果工具栏
-| 原因 | 改动 |
-|------|------|
-| 「相关度 ↓ ∨」两个向下图标重复;布局想"功能入口上、排序下" | 去掉下拉自带 chevron(留文案箭头 ↓);两行重排:标题/··· 上行,Overview/筛选/排序 下行,左右边缘对齐;筛选常显"漏斗+筛选" |
-| 「相关度 ↓」字号比同行 Overview/筛选 小 | 字号、字重、内边距统一为 12px(箭头随文字一起) |
+| After cloning, `bun run dev` immediately showed a white screen: `better-sqlite3` native module was built for the Node ABI, incompatible with Electron ABI ("Could not locate the bindings file") | Run the `rebuild` script in `apps/electron` to rebuild native modules for Electron 39 (repeat after major Electron upgrades) |
+| "Add note / Add to evidence set" did nothing when clicked | Root cause: local `~/.asci-dev/objects.db` retained an **old schema** at `user_version=1` (notes.kind NOT NULL, no body_path/source_id), while new code queried the new schema → main swallowed SqliteError → buttons appeared broken. Handling: back up and delete the old database; restart to rebuild through new `001` migration. **Underlying defect**: `001-initial.sql` was rewritten in place rather than adding `002`; real existing users will suffer the same upgrade issue (recorded, unfixed) |
 
 ---
 
-## 批次 B — 当前未提交:配置页 Codex 风重做
+<a id="批次-a-&#45;已并入-pr-465对话流-&#45;文献库-&#45;配置等打磨"></a>
 
-> 触发:对照 Codex 插件市场,觉得配置页"把后端 manifest/SKILL 元数据原样平铺",该改成"卡片简览 → 详情"的两级心智。
+## Batch A — Merged in PR #465 (Conversation / Library / Configuration Polish)
 
-### 能力包面板
-| 原因 | 改动 |
+<a id="笔记-&#45;证据集"></a>
+
+### Notes / Evidence Sets
+| Reason | Change |
 |------|------|
-| 卡片把 Agent 路由 prompt(英文长文)当描述直接给用户看;全部铺开占满屏;元信息是键值文字;没体现"开箱即用" | 加用户向 `summaryI18n`(manifest 内嵌)+ `resolvePackSummary` 回退;改网格列表→详情页;详情含说明 + 完整说明 + Includes(Skill/MCP 行,MCP 跳设置);加「内置·默认启用」徽章;裁掉无数据字段 |
+| Note cards bolded the paper title as primary and grayed "hello" (note content) below—hierarchy reversed | NotesView cards: highlight content at the top, demote source title to gray secondary line |
+| Selected source quotation in evidence-set details duplicated the "evidence item" card | Add `hideQuote` to `NoteDetailBody`, hiding that quote only in the evidence-set panel |
+| Report: "opening the evidence chain shows a white screen" | Add temporary renderer-error forwarding for diagnosis → not reproducible after DB reset → remove temporary diagnostics |
 
-### Skill 面板
-| 原因 | 改动 |
+<a id="配置-&#45;整页视图"></a>
+
+### Configuration / Full-Page Views
+| Reason | Change |
 |------|------|
-| 想要 Codex 风网格 + 点开详情 | 单列富行 → 网格卡片 → 详情弹窗 |
-| 开关藏在弹窗、卡片上 ✓ 像"移除";切换后卡片跳到禁用区找不到 | 开关外露卡片右侧(点卡片其余区域才开弹窗);禁用态原地变灰;**渲染层按名固定排序**,与 enabled 无关,切换不跳位 |
-| 筛选两组平铺像一排互斥项、两个"全部"歧义、逻辑不分 | 状态=主筛选(分段)、来源=次级(下拉),「全部」→「全部状态」消歧;来源**计数随状态联动** |
-| 上一版主/次级卡片纵向太高、空间利用率低 | 压成**紧凑单行工具栏**:搜索 + 状态分段 + 来源下拉 + 行尾结果数 |
+| Switching to Configuration changed only central content; the Agent conversation artifact panel remained on the right | Root cause: `AppShell.showRightPanel` exclusion list omitted `config`. Replace with affirmative `activeView === 'conversations'` check; full-page views never show artifact panels |
+| Capability-pack content on the configuration page used about half the width, leaving a large blank area | Remove `max-w-3xl` from `CapabilityPackPanel` to fill available width |
+
+<a id="-提及"></a>
+
+### @ Mentions
+| Reason | Change |
+|------|------|
+| Workspace-root files in the @ file panel lacked source paths, leaving users unsure of origins | Add `sourcePath` (absolute path) for display; retain relative `entry.path` as mention id |
+
+<a id="证据集视图布局"></a>
+
+### Evidence-Set View Layout
+| Reason | Change |
+|------|------|
+| Rightmost preview panel could not collapse; three fixed-width columns could not resize | Add `ColumnResizer` + `notes-layout` atoms for draggable column widths + collapsible preview (remembered in localStorage) |
+| Collapsing removed the entire preview panel, including the reopen action | Keep a narrow vertical strip + expand button when collapsed, allowing reopening anytime |
+
+<a id="对话流执行记录"></a>
+
+### Conversation Execution Records
+| Reason | Change |
+|------|------|
+| Execution-row structures differed: arrows at either end, sometimes two icons, small Agent names, entire failed rows red | Extract shared `FlowRow`: trailing arrows, one icon slot, 14px Agent names, only "N steps failed" red; integrate ContentBlock/ExecutionStepGroup |
+| Sub-Agent rows used ⊙, which did not convey "sub-Agent," and misaligned with execution rows | Use `Bot` (lucide), remove pills, use size-3.5 + gap-2 aligned to the execution rows' left edge |
+
+<a id="全局排版"></a>
+
+### Global Typography
+| Reason | Change |
+|------|------|
+| Some placeholder / empty-state / hint text used italics, violating the all-upright rule | Remove `italic` globally from these texts (retain content quotations such as blockquotes); input placeholders no longer become italic with `suggestionActive` |
+
+<a id="加入-zotero"></a>
+
+### Add to Zotero
+| Reason | Change |
+|------|------|
+| With Zotero absent/not running, "Add to Zotero" opened "Choose location" immediately → collection loading failed | Extract `useZoteroReadyGate`: check `ping`/`detectInstall` first; running→choose location / installed but stopped→launch / absent→download; cover `ZoteroLinkDialog` + `ZoteroQuickAddDialog` |
+| Guidance-dialog copy/layout should match the library | Extract shared `GuardBanner` (amber card), reused in library and dialogs |
+| Paper titles still appeared when not ready | Hide title/authors when not ready; keep only the guidance card |
+
+<a id="检索结果工具栏"></a>
+
+### Search Results Toolbar
+| Reason | Change |
+|------|------|
+| "Relevance ↓ ∨" duplicated downward icons; desired layout was "actions above, sorting below" | Remove dropdown's built-in chevron (retain textual ↓); reorganize two rows: title/··· above, Overview/filters/sorting below, aligned edges; filter always shows "funnel+Filter" |
+| "Relevance ↓" text was smaller than adjacent Overview/Filter | Unify font size, weight, and padding at 12px (arrow scales with text) |
 
 ---
 
-## 跨批次约定备注
+<a id="批次-b-&#45;当前未提交配置页-codex-风重做"></a>
 
-- **版本号**:CLAUDE.md 更新为"仅开 PR 时统一递增一次";批次 B 未 bump。
-- **i18n**:所有面向用户文案走 `useT`,en + zh 同步,`key-parity` 测试守门。
-- **裁掉项(留后续,需 manifest 补字段)**:能力包包内偏好编辑、Information 元数据(开发者/官网/隐私/示例 prompt)。
-- 每项改动均经 `typecheck` + `bun test`(含 key-parity)+ `eslint` 验证,UI 交互在 `bun run dev` 手验。
+## Batch B — Currently Uncommitted: Codex-Style Configuration Redesign
+
+> Trigger: comparison with the Codex plugin marketplace suggested that the configuration page simply exposed backend manifest/SKILL metadata; change to a two-level "card overview → details" model.
+
+<a id="能力包面板"></a>
+
+### Capability-Pack Panel
+| Reason | Change |
+|------|------|
+| Cards showed long English Agent routing prompts as user descriptions; expanding all filled the screen; metadata appeared as key-value text; no out-of-box value conveyed | Add user-facing `summaryI18n` (embedded in manifest) + `resolvePackSummary` fallback; change grid list→detail page; details contain description + full description + Includes (Skill/MCP rows, MCP links to settings); add "Built-in · Enabled by default" badge; omit empty fields |
+
+<a id="skill-面板"></a>
+
+### Skill Panel
+| Reason | Change |
+|------|------|
+| Wanted a Codex-style grid + click-through details | Single-column rich rows → grid cards → detail dialog |
+| Toggle hidden in dialog; card ✓ looked like "remove"; toggling moved cards into disabled section and made them hard to find | Expose toggle on card's right (other card areas open dialog); disabled cards gray in place; **renderer sorts by name consistently**, independent of enabled state, so toggles never move cards |
+| Two flat filter groups looked mutually exclusive, duplicate "All" labels were ambiguous, and logic was unclear | Status=primary filter (segmented), source=secondary (dropdown); rename "All"→"All statuses"; source **counts follow status** |
+| Previous primary/secondary cards were too tall and wasted space | Compress into a **compact single-line toolbar**: search + status segments + source dropdown + trailing result count |
+
+---
+
+<a id="跨批次约定备注"></a>
+
+## Cross-Batch Convention Notes
+
+- **Versions**: CLAUDE.md updated to "increment once together only when opening a PR"; Batch B has not bumped.
+- **i18n**: all user-facing copy uses `useT`, with en + zh synchronized and `key-parity` tests as guards.
+- **Omitted for later (requires manifest fields)**: in-pack preference editing and Information metadata (developer/website/privacy/example prompts).
+- Each change validated with `typecheck` + `bun test` (including key-parity) + `eslint`; UI interactions manually checked in `bun run dev`.

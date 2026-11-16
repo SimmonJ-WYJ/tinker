@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Preview 侧边栏操作按钮 — 4 个方案对比</title>
+<title>Preview Sidebar Actions — 4 Designs Compared</title>
 <style>
   :root {
     --page-bg: #f4f4f3;
@@ -13,13 +13,13 @@
     --text-faint: #9a9a93;
     --hair: #ececea;
 
-    /* 按钮：浅灰填充，与当前页面一致 */
+    /* Buttons: light-gray fill, matching the current page */
     --btn-bg: #f1f0ee;
     --btn-bg-hover: #e7e6e2;
     --btn-text: #2a2a27;
     --btn-radius: 9px;
 
-    /* 主按钮：深色实底（无渐变），用于轻微强调 Preview */
+    /* Primary button: solid dark fill (no gradient), subtly emphasizing Preview */
     --btn-primary-bg: #232321;
     --btn-primary-bg-hover: #36352f;
     --btn-primary-text: #ffffff;
@@ -43,7 +43,7 @@
   .page-head h1 { font-size: 18px; font-weight: 650; margin: 0 0 4px; }
   .page-head p { margin: 0; color: var(--text-soft); font-size: 13px; }
 
-  /* 2×2 网格陈列 4 个 Demo；窄屏单列 */
+  /* 2×2 grid of 4 demos; single column on narrow screens */
   .grid {
     max-width: 1120px;
     margin: 0 auto;
@@ -72,7 +72,7 @@
   .demo__label b { font-size: 13px; font-weight: 650; }
   .demo__label span { font-size: 12px; color: var(--text-soft); }
 
-  /* 模拟侧边栏宽度（受限），便于看换行/响应式 */
+  /* Simulated constrained sidebar width to inspect wrapping/responsiveness */
   .sidebar {
     width: 380px;
     max-width: 100%;
@@ -80,7 +80,7 @@
     padding: 18px 18px 16px;
   }
 
-  /* —— 论文内容结构（与当前页面一致，仅截断展示）—— */
+  /* —— Paper content structure (matching the current page, truncated for display)—— */
   .src { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .src .doi {
     display: inline-flex; align-items: center; gap: 6px;
@@ -96,7 +96,7 @@
   .meta dt { color: var(--text-faint); }
   .meta dd { margin: 0; color: #4a4a45; }
 
-  /* —— 按钮 —— */
+  /* —— Buttons —— */
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 7px;
     font-size: 13px; font-weight: 500; line-height: 1;
@@ -124,12 +124,12 @@
   .rows { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
   .rows .row { width: 100%; }
 
-  /* Demo 2：组间更大间距 */
+  /* Demo 2: larger gaps between groups */
   .row--grouped { gap: 8px; }
   .row--grouped .group { display: flex; flex-wrap: wrap; gap: 8px; }
   .row--grouped .group + .group { margin-left: 20px; }
 
-  /* Demo 4：分组标题 */
+  /* Demo 4: group headings */
   .seg + .seg { margin-top: 12px; }
   .seg__title {
     font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
@@ -143,20 +143,20 @@
     font-size: 12.5px;
     background: #fcfcfb;
   }
-  .actions { margin: 0 0 2px; } /* 操作区容器：标题下、作者上 */
+  .actions { margin: 0 0 2px; } /* Action container: below title, above authors */
 </style>
 </head>
 <body>
   <div class="page-head">
-    <h1>Preview 侧边栏 · 操作按钮区 4 方案对比</h1>
-    <p>操作区位于「标题下方、作者与摘要上方」。Preview / Download = 阅读获取，Add to Zotero = 文献管理，Citation graph = 研究探索。浅灰按钮 · 圆角 · 无渐变。</p>
+    <h1>Preview Sidebar · 4 Action Area Designs Compared</h1>
+    <p>Actions sit below the title and above authors/abstract. Preview / Download = reading/access, Add to Zotero = literature management, Citation graph = research exploration. Light-gray buttons · Rounded corners · No gradients.</p>
   </div>
 
   <div class="grid">
 
-    <!-- ===== Demo 1：两行分组（推荐） ===== -->
+    <!-- ===== Demo 1: two-row groups (recommended) ===== -->
     <section class="demo">
-      <div class="demo__label"><b>Demo 1</b><span>两行分组（推荐）</span></div>
+      <div class="demo__label"><b>Demo 1</b><span>Two-row groups (recommended)</span></div>
       <div class="sidebar">
         <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
         <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
@@ -173,19 +173,19 @@
         </div>
 
         <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
-        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">(abstract omitted)</span></p>
         <dl class="meta">
           <dt>Source</dt><dd>OpenAlex</dd>
           <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
           <dt>Citations</dt><dd>1,423</dd>
         </dl>
       </div>
-      <p class="note">适合：默认场景。阅读类（Preview/Download）与管理类（Zotero/图谱）天然分行，主次清晰、窄栏不挤；Preview 深色实底引导“先预览”。</p>
+      <p class="note">Best for default use. Reading (Preview/Download) and management (Zotero/graph) naturally occupy separate rows, with clear hierarchy and room in narrow sidebars; solid dark Preview encourages previewing first.</p>
     </section>
 
-    <!-- ===== Demo 2：一行分组 ===== -->
+    <!-- ===== Demo 2: single-row groups ===== -->
     <section class="demo">
-      <div class="demo__label"><b>Demo 2</b><span>一行分组（组间留白）</span></div>
+      <div class="demo__label"><b>Demo 2</b><span>Single-row groups (space between groups)</span></div>
       <div class="sidebar">
         <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
         <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
@@ -202,19 +202,19 @@
         </div>
 
         <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
-        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">(abstract omitted)</span></p>
         <dl class="meta">
           <dt>Source</dt><dd>OpenAlex</dd>
           <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
           <dt>Citations</dt><dd>1,423</dd>
         </dl>
       </div>
-      <p class="note">适合：栏稍宽、想省垂直空间。一行内用更大间距把两组分开；窄栏时整组自动换行，分组关系仍可读。</p>
+      <p class="note">Best for slightly wider sidebars and saving vertical space. Larger gaps separate two groups on one row; whole groups wrap on narrow sidebars, preserving readable relationships.</p>
     </section>
 
-    <!-- ===== Demo 3：主按钮 + 次级 ===== -->
+    <!-- ===== Demo 3: primary + secondary actions ===== -->
     <section class="demo">
-      <div class="demo__label"><b>Demo 3</b><span>主按钮 + 次级操作</span></div>
+      <div class="demo__label"><b>Demo 3</b><span>Primary button + secondary actions</span></div>
       <div class="sidebar">
         <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
         <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
@@ -229,19 +229,19 @@
         </div>
 
         <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
-        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">(abstract omitted)</span></p>
         <dl class="meta">
           <dt>Source</dt><dd>OpenAlex</dd>
           <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
           <dt>Citations</dt><dd>1,423</dd>
         </dl>
       </div>
-      <p class="note">适合：强引导“先读论文”。Preview 满宽主按钮最显眼，其余三个并列为次级；动作主次最分明，但占两行且 Preview 略重。</p>
+      <p class="note">Best for strongly encouraging reading first. Full-width Preview is most prominent, with three secondary actions beside each other. Strongest hierarchy, but takes two rows and makes Preview slightly heavy.</p>
     </section>
 
-    <!-- ===== Demo 4：语义分区 ===== -->
+    <!-- ===== Demo 4: semantic sections ===== -->
     <section class="demo">
-      <div class="demo__label"><b>Demo 4</b><span>语义分区（Read / Manage）</span></div>
+      <div class="demo__label"><b>Demo 4</b><span>Semantic sections (Read / Manage)</span></div>
       <div class="sidebar">
         <div class="src"><span class="doi">⎋ arXiv:2107.03374</span><span class="year">2021</span></div>
         <h2 class="title">Evaluating Large Language Models Trained on Code</h2>
@@ -264,14 +264,14 @@
         </div>
 
         <div class="authors">Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan et al.</div>
-        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">（摘要省略）</span></p>
+        <p class="abstract">We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub… <span class="more">(abstract omitted)</span></p>
         <dl class="meta">
           <dt>Source</dt><dd>OpenAlex</dd>
           <dt>Captured</dt><dd>06/01/2026 6:36 PM</dd>
           <dt>Citations</dt><dd>1,423</dd>
         </dl>
       </div>
-      <p class="note">适合：功能多、想最清晰地表达分类。淡灰分组标题点明语义；最直白但多占两行高度、标题略增视觉噪音。</p>
+      <p class="note">Best for many features and the clearest categories. Light-gray group headings name each purpose; most explicit, but adds two rows of height and some visual noise.</p>
     </section>
 
   </div>

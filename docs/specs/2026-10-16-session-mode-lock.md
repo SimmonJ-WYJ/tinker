@@ -1,7 +1,9 @@
-# 会话模式与窗口导航
+<a id="会话模式与窗口导航"></a>
 
-用户确认：首次发送前二选一 Research / Coding；首次发送后模式固定，后续请求沿用，重新打开仍保留。固定状态仅显示当前模式标签。旧会话没有模式记录时保留当前模式（缺省 Research），不根据消息内容猜测。
+# Session Mode and Window Navigation
 
-窗口导航：原生 macOS 非全屏为交通灯预留 108px，全屏及其他平台使用 16px；侧栏开关和前后导航常驻。标签与主面板左缘对齐，去除面板内重复的会话标题。TabBar 移到工具栏以保留菜单和激活会话副作用。
+User confirmation: choose Research / Coding before the first send; after the first send, the mode is fixed, reused for subsequent requests, and retained when reopened. The locked state shows only the current mode label. Old sessions without a recorded mode retain the current mode (Research by default), without inferring it from message content.
 
-验证：模式选择/锁定五项测试、导航前进后退测试、主进程及 preload 构建；实际 Electron 全屏状态读取与截图。
+Window navigation: native macOS windows reserve 108px for traffic lights outside fullscreen; fullscreen and other platforms use 16px. The sidebar toggle and back/forward navigation remain visible. Tabs align with the main panel's left edge; remove the duplicate session title inside the panel. Move TabBar to the toolbar while retaining menus and session activation side effects.
+
+Verification: five mode selection/locking tests, navigation back/forward tests, main process and preload builds; read actual Electron fullscreen state and capture screenshots.
