@@ -1,6 +1,6 @@
 /** direct Cargo 固定入口和完整配置；组装并验证本批独立工具包。 */
 import { resolve } from 'node:path'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, lstatSync, rmSync, writeFileSync } from 'node:fs'
 import ordinary from '../src-tauri/tauri.tools.conf.json'
 import nativeQA from '../src-tauri/tauri.tools-qa.conf.json'
 export function buildTools(qa: boolean): void {
@@ -23,7 +23,12 @@ export function buildTools(qa: boolean): void {
     if (!qa && /formal_native_qa|NATIVE_QA_EARLY|QA evidence directory/.test(symbols.stdout.toString())) throw new Error('普通工具包包含 QA 符号')
     const architecture = Bun.spawnSync(['/usr/bin/lipo', '-archs', executable])
     if (architecture.exitCode !== 0 || architecture.stdout.toString().trim() !== (process.arch === 'x64' ? 'x86_64' : process.arch)) throw new Error('工具包架构与构建宿主不匹配')
-    const bundle = resolve(target, `debug/bundle/macos/${config.productName}.app`)
+    // 新产物在系统 tmp 组装，避免 Documents 文件提供器反复添加 FinderInfo。
+    const staging = `/private/tmp/tinker-tauri-tools-package-${process.getuid?.() ?? 'local'}`
+    if (!existsSync(staging)) mkdirSync(staging, { mode: 0o700 })
+    const owner = lstatSync(staging)
+    if (!owner.isDirectory() || owner.isSymbolicLink() || owner.uid !== process.getuid?.() || (owner.mode & 0o077) !== 0) throw new Error('工具包 staging 必须为本用户私有目录')
+    const bundle = resolve(staging, `${config.productName}.app`)
     const contents = resolve(bundle, 'Contents')
     const macos = resolve(contents, 'MacOS')
     const resources = resolve(contents, 'Resources')
@@ -47,6 +52,12 @@ export function buildTools(qa: boolean): void {
     writeFileSync(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n${entries}\n<key>NSHighResolutionCapable</key><true/>\n</dict></plist>\n`)
     const names = readdirSync(macos)
     if (names.length !== 1 || names[0] !== config.mainBinaryName) throw new Error('工具包出现未知 executable')
+    // Documents 文件提供器可能给新目录附加 FinderInfo；只清理此 owned 产物的显示元数据。
+    const finderInfo = Bun.spawnSync(['/usr/bin/xattr', '-p', 'com.apple.FinderInfo', bundle])
+    if (finderInfo.exitCode === 0) {
+      const clean = Bun.spawnSync(['/usr/bin/xattr', '-d', 'com.apple.FinderInfo', bundle], { stdout: 'inherit', stderr: 'inherit' })
+      if (clean.exitCode !== 0) process.exit(clean.exitCode)
+    }
     for (const args of [['--force', '--deep', '--sign', '-', bundle], ['--verify', '--deep', '--strict', '--verbose=2', bundle]]) {
       const result = Bun.spawnSync(['/usr/bin/codesign', ...args], { stdout: 'inherit', stderr: 'inherit' })
       if (result.exitCode !== 0) process.exit(result.exitCode)
