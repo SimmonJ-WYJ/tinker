@@ -490,3 +490,6 @@ fn interrupt_after_generic_cancel_cannot_retroactively_authorize_context() {
     observer.set_nonblocking(true).unwrap();
     assert!(matches!(observer.accept(),Err(e)if e.kind()==std::io::ErrorKind::WouldBlock));
 }
+
+#[path = "support/queue_tool_partial.rs"]
+mod tool_partial;

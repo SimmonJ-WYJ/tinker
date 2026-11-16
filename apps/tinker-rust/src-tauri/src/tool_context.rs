@@ -106,12 +106,24 @@ impl RunStore {
             let (status, recovery, sequence, created, messages, lineage, policy) =
                 if self.find_location(&p.run_id)? == 3 {
                     let r = self.load_tool_run(&p.run_id)?;
+                    let mut messages = r.snapshot.transcript.messages;
+                    // 已认证取消的未结束轮次只读补入；完成轮次已消费 partial_text。
+                    if redirected
+                        && r.snapshot.status == RunStatus::Cancelled
+                        && !r.snapshot.partial_text.is_empty()
+                    {
+                        messages.push(TranscriptMessage::Assistant {
+                            round: r.snapshot.current_round.ok_or(RunError::CorruptLog)?,
+                            text: r.snapshot.partial_text,
+                            call: None,
+                        });
+                    }
                     (
                         r.snapshot.status,
                         r.snapshot.recovery_required,
                         r.snapshot.sequence,
                         r.header.created_order,
-                        r.snapshot.transcript.messages,
+                        messages,
                         r.header.parent,
                         r.header.policy_version,
                     )
