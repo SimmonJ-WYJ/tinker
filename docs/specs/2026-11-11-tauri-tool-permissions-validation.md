@@ -64,7 +64,7 @@ Old blank conversations/white-on-white text were not visual passes. Measured `do
 
 ### Boundaries and Cleanup
 
-Draft guarantees cover plain-text Unicode/newlines only; HTML formatting, mentions, attachments/images, and quote structures lack lossless-recovery acceptance. Native actor unread-queue saturation and precise kill between FD read and ToolFinished were not executed this round; old QA held605 events/301 deltas proves real hold/release only, not unread saturation. Real core child exit73 after read, stale/run/delete, backpressure, and encoded-budget regressions are automated evidence. Duplicate Send core idempotency passed; an ambiguous double-click script is not listed as independent native acceptance.
+Draft guarantees cover plain-text Unicode/newlines only; HTML formatting, mentions, attachments/images, and quote structures lack lossless-recovery acceptance. Native actor unread-queue saturation and precise kill between FD read and ToolFinished were not executed this round; old QA held 605 events/301 deltas proves real hold/release only, not unread saturation. Real core child exit73 after read, stale/run/delete, backpressure, and encoded-budget regressions are automated evidence. Duplicate Send core idempotency passed; an ambiguous double-click script is not listed as independent native acceptance.
 
 After normal user unlock, the original CGS lock-true key disappeared, IOConsoleLocked=false/onConsole and loginDone=true; missing keys were not fabricated as false. No unlocking or system-setting changes. Final bounded keep-awake `/usr/bin/caffeinate -di -t 1800`, PID43186, started 2026-11-16T04:34:11.107175Z; pmset verified system/display assertions. Expired by 05:05:32.981373Z without renewal. Retained `wake-lease-final-ui.json`, `wake-assertions-final-ui.txt`, `wake-lease-final-ui-release.json`. `final684-process-audit.json` at 05:05:33.018022Z confirms QA0/wake0 and all known PIDs gone. No real Tinker/user directories, real models/credentials, spending, OAuth, or other apps operated.
 
@@ -134,12 +134,12 @@ First QA process without an independent session exited (unconfirmed cause), dedi
 
 ### Native Evidence Checkpoint (After ca33779, Before Review)
 
-Native UI source608acb1; afterquit uses ca33779 package (packaging-helper differences only). Both have separate ordinary/QA configurations; UI screenshots only from owned WKWebView.
+Native UI source 608acb1; afterquit uses ca33779 package (packaging-helper differences only). Both have separate ordinary/QA configurations; UI screenshots only from owned WKWebView.
 
 - fixed sequence2–12: original TipTap input→Send→list Allow (repeat same-button click)→read Allow→final. Initial/pending/list-result/terminal reloads each show one real `.conversation-user__text`. Journal only list_1/read_1 starts and successes; three HTTP rounds with strict call/result adjacency verified by mock. Root actually viewed the final expanded image.
 - fixed seq20–25: same-session follow-up Completed, parent exactly previous Completed run; mock userMessages2/assistantMessages3,4,5. Two intermediate Allow scripts returned WK exception with unexplained input source, excluded from independent interaction passes; journal/mock verifies final context association.
 - fixed seq31–62: actual Deny/Stop/Esc, real partial-error broken-stream Failed and same-session follow-up. Deny no ToolStarted, Denied, Completed explanation; Stop/Esc Cancelled/closedCall Cancelled/no start; Failed retains partial text (httpProtocol), follow-up parent=null, mock userMessages1 again. Initial premature option query failure retained; corrected with bounded DOM waiting, not host/atom calls posing as clicks.
-- Default60-second timeout: session6 receipt Expired, ToolFinished Expired, no ToolStarted, final Completed; seq68 permissions=[], one user bubble. Existing partialFailed error toast remains; not treated as permission residue or hidden.
+- Default 60-second timeout: session6 receipt Expired, ToolFinished Expired, no ToolStarted, final Completed; seq68 permissions=[], one user bubble. Existing partialFailed error toast remains; not treated as permission residue or hidden.
 - fixed seq83–89: actual QA route holds605 events/301 text deltas (300 synthetic + first text), then real list/read Allow, final, single bubble/no permissions. **Native actor unread saturation not tested**; full-outbox core/actor passes listed separately.
 - After existing QA stale-action injection, seq67 shows no old run/generation marker; explicitly white-box event injection, not user action.
 - Original Settings General Dark button and language Chinese-option keydown Enter actually triggered (seq94–98); original UI and restart Chinese/dark. Initial golden covers English/light.
@@ -150,11 +150,11 @@ Native UI source608acb1; afterquit uses ca33779 package (packaging-helper differ
 ![Original settings in Chinese dark theme](assets/tauri-tools-20261116/settings-zh-dark.png)
 ![Chinese pending permission and latest draft before Quit](assets/tauri-tools-20261116/pending-zh-dark-before-quit.png)
 
-Final normal-resource full Bun rerun3500 pass/4 skip/0 fail (3504 tests/413 files); earlier scientific-assets existing fixture30s timeout retained, focused1.8s and full rerun65.10s passed, cause unproven, timeout unchanged. Full Rust passed before final-source backend fixes; exact top-level counts checks/rust-count-summary.json; fmt/clippy/type/lint/Electron exit0. Scripts outside eslint matching; ignored warnings are not script lint coverage.
+Final normal-resource full Bun rerun 3500 pass/4 skip/0 fail (3504 tests/413 files); earlier scientific-assets existing fixture 30s timeout retained, focused 1.8s and full rerun65.10s passed, cause unproven, timeout unchanged. Full Rust passed before final-source backend fixes; exact top-level counts checks/rust-count-summary.json; fmt/clippy/type/lint/Electron exit0. Scripts outside eslint matching; ignored warnings are not script lint coverage.
 
 Latest builds use unique staging: ordinary `/private/tmp/tinker-tauri-tools-package-UwPNup/Tinker Tools Preview.app`, QA `/private/tmp/tinker-tauri-tools-package-GqMvgG/Tinker Tools Native QA.app`. Normal ad-hoc codesign/strict verify exit0; not archived as final delivery because two Important review findings (pre-Bind credentials/context preflight, aggregate encoded budgets) and close recovery failure require concentrated fixes then rebuilding.
 
-This batch's caffeinate `/usr/bin/caffeinate -di -t 1800`, PID21529, started2026-11-16T03:02:35.958731Z; pmset verified PreventUserIdleSystemSleep/PreventUserIdleDisplaySleep. At 2026-11-16T03:25:13.887493Z, verified owned identity then SIGTERM released it; wake-lease.json/wake-assertions.txt/wake-lease-release.json retained. QA PID33989 closed normally; no wake lease during later compilation.
+This batch's caffeinate `/usr/bin/caffeinate -di -t 1800`, PID21529, started 2026-11-16T03:02:35.958731Z; pmset verified PreventUserIdleSystemSleep/PreventUserIdleDisplaySleep. At 2026-11-16T03:25:13.887493Z, verified owned identity then SIGTERM released it; wake-lease.json/wake-assertions.txt/wake-lease-release.json retained. QA PID33989 closed normally; no wake lease during later compilation.
 
 <a id="集中审查修复新原生复验前"></a>
 

@@ -371,7 +371,7 @@ Business components may override width/padding/scroll limits via `className` (e.
 - **Mechanism**: body class; `<body class="dark">` selects dark, no class defaults light.
 - **No** runtime theme objects / theme atoms / IPC channels. CSS variables are the sole switching surface.
 - **Integration**: dark mode should follow OS preference or explicit settings, tracked in [issue #299](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/299) (Wire system-preference-driven `.dark` toggle). Current `apps/electron/main/lib/file-preview-service.ts` uses `nativeTheme.shouldUseDarkColors` for preview iframes only.
-- **History**: ocean / forest / slate × light/dark,6 themes, removed 2026-05 (dead code, never connected).
+- **History**: ocean / forest / slate × light/dark, 6 themes, removed 2026-05 (dead code, never connected).
 
 ---
 
