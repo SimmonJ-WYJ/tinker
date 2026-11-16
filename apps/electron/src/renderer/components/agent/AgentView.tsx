@@ -547,6 +547,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       // 乐观更新：SDKMessage 格式（Phase 4）
       const tempUserSDKMsg: SDKMessage = {
         type: 'user',
+        _agentRequestId: requestId,
         message: {
           content: [{ type: 'text', text: snapshot.message }],
         },
@@ -1100,6 +1101,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     // 乐观更新：SDKMessage 格式的用户消息（Phase 4）
     const tempUserSDKMsg: SDKMessage = {
       type: 'user',
+      _agentRequestId: requestId,
       ...(selectedImage && { imageEditReference: {
         imageId: selectedImage.imageId,
         sourceMessageId: selectedImage.sourceMessageId,

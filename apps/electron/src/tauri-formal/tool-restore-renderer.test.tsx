@@ -79,3 +79,14 @@ test('pending restore renders one human bubble from paired Rust history and acti
     cleanup(); transport.dispose(); notify.mockRestore(); window.electronAPI = oldApi
   }
 })
+
+
+test('first live tools snapshot replaces the matching composer optimistic bubble only', () => {
+  const requestId = contract.turn.requestId
+  const optimistic = { type: 'user', _agentRequestId: requestId, message: { content: [{ type: 'text', text: contract.turn.userMessage }] }, parent_tool_use_id: null } as unknown as SDKMessage
+  const earlier = { ...optimistic, _agentRequestId: 'earlier' } as unknown as SDKMessage
+  const snapshot = contract.snapshot.sdkMessages as SDKMessage[]
+  const mounted = render(<Provider store={createStore()}><TooltipProvider><AgentMessages sessionId={contract.turn.sessionId} messages={[]} messagesLoaded persistedSDKMessages={[earlier, optimistic]} liveMessages={snapshot} streaming /></TooltipProvider></Provider>)
+  expect(mounted.container.querySelectorAll('.conversation-user__text')).toHaveLength(2)
+  expect(mergeToolRunMessages([earlier, optimistic], snapshot)).toEqual([earlier, ...snapshot])
+})

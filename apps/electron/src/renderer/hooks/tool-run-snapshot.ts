@@ -53,7 +53,13 @@ export function reconcileToolSnapshot(previous: ToolSnapshotState, run: string, 
 export function mergeToolRunMessages(persisted: SDKMessage[], live: SDKMessage[]): SDKMessage[] {
   const liveReferences = new Set(live)
   const liveIds = new Set(live.map(messageIdentity).filter((id): id is string => id !== undefined))
+  // composer 的乐观人类消息尚无 SDK uuid；只由同请求的正式人类快照替换。
+  const confirmedUsers = new Set(live.filter(message => message.type === 'user'
+    && messageIdentity(message) !== undefined && blocks(message).some(block => block.type === 'text'))
+    .map(message => (message as Record<string, unknown>)._desktopRunId))
   return [...persisted.filter(message => {
+    const request = (message as Record<string, unknown>)._agentRequestId
+    if (message.type === 'user' && typeof request === 'string' && confirmedUsers.has(request)) return false
     const id = messageIdentity(message)
     return !liveReferences.has(message) && (id === undefined || !liveIds.has(id))
   }), ...live]
