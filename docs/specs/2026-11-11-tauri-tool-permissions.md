@@ -1,17 +1,21 @@
 # Tinker-A M2B 工具与权限闭环实施计划
 
+**当前执行状态（2026-11-16）：** Tasks1–3 已完成并独立通过审查，恢复源码基线 `7e58fe4fd59d25dfaeb502e31fc64e972f10ebe9`。Task4 及集中审查修复源码冻结于 `952698d0168948ebec42c62736acaf04ebc9687d`；最终独立静态审查 CodeReadyForDraft=Yes，Critical/Important/Minor 均0（审查本身未运行测试或GUI）。最终自动检查已完成：fmt、全Rust335 pass、clippy、type/lint/Electron及普通/QA构建均exit0；完整Bun并发上限1为3500 pass / 4既有skip / 0 fail。 新SHA原生验收因系统锁屏且尚无用户解锁回复而待验，不称完整交付。
+
+**当前持久工作树：** `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-acceptance-20261116`，分支 `feat/tauri-tools-native-acceptance`；日志与产物在同级 `tools-native-checks-20261116`。精确结果以[验收报告](2026-11-11-tauri-tool-permissions-validation.md)为准。下文原设计时间、路径、head 与早期任务状态均保留为历史基线，不作为当前执行入口。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development` to implement this plan task-by-task. Root 已选择每任务新的implementer与独立review、单写者串行实施；无需重新询问执行方式或设计许可。每个任务同时遵守下列全局约束和冻结契约。
 
-**状态：** Task1 已实现并完成核心测试（2026-11-15），待独立审查；Task2–4 尚未实现或验收。
-**关联：** 独立分支 `feat/tauri-tool-permission-loop`；PR22 已于2026-11-11 06:49:16 UTC合并，main=`e961d92911f7574ce38c1f8b11f402e255ff0250`。本设计源码调查来自PR22 head `873babe59f19e0e30c29db10397eb4365419feb6`；Root已正常fetch/merge上述main，当前HEAD=`2f3c517ab5e3aa5c93d07d81f78d184001039c68`，没有reset/覆盖工作。新工作不再是stacked PR。  
-**领域语言事实源：** `CONTEXT.md`、本 spec；前置成果 `docs/specs/2026-11-11-tauri-formal-ui.md`。不修改 README.md/CLAUDE.md。  
-**Goal：** 原 React 工作台内完成 OpenAI SSE 工具调用→真实权限决策→真实合成文件只读执行→tool result 回模型→最终答复/后续上下文/历史恢复。  
-**Architecture：** 现 RunController 是唯一执行协调器，RunStore 是唯一运行事实源；provider 只负责单轮协议，runner 只持可信合成文件能力。保留现文本 API/文件格式，工具 run 采用明确版本化的追加日志，由原 formal actor 投影到现工具卡和权限横幅。  
-**Tech Stack：** 现 Rust/std、serde、reqwest、tokio、Tauri、React/Jotai；不新增依赖，不下载运行时。
+**历史计划状态（2026-11-15）：** 当时Task1已实现并完成核心测试、待独立审查；Task2–4尚未实现或验收。
+**历史设计基线关联：**  独立分支 `feat/tauri-tool-permission-loop`；PR22 已于2026-11-11 06:49:16 UTC合并，main=`e961d92911f7574ce38c1f8b11f402e255ff0250`。本设计源码调查来自PR22 head `873babe59f19e0e30c29db10397eb4365419feb6`；Root已正常fetch/merge上述main，当前HEAD=`2f3c517ab5e3aa5c93d07d81f78d184001039c68`，没有reset/覆盖工作。新工作不再是stacked PR。
+**领域语言事实源：** `CONTEXT.md`、本 spec；前置成果 `docs/specs/2026-11-11-tauri-formal-ui.md`。不修改 README.md/CLAUDE.md。
+**Goal：** 原 React 工作台内完成 OpenAI SSE 工具调用→真实权限决策→真实合成文件只读执行→tool result 回模型→最终答复/后续上下文/历史恢复。
+**Architecture：** 现 RunController 是唯一执行协调器，RunStore 是唯一运行事实源；provider 只负责单轮协议，runner 只持可信合成文件能力。保留现文本 API/文件格式，工具 run 采用明确版本化的追加日志，由原 formal actor 投影到现工具卡和权限横幅。
+**Tech Stack：** 现 Rust/std、serde、reqwest、tokio、Tauri、React/Jotai。恢复修复经Root接受，将已锁定缓存的`sha2 =0.10.9`提升为精确直接依赖用于草稿回执摘要；lock仅新增依赖边，无新包/版本/下载，不下载运行时。
 
 ## 全局约束与完成边界
 
-- 工作目录 `/private/tmp/tinker-research-cleanup-20261110`；shell `/bin/zsh`、login=false。旧 ASCI cwd 不存在。任何 exec-server ENOENT 停止执行并报告。
+- 历史工作目录为 `/private/tmp/tinker-research-cleanup-20261110`；恢复后仅使用上列持久工作树，所有exec显式workdir、shell `/bin/zsh`、login=false。临时旧路径不作为恢复入口；任何 exec-server ENOENT 停止执行并报告。
 - 只使用 owned numeric-loopback HTTP mock、假 key、宿主创建的 marker 合成根与合成文件。不得访问真实模型、真实凭据/用户文件、收费、安装或生产切换；不读取 HOME 凭据。Core 保留未来可信 provider 注入能力，本批没有真实服务验收。
 - 原 Electron UI 布局/样式、默认入口、生产路径和 M2 所有文本/关闭/恢复行为不变。Lab 和 `DesktopRuntime::open` 默认 tools disabled。工具能力不由 renderer 参数、模型名称或用户 prompt 启用。
 - 只支持 OpenAI Chat function tools，每 round 0/1 call，最多4次工具调用/5个 provider rounds；`parallel_tool_calls:false`。Anthropic工具、legacy function_call、多choice/多call、写操作、shell、MCP、真实目录、alwaysAllow 明确 unsupported，runner执行次数0。
@@ -183,7 +187,7 @@ impl RunController {
 - [x] 再运行上条targeted命令；运行 `cargo test --offline --manifest-path apps/tinker-rust/src-tauri/Cargo.toml -- --test-threads=1` 与 `cargo fmt --manifest-path apps/tinker-rust/src-tauri/Cargo.toml -- --check`。预期全部通过且旧text契约未改；记录测试数/exit code。
 - [x] 自审新增v3是否影响纯text开库/目录；更新progress实际结果，交Root独立审查。该任务不注册新UI渠道、binary或tool runtime capability。由Root决定提交，实施者不自行推进下一任务。
 
-**Task1 实测（2026-11-15）：** isolated offline Cargo targeted 21 passed；全 Rust suite 267 个顶层测试通过（26 targets，另有11次子进程fixture重复执行，不重复计数），exit 0；fmt/check 与 diff/check exit 0。两处 crate-private create/append 使用窄 `expect(dead_code)` 过渡，Task2 接线时必须删除。仅核心投影与合成日志验收，未运行工具执行器、原生 UI 或真实模型；独立审查尚待 Root。
+**历史计划状态（2026-11-15）：** 当时Task1已实现并完成核心测试、待独立审查；Task2–4尚未实现或验收。
 
 ## Task 2：实际HTTP rounds、权限控制器与合成文件执行
 
@@ -191,7 +195,7 @@ impl RunController {
 
 **Files：** 新建 `apps/tinker-rust/src-tauri/src/tool_execution.rs`（controller协作helper）、`synthetic_workspace.rs`、`chat_http/tool_openai.rs`；修改 `run_controller.rs`、`chat_http.rs`、`chat_http/sse.rs`（复用分帧）、`run_provider.rs`（HTTP实现）、`lib.rs`；新建 `tests/tool_http.rs`、`tests/tool_execution.rs`、`tests/synthetic_workspace.rs`。旧 `chat_http/openai.rs`/Anthropic纯text解析行为保持；仅抽公共分帧，不放松旧unsupported断言。
 
-**Consumes：** Task1的RunStore工具方法、ToolContext/ToolRoundOutput/ToolExecutor/ToolRunOptions全部定义。
+**历史计划状态（2026-11-15）：** 当时Task1已实现并完成核心测试、待独立审查；Task2–4尚未实现或验收。
 **Produces：** 冻结的RunController工具开库/四执行读取方法；`ChatHttpProvider::execute_tool_round`；`SyntheticWorkspace::create(root: &TrustedRoot) -> Result<Self, RunError>`，实现ToolExecutor。该构造只在trusted host/tests调用。
 
 - [ ] 写public-controller测试先失败：owned HTTP首轮要求list，未grant时runner计数0且无第二HTTP；grant后计数1，HTTP第二请求含exact assistant.tool_calls + role:tool/tool_call_id；第二轮read同样等待；最终只有mock验证真实文件内容后才回最终marker。旧execute/execute_context仍跑原text golden path。
@@ -210,7 +214,7 @@ impl RunController {
 
 **Files：** 修改 `apps/tinker-rust/src-tauri/src/desktop_runtime/{mod,profile,protocol,execution,session,store}.rs`、`formal_agent/{channels,actor,projection,delivery,protocol}.rs`、`formal_host.rs`、`formal_platform/launch.rs`、`formal_launch.rs`；新增 `formal_mock/tools.rs`，由 `formal_mock/mod.rs`显式工具构造启用；修改 `apps/electron/src/tauri-formal/{protocol,transport}.ts`、`apps/electron/src/renderer/hooks/useGlobalAgentListeners.ts`、`packages/shared/src/types/agent.ts`（仅新增snapshot事件）及相关en/zh locale；新建/扩展 `tests/tool_desktop.rs`、`tests/tool_formal.rs`、`apps/electron/src/tauri-formal/tools.test.ts`。保留preload `respondPermission`、PermissionBanner、原工具组件签名和视觉。
 
-**Consumes：** Task2的RunController工具方法及SyntheticWorkspace/现ChatHttpProvider；Task1ToolRunSnapshot/ToolEventPage。
+**历史计划状态（2026-11-15）：** 当时Task1已实现并完成核心测试、待独立审查；Task2–4尚未实现或验收。
 **Produces（冻结）：**
 
 ```rust

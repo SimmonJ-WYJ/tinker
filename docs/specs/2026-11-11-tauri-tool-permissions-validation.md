@@ -1,5 +1,39 @@
 # Tinker-A 工具权限原生验收记录
 
+**当前状态（2026-11-16）：源码、独立静态审查、最终自动检查及候选包归档已完成；新源码原生验收因锁屏待验，Task4 尚未完整验收，不发布或宣称可下载交付完成。**
+
+代码冻结：`952698d0168948ebec42c62736acaf04ebc9687d`。当前持久工作树为 `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-acceptance-20261116`，分支 `feat/tauri-tools-native-acceptance`。本次最终文档提交仅改文档，产物和自动检查对应上述代码SHA。
+
+最终独立静态补审：CodeReadyForDraft=Yes，Critical/Important/Minor 均0，simplify/reuse通过；静态审查本身没有运行测试或GUI。
+
+最终自动结果（原始日志及退出收据均在 `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-checks-20261116`）：
+
+| 检查 | 实际结果 | 日志 |
+|---|---|---|
+| cargo fmt --check | exit 0 | final952-fmt.log |
+| cargo test --offline --all-features -- --test-threads=1 | 顶层335 pass / 0 fail | final952-rust.log、final952-rust-counts.json |
+| cargo clippy --offline --all-features --all-targets -- -D warnings | exit 0 | final952-clippy.log |
+| bun test --max-concurrency=1 | 3500 pass / 4既有skip / 0 fail，12705断言，3504 tests / 413 files | final952-bun.log |
+| bun run typecheck / lint / electron:build | 全部exit 0 | final952-typecheck.log、final952-lint.log、final952-electron-build.log |
+| build-tools.ts / build-tools-native-qa.ts | 分别exit 0 | final952-tools-build.log、final952-qa-build.log |
+
+Rust计数按每个顶层harness最后汇总统计，排除真实child进程测试的重复输出。旧默认并发Bun运行中的scientific-assets 30秒超时原样保留；未改旧fixture、未增超时或跳测，最终并发上限1的全量运行79.49秒通过。保留既有Vite chunk和Browserslist警告。
+
+普通候选包：`/private/tmp/tinker-tauri-tools-package-US1Cxn/Tinker Tools Preview.app`，identifier=`com.tinker.tools-preview`，arm64；bundle总计 `52331399` bytes，主binary `52242080` bytes。主binary SHA-256：`c898116ab4a635ab055298f8cce9909fcdb2b76ea94121b6ee83058b07f4a093`。
+
+持久候选归档：`/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-checks-20261116/delivery/Tinker-Tools-Preview-952698d-arm64.zip`，`18050384` bytes；SHA-256：`053ad56e0bb2fd33263bff22d60da714047c1aa03d7adc188d7ee1a1dd7cc95d`。归档解包后全部bundle文件逐个SHA-256一致，签名再次严格验证通过。签名仅本机ad-hoc，未公证；无OS安全警告绕过。普通包入口正确且nm/strings无QA控制器标记，LICENSE/NOTICE/icon与源资源一致。
+
+QA包：`/private/tmp/tinker-tauri-tools-package-XD9TCT/Tinker Tools Native QA.app`，identifier=`com.tinker.tools-native-qa`，独立native-qa-dist及专用feature；不作为普通交付包。完整构建、签名与字节核验在 `delivery-audit.json` / `delivery-audit.log`。
+
+**尚待原生守门：** 用户尚未回复正常解锁，`CGSSessionScreenIsLocked=true`时未启动或操作新952 QA。新源码golden、Quit后最新纯文本草稿/active tab恢复、深色视觉对比度尚未实际复验；自动回归不能替代这些UI证据。此前608acb1/ca33779上的golden与边界实测、以及发现和修复过程仅作为历史证据，见下文；不外推到新SHA。富文本HTML、mention、附件/引用结构不承诺无损草稿恢复。
+
+收尾核验：`final952-process-audit.json` 于2026-11-16T04:19:58.178260Z记录本批QA/target进程0、保活进程0；两个已释放caffeinate租约证据均保留。未安装、未push/PR/merge、未调用真实模型或真实凭据。回退为停止新preview并继续原Electron，原生产路径未切换。
+
+## 历史执行与修复记录
+
+以下段落保留各阶段当时的状态、失败与证据；当前结果以前述952冻结点及最终收据为准。
+
+
 状态：Task4 进行中；未达到用户下载交付门槛。2026-11-16 恢复于持久工作树。
 
 源码基线：`7e58fe4fd59d25dfaeb502e31fc64e972f10ebe9`（Task1–3 已完成）。Task4 只增加构建入口、QA 隔离与实际验收记录。README/CLAUDE 未修改。
@@ -7,7 +41,7 @@
 本轮 checks：`/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-checks-20261116`。
 命令经 `run-clean.py` 过滤环境，使用隔离 ASCI home、离线 Cargo 和独立持久 target；不读取真实凭据、不连接外部模型、不安装应用。
 
-## 构建身份
+### 构建身份
 
 | 用途 | binary | identifier | renderer | feature |
 |---|---|---|---|---|
@@ -16,7 +50,7 @@
 
 普通入口固定 `None` 探针，即使 all-features 编译也不会安装 QA 控制器。QA 入口要求显式 `TINKER_TOOLS_PREVIEW_ROOT`；TrustedRoot 在任何窗口/数据操作前验证合成工具临时根。配置身份在 Builder 创建前验证。普通包使用独立 `synthetic-tools-v1`，不取代 M2、Lab 或 Electron。
 
-## 当前验证
+### 当前验证
 
 - 新增构建隔离测试：首次 1 pass / 2 fail（新配置及 helper 缺失），实现后 3 pass / 0 fail；原始日志 task4-red.log / task4-green.log。
 - 全仓类型检查与 lint 退出 0；日志 typecheck.log / lint.log。
@@ -25,13 +59,13 @@
 - 首次全特性 Rust 测试退出 0（rust-all-features.log；最终源码复跑待补）。新增 `[partial-error]` 合成 mock 场景先失败后通过：formal_mock 3 pass / 0 fail（partial-red/partial-green 日志与收据），真实 SSE 文本后断流，无终态 SSE；不伪造核心状态。
 - 后续补最终计数、构建产物与原生证据。
 
-## 尚待完成
+### 尚待完成
 
 正式工具包与 QA 包构建、实际 WKWebView 控件完整流程、权限拒绝/超时/取消、reload/进程重启/关闭、语言主题、背压与历史/HTTP 关联，以及全套回归与独立审查。任何未执行的项目不视为通过。
 
 签名仅计划本机 ad-hoc，不代表公证或 Developer ID 签名；不绕过 OS 安全提示。回退方式为停止新预览应用，继续使用原 Electron；本批不会安装到 Applications 或切换生产数据。
 
-## 原生发现与修复（2026-11-16）
+### 原生发现与修复（2026-11-16）
 
 首次真实 composer Send 后，`.conversation-user__text` 出现两个同文可见节点（y=136/266，各高24）；证据 recovery/result-9.json。原因是 AgentView 乐观 SDK 用户消息没有稳定身份，而首个正式工具快照包含另一条真实用户消息。新增渲染回归先失败（3个节点，期望保留旧消息后为2），修复为本地 `_agentRequestId` 关联：仅同请求正式人类工具快照替换乐观消息；同文旧请求和 Electron 无正式元数据路径保留。回归与工具归并测试17 pass，类型和针对改动 lint 退出0；原生重建重验待补。
 
@@ -39,7 +73,7 @@
 
 原生首次未独立session启动的QA进程退出（原因未证实），专用CLI sequence6在20秒内无回包；不是锁屏（IOConsoleLocked=false），应用日志为空、仅本app crash报告未发现。独立session重开同合成根后，journal有真实Interrupted/closedCall Interrupted，页面权限消失，一个用户气泡，mock records=[]；未重放HTTP/工具。此非预设kill测试，明确按实际意外进程退出恢复记录。
 
-## 原生证据检查点（ca33779 后审查前）
+### 原生证据检查点（ca33779 后审查前）
 
 原生UI代码为608acb1；afterquit使用ca33779包（只有打包helper差异）。两个包分别有独立普通/QA配置；UI截图只来自owned WKWebView。
 
@@ -63,7 +97,7 @@
 
 本批caffeinate命令`/usr/bin/caffeinate -di -t 1800`、PID21529、起始2026-11-16T03:02:35.958731Z；pmset核验同时具有PreventUserIdleSystemSleep/PreventUserIdleDisplaySleep。2026-11-16T03:25:13.887493Z核实同owned身份后SIGTERM释放；原始证据wake-lease.json/wake-assertions.txt/wake-lease-release.json。QA PID33989已经正常close，后续编译期间无wake lease。
 
-## 集中审查修复（新原生复验前）
+### 集中审查修复（新原生复验前）
 
 1. Desktop工具Bind前增加只读完整父链/context/catalog/凭据预检；`start_tools`仍锁内二次验证。输入与旋转可信合成key后祖先两模式回归先真实发现journal已变，修复后拒绝不改binding journal字节、不建V3header、不发HTTP、不出现被拒历史turn。
 2. 工具output按完整JSON字符串≤256KiB计量；snapshot完整编码≤1MiB，为2MiB desktop页的基础turn/至少一个事件保留空间。完整context仍≤512KiB，非终态预留32KiB闭合空间；delta/round/result提交前根据worker启动时已有的完整可信内存context计算候选，不逐片读取祖先磁盘。Stop前也验证，store/replay校验当前run snapshot/transcript，所有turn_reply（含重复Send/cancel）统一bounded。真实130×2000控制字符SSE先复现pageLimit，修复后失败状态、partial、events/history/duplicate/cancel/reopen均可读；祖先预算和journal拒绝不追加另有回归。旧cross-version fixture把256KiB ASCII输出减去JSON引号2字节，仍保持metadata溢出断言，未放宽边界。
@@ -73,7 +107,7 @@
 
 草稿恢复支持边界：本轮只保留纯文本（含Unicode/换行），不保存`agentSessionDraftHtmlAtom`。HTML排版、mention chip、文件/图片附件及引用结构不承诺无损恢复，均未验收；不能把纯文本复验外推到富文本或引用恢复。
 
-## 补审边界修复（集中修复第二检查点）
+### 补审边界修复（集中修复第二检查点）
 
 - 工具输入现在统一按完整JSON字符串≤64KiB检查（含引号、Unicode和转义），RunController start/preBind预检、ToolContext新输入和v3 header一致；legacy text原行为不变。60,000个U+0001先真实复现被接受，修复后在Bind/header/HTTP前拒绝。完整编码边界及header拒绝另有定向测试；早先journal fixture中60,000控制字符本身不合法，改为10,000个合法输入，未放宽限额。
 - 草稿自动保存的历史receipt不再复制旧正文：递归canonical JSON请求经SHA-256指纹识别，receipt保留原metadata/其余patch，草稿替换为空标记；当前settings只保留最新正文。旧完整receipt可读/可等价重试，下次提交原子压紧。mutation重复无额外写入、同ID不同body冲突、对象key重排等价、数组顺序保留；1MiB快照/1024receipt上限保持。真实32次约59KiB不同草稿→重开legacy receipt→最后close保存→重开验证通过，历史draft-0正文不在最终文件。
