@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `subagent-driven-development`, serial single-writer tasks, behavior red/green tests, independent task review, and final whole-branch review. User authorized continuing the existing migration plan without another execution-method confirmation.
 
-**Status:** Task 1 is independently approved at `a7c42db` (367 Rust tests, fmt, clippy). Task 2 review fixes for I1/I2/I3 are verified (54 focused Rust tests, 104 affected Bun tests, monorepo typecheck/lint, fmt and clippy) and await independent re-review. Task 3 native GUI acceptance and delivery remain pending.
+**Status:** Task 1 is independently approved at `a7c42db` (367 Rust tests, fmt, clippy). Task 2 I1/I2/I3 fixes passed scoped re-review. The remaining client R1 fix is verified with 113 affected Bun tests and monorepo typecheck/lint and awaits final scoped re-review; unchanged Rust retains 54 focused tests plus fmt/clippy evidence from `785df8c`. Task 3 native GUI acceptance and delivery remain pending.
 **Baseline:** main `450df3a86ca9cfc64d4b8777c98a1311f5230d57`, after merged PR #24.
 **Goal:** Make the existing workbench's text FIFO queue, Option/Alt interrupt-send, Stop, reload, and restart history work through the Rust/Tauri runtime.
 **Architecture:** DesktopRuntime owns durable accepted queue intent and execution lineage in its existing journal. The existing native actor owns live scheduling and delivery. Keep initial send ownership separate from each execution run. Reuse original React components and IPC facade.
@@ -223,11 +223,13 @@ Rollback uses the unchanged installed application and older clean synthetic root
 - [x] Preserve per-turn badge clearing policy without allowing old terminal events to end the whole active chain. Keep the existing queue bar/keyboard/controls and original production paths. Native failure/unknown acknowledgment retains recoverable input and reconciles the exact receipt before rollback, without automatic new-UUID resend.
 - [x] RED/GREEN: A/B/C FIFO, D interrupt while A waits on permission, rapid Stop/new send, queued late ack, reload while active, full outbox, stale old permission/terminal after new chain, per-session isolation, failure after first success, one exact user UUID/bubble, and no partial output assigned to another turn.
 - [x] Test close prepare/abort versus final close: freeze then restore live work on abort, durably stop all pending work on final close, no automatic HTTP on full reopen. No new timer-driven renderer execution engine.
-- [x] Run focused Rust/Bun/type/lint plus affected original queue/ownership/tool snapshot tests. Self-review and implementation report completed; source committed with normal hooks. Independent Task 2 review found I1/I2/I3; the bounded fix wave is verified and awaits re-review before Task 3.
+- [x] Run focused Rust/Bun/type/lint plus affected original queue/ownership/tool snapshot tests. Self-review and implementation report completed; source committed with normal hooks. Independent Task 2 review found I1/I2/I3; I1/I2/I3 passed scoped re-review, and the bounded client R1 fix is verified and awaits final scoped re-review before Task 3.
 
 ### Task 2 review-fix checkpoint
 
 Restored closed-chain proofs publish the same exact-owner, once-only completion after history consumers finish. Persistence/cancellation/projection uncertainty triggers only read-only original-identity reconciliation and freezes admissions, even when an exact receipt proves acceptance. Begin reserves bounded lifecycle ownership before core acceptance; post-acceptance projection failure either durably closes that exact chain or retains ownership while draining. No frozen core DTO or output/frame/history limit changes. Actual actor failure tests cover durable closure, uncertain cancellation, safe-close rejection and reservation isolation. Scoped test-log cleanup leaves inherited Jotai warnings documented. GUI acceptance is still pending.
+
+R1 freezes only Begin/append admissions. Each session retains at most 128 admission controls plus one serialized Stop control; duplicate Stop calls for the same exact chain share that request. Existing session/waiter caps and native-call deadlines remain unchanged. A provisional Begin owner rolls back only when locally or definitely rejected, and only if it is still the current provisional owner. Completed predecessors cannot be revived, newer owners cannot be overwritten, and Stop never thaws admissions or treats closed metadata alone as a safe-cancellation acknowledgment.
 
 ## Task 3: Native Synthetic Acceptance and Delivery
 

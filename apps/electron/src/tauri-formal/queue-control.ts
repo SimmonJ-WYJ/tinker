@@ -8,7 +8,8 @@ export class NativeQueueError extends Error {
 interface Waiter { promise: Promise<void>; finish(error?: Error): void }
 interface TerminalPayload {sessionId:string;requestId:string;resultSubtype:string;stoppedByUser:boolean}
 interface ClosedChain {sessionId:string;chainId:string;closureReason:string|null}
-interface Lane { tail: Promise<unknown>; count: number; frozen: boolean }
+interface Owner { chain: string; previous?: Owner; rejected?: boolean; completed?: boolean }
+interface Lane { tail: Promise<unknown>; count: number; frozen: boolean; stop?: {owner: Owner; promise: Promise<unknown>} }
 export function createQueueControl(
   runs: ActiveRun[],
   invoke: (channel: string, args: unknown[], expectedChainId?: string) => Promise<unknown>,
@@ -17,7 +18,7 @@ export function createQueueControl(
   timeoutMs = CHAIN_TIMEOUT_MS,
   terminal?: (payload: TerminalPayload) => void,
 ) {
-  const owners = new Map(runs.map(run => [run.sessionId, run.requestId]))
+  const owners = new Map<string, Owner>(runs.map(run => [run.sessionId, {chain:run.requestId}]))
   const lanes = new Map<string, Lane>()
   const waiters = new Map<string, Waiter>()
   const key = (sid: string, chain: string) => JSON.stringify([sid, chain])
@@ -30,20 +31,34 @@ export function createQueueControl(
     if(!state.closureReason || !['completed','stop','failure','close','delete','recovered'].includes(state.closureReason))return
     return {sessionId:state.sessionId,requestId:state.chainId,resultSubtype:['failure','recovered'].includes(state.closureReason)?'error_during_execution':'success',stoppedByUser:['stop','delete'].includes(state.closureReason)}
   }
-  function enqueue(sid: string, action: () => Promise<unknown>): Promise<unknown> {
+  function predecessor(owner: Owner | undefined, skipCompleted = true): Owner | undefined {
+    while(owner && (owner.rejected || (skipCompleted && owner.completed)))owner=owner.previous
+    return owner
+  }
+  function rejectOwner(sid: string, owner: Owner) {
+    owner.rejected=true
+    if(owners.get(sid)!==owner)return
+    const previous=predecessor(owner.previous)
+    if(previous)owners.set(sid,previous)
+    else owners.delete(sid)
+  }
+  function enqueue(sid: string, action: () => Promise<unknown>, stopOwner?: Owner): Promise<unknown> {
     let lane = lanes.get(sid)
     if (!lane) {
       if (lanes.size >= MAX_REQUESTS) return Promise.reject(new NativeQueueError('hostBusy',translate('hostBusy')))
       lane = {tail:Promise.resolve(),count:0,frozen:false};lanes.set(sid,lane)
     }
-    if (lane.count >= MAX_REQUESTS || lane.frozen) return Promise.reject(lane.frozen ? unknown() : new NativeQueueError('hostBusy',translate('hostBusy')))
-    lane.count++
+    // 128 个准入操作之外保留一个停止槽；同一链的重复 Stop 共用有限请求。
+    if(stopOwner && lane.stop)return predecessor(lane.stop.owner,false)?.chain===predecessor(stopOwner,false)?.chain ? lane.stop.promise : Promise.reject(new NativeQueueError('hostBusy',translate('hostBusy')))
+    if (!stopOwner && (lane.count >= MAX_REQUESTS || lane.frozen)) return Promise.reject(lane.frozen ? unknown() : new NativeQueueError('hostBusy',translate('hostBusy')))
+    if(!stopOwner)lane.count++
     const current = lane
     const pending = current.tail.then(async () => {
-      if (current.frozen) throw unknown()
+      if (!stopOwner && current.frozen) throw unknown()
       try { return await action() } catch(error) { if (uncertain(error) || (error instanceof NativeQueueError && error.queueAcknowledgmentUnknown)) current.frozen=true;throw error }
     })
-    current.tail=pending.catch(()=>{}).finally(()=>{current.count--})
+    if(stopOwner)current.stop={owner:stopOwner,promise:pending}
+    current.tail=pending.catch(()=>{}).finally(()=>{if(stopOwner)current.stop=undefined;else current.count--})
     track(pending)
     return pending
   }
@@ -67,13 +82,17 @@ export function createQueueControl(
         if(input[field]===undefined) {input={...input,[field]:crypto.randomUUID()};args=[input]}
       }
       const sid=channel==='agent:stop' ? String(args[0]) : String(input.sessionId)
-      const chain=channel==='agent:send-message' ? String(input.requestId) : owners.get(sid)
+      const actionOwner=owners.get(sid)
+      const chain=channel==='agent:send-message' ? String(input.requestId) : actionOwner?.chain
       if (!chain || chain==='undefined') throw new NativeQueueError('invalidParams',translate('invalidParams'))
       if(channel==='agent:send-message') {
         if(waiters.size>=MAX_REQUESTS && !waiters.has(key(sid,chain)))throw new NativeQueueError('hostBusy',translate('hostBusy'))
-        const waiter=completion(sid,chain);owners.set(sid,chain)
+        const waiter=completion(sid,chain)
+        const owner:Owner={chain,previous:actionOwner};owners.set(sid,owner)
+        let submitted=false
         try {
           const acknowledgment=await enqueue(sid,async()=>{
+            submitted=true
             try { return await invoke(channel,args,chain) }
             catch(error) {
               if(!uncertain(error))throw error
@@ -85,21 +104,25 @@ export function createQueueControl(
               }catch{throw unknown()}
             }
           }) as {closureReason?:string|null}
+          owner.previous=undefined
           const proof=terminalPayload({sessionId:sid,chainId:chain,closureReason:acknowledgment?.closureReason ?? null})
           if(proof) {
             if(terminal)terminal(proof)
             else waiter.finish(proof.resultSubtype==='success' ? undefined : new NativeQueueError('responseFailed',translate('responseFailed')))
           }
         }
-        catch(error) {waiter.finish(error instanceof Error ? error : unknown());throw error}
+        catch(error) {if(!submitted || !uncertain(error))rejectOwner(sid,owner);waiter.finish(error instanceof Error ? error : unknown());throw error}
         return waiter.promise
       }
       return enqueue(sid,async()=>{
         if(channel==='agent:stop') {
-          try {return await invoke(channel,args,chain)}catch(error){
+          // 保留点击时的归属；仅跳过已证明未提交/未接受的临时 Begin。
+          const target=predecessor(actionOwner,false)?.chain
+          if(!target)throw new NativeQueueError('invalidParams',translate('invalidParams'))
+          try {return await invoke(channel,args,target)}catch(error){
             if(!uncertain(error))throw error
             freeze(sid)
-            try {const state=await invoke('agent:queue-state',[{sessionId:sid}],chain) as ClosedChain;if(state.sessionId===sid && state.chainId===chain && state.closureReason)return null}catch{/* 保留冻结，不能推测停止已持久化。 */}
+            try {await invoke('agent:queue-state',[{sessionId:sid}],target)}catch{/* 只读核对仍不授予取消成功；保留冻结。 */}
             throw unknown()
           }
         }
@@ -116,23 +139,25 @@ export function createQueueControl(
           } catch { /* 无法证明未接受时保留原 UUID 和正文。 */ }
           throw unknown()
         }
-      })
+      },channel==='agent:stop' ? actionOwner : undefined)
     },
     observe(channel: string, payload: {sessionId:string;[key:string]:unknown}) {
       if(typeof payload.requestId!=='string')return
       if(channel==='agent:stream:complete') {
         waiters.get(key(payload.sessionId,payload.requestId))?.finish(payload.resultSubtype==='success' || payload.stoppedByUser===true ? undefined : new NativeQueueError('responseFailed',translate('responseFailed')))
-        if(owners.get(payload.sessionId)===payload.requestId)owners.delete(payload.sessionId)
+        const owner=owners.get(payload.sessionId)
+        for(let candidate=owner;candidate;candidate=candidate.previous)if(candidate.chain===payload.requestId)candidate.completed=true
+        if(owner?.chain===payload.requestId)owners.delete(payload.sessionId)
       }
     },
     restoreStates(states:ClosedChain[]):TerminalPayload[] {
       return states.flatMap(state=>{
-        if(!waiters.has(key(state.sessionId,state.chainId)) && owners.get(state.sessionId)!==state.chainId)return []
+        if(!waiters.has(key(state.sessionId,state.chainId)) && owners.get(state.sessionId)?.chain!==state.chainId)return []
         const proof=terminalPayload(state);return proof ? [proof] : []
       })
     },
-    owner(sid:string) {return owners.get(sid)},
-    restore(run: ActiveRun | null,expectedOwner?:string) {if(run && owners.get(run.sessionId)===expectedOwner)owners.set(run.sessionId,run.requestId)},
+    owner(sid:string) {return owners.get(sid)?.chain},
+    restore(run: ActiveRun | null,expectedOwner?:string) {if(run && owners.get(run.sessionId)?.chain===expectedOwner)owners.set(run.sessionId,{chain:run.requestId})},
     dispose() {for(const waiter of [...waiters.values()])waiter.finish(unknown())},
   }
 }
