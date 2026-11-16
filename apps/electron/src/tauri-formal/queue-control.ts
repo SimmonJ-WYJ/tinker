@@ -9,7 +9,8 @@ interface Waiter { promise: Promise<void>; finish(error?: Error): void }
 interface TerminalPayload {sessionId:string;requestId:string;resultSubtype:string;stoppedByUser:boolean}
 interface ClosedChain {sessionId:string;chainId:string;closureReason:string|null}
 interface Owner { chain: string; previous?: Owner; rejected?: boolean; completed?: boolean }
-interface Lane { tail: Promise<unknown>; count: number; frozen: boolean; stop?: {owner: Owner; promise: Promise<unknown>} }
+interface PendingStop { owner: Owner; promise: Promise<unknown>; reserved: boolean }
+interface Lane { tail: Promise<unknown>; count: number; frozen: boolean; stops: Set<PendingStop>; reservedStop?: PendingStop }
 export function createQueueControl(
   runs: ActiveRun[],
   invoke: (channel: string, args: unknown[], expectedChainId?: string) => Promise<unknown>,
@@ -46,19 +47,37 @@ export function createQueueControl(
     let lane = lanes.get(sid)
     if (!lane) {
       if (lanes.size >= MAX_REQUESTS) return Promise.reject(new NativeQueueError('hostBusy',translate('hostBusy')))
-      lane = {tail:Promise.resolve(),count:0,frozen:false};lanes.set(sid,lane)
+      lane = {tail:Promise.resolve(),count:0,frozen:false,stops:new Set()};lanes.set(sid,lane)
     }
-    // 128 个准入操作之外保留一个停止槽；同一链的重复 Stop 共用有限请求。
-    if(stopOwner && lane.stop)return predecessor(lane.stop.owner,false)?.chain===predecessor(stopOwner,false)?.chain ? lane.stop.promise : Promise.reject(new NativeQueueError('hostBusy',translate('hostBusy')))
-    if (!stopOwner && (lane.count >= MAX_REQUESTS || lane.frozen)) return Promise.reject(lane.frozen ? unknown() : new NativeQueueError('hostBusy',translate('hostBusy')))
-    if(!stopOwner)lane.count++
+    // 常规 FIFO 槽共 128 个（含 Stop），另保留一个安全 Stop 槽。
+    if(stopOwner) {
+      const target=predecessor(stopOwner,false)?.chain
+      for(const stop of lane.stops)if(predecessor(stop.owner,false)?.chain===target)return stop.promise
+      if(lane.count>=MAX_REQUESTS && lane.reservedStop) {
+        // 停止无法入列时，先阻止尚未提交的 Begin/append，不能在 UI 停止后启动。
+        lane.frozen=true
+        return Promise.reject(new NativeQueueError('hostBusy',translate('hostBusy')))
+      }
+    } else if(lane.count>=MAX_REQUESTS || lane.frozen) {
+      return Promise.reject(lane.frozen ? unknown() : new NativeQueueError('hostBusy',translate('hostBusy')))
+    }
+    const reserved=Boolean(stopOwner && lane.count>=MAX_REQUESTS)
+    if(!reserved)lane.count++
     const current = lane
     const pending = current.tail.then(async () => {
       if (!stopOwner && current.frozen) throw unknown()
       try { return await action() } catch(error) { if (uncertain(error) || (error instanceof NativeQueueError && error.queueAcknowledgmentUnknown)) current.frozen=true;throw error }
     })
-    if(stopOwner)current.stop={owner:stopOwner,promise:pending}
-    current.tail=pending.catch(()=>{}).finally(()=>{if(stopOwner)current.stop=undefined;else current.count--})
+    const stop=stopOwner ? {owner:stopOwner,promise:pending,reserved} : undefined
+    if(stop){current.stops.add(stop);if(reserved)current.reservedStop=stop}
+    current.tail=pending.catch(()=>{}).finally(()=>{
+      if(stop) {
+        if(current.stops.delete(stop)) {
+          if(stop.reserved){if(current.reservedStop===stop)current.reservedStop=undefined}
+          else current.count--
+        }
+      } else current.count--
+    })
     track(pending)
     return pending
   }

@@ -309,3 +309,74 @@ test('review R1: uncertain Stop keeps admission frozen and closed metadata canno
    f.emit('a',1);await first
  } finally {t.dispose()}
 })
+
+function orderedStopFixture() {
+ const f=fixture();const original=f.bridge.request;const releases=new Map<string,()=>void>();let closing=false
+ f.bridge.request=async<T>(request:Record<string,unknown>):Promise<T>=>{
+   if(request.channel!=='agent:stop')return original<T>(request)
+   f.calls.push(request)
+   if(!closing)await new Promise<void>(resolve=>{releases.set(String(request.expectedChainId),resolve)})
+   return {value:null} as T
+ }
+ return {...f,release:(chain:string)=>releases.get(chain)?.(),cleanup:()=>{closing=true;for(const release of releases.values())release()}}
+}
+
+test('review R2: delayed Stop A then Begin B and duplicate Stop B stay FIFO with exact captured identities',async()=>{
+ const f=orderedStopFixture();const t=await createFormalTransport(f.bridge,code=>code,{commandTimeoutMs:100})
+ for(const channel of ['agent:stream:event','agent:stream:complete','agent:stream:error'])t.subscribe(channel,()=>{})
+ const trace=()=>f.calls.filter(c=>['agent:send-message','agent:stop'].includes(String(c.channel))).map(c=>[c.channel,c.expectedChainId])
+ const a=t.invoke('agent:send-message',{sessionId:'s',requestId:'a'});void a.catch(()=>{})
+ try {
+   await tick();const stopA=t.invoke('agent:stop','s');void stopA.catch(()=>{});await tick()
+   const b=t.invoke('agent:send-message',{sessionId:'s',requestId:'b'});void b.catch(()=>{})
+   let stoppedB=false
+   const stopB=t.invoke('agent:stop','s').then(()=>{stoppedB=true});void stopB.catch(()=>{})
+   const duplicate=t.invoke('agent:stop','s');void duplicate.catch(()=>{})
+   const c=t.invoke('agent:send-message',{sessionId:'s',requestId:'c'});void c.catch(()=>{})
+   await tick();expect(trace()).toEqual([['agent:send-message','a'],['agent:stop','a']])
+   f.release('a');await stopA;await tick()
+   expect(trace()).toEqual([['agent:send-message','a'],['agent:stop','a'],['agent:send-message','b'],['agent:stop','b']])
+   expect(stoppedB).toBe(false)
+   let quiet=false;const quiesce=t.quiesce().then(()=>{quiet=true});await tick();expect(quiet).toBe(false)
+   f.release('b');await stopB;await duplicate;await quiesce
+   expect(trace()).toEqual([['agent:send-message','a'],['agent:stop','a'],['agent:send-message','b'],['agent:stop','b'],['agent:send-message','c']])
+   f.emit('a',1);await a;f.emit('b',2);await b;f.emit('c',3);await c
+ } finally {f.cleanup();t.dispose()}
+})
+
+test('review R2: 128 regular controls plus reserved Stop fence unsubmitted Begin at true capacity exhaustion',async()=>{
+ const f=orderedStopFixture();const original=f.bridge.request;let releaseAppend=()=>{};let blocked=false
+ f.bridge.request=async<T>(request:Record<string,unknown>):Promise<T>=>{
+   const result=await original<T>(request)
+   if(request.channel==='agent:queue-message' && !blocked){blocked=true;await new Promise<void>(resolve=>{releaseAppend=resolve})}
+   return result
+ }
+ const t=await createFormalTransport(f.bridge,code=>code,{commandTimeoutMs:100})
+ for(const channel of ['agent:stream:event','agent:stream:complete','agent:stream:error'])t.subscribe(channel,()=>{})
+ const a=t.invoke('agent:send-message',{sessionId:'s',requestId:'a'});void a.catch(()=>{})
+ try {
+   await tick();const stopA=t.invoke('agent:stop','s');void stopA.catch(()=>{});await tick()
+   const b=t.invoke('agent:send-message',{sessionId:'s',requestId:'b'});void b.catch(()=>{})
+   const appends=Array.from({length:126},(_,i)=>t.invoke('agent:queue-message',{sessionId:'s',uuid:`b-${i}`,userMessage:'retain queued input'}))
+   for(const append of appends)void append.catch(()=>{})
+   const stopB=t.invoke('agent:stop','s');void stopB.catch(()=>{})
+   const duplicate=t.invoke('agent:stop','s');void duplicate.catch(()=>{})
+   await expect(t.invoke('agent:send-message',{sessionId:'s',requestId:'over-cap'})).rejects.toThrow('hostBusy')
+   f.release('a');await stopA;await tick()
+   const c=t.invoke('agent:send-message',{sessionId:'s',requestId:'c'});void c.catch(()=>{})
+   const cAppend=t.invoke('agent:queue-message',{sessionId:'s',uuid:'c-queued',userMessage:'retain C'});void cAppend.catch(()=>{})
+   let stopCError:unknown
+   const stopC=t.invoke('agent:stop','s').catch(error=>{stopCError=error});await tick()
+   expect(stopCError).toMatchObject({code:'hostBusy'})
+   releaseAppend();await appends[0];await tick()
+   expect(f.calls.filter(c=>c.channel==='agent:stop').map(c=>c.expectedChainId)).toEqual(['a','b'])
+   expect(f.calls.filter(c=>c.channel==='agent:send-message').map(c=>c.expectedChainId)).toEqual(['a','b'])
+   f.release('b');await stopB;await duplicate;await stopC
+   const remaining=await Promise.allSettled([...appends.slice(1),c,cAppend])
+   expect(remaining).toHaveLength(127)
+   for(const result of remaining){expect(result.status).toBe('rejected');if(result.status==='rejected')expect(result.reason).toMatchObject({queueAcknowledgmentUnknown:true})}
+   await expect(t.invoke('agent:send-message',{sessionId:'s',requestId:'after-stop'})).rejects.toMatchObject({queueAcknowledgmentUnknown:true})
+   expect(f.calls.filter(c=>c.channel==='agent:queue-message')).toHaveLength(1)
+   f.emit('a',1);await a;f.emit('b',2);await b
+ } finally {releaseAppend();f.cleanup();t.dispose()}
+})
