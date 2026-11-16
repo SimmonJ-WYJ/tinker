@@ -1,37 +1,72 @@
 # Tinker-A 工具权限原生验收记录
 
-**当前状态（2026-11-16）：源码、独立静态审查、最终自动检查及候选包归档已完成；新源码原生验收因锁屏待验，Task4 尚未完整验收，不发布或宣称可下载交付完成。**
+**当前状态（2026-11-16）：源码与独立静态审查完成，自动检查、普通/QA候选包审计及本轮最终原生守门已完成。原先锁屏阻塞经用户正常解锁后解除。尚未push、发布PR、安装或切换生产入口；交由Root独立核验与发布流程。**
 
-代码冻结：`952698d0168948ebec42c62736acaf04ebc9687d`。当前持久工作树为 `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-acceptance-20261116`，分支 `feat/tauri-tools-native-acceptance`。本次最终文档提交仅改文档，产物和自动检查对应上述代码SHA。
+代码冻结：`68455c9aee34bd0fda153101addfe4150d960fee`。持久工作树 `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-acceptance-20261116`，分支 `feat/tauri-tools-native-acceptance`。本次后续文档提交仅改报告/合成截图，产物和最后原生验收对应上述代码SHA。Tasks1–3基线为`7e58fe4fd59d25dfaeb502e31fc64e972f10ebe9`。
 
-最终独立静态补审：CodeReadyForDraft=Yes，Critical/Important/Minor 均0，simplify/reuse通过；静态审查本身没有运行测试或GUI。
+最终独立静态补审：68455c9 CodeReadyApproved，Critical/Important/Minor均0，simplify/reuse通过；静态审查本身没有运行测试或GUI。
 
-最终自动结果（原始日志及退出收据均在 `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-checks-20261116`）：
+所有原始日志、失败、命令与退出收据在 `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-checks-20261116`（下称checks）。检查按实际源码分层记录，未把旧日志伪称为新SHA重跑：
 
-| 检查 | 实际结果 | 日志 |
+| 检查与源码 | 实际结果 | 日志 |
 |---|---|---|
-| cargo fmt --check | exit 0 | final952-fmt.log |
-| cargo test --offline --all-features -- --test-threads=1 | 顶层335 pass / 0 fail | final952-rust.log、final952-rust-counts.json |
-| cargo clippy --offline --all-features --all-targets -- -D warnings | exit 0 | final952-clippy.log |
-| bun test --max-concurrency=1 | 3500 pass / 4既有skip / 0 fail，12705断言，3504 tests / 413 files | final952-bun.log |
-| bun run typecheck / lint / electron:build | 全部exit 0 | final952-typecheck.log、final952-lint.log、final952-electron-build.log |
-| build-tools.ts / build-tools-native-qa.ts | 分别exit 0 | final952-tools-build.log、final952-qa-build.log |
+| 952698d cargo fmt --check | exit0 | final952-fmt.log |
+| 952698d cargo test --offline --all-features -- --test-threads=1 | 顶层335 pass / 0 fail | final952-rust.log、final952-rust-counts.json |
+| 952698d cargo clippy --offline --all-features --all-targets -- -D warnings | exit0 | final952-clippy.log |
+| 952698d bun test --max-concurrency=1 | 3500 pass / 4既有skip / 0 fail，12705断言，3504 tests / 413 files，79.49s | final952-bun.log |
+| 952698d typecheck / lint / Electron与两个工具包构建 | 全部exit0 | final952-{typecheck,lint,electron-build,tools-build,qa-build}.log |
+| 68455c9 persistence / restore / tools / package行为回归 | 27 pass / 0 fail | native-workspace-green-2.log |
+| 68455c9 最终全量 bun test --max-concurrency=1 | 3503 pass / 4既有skip / 0 fail，12715断言，3507 tests / 413 files，61.79s | final684-bun.log、final684-bun.receipt.json |
+| 68455c9 typecheck / lint | 全部exit0 | native-workspace-typecheck-2.log、native-workspace-lint-2.log |
+| 68455c9 Electron / 普通工具包 / QA包构建 | 全部exit0 | final-active-electron-build.log、final-active-tools-build.log、final-active-qa-build.log |
 
-Rust计数按每个顶层harness最后汇总统计，排除真实child进程测试的重复输出。旧默认并发Bun运行中的scientific-assets 30秒超时原样保留；未改旧fixture、未增超时或跳测，最终并发上限1的全量运行79.49秒通过。保留既有Vite chunk和Browserslist警告。
+68455c9仅改formal capture在当前workspace atom为null时采用可信bootstrap workspace的fallback及其回归，未改Rust；按受影响范围重跑27项前端测试、类型/lint和三个构建，Rust源码未变，沿用上述335项证据；Root接手后对当前684源码另跑完整Bun，3503项通过，4项既有跳过，未改超时或跳测。RED实际为5 pass/1 fail；首次GREEN的测试bridge错误地把native完整settings模拟成patch，保留26 pass/1 fail日志，修正模拟契约后27 pass。非空当前workspace优先、foreign/deleted active tab不凭空映射均通过。
 
-普通候选包：`/private/tmp/tinker-tauri-tools-package-US1Cxn/Tinker Tools Preview.app`，identifier=`com.tinker.tools-preview`，arm64；bundle总计 `52331399` bytes，主binary `52242080` bytes。主binary SHA-256：`c898116ab4a635ab055298f8cce9909fcdb2b76ea94121b6ee83058b07f4a093`。
+Rust计数排除真实child测试重复输出。旧默认并发Bun中的scientific-assets 30秒超时保留，未改fixture、未加timeout或跳测；最终并发上限1全量通过。保留既有Vite chunk/Browserslist警告。scripts不在现eslint匹配范围，不把ignored warnings记为脚本lint覆盖，实际Bun测试与构建另行记录。
 
-持久候选归档：`/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-checks-20261116/delivery/Tinker-Tools-Preview-952698d-arm64.zip`，`18050384` bytes；SHA-256：`053ad56e0bb2fd33263bff22d60da714047c1aa03d7adc188d7ee1a1dd7cc95d`。归档解包后全部bundle文件逐个SHA-256一致，签名再次严格验证通过。签名仅本机ad-hoc，未公证；无OS安全警告绕过。普通包入口正确且nm/strings无QA控制器标记，LICENSE/NOTICE/icon与源资源一致。
+## 最终候选包
 
-QA包：`/private/tmp/tinker-tauri-tools-package-XD9TCT/Tinker Tools Native QA.app`，identifier=`com.tinker.tools-native-qa`，独立native-qa-dist及专用feature；不作为普通交付包。完整构建、签名与字节核验在 `delivery-audit.json` / `delivery-audit.log`。
+普通包 `/private/tmp/tinker-tauri-tools-package-MrorTB/Tinker Tools Preview.app`，`com.tinker.tools-preview`，arm64，bundle `52331399` bytes，主binary `52242080` bytes，SHA-256 `4ceed1bc70ab68752197384e71eb149044ada8b7ba7c608a87345fedf2bcd8f7`。
 
-**尚待原生守门：** 用户尚未回复正常解锁，`CGSSessionScreenIsLocked=true`时未启动或操作新952 QA。新源码golden、Quit后最新纯文本草稿/active tab恢复、深色视觉对比度尚未实际复验；自动回归不能替代这些UI证据。此前608acb1/ca33779上的golden与边界实测、以及发现和修复过程仅作为历史证据，见下文；不外推到新SHA。富文本HTML、mention、附件/引用结构不承诺无损草稿恢复。
+持久归档 `checks/delivery/Tinker-Tools-Preview-68455c9-arm64.zip`，`18050157` bytes，SHA-256 `545162757801c0f9131b97aa01cc2f916b7f45fb308e4f46701758ec335d2f54`。解包全部bundle文件SHA逐个一致，签名再次严格验证通过。QA包 `/private/tmp/tinker-tauri-tools-package-rvhwqE/Tinker Tools Native QA.app`，`com.tinker.tools-native-qa`，主binary SHA-256 `6f13ece47bf032e42302f78f8a6c1b42266e101ca64eaa0823bf0f96a4ee0f59`。QA包不作为交付包。
 
-收尾核验：`final952-process-audit.json` 于2026-11-16T04:19:58.178260Z记录本批QA/target进程0、保活进程0；两个已释放caffeinate租约证据均保留。未安装、未push/PR/merge、未调用真实模型或真实凭据。回退为停止新preview并继续原Electron，原生产路径未切换。
+两包入口/identifier/arm64、LICENSE/NOTICE/icon、普通包无QA控制器nm/strings标记均验证；完整文件hash、签名与归档核验在`delivery-audit-active.json` / `.log`。签名仅本机ad-hoc，未公证；未绕过OS安全警告、未安装Applications。每次新建owned0700 staging，避免沿旧包符号链接写入。回退为停止preview并继续原Electron；原生产路径未切换。
+
+## 解锁后最终原生证据
+
+只用原React编辑器/Send/权限banner/设置UI和本QA的公共WKWebView、NSMenu driver；非宿主API或atom调用冒充点击。合成根`/private/tmp/tinker-tauri-tools-preview-ui-20261116-final684-native`，源68455c9、上列QA binary；原始协议目录位于`/private/tmp/tinker-tauri-checks-m3-tools-20261116/native-qa/<batch>`，每次复制到checks/native-qa。journal及平台快照另存`checks/synthetic-evidence/final684-final-closed`，摘要`final-native-summary.json`。
+
+- `final684-native` seq2–13：原编辑器Send→list pending→reload→Allow→read pending→reload→Allow→final，再确认仅一个可见人类气泡；mock三次HTTP的assistantMessages为0/1/2。journal对应list_1/read_1各恰一次ToolStarted与Succeeded，read内容包含`café — 你好`，模型最终回复一致。seq14–21另一受控合成会话重复golden并展开两工具卡；共享截图采用这个只含driver合成内容的会话。
+- `final952-golden`沿同一未改Rust路径已实际复验重复Allow、Deny、Stop、Esc、partial-error与Failed后同会话follow-up、默认60秒Expired。journal显示Deny无ToolStarted、Completed解释；Stop/Esc为Cancelled/closedCall Cancelled；partial断流为Failed/httpProtocol且保留文字；follow-up parent=null且HTTP userMessages1；Expired无ToolStarted、最终Completed，后续DOM权限消失。该批次源码952698d，不能将每个旧步骤写成684重跑。
+- 952原NSMenu Quit待决测试实际Cancelled且无ToolStarted；草稿虽保留，workspace活动映射错误导致恢复到旧session，真实失败保留在`final952-quit-race.json`与`final952-reopen`。最小fallback修复为68455c9，未改Electron/UI/样式。
+- 684首次Quit输入→ack保守上界418.927ms，不称早于400ms；记录`final684-quit-race.json`。后用同一未改CLI通过Python runpy连续提交原编辑器输入与原NSMenu Quit，未插入截图/复制/等待：`final684-quit-fast-race.json` seq4–5，输入提交前→Quit ack保守上界**313.143ms <400ms**，revision18→19，最新session3与workspace活动映射一致，准确保存`Final 684 draft café 你好\nSecond plain line 789`。并未延长防抖或强制flush宿主方法。
+- `final684-final-reopen` PID46325 seq1–3：最新session3的用户内容、准确两行Unicode草稿、中文/深色恢复；visible，permissions0，mock records=[]，无自动HTTP/工具重放。seq4原NSMenu正常退出。684 session3在最早截图时pending，但其后journal实际granted两次并Completed，故不把这次Quit称作待决取消；取消证据以上述952和自动回归为准。
+
+### 原生绘制问题与截图
+
+旧空白对话/白字白底不是视觉通过。实测`document.hidden=true`，opacity类虽100但computed0、CSS transition currentTime0；WK在后台暂停帧。仅对exact owned QA bundle正常OS `open -a`激活（同一PID），visible/focused后transition正常推进、computed opacity1，颜色与截图正常。未强制opacity、禁动画或改生产CSS。dark设置实测dialog背景rgb31/文字250，sidebar背景21,23,25/文字227,230,232；原settings控件切换语言与主题，非只看class。原失败图均保留；非driver stray输入的早期图仅存本机，未纳入新增共享截图。
+
+![684单人气泡、两工具卡与最终输出](assets/tauri-tools-20261116/final684-golden.png)
+
+![684原设置UI中文深色](assets/tauri-tools-20261116/final684-settings-zh-dark.png)
+
+![684重开最新会话与准确两行草稿](assets/tauri-tools-20261116/final684-reopened-draft.png)
+
+### 边界与收尾
+
+草稿仅承诺纯文本Unicode/换行；HTML格式、mention、附件/图片与引用结构未作无损恢复验收。native actor unread队列饱和/精确FD读取后ToolFinished前kill窗口本轮未执行；旧QA held605事件/301delta只证明真实hold/release，不冒充native unread饱和。核心真实child exit73读取后崩溃、stale/run/delete、背压与encoded预算回归属于自动测试证据。重复Send的核心幂等回归通过，本轮未将不明确的双击脚本列为独立native通过。
+
+用户正常解锁后，原CGS锁true键消失，IOConsoleLocked=false/onConsole与loginDone=true；缺失键未伪造为false。无解锁或系统设置修改。最后有界保活`/usr/bin/caffeinate -di -t 1800` PID43186，2026-11-16T04:34:11.107175Z启动，pmset同时核验system/display assertions；05:05:32.981373Z已到期退出，无续约。`wake-lease-final-ui.json`、`wake-assertions-final-ui.txt`、`wake-lease-final-ui-release.json`保留。`final684-process-audit.json`于05:05:33.018022Z确认本批QA0、wake0，已知PID均消失。未操作真实Tinker/用户目录、真实模型/凭据、费用、OAuth或其他app。
+
+## 审批输入对账与最终收尾
+
+`final684-grant-probe` 的被动事件观察在等待8秒后仍显示pending，仅有两次driver触发的非trusted点击。随后result-8记录两次标记为`isTrusted=true`的原生Allow点击，时间分别64560/65306，与list/read的Granted相对应；不是无输入自动批准。这里只确认输入类别，不认定具体操作者。原session3没有预先记录输入来源，不能事后追认，故剔除其“待决Quit”断言。未改变事件传播或权限逻辑，也未采集其他应用的输入。原始probe及早期失败均只保留本机，新增共享截图仅为已核验的合成内容。
+
+Root接手中断后的收尾，未恢复新原生批次。最后已知probe PID46655只读核验已退出，没有向其发送信号；随后核对本批全部已知QA/保活PID，结果见`root-final-process-audit.json`。所有源代码保持68455c9，后续只提交文档与三张合成截图。已再次正常fetch原仓库，main仍为`e961d92911f7574ce38c1f8b11f402e255ff0250`。GitHub发布仅使用安全分支及Draft PR，不自动合并、部署或安装。
 
 ## 历史执行与修复记录
 
-以下段落保留各阶段当时的状态、失败与证据；当前结果以前述952冻结点及最终收据为准。
+以下段落保留各阶段当时的状态、失败与证据；当前结果以前述68455c9冻结点及分层收据为准。
 
 
 状态：Task4 进行中；未达到用户下载交付门槛。2026-11-16 恢复于持久工作树。

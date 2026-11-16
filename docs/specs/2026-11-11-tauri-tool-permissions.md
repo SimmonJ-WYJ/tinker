@@ -1,6 +1,6 @@
 # Tinker-A M2B 工具与权限闭环实施计划
 
-**当前执行状态（2026-11-16）：** Tasks1–3 已完成并独立通过审查，恢复源码基线 `7e58fe4fd59d25dfaeb502e31fc64e972f10ebe9`。Task4 及集中审查修复源码冻结于 `952698d0168948ebec42c62736acaf04ebc9687d`；最终独立静态审查 CodeReadyForDraft=Yes，Critical/Important/Minor 均0（审查本身未运行测试或GUI）。最终自动检查已完成：fmt、全Rust335 pass、clippy、type/lint/Electron及普通/QA构建均exit0；完整Bun并发上限1为3500 pass / 4既有skip / 0 fail。 新SHA原生验收因系统锁屏且尚无用户解锁回复而待验，不称完整交付。
+**当前执行状态（2026-11-16）：** Tasks1–3已完成并独立审查，基线`7e58fe4fd59d25dfaeb502e31fc64e972f10ebe9`。Task4最终代码冻结`68455c9aee34bd0fda153101addfe4150d960fee`；独立补审CodeReadyApproved，Critical/Important/Minor均0（静态审查未运行测试/GUI）。952698d全Rust335 pass、全Bun3500 pass/4既有skip/0fail，fmt/clippy/type/lint/Electron/两包构建exit0；684仅formal workspace fallback变更另跑受影响27项、type/lint/Electron/两包构建exit0。用户正常解锁后，最终684原生golden、设置视觉、313.143ms输入→原NSMenu Quit及最新active会话/Unicode换行草稿重开、零自动HTTP已实测。候选归档与签名审计完成，尚未push/PR/安装；精确复验范围和未执行边界见报告，不称通用迁移完成。
 
 **当前持久工作树：** `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-acceptance-20261116`，分支 `feat/tauri-tools-native-acceptance`；日志与产物在同级 `tools-native-checks-20261116`。精确结果以[验收报告](2026-11-11-tauri-tool-permissions-validation.md)为准。下文原设计时间、路径、head 与早期任务状态均保留为历史基线，不作为当前执行入口。
 
