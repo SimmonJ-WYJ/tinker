@@ -1,8 +1,9 @@
 /** direct Cargo 固定入口和完整配置；组装并验证本批独立工具包。 */
 import { resolve } from 'node:path'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, lstatSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import ordinary from '../src-tauri/tauri.tools.conf.json'
 import nativeQA from '../src-tauri/tauri.tools-qa.conf.json'
+import { createToolsStaging } from './tools-staging.ts'
 export function buildTools(qa: boolean): void {
   const config = qa ? nativeQA : ordinary
   const renderer = Bun.spawnSync(['bunx', 'vite', 'build', '--config', qa ? 'vite.native-qa.config.ts' : 'vite.formal.config.ts'], { cwd: resolve(import.meta.dir, '../../electron'), stdout: 'inherit', stderr: 'inherit' })
@@ -24,10 +25,7 @@ export function buildTools(qa: boolean): void {
     const architecture = Bun.spawnSync(['/usr/bin/lipo', '-archs', executable])
     if (architecture.exitCode !== 0 || architecture.stdout.toString().trim() !== (process.arch === 'x64' ? 'x86_64' : process.arch)) throw new Error('工具包架构与构建宿主不匹配')
     // 新产物在系统 tmp 组装，避免 Documents 文件提供器反复添加 FinderInfo。
-    const staging = `/private/tmp/tinker-tauri-tools-package-${process.getuid?.() ?? 'local'}`
-    if (!existsSync(staging)) mkdirSync(staging, { mode: 0o700 })
-    const owner = lstatSync(staging)
-    if (!owner.isDirectory() || owner.isSymbolicLink() || owner.uid !== process.getuid?.() || (owner.mode & 0o077) !== 0) throw new Error('工具包 staging 必须为本用户私有目录')
+    const staging = createToolsStaging()
     const bundle = resolve(staging, `${config.productName}.app`)
     const contents = resolve(bundle, 'Contents')
     const macos = resolve(contents, 'MacOS')
