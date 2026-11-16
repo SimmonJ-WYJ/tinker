@@ -27,7 +27,8 @@ impl Actor {
         if !self.gate.allows_send()
             && (matches!(
                 c,
-                "agent:create-session"
+                "agent:permission:respond"
+                    | "agent:create-session"
                     | "agent:get-or-create-draft-session"
                     | "agent:update-title"
                     | "agent:delete-session"
@@ -138,12 +139,20 @@ impl Actor {
             "agent:delete-session" => {
                 arity(&args, 1, 1)?;
                 let sid = string(&args, 0)?;
+                self.reserve_deleted_delivery(sid)?;
                 self.stop(sid)?;
                 self.poll();
                 self.core("sessions.delete", json!({"sessionId":sid}))?;
-                self.entries.remove(sid);
+                // tombstone 后不再读 session；保留有界终态计划直到背压解除。
+                if let Some(entry) = self.entries.get_mut(sid) {
+                    // 已删正文不可再访问；只保存精确身份，用空 snapshot 清理此 run。
+                    entry.turn = json!({"sessionId":entry.turn["sessionId"],"requestId":entry.turn["requestId"],"runId":entry.turn["runId"],"startedAt":entry.turn["startedAt"],"sequence":entry.turn["sequence"],"status":entry.turn["status"]});
+                    entry.deleted_history = Some(json!({"messages":[],"sdkMessages":[]}));
+                    entry.resync = true;
+                }
                 self.barriers.remove(sid);
                 self.terminal_receipts.remove(sid);
+                self.permission_owners.retain(|_, (owner, _)| owner != sid);
                 Value::Null
             }
             "agent:send-message" => {
@@ -192,12 +201,13 @@ impl Actor {
                 }
                 json!(path)
             }
+            "agent:permission:respond" => {
+                arity(&args, 1, 1)?;
+                self.permission_response(args[0].clone())?
+            }
             "agent:get-pending-requests" => {
                 arity(&args, 0, 1)?;
-                if !args.is_empty() {
-                    self.session(string(&args, 0)?)?;
-                }
-                json!({"permissions":[],"askUsers":[],"exitPlans":[]})
+                self.pending_requests(optional(&args, 0)?.as_deref())?
             }
             "agent:get-capabilities" => {
                 arity(&args, 0, 1)?;
@@ -397,6 +407,8 @@ impl Actor {
                 settled: false,
                 terminal_stage: Default::default(),
                 terminal_error: None,
+                sdk_index: 1,
+                deleted_history: None,
             },
         );
         Ok(None)

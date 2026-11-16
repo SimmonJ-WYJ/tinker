@@ -1,4 +1,5 @@
 //! 正式预览专属owned HTTP合成服务；不读取环境、凭据或外部文件。
+mod tools;
 use crate::{
     desktop_runtime::{
         protocol::{DesktopError, Result},
@@ -32,12 +33,19 @@ pub struct RequestMetadata {
 }
 pub struct OwnedMock {
     endpoint: String,
+    tools: bool,
     stop: Arc<AtomicBool>,
     records: Arc<Mutex<Vec<RequestMetadata>>>,
     worker: Option<JoinHandle<()>>,
 }
 impl OwnedMock {
     pub fn start() -> Result<Self> {
+        Self::start_mode(false)
+    }
+    pub fn start_tools() -> Result<Self> {
+        Self::start_mode(true)
+    }
+    fn start_mode(tools: bool) -> Result<Self> {
         let listener =
             TcpListener::bind(("127.0.0.1", 0)).map_err(|_| DesktopError("mockUnavailable"))?;
         listener
@@ -79,7 +87,7 @@ impl OwnedMock {
                             match thread::Builder::new()
                                 .name("formal-mock-http".into())
                                 .spawn(move || {
-                                    let _ = serve(stream, &s, &r);
+                                    let _ = serve(stream, &s, &r, tools);
                                 }) {
                                 Ok(w) => workers.push(w),
                                 Err(_) => break,
@@ -98,6 +106,7 @@ impl OwnedMock {
             .map_err(|_| DesktopError("mockUnavailable"))?;
         Ok(Self {
             endpoint,
+            tools,
             stop,
             records,
             worker: Some(worker),
@@ -105,7 +114,11 @@ impl OwnedMock {
     }
     /// 只有此owned listener才能将随机端口解释为稳定逻辑profile的传输位置。
     pub fn profiles(&self) -> Result<Vec<TrustedProfile>> {
-        local_mock_profiles(&self.endpoint)
+        if self.tools {
+            tools::profiles(&self.endpoint)
+        } else {
+            local_mock_profiles(&self.endpoint)
+        }
     }
     pub fn records(&self) -> Vec<RequestMetadata> {
         self.records.lock().map(|v| v.clone()).unwrap_or_default()
@@ -126,6 +139,7 @@ fn serve(
     mut stream: TcpStream,
     stop: &AtomicBool,
     records: &Mutex<Vec<RequestMetadata>>,
+    tools: bool,
 ) -> std::io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_millis(100)))?;
     stream.set_write_timeout(Some(Duration::from_millis(100)))?;
@@ -207,6 +221,9 @@ fn serve(
     let Ok(body) = serde_json::from_slice::<Value>(&bytes[header_end..header_end + length]) else {
         return Ok(());
     };
+    if tools {
+        return tools::respond(&mut stream, &body, records);
+    }
     let Some(model) = body["model"]
         .as_str()
         .filter(|m| matches!(*m, "local-mock-a" | "local-mock-b"))

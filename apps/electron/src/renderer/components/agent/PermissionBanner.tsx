@@ -13,6 +13,7 @@
  */
 
 import * as React from 'react'
+import { toast } from 'sonner'
 import { useAtom, useSetAtom } from 'jotai'
 import { FileText, Search, Info } from 'lucide-react'
 import {
@@ -80,6 +81,7 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps): React.Re
       })
     } catch (error) {
       console.error('[PermissionBanner] 响应失败:', error)
+      toast.error(t('banner.responseFailed'), { description: error instanceof Error ? error.message : undefined })
     } finally {
       setResponding(false)
     }

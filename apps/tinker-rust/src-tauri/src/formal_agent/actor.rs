@@ -39,6 +39,8 @@ pub(super) struct Entry {
     // 只保存下一条未入队终态，不因outbox背压重置已成功投递的阶段。
     pub terminal_stage: TerminalStage,
     pub terminal_error: Option<DesktopError>,
+    pub sdk_index: usize,
+    pub deleted_history: Option<Value>,
 }
 pub(super) struct TerminalReceipt {
     pub turn: Value,
@@ -56,6 +58,7 @@ pub(super) struct Actor {
     pub entries: BTreeMap<String, Entry>,
     pub barriers: BTreeMap<String, Barrier>,
     pub terminal_receipts: BTreeMap<String, TerminalReceipt>,
+    pub permission_owners: BTreeMap<String, (String, String)>,
     pub generation: String,
     pub generation_seq: u64,
     pub sequence: u64,
@@ -80,6 +83,7 @@ impl Actor {
             entries: BTreeMap::new(),
             barriers: BTreeMap::new(),
             terminal_receipts: BTreeMap::new(),
+            permission_owners: BTreeMap::new(),
             generation: String::new(),
             generation_seq: 0,
             sequence: 0,
@@ -164,7 +168,7 @@ impl Actor {
         let mut bytes = 0;
         loop {
             let page = self.core(
-                "sessions.history",
+                "sessions.historyV2",
                 json!({"sessionId":session,"after":after,"limit":32}),
             )?;
             bytes += serde_json::to_vec(&page)
@@ -379,6 +383,8 @@ impl Actor {
                 settled: true,
                 terminal_stage: TerminalStage::default(),
                 terminal_error: None,
+                sdk_index: 1,
+                deleted_history: None,
             },
         );
     }
@@ -393,7 +399,10 @@ impl Actor {
         let ids: Vec<_> = self.entries.keys().cloned().collect();
         for sid in ids {
             let e = &self.entries[&sid];
-            let page=self.core("chat.events",json!({"sessionId":sid,"requestId":e.turn["requestId"],"afterSequence":e.cursor,"limit":128}))?;
+            if e.deleted_history.is_some() {
+                continue;
+            }
+            let page=self.core("chat.eventsV2",json!({"sessionId":sid,"requestId":e.turn["requestId"],"afterSequence":e.cursor,"limit":128}))?;
             if let Some(e) = self.entries.get_mut(&sid) {
                 e.turn = page["turn"].clone();
             }
@@ -424,6 +433,12 @@ impl Actor {
 // core错误来自固定枚举，但跨JSON后仍以静态allowlist收口，绝不转发任意服务文本。
 fn core_error(code: &str) -> DesktopError {
     DesktopError(match code {
+        "permissionNotFound" => "permissionNotFound",
+        "permissionConflict" => "permissionConflict",
+        "permissionExpired" => "permissionExpired",
+        "contextUnsupported" => "contextUnsupported",
+        "toolUnsupported" => "toolUnsupported",
+        "runTimeout" => "runTimeout",
         "runBusy" => "runBusy",
         "requestConflict" => "requestConflict",
         "sessionNotFound" => "sessionNotFound",

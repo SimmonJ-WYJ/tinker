@@ -60,6 +60,8 @@ pub struct Settings {
     pub send_with_cmd_enter: bool,
     pub archive_after_days: u32,
     pub tab_state: TabState,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub session_drafts: BTreeMap<String, String>,
     pub sidebar_project_files_expanded_by_workspace: BTreeMap<String, bool>,
     pub telemetry_consent: TelemetryConsent,
     pub telemetry_dev_force_send: bool,
@@ -88,6 +90,7 @@ impl Settings {
             send_with_cmd_enter: false,
             archive_after_days: 7,
             tab_state: TabState::default(),
+            session_drafts: BTreeMap::new(),
             sidebar_project_files_expanded_by_workspace: BTreeMap::new(),
             telemetry_consent: TelemetryConsent {
                 posthog_enabled: false,
@@ -158,6 +161,18 @@ impl Settings {
             {
                 return Err(invalid());
             }
+        }
+        // 草稿限128会话、完整JSON合计64KiB；超限拒绝整个patch，不截断内容。
+        if self.session_drafts.len() > 128
+            || serde_json::to_vec(&self.session_drafts)
+                .map_err(|_| invalid())?
+                .len()
+                > 64 * 1024
+        {
+            return Err(invalid());
+        }
+        for id in self.session_drafts.keys() {
+            identifier(id)?;
         }
         let tabs = &self.tab_state;
         if tabs.tabs.len() > 128

@@ -15,16 +15,17 @@ use std::{
     thread::{self, JoinHandle},
 };
 #[derive(Debug)]
-struct Inner {
-    store: RunStore,
-    current: Option<StoredRun>,
-    token: Option<Arc<AtomicBool>>,
-    blocked: bool,
+pub(crate) struct Inner {
+    pub(crate) store: RunStore,
+    pub(crate) current: Option<ActiveRun>,
+    pub(crate) token: Option<Arc<AtomicBool>>,
+    pub(crate) blocked: bool,
+    pub(crate) tools_enabled: bool,
 }
 #[derive(Debug)]
 pub struct RunController {
-    inner: Arc<Mutex<Inner>>,
-    worker: Mutex<Option<JoinHandle<()>>>,
+    pub(crate) inner: Arc<Mutex<Inner>>,
+    pub(crate) worker: Mutex<Option<JoinHandle<()>>>,
 }
 impl RunController {
     pub fn open(root: impl AsRef<Path>) -> Result<Self, RunError> {
@@ -44,7 +45,7 @@ impl RunController {
                     Some("processInterrupted".into()),
                 )?;
             }
-            current = Some(run);
+            current = Some(ActiveRun::Text(Box::new(run)));
         }
         Ok(Self {
             inner: Arc::new(Mutex::new(Inner {
@@ -52,6 +53,7 @@ impl RunController {
                 current,
                 token: None,
                 blocked: false,
+                tools_enabled: false,
             })),
             worker: Mutex::new(None),
         })
@@ -101,10 +103,14 @@ impl RunController {
             let is_current = inner
                 .current
                 .as_ref()
-                .is_some_and(|run| run.snapshot.run_id == request_id);
+                .is_some_and(|run| run.id() == request_id);
             let previous = if is_current {
                 inner.store.find_location(&request_id)?;
-                inner.current.clone()
+                inner
+                    .current
+                    .as_ref()
+                    .map(|r| r.text().cloned())
+                    .transpose()?
             } else {
                 match inner.store.load(&request_id) {
                     Ok(run) => Some(run),
@@ -137,7 +143,7 @@ impl RunController {
             if inner
                 .current
                 .as_ref()
-                .is_some_and(|run| !is_terminal(run.snapshot.status))
+                .is_some_and(|run| !is_terminal(run.status()))
             {
                 return Err(RunError::RunBusy);
             }
@@ -169,7 +175,7 @@ impl RunController {
                 inner.blocked = true;
                 if let Ok(mut run) = inner.store.load(&request_id) {
                     mark_storage_failure(&mut run, error);
-                    inner.current = Some(run);
+                    inner.current = Some(ActiveRun::Text(Box::new(run)));
                 }
                 return Err(error);
             }
@@ -179,13 +185,13 @@ impl RunController {
             .append(&mut run, RunRecordKind::Started, None, None)
         {
             mark_storage_failure(&mut run, error);
-            inner.current = Some(run);
+            inner.current = Some(ActiveRun::Text(Box::new(run)));
             inner.blocked = true;
             return Err(error);
         }
         let snapshot = run.snapshot.clone();
         let token = Arc::new(AtomicBool::new(false));
-        inner.current = Some(run);
+        inner.current = Some(ActiveRun::Text(Box::new(run)));
         inner.token = Some(token.clone());
         drop(inner);
         let weak = Arc::downgrade(&self.inner);
@@ -207,18 +213,26 @@ impl RunController {
     }
     pub fn cancel(&self, run_id: &str) -> Result<RunSnapshot, RunError> {
         validate_id(run_id)?;
-        let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
-        if inner
-            .current
-            .as_ref()
-            .is_some_and(|run| run.snapshot.run_id == run_id)
         {
+            let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
             if inner
                 .current
                 .as_ref()
-                .is_some_and(|run| is_terminal(run.snapshot.status))
+                .is_some_and(|r| matches!(r, ActiveRun::Tools(_)) && r.id() == run_id)
             {
-                return Ok(inner.current.as_ref().unwrap().snapshot.clone());
+                drop(inner);
+                self.cancel_tools(run_id)?;
+                return Err(RunError::UnsupportedVersion);
+            }
+        }
+        let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        if inner.current.as_ref().is_some_and(|run| run.id() == run_id) {
+            if inner
+                .current
+                .as_ref()
+                .is_some_and(|run| is_terminal(run.status()))
+            {
+                return Ok(inner.current.as_ref().unwrap().text()?.snapshot.clone());
             }
             if let Some(token) = &inner.token {
                 token.store(true, Ordering::Release);
@@ -229,7 +243,7 @@ impl RunController {
                 blocked,
                 ..
             } = &mut *inner;
-            let run = current.as_mut().ok_or(RunError::RunNotFound)?;
+            let run = current.as_mut().ok_or(RunError::RunNotFound)?.text_mut()?;
             if let Err(error) = store.append(run, RunRecordKind::Cancelled, None, None) {
                 mark_storage_failure(run, error);
                 *blocked = true;
@@ -255,20 +269,16 @@ impl RunController {
         }
         let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
         let id = run_id
-            .or_else(|| {
-                inner
-                    .current
-                    .as_ref()
-                    .map(|run| run.snapshot.run_id.as_str())
-            })
+            .or_else(|| inner.current.as_ref().map(|run| run.id()))
             .ok_or(RunError::RunNotFound)?;
         validate_id(id)?;
-        let run = if inner
-            .current
-            .as_ref()
-            .is_some_and(|run| run.snapshot.run_id == id)
-        {
-            inner.current.clone().ok_or(RunError::RunNotFound)?
+        let run = if inner.current.as_ref().is_some_and(|run| run.id() == id) {
+            inner
+                .current
+                .as_ref()
+                .map(|r| r.text().cloned())
+                .transpose()?
+                .ok_or(RunError::RunNotFound)?
         } else {
             inner.store.load(id)?
         };
@@ -325,7 +335,7 @@ fn execute(
                 blocked,
                 ..
             } = &mut *state;
-            let run = current.as_mut().ok_or(RunError::RunNotFound)?;
+            let run = current.as_mut().ok_or(RunError::RunNotFound)?.text_mut()?;
             if run.snapshot.run_id != id || is_terminal(run.snapshot.status) {
                 return Ok(());
             }
@@ -352,7 +362,7 @@ fn execute(
     }
 }
 fn finish(inner: &mut Inner, id: &str, result: Result<(), RunError>) {
-    let Some(run) = inner.current.as_mut() else {
+    let Some(ActiveRun::Text(run)) = inner.current.as_mut() else {
         return;
     };
     if run.snapshot.run_id != id || is_terminal(run.snapshot.status) {
@@ -371,4 +381,36 @@ fn mark_storage_failure(run: &mut StoredRun, error: RunError) {
     run.snapshot.status = RunStatus::Failed;
     run.snapshot.error_code = Some(error.code().into());
     run.snapshot.recovery_required = true;
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum ActiveRun {
+    Text(Box<StoredRun>),
+    Tools(Box<crate::tool_execution::ToolActive>),
+}
+impl ActiveRun {
+    pub(crate) fn id(&self) -> &str {
+        match self {
+            Self::Text(r) => &r.snapshot.run_id,
+            Self::Tools(r) => &r.run.snapshot.run_id,
+        }
+    }
+    pub(crate) fn status(&self) -> RunStatus {
+        match self {
+            Self::Text(r) => r.snapshot.status,
+            Self::Tools(r) => r.run.snapshot.status,
+        }
+    }
+    fn text(&self) -> Result<&StoredRun, RunError> {
+        match self {
+            Self::Text(r) => Ok(r),
+            _ => Err(RunError::UnsupportedVersion),
+        }
+    }
+    fn text_mut(&mut self) -> Result<&mut StoredRun, RunError> {
+        match self {
+            Self::Text(r) => Ok(r),
+            _ => Err(RunError::UnsupportedVersion),
+        }
+    }
 }

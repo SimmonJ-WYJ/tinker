@@ -5,8 +5,42 @@ use std::{
     thread,
     time::Duration,
 };
-/// 受信任的同步实现；应轮询取消令牌并传播sink错误。宿主负责配置实现。
+/// 受信任的同步实现；必须轮询取消令牌、遵守 remaining 总时限并立即传播 sink 错误。
+/// 取消或错误后不得继续提交片段或启动网络；宿主负责配置实现，不能注入不受信代码。
 pub trait RunProvider: Send + Sync {
+    /// 结构化宿主元数据的秘密检查；不把元数据伪装成模型用户上下文。
+    fn validate_tool_metadata(&self, _metadata: &serde_json::Value) -> Result<(), RunError> {
+        Ok(())
+    }
+
+    fn validate_tool_context(
+        &self,
+        _context: &crate::tool_types::ToolContext,
+        _tools: &[crate::tool_types::ToolSpec],
+    ) -> Result<(), RunError> {
+        Ok(())
+    }
+    fn execute_tool_round(
+        &self,
+        _context: &crate::tool_types::ToolContext,
+        _tools: &[crate::tool_types::ToolSpec],
+        _cancelled: &AtomicBool,
+        _remaining: Duration,
+        _emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
+    ) -> Result<crate::tool_types::ToolRoundOutput, RunError> {
+        Err(RunError::ContextUnsupported)
+    }
+    /// 纯校验累计可见输出；在 TextDelta 持久化和发布前调用。
+    fn validate_tool_output(&self, _output: &str) -> Result<(), RunError> {
+        Ok(())
+    }
+    fn validate_tool_result(
+        &self,
+        _result: &crate::tool_types::ToolResult,
+    ) -> Result<(), RunError> {
+        Ok(())
+    }
+
     fn execute_context(
         &self,
         context: &crate::run_context::RunContext,

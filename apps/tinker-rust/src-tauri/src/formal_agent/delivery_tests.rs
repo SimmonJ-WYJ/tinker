@@ -404,3 +404,56 @@ fn committed_cancel_failure_is_distinct_from_prepare_rejection_and_joins_actor()
     );
     worker.join().unwrap();
 }
+
+#[test]
+fn deleted_delivery_retains_only_identity_not_full_history() {
+    let (mut actor, _events, _mock, sid) = setup();
+    let pending = send(&mut actor, &sid, "deleted", "hello");
+    settle(&mut actor, &pending).unwrap();
+    let (reply, _) = mpsc::sync_channel(1);
+    actor
+        .invoke("agent:delete-session", vec![json!(sid)], None, &reply)
+        .unwrap();
+    let entry = &actor.entries[&sid];
+    assert!(entry.turn.get("assistantMessage").is_none());
+    assert!(entry.turn.get("toolState").is_none());
+    assert_eq!(
+        entry.deleted_history,
+        Some(json!({"messages":[],"sdkMessages":[]}))
+    );
+    assert!(serde_json::to_vec(&entry.turn).unwrap().len() < 8192);
+}
+#[test]
+fn deleted_summary_budget_rejects_before_cancelling_or_tombstoning() {
+    let (mut actor, _events, _mock, sid) = setup();
+    let _pending = send(&mut actor, &sid, "budget", "[slow] hello");
+    let turn = actor.entries[&sid].turn.clone();
+    for n in 0..128 {
+        let key = format!("deleted-{n}");
+        actor.retain_terminal(key.clone(), turn.clone());
+        actor.entries.get_mut(&key).unwrap().deleted_history =
+            Some(json!({"messages":[],"sdkMessages":[]}));
+    }
+    let (reply, _) = mpsc::sync_channel(1);
+    assert_eq!(
+        actor
+            .invoke("agent:delete-session", vec![json!(sid)], None, &reply)
+            .unwrap_err()
+            .0,
+        "hostBusy"
+    );
+    assert!(actor.core("sessions.list", json!({})).unwrap()["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|s| s["sessionId"] == sid));
+    assert_ne!(
+        actor
+            .core(
+                "chat.eventsV2",
+                json!({"sessionId":sid,"requestId":"budget","afterSequence":0,"limit":1})
+            )
+            .unwrap()["turn"]["status"],
+        "cancelled"
+    );
+}

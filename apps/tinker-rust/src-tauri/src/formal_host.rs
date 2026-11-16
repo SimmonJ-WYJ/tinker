@@ -12,6 +12,33 @@ pub struct FormalHost {
     mock: OwnedMock,
 }
 impl FormalHost {
+    pub fn open_tools(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
+        root.validate_tools()?;
+        let mock = OwnedMock::start_tools()?;
+        let profiles = mock.profiles()?;
+        let executor = Arc::new(crate::synthetic_workspace::SyntheticWorkspace::create(
+            root,
+        )?);
+        use crate::tool_types::ToolExecutor;
+        let options = crate::tool_types::ToolRunOptions::new(
+            executor.workspace_revision().into(),
+            Duration::from_secs(60),
+            Duration::from_secs(120),
+        )?;
+        let bindings = vec![crate::desktop_runtime::TrustedToolBinding {
+            profile_id: "local-tools-mock".into(),
+            executor,
+            options,
+        }];
+        let platform = FormalPlatform::open(root, &profiles, environment)?;
+        let runtime = Arc::new(DesktopRuntime::open_with_tools(
+            root.path(),
+            profiles,
+            bindings,
+        )?);
+        let agent = FormalAgentHost::new(runtime, platform, root.clone())?;
+        Ok(Self { agent, mock })
+    }
     pub fn open(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
         root.validate()?;
         let mock = OwnedMock::start()?;

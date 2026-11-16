@@ -1,6 +1,8 @@
 //! 正式预览的原生平台事实源；与DesktopRuntime共用已标记根，独立持久化命名空间。
 pub mod close;
 mod launch;
+mod receipt;
+use receipt::Receipt;
 pub mod protocol;
 pub mod settings;
 mod spotlight;
@@ -12,7 +14,7 @@ use crate::desktop_runtime::{
 };
 pub use launch::{
     local_mock_profiles, TrustedRoot, APPLICATION_ID, MOCK_CONFIG_REVISION, MOCK_KEY,
-    MOCK_PROFILE_ID, SYNTHETIC_PROFILE,
+    MOCK_PROFILE_ID, SYNTHETIC_PROFILE, SYNTHETIC_TOOLS, TOOLS_APPLICATION_ID,
 };
 use launch::{public_profiles, PublicProfile};
 use protocol::*;
@@ -22,12 +24,6 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, sync::Mutex};
 use workspace::WorkspaceRecord;
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Receipt {
-    request: PlatformRequest,
-    revision: u64,
-}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Persisted {
@@ -46,6 +42,7 @@ struct Inner {
 pub struct FormalPlatform {
     inner: Mutex<Inner>,
     profiles: Vec<PublicProfile>,
+    known_keys: Vec<String>,
 }
 // 与preload常量逐字一致；未来能力不能通过前缀匹配被误放行。
 fn mutating(channel: &str) -> Result<bool> {
@@ -111,6 +108,10 @@ impl FormalPlatform {
         profiles: &[TrustedProfile],
         environment: HostEnvironment,
     ) -> Result<Self> {
+        let known_keys = profiles
+            .iter()
+            .map(|profile| profile.key.clone())
+            .collect::<Vec<_>>();
         let profiles = public_profiles(profiles)?;
         let mut store = store::Store::open(root)?;
         let state = if let Some(bytes) = store.bytes() {
@@ -124,6 +125,11 @@ impl FormalPlatform {
             Persisted::initial(&profiles)
         };
         state.validate(&profiles)?;
+        reject_credentials(
+            &serde_json::to_value(&state.settings.session_drafts)
+                .map_err(|_| DesktopError("corruptSnapshot"))?,
+            &known_keys,
+        )?;
         store.recover_pending()?;
         if store.bytes().is_none() {
             store.write(serde_json::to_vec(&state).map_err(|_| DesktopError("storeIo"))?)?;
@@ -135,6 +141,7 @@ impl FormalPlatform {
                 environment,
             }),
             profiles,
+            known_keys,
         })
     }
     pub fn bootstrap(&self) -> Result<PlatformSnapshot> {
@@ -155,6 +162,12 @@ impl FormalPlatform {
     }
     pub fn invoke(&self, request: PlatformRequest) -> Result<PlatformReply> {
         let write = validate_request(&request)?;
+        if write {
+            reject_credentials(
+                &serde_json::to_value(&request).map_err(|_| DesktopError("invalidParams"))?,
+                &self.known_keys,
+            )?;
+        }
         let mut inner = self
             .inner
             .lock()
@@ -165,7 +178,7 @@ impl FormalPlatform {
                 .as_ref()
                 .ok_or(DesktopError("invalidParams"))?;
             if let Some(receipt) = inner.state.receipts.get(&mutation.mutation_id) {
-                if receipt.request != request {
+                if !receipt.matches(&request)? {
                     return Err(DesktopError("mutationConflict"));
                 }
                 // 幂等重试返回当前revision和当前事实，不能让客户端cache倒退。
@@ -179,12 +192,13 @@ impl FormalPlatform {
                 let mut next = inner.state.clone();
                 next.apply(&request, &self.profiles)?;
                 next.revision += 1;
+                // 首次新提交时也压紧旧完整草稿receipt，不改历史幂等身份或revision。
+                for receipt in next.receipts.values_mut() {
+                    receipt.compact()?;
+                }
                 next.receipts.insert(
                     mutation.mutation_id.clone(),
-                    Receipt {
-                        request: request.clone(),
-                        revision: next.revision,
-                    },
+                    Receipt::new(request.clone(), next.revision)?,
                 );
                 let bytes = serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?;
                 inner.store.write(bytes)?;
@@ -231,6 +245,7 @@ impl Persisted {
         self.workspaces[0].validate()?;
         let mut revisions = std::collections::HashSet::new();
         for (id, r) in &self.receipts {
+            r.validate()?;
             if !validate_request(&r.request).map_err(|_| DesktopError("corruptSnapshot"))?
                 || r.request
                     .mutation
@@ -379,3 +394,23 @@ impl Persisted {
 
 #[cfg(test)]
 mod tests;
+
+// 只校验受信任profile已知key；不接触HOME/系统凭据，且在receipt/snapshot写入之前拒绝。
+fn reject_credentials(value: &Value, keys: &[String]) -> Result<()> {
+    let secret = |text: &str| keys.iter().any(|key| !key.is_empty() && text.contains(key));
+    let rejected = match value {
+        Value::String(text) => secret(text),
+        Value::Array(items) => items
+            .iter()
+            .any(|item| reject_credentials(item, keys).is_err()),
+        Value::Object(items) => items
+            .iter()
+            .any(|(name, item)| secret(name) || reject_credentials(item, keys).is_err()),
+        _ => false,
+    };
+    if rejected {
+        Err(DesktopError("invalidParams"))
+    } else {
+        Ok(())
+    }
+}

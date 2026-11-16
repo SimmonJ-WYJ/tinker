@@ -4,6 +4,7 @@ pub(crate) mod profile;
 pub mod protocol;
 mod session;
 mod store;
+mod tools;
 use crate::{run_controller::RunController, run_store::RunStore};
 use profile::Profile;
 pub use profile::{Model, TrustedProfile};
@@ -19,12 +20,14 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use store::Journal;
+pub use tools::TrustedToolBinding;
 pub struct DesktopRuntime {
     inner: Mutex<Inner>,
 }
 struct Inner {
     journal: Journal,
     profiles: BTreeMap<String, Profile>,
+    tools: BTreeMap<String, TrustedToolBinding>,
     sessions: BTreeMap<String, Session>,
     bindings: BTreeMap<String, Vec<Binding>>,
     controllers: BTreeMap<String, RunController>,
@@ -33,6 +36,13 @@ impl DesktopRuntime {
     /// root须由可信宿主在稳定父目录下durable创建，使用既有绝对路径且无symlink祖先。
     /// 服务只创建自身namespace，启动时再次确认root及直接parent，不创建调用方祖先。
     pub fn open(root: impl AsRef<Path>, profiles: Vec<TrustedProfile>) -> Result<Self> {
+        Self::open_with_tools(root, profiles, vec![])
+    }
+    pub fn open_with_tools(
+        root: impl AsRef<Path>,
+        profiles: Vec<TrustedProfile>,
+        bindings: Vec<TrustedToolBinding>,
+    ) -> Result<Self> {
         if profiles.is_empty() || profiles.len() > 128 {
             return Err(DesktopError("invalidProfile"));
         }
@@ -43,6 +53,7 @@ impl DesktopRuntime {
                 return Err(DesktopError("invalidProfile"));
             }
         }
+        let tools = tools::validate_bindings(&mut registry, bindings)?;
         if serde_json::to_vec(&registry.values().collect::<Vec<_>>())
             .map_err(|_| DesktopError("invalidProfile"))?
             .len()
@@ -54,6 +65,7 @@ impl DesktopRuntime {
         let mut inner = Inner {
             journal,
             profiles: registry,
+            tools,
             sessions: BTreeMap::new(),
             bindings: BTreeMap::new(),
             controllers: BTreeMap::new(),
@@ -136,14 +148,20 @@ impl DesktopRuntime {
                     .bindings
                     .get(session_id)
                     .ok_or(DesktopError("corruptJournal"))?,
+                !inner.tools.is_empty(),
             )?;
             stores.insert(session_id.clone(), run_store);
         }
         // 所有只读校验通过且所有写锁仍持有后，才追加interrupted恢复事件。
         for (session_id, run_store) in stores {
-            inner
-                .controllers
-                .insert(session_id, RunController::from_store(run_store)?);
+            inner.controllers.insert(
+                session_id,
+                if inner.tools.is_empty() {
+                    RunController::from_store(run_store)?
+                } else {
+                    RunController::from_store_with_tools(run_store)?
+                },
+            );
         }
         Ok(Self {
             inner: Mutex::new(inner),
@@ -228,7 +246,11 @@ impl Inner {
             "sessions.create" => self.create(decode(params)?),
             "sessions.update" => self.update(decode(params)?),
             "sessions.delete" => self.delete(decode(params)?),
-            "sessions.history" => self.history(decode(params)?),
+            "sessions.history" => self.history(decode(params)?, false),
+            "sessions.historyV2" => self.history(decode(params)?, true),
+            "chat.eventsV2" => self.events_v2(decode(params)?),
+            "chat.pendingPermissions" => self.pending_permissions(decode(params)?),
+            "chat.permissionRespond" => self.respond_permission(decode(params)?),
             "chat.send" => self.send(decode(params)?),
             "chat.cancel" => self.cancel(decode(params)?),
             "chat.events" => self.events(decode(params)?),
@@ -265,13 +287,17 @@ impl Inner {
         let path = self.journal.root.join(&session_id);
         store::directory(&path)?;
         let run_store = RunStore::open(&path)?;
-        execution::validate_store(&run_store, &[])?;
+        execution::validate_store(&run_store, &[], !self.tools.is_empty())?;
         // 确认runs-v1目录项及session目录项，失败时不可发布session或启动provider。
         sync(&path.join("runs-v1/context-v2"))?;
         sync(&path.join("runs-v1"))?;
         sync(&path)?;
         sync(&self.journal.root)?;
-        let controller = RunController::from_store(run_store)?;
+        let controller = if self.tools.is_empty() {
+            RunController::from_store(run_store)?
+        } else {
+            RunController::from_store_with_tools(run_store)?
+        };
         let now = activity_time(0)?;
         let session = Session {
             session_id: session_id.clone(),
@@ -323,7 +349,7 @@ impl Inner {
         if let Some(bindings) = self.bindings.get(&p.session_id) {
             for b in bindings {
                 if let Some(c) = self.controllers.get(&p.session_id) {
-                    match c.cancel(&b.request.request_id) {
+                    match self.cancel_run(c, &b.request.request_id) {
                         Ok(_) | Err(crate::run_types::RunError::RunNotFound) => {}
                         Err(e) => return Err(e.into()),
                     }

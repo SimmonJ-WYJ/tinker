@@ -13,6 +13,8 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+pub const TOOLS_APPLICATION_ID: &str = "com.tinker.tools-preview";
+pub const SYNTHETIC_TOOLS: &str = "synthetic-tools-v1";
 pub const APPLICATION_ID: &str = "com.tinker.formal-preview";
 pub const SYNTHETIC_PROFILE: &str = "synthetic-profile-v1";
 pub const MOCK_PROFILE_ID: &str = "local-mock";
@@ -21,6 +23,8 @@ pub const MOCK_KEY: &str = "synthetic-local-mock-key";
 #[derive(Debug, Clone)]
 enum RootLocation {
     Temporary,
+    ToolsTemporary,
+    ToolsAppData(PathBuf),
     AppData(PathBuf),
 }
 #[derive(Debug, Clone)]
@@ -36,6 +40,43 @@ struct Marker {
     root: PathBuf,
 }
 impl TrustedRoot {
+    pub fn create_tools_temporary(path: impl AsRef<Path>) -> Result<Self> {
+        Self::create(path.as_ref(), RootLocation::ToolsTemporary)
+    }
+    pub fn open_tools_temporary(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open(path.as_ref(), RootLocation::ToolsTemporary)
+    }
+    pub fn create_tools_app_data(parent: impl AsRef<Path>) -> Result<Self> {
+        Self::create(
+            &parent.as_ref().join(SYNTHETIC_TOOLS),
+            RootLocation::ToolsAppData(parent.as_ref().into()),
+        )
+    }
+    pub fn open_tools_app_data(parent: impl AsRef<Path>) -> Result<Self> {
+        Self::open(
+            &parent.as_ref().join(SYNTHETIC_TOOLS),
+            RootLocation::ToolsAppData(parent.as_ref().into()),
+        )
+    }
+    pub(crate) fn validate_tools(&self) -> Result<()> {
+        if !matches!(
+            self.location,
+            RootLocation::ToolsTemporary | RootLocation::ToolsAppData(_)
+        ) {
+            return Err(DesktopError("invalidRoot"));
+        }
+        self.validate()
+    }
+    fn kind(location: &RootLocation) -> &'static str {
+        if matches!(
+            location,
+            RootLocation::ToolsTemporary | RootLocation::ToolsAppData(_)
+        ) {
+            "tinker-tauri-tools-preview"
+        } else {
+            "tinker-tauri-formal-preview"
+        }
+    }
     pub fn create_temporary(path: impl AsRef<Path>) -> Result<Self> {
         Self::create(path.as_ref(), RootLocation::Temporary)
     }
@@ -69,23 +110,34 @@ impl TrustedRoot {
             return Err(DesktopError("invalidRoot"));
         }
         match location {
-            RootLocation::Temporary => {
+            RootLocation::Temporary | RootLocation::ToolsTemporary => {
                 let tmp = fs::canonicalize(std::env::temp_dir())
                     .map_err(|_| DesktopError("invalidRoot"))?;
                 let system_tmp = fs::canonicalize("/tmp").ok();
                 if (parent != tmp && system_tmp.as_deref() != Some(parent))
                     || !path.file_name().and_then(|s| s.to_str()).is_some_and(|s| {
-                        s.starts_with("tinker-tauri-formal-preview-")
-                            && s.len() > "tinker-tauri-formal-preview-".len()
+                        s.starts_with(&format!("{}-", Self::kind(location)))
+                            && s.len() > Self::kind(location).len() + 1
                     })
                 {
                     return Err(DesktopError("invalidRoot"));
                 }
             }
-            RootLocation::AppData(expected) => {
+            RootLocation::AppData(expected) | RootLocation::ToolsAppData(expected) => {
+                let tools = matches!(location, RootLocation::ToolsAppData(_));
                 if parent != expected
-                    || expected.file_name().and_then(|s| s.to_str()) != Some(APPLICATION_ID)
-                    || path.file_name().and_then(|s| s.to_str()) != Some(SYNTHETIC_PROFILE)
+                    || expected.file_name().and_then(|s| s.to_str())
+                        != Some(if tools {
+                            TOOLS_APPLICATION_ID
+                        } else {
+                            APPLICATION_ID
+                        })
+                    || path.file_name().and_then(|s| s.to_str())
+                        != Some(if tools {
+                            SYNTHETIC_TOOLS
+                        } else {
+                            SYNTHETIC_PROFILE
+                        })
                 {
                     return Err(DesktopError("invalidRoot"));
                 }
@@ -107,7 +159,7 @@ impl TrustedRoot {
             .create(path)
             .map_err(|_| DesktopError("invalidRoot"))?;
         let marker = Marker {
-            kind: "tinker-tauri-formal-preview".into(),
+            kind: Self::kind(&location).into(),
             version: 1,
             root: path.into(),
         };
@@ -135,7 +187,7 @@ impl TrustedRoot {
             MAX_MARKER_BYTES,
         )?)
         .map_err(|_| DesktopError("invalidRoot"))?;
-        if marker.kind != "tinker-tauri-formal-preview"
+        if marker.kind != Self::kind(&self.location)
             || marker.version != 1
             || marker.root != self.path
         {
@@ -156,8 +208,10 @@ pub(crate) fn public_profiles(profiles: &[TrustedProfile]) -> Result<Vec<PublicP
     for p in profiles {
         validate_endpoint(&p.endpoint)?;
         if p.key != MOCK_KEY
-            || !p.label.starts_with("Local Mock")
-            || p.models.iter().any(|m| !m.label.starts_with("Local Mock"))
+            || !(p.label.starts_with("Local Mock") || p.label.starts_with("Local Synthetic Mock"))
+            || p.models.iter().any(|m| {
+                !(m.label.starts_with("Local Mock") || m.label.starts_with("Local Synthetic Mock"))
+            })
             || result
                 .iter()
                 .any(|other: &PublicProfile| other.profile_id == p.profile_id)

@@ -12,6 +12,7 @@ tauri-build = { version = "2.5", features = [] }
 tauri = { version = "2.10", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "=1.0.149"
+sha2 = "=0.10.9"
 reqwest = { version = "=0.13.2", default-features = false, features = ["rustls", "json"] }
 tokio = { version = "=1.51.0", features = ["rt", "time", "macros"] }
 
@@ -40,3 +41,13 @@ block2 = { version = "=0.6.2", optional = true }
 objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSString", "NSError", "NSDictionary", "NSData"] }
 objc2-app-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSImage", "NSBitmapImageRep", "NSImageRep", "NSApplication", "NSMenu", "NSMenuItem"] }
 objc2-web-kit = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit"] }
+
+[[bin]]
+name = "tinker-tools-preview"
+path = "src/bin/tinker-tools-preview.rs"
+required-features = ["formal-preview"]
+
+[[bin]]
+name = "tinker-tools-native-qa"
+path = "src/bin/tinker-tools-native-qa.rs"
+required-features = ["formal-native-qa"]

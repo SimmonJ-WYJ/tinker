@@ -76,8 +76,11 @@
       "notebookEditGeneric": "编辑 Notebook",
       "task": "启动子任务：{{description}}",
       "taskGeneric": "启动子任务",
-      "generic": "使用工具：{{tool}}"
-    }
+      "generic": "使用工具：{{tool}}",
+      "syntheticWorkspace": "读取合成工作区数据"
+    },
+    "permissionRequired": "需要权限确认",
+    "responseFailed": "无法提交权限决定"
   },
   "projectSwitcher": {
     "defaultName": "默认项目"

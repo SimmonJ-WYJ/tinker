@@ -1,10 +1,10 @@
 /** 正式原生宿主的窄 DTO；业务 API 仍复用原 preload 工厂。 */
-import type { AgentStreamEvent } from '@asci/shared'
+import type { AgentStreamEvent, SDKMessage } from '@asci/shared'
 import type { AppSettings, UserProfile, ResolvedTheme } from '../types/index.ts'
 export interface PlatformSnapshot {
   version: number
   revision: number
-  settings: AppSettings
+  settings: AppSettings & { sessionDrafts?: Record<string, string> }
   userProfile: UserProfile
   workspaces: unknown[]
   theme: ResolvedTheme
@@ -39,7 +39,7 @@ export interface RestoreBundle {
   restoreToken: string
   deliverySequence: number
   messages: unknown[]
-  sdkMessages: unknown[]
+  sdkMessages: SDKMessage[]
   activeSnapshot: ActiveRun | null
   cursor: number
 }
