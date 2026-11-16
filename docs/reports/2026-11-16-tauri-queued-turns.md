@@ -32,7 +32,7 @@ Bun: **3537 passed, 4 skipped, 0 failed**, 13124 assertions, 3541 tests across 4
 
 The fresh Rust tests include actual core/actor queue FIFO, exact UUID retry/identity, redirect lineage, durable stop/close, stale control, capacity, recovery, zero automatic execution and fallible-persistence cases. The seven `queue_formal` tests use the real host/actor and synthetic loopback, while Bun covers actual client transport, ownership and original component projections. These are automated host/component tests, not recorded editor UI actions. The test logs remain the authority for individual assertions.
 
-Known nonfatal output is retained: Jotai atomFamily/loadable deprecations, a React key warning in CodeBlock's nested-children fixture, intentional listener/serialization diagnostics, and Vite chunk-size warnings. Lint reported no errors. The prior scoped persistence/doctype fixes are retained; no blanket suppression, dependency migration or optional cleanup was added.
+Known nonfatal output is retained: Jotai atomFamily/loadable deprecations, a React key warning in CodeBlock's nested-children fixture, intentional listener/serialization diagnostics, Vite chunk-size warnings, and deprecated output-syntax warnings from `codesign --entitlements :-` in both retained entitlement audits. The latter warns that specifying `:` in the path is deprecated; it does not change the recorded signing verification results. Lint reported no errors. The prior scoped persistence/doctype fixes are retained; no blanket suppression, dependency migration or optional cleanup was added.
 
 ## Serial build and artifact audits
 
