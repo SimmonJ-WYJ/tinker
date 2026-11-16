@@ -24,7 +24,7 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
   const capture = () => {
     const tabs = store.get(tabsAtom)
     const activeTabId = store.get(activeTabIdAtom)
-    const workspace = store.get(currentAgentWorkspaceIdAtom)
+    const workspace = store.get(currentAgentWorkspaceIdAtom) ?? transport.bootstrap.platformSnapshot.settings.agentWorkspaceId
     const active = tabs.find(tab => tab.id === activeTabId)
     const activeTabIdByWorkspace = { ...store.get(activeTabIdByWorkspaceAtom) }
     if (workspace && active && (active.workspaceId ?? workspace) === workspace) activeTabIdByWorkspace[workspace] = active.id

@@ -8,7 +8,14 @@ import { createFormalTransport } from './transport.ts'
 import type { NativeBridge, NativeEvent } from './protocol.ts'
 import { withDeadline } from './deadline.ts'
 
-test('真实 close participant 在防抖前读取同一 Jotai 最新 tabs/工作区记忆/sidebar，等待两个 hydrate', async () => {
+interface CaptureCase { name: string; current: string | null; fallback: string; tabWorkspace?: string; active: string | null; expected: Record<string, string> }
+const captureCases: CaptureCase[] = [
+  { name: 'null atom uses trusted native workspace', current: null, fallback: 'local-mock-workspace-id', active: 'latest', expected: { 'local-mock-workspace-id': 'latest' } },
+  { name: 'nonempty current workspace wins', current: 'local-mock-workspace-id', fallback: 'fallback-other', active: 'latest', expected: { 'local-mock-workspace-id': 'latest' } },
+  { name: 'deleted active tab creates no mapping', current: null, fallback: 'local-mock-workspace-id', active: null, expected: { 'local-mock-workspace-id': 'stale' } },
+  { name: 'explicit foreign tab is not reassigned', current: null, fallback: 'local-mock-workspace-id', active: 'latest', tabWorkspace: 'foreign', expected: { 'local-mock-workspace-id': 'stale' } },
+]
+test.each(captureCases)('真实 close participant 最新状态: $name', async (sample) => {
   const previousWindow = globalThis.window
   globalThis.window = new TestWindow() as unknown as typeof window
   const store = getDefaultStore()
@@ -20,13 +27,13 @@ test('真实 close participant 在防抖前读取同一 Jotai 最新 tabs/工作
   const native: NativeBridge = {
     listen: async (callback) => { emit = callback; return () => {} },
     request: async <T>(request: Record<string, unknown>): Promise<T> => {
-      const snapshot = { version: 1, revision: 0, settings: {}, userProfile: {}, workspaces: [], theme: { mode: 'system', isDark: false }, chrome: { platform: 'darwin', fullscreen: false } }
+      const snapshot = { version: 1, revision: 0, settings: { agentWorkspaceId: sample.fallback }, userProfile: {}, workspaces: [], theme: { mode: 'system', isDark: false }, chrome: { platform: 'darwin', fullscreen: false } }
       let result: unknown = null
       if (request.command === 'bootstrap') result = { generation: 'document-1', activeRuns: [], platformSnapshot: snapshot }
       if (request.command === 'beginClose') result = { closeToken: 'close-1' }
       if (request.command === 'invoke' && request.channel === 'settings:update') {
-        const patch = (request.args as unknown[])[0]; writes.push(patch)
-        result = { value: patch, snapshot: { ...snapshot, revision: 1, settings: patch } }
+        const patch = (request.args as Record<string, unknown>[])[0]; writes.push(patch)
+        result = { value: patch, snapshot: { ...snapshot, revision: 1, settings: { ...snapshot.settings, ...patch } } }
       }
       if (request.command === 'closeReady') { expect(request.committedRevision).toBe(1); result = { closed: true } }
       if (request.command === 'closeWindow') done()
@@ -39,16 +46,16 @@ test('真实 close participant 在防抖前读取同一 Jotai 最新 tabs/工作
     participant.hydrated('settings')
     emit({ kind: 'action', action: 'close' })
     await Promise.resolve(); expect(writes).toEqual([])
-    store.set(tabsAtom, [{ id: 'latest', sessionId: 'session-1', type: 'agent', title: '最新' }])
-    store.set(activeTabIdAtom, 'latest')
+    store.set(tabsAtom, sample.active ? [{ id: 'latest', sessionId: 'session-1', type: 'agent', title: '最新', ...(sample.tabWorkspace ? { workspaceId: sample.tabWorkspace } : {}) }] : [])
+    store.set(activeTabIdAtom, sample.active)
     store.set(activeTabIdByWorkspaceAtom, { 'local-mock-workspace-id': 'stale' })
-    store.set(currentAgentWorkspaceIdAtom, 'local-mock-workspace-id')
+    store.set(currentAgentWorkspaceIdAtom, sample.current)
     store.set(agentSessionDraftsAtom, new Map([['session-1', 'latest typed draft café']]))
     store.set(sidebarProjectFilesExpandedMapAtom, new Map([['local-mock-workspace-id', true]]))
     participant.hydrated('tabs')
     await withDeadline(closed, 500)
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(writes).toEqual([{ tabState: { tabs: store.get(tabsAtom), activeTabId: 'latest', activeTabIdByWorkspace: { 'local-mock-workspace-id': 'latest' } }, sidebarProjectFilesExpandedByWorkspace: { 'local-mock-workspace-id': true }, sessionDrafts: { 'session-1': 'latest typed draft café' } }])
+    expect(writes).toEqual([{ tabState: { tabs: store.get(tabsAtom), activeTabId: sample.active, activeTabIdByWorkspace: sample.expected }, sidebarProjectFilesExpandedByWorkspace: { 'local-mock-workspace-id': true }, sessionDrafts: { 'session-1': 'latest typed draft café' } }])
   } finally {
     transport.dispose()
     store.set(tabsAtom, previous[0]); store.set(activeTabIdAtom, previous[1]); store.set(activeTabIdByWorkspaceAtom, previous[2]); store.set(sidebarProjectFilesExpandedMapAtom, previous[3]); store.set(agentSessionDraftsAtom, previous[4]); store.set(currentAgentWorkspaceIdAtom, previous[5])
