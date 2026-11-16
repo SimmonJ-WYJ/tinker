@@ -1,3 +1,68 @@
+# Tauri queued turns: current validation after the tool partial-context fix
+
+Date: 2026-11-16. **DONE_WITH_CONCERNS** for automated validation/reporting on current code `376343bff891bfc62bc0b54799d98b5d2e0c8c2b`. Native original-editor acceptance remains **UNRUN**. Public publication remains paused pending explicit user confirmation; Root owns final independent re-review and any later authorized remote workflow.
+
+## Current source and evidence association
+
+The current code commit is `376343bff891bfc62bc0b54799d98b5d2e0c8c2b` (`fix(tauri): preserve unfinished tool redirect context`), parent 8a05be12fa0792958dc9018d211eb8b8abdad2c6. All refreshed commands ran on that clean committed source in `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/tools-native-acceptance-20261116`, branch `feat/tauri-queued-turns`, `/bin/zsh`, login=false. No source edits occurred during refresh. Only this report changes afterward.
+
+Important I1 from `whole-branch-review.md` identified omitted durable unfinished-round tool-mode partial text in authenticated Cancelled ancestry. The bounded read-only ToolContext projection now includes nonempty partial_text once at its exact recorded round without a tool call; missing round fails closed. Completed and empty cases retain their prior behavior. Two actual queue/tool-SSE regressions verify D and later B provider message order, UTF-8 partial inclusion exactly once, empty partial behavior, log immutability and reopen with pending C abandoned, exact UUID retry and zero automatic HTTP/tool execution. See `final-fix-report.md` for RED/GREEN and exact fixture scope. No journal/schema/header rewrite, ordinary-parent authorization change or synthetic Tool call/result was introduced. Minor generic ToolContext validation M1 remains for Root's triage.
+
+Rust/fmt/clippy below are the fix agent's completed checks on frozen precommit files, **reused rather than rerun** in this refresh. Root verified their 380 passes/39 target summaries and normal fix hooks before handoff. This task additionally parsed those summaries and checked all three prefrozen hashes against committed source; see `final-refresh-source-association.json`. No unrelated edit intervened. Six non-Rust checks/builds below are fresh executions at 376343b. The old 3375d15 results/bundles are preserved below as historical and are not the fixed-code evidence.
+
+## Current command ledger
+
+Commands use `python3 /tmp/tinker-queue-check.py <unique-name> <argv>`. The unchanged wrapper inherits only PATH/HOME/TMPDIR/SHELL/LANG; it creates fresh synthetic ASCI_CONFIG_HOME/ASCI_RUNTIMES_HOME, uses offline Cargo and the known `migration-work/tools-native-target` cache, disables signing identity discovery and copies no model credentials. `/tmp/tinker-final-refresh.py` runs the six refresh commands serially with a disk/compiler guard before each; preflights are `final-refresh-<name>-preflight.json`. One build/compiler ran at a time, each preflight had no competing compiler and at least 4GiB free. No cache/user cleanup or dependency installation occurred.
+
+| Check | Provenance | Exact wrapped argv | Exit | Wall time | Evidence |
+|---|---|---|---:|---:|---|
+| rust | Reused frozen-source fix evidence | `cargo test --manifest-path apps/tinker-rust/src-tauri/Cargo.toml --all-features --offline --locked -- --test-threads=1` | 0 | 204.55s | `final-fix-rust.log` / `final-fix-rust-status.json` |
+| fmt | Reused frozen-source fix evidence | `cargo fmt --manifest-path apps/tinker-rust/src-tauri/Cargo.toml --check` | 0 | 0.31s | `final-fix-fmt.log` / `final-fix-fmt-status.json` |
+| clippy | Reused frozen-source fix evidence | `cargo clippy --manifest-path apps/tinker-rust/src-tauri/Cargo.toml --all-targets --all-features --offline --locked -- -D warnings` | 0 | 7.78s | `final-fix-clippy.log` / `final-fix-clippy-status.json` |
+| typecheck | Fresh refresh command | `bun run typecheck` | 0 | 9.92s | `final-refresh-typecheck.log` / `final-refresh-typecheck-status.json` |
+| lint | Fresh refresh command | `bun run lint` | 0 | 11.97s | `final-refresh-lint.log` / `final-refresh-lint-status.json` |
+| bun | Fresh refresh command | `bun test` | 0 | 55.71s | `final-refresh-bun.log` / `final-refresh-bun-status.json` |
+| electron-build | Fresh refresh command | `bun run electron:build` | 0 | 8.12s | `final-refresh-electron-build.log` / `final-refresh-electron-build-status.json` |
+| ordinary-build | Fresh refresh command | `bun apps/tinker-rust/scripts/build-tools.ts` | 0 | 14.95s | `final-refresh-ordinary-build.log` / `final-refresh-ordinary-build-status.json` |
+| qa-build | Fresh refresh command | `bun apps/tinker-rust/scripts/build-tools-native-qa.ts` | 0 | 14.64s | `final-refresh-qa-build.log` / `final-refresh-qa-build-status.json` |
+
+The current Rust evidence reports **380 top-level passes, 0 failures/ignored**, across 39 final target summaries: 133 library tests plus 247 integration tests. Eleven nested subprocess fixture pass summaries are excluded from 380 (391 if duplicated summaries are added). This refresh did not execute a Rust test, fmt or clippy command. Existing focused 52/context 29 and RED/GREEN evidence is in the fix report.
+
+Fresh Bun summary: **3537 passed, 4 skipped, 0 failed**, 13124 assertions, 3541 tests across 416 files. Four real-ripgrep integration cases remain skipped, not passes. Typecheck/lint and Electron/ordinary/QA builds exit 0. Electron compiled only, with no packaging or launch. Tests use synthetic configurations/fake keys/owned numeric-loopback mocks, not paid providers. Headless runtime/component assertions do not count as native original-control actions.
+
+Known nonfatal test/build noise remains: Jotai atomFamily/loadable deprecations, the CodeBlock nested-children fixture React key warning, intentional diagnostics and Vite chunk-size warnings. No blanket suppression or dependency cleanup was added. The historical entitlement audits below retain their deprecated `:-` output-syntax warning. For the new audits, the local codesign man page explicitly documents `--entitlements -` for standard output; that supported read-only extraction syntax was used without changing signing/security settings. Actual fresh audit output is retained.
+
+## Current artifacts
+
+New artifacts below were built from 376343b. They supersede the old bundles for testing the fixed code; no old bundle/root was overwritten, launched or reused. `final-refresh-artifact-audit.json` records exact audit argv/exit/stdout/stderr, source, plist, per-file signed bundle and renderer hashes. The audit script is `/tmp/tinker-final-refresh-audit.py`; it does not launch an app. Renderer assets are embedded from the dedicated ordinary/QA build output; Resources contains LICENSE/NOTICE/icon, each matching source hashes. Both are debug preview apps, not distribution/installers.
+
+- **Ordinary:** `/private/tmp/tinker-tauri-tools-package-Dw6ph3/Tinker Tools Preview.app`; identifier `com.tinker.tools-preview`, executable `tinker-tools-preview`. SHA-256 `2ab5ffd98fe0025428c0e5c6aa2a22d229e749aea512792795df71f7e7be00b2`. Fresh staging 0700; arm64; expected main entry found; one configured executable. QA symbol/string markers=False/False; renderer atom probe=False.
+- **QA:** `/private/tmp/tinker-tauri-tools-package-M8bt1y/Tinker Tools Native QA.app`; identifier `com.tinker.tools-native-qa`, executable `tinker-tools-native-qa`. SHA-256 `d6a1fe0c5fb315caf076fb5d45fa0cf35a6f669a389574226d25920b8b91096d`. Fresh staging 0700; arm64; expected main entry found; one configured executable. QA symbol/string markers=True/True; renderer atom probe=True.
+
+Both strict/deep signature verifications pass. Both signatures are **ad-hoc**, flags 0x2, no TeamIdentifier; no Developer ID/hardened-runtime claim. `xcrun stapler validate` returns 65/no stapled ticket for each; no notarization submission, Gatekeeper assessment, installation, app launch, DMG, release or upload occurred. Ordinary selected QA markers/probe are absent; dedicated QA markers/probe are present. This bounded marker/build audit is not a runtime or exhaustive instrumentation guarantee.
+
+## Current protection, limits and remaining gates
+
+The fix only changes read-only reconstruction in tool_context.rs plus two regression test files. No real data, installed app, production default/backend, layout/CSS, control/shortcut, dependency, channel/credential CRUD or general filesystem/tool authority was changed by this refresh. Previous named production-default and version-only metadata findings below are historical range observations; shared renderer code did change conditionally in Task 2, not all production source is byte-identical. Root owns independent full-range source audit/review.
+
+Existing limits remain: 64KiB input, 512KiB encoded context, 2MiB desktop page, 4MiB frame, 16MiB formal projection, 128 sessions and requests/session, 16 active sessions; pending 16/chain, 128 globally, 512KiB encoded pending/session. The corrected partial participates in the existing encoded ToolContext budget. No authorization widening, context-array input, log rewrite/truncation or parent tool replay is introduced. Old pre-fix synthetic descendants whose corrected context exceeds limits must fail read-only preflight before recovery writes; no fabricated over-budget historical fixture was added in this fix wave. Ordinary Completed-only ancestry and authenticated redirect restrictions remain distinct. Source/fix details and concrete tests govern these claims.
+
+**Native acceptance is wholly UNRUN.** Root's supplied last normal preflight at 2026-11-16T16:19:44Z reported CGSSessionScreenIsLocked=true, console OnConsole=true and root IOConsoleLocked=false. No new normal unlock response has been conveyed; no duplicate question/recheck/bypass was attempted. No GUI app, driver gesture, lease, screenshot, DOM/bubble UUID count, native HTTP/journal correlation, focus/visibility check, original Send/Option/Stop, locale/theme, reload/close or actual app restart evidence was created. Automated tests/builds do not fill this gap. Root can resume only after normal user unlock plus fresh availability verification, using the exact new QA bundle, new synthetic roots and original controls.
+
+**Publication is paused.** Root's newer repository metadata reports SimmonJ-WYJ/tinker is public (`private=false`), differing from earlier context. No remote write is authorized pending concrete user public-publication confirmation. This task made no fetch/push/PR/comment/merge/Actions/deploy/install or branch/worktree change. Any future remote head/base/checks/status/Actions and publication hooks need separate Root verification. The old main/open-PR observations below are historical, not a current authorization or fresh remote check.
+
+All refresh processes completed normally. Final audit `final-refresh-process-audit.json` found no cargo/rustc/headless runtime/owned preview/QA app/caffeinate process; free space=41672093696 bytes. No app/lease was started, no unrelated process terminated, and old checkouts/roots/bundles/user apps remain untouched. Fresh logs/bundles are retained; only the report is staged for normal local hooks, with no build outputs or credentials. Source/protection observations about the other dirty checkouts below remain qualified; they were not rescanned or mutated here.
+
+Rollback remains: stop the independent preview and continue the unchanged installed Electron application; revert source through reviewable commits. **Queue-enriched synthetic data still needs the new reader**; old readers must reject new journal/lineage versions before recovery writes. Retain old synthetic evidence with its matching old binary where needed. Do not rewrite/delete logs or automatically migrate real histories. M2/M3 real providers/credentials, rich drafts/attachments/images, general tools/shell/MCP, real workspace authority, legacy import/export and measured production rollout remain separate. No whole-machine memory or complete product/real-service parity claim.
+
+Refresh evidence directory: `/Users/simmonj/Documents/ChatGPT/Tinker/migration-work/queue-checks-20261116`. This current report is mirrored in `task-3-report.md` and `final-refresh-report.md`; the post-commit delivery ledger records the actual report head, source association, hook outcome and report-only clean status. Whole-branch I1 re-review and final reporting review remain Root-owned.
+
+---
+
+## Historical validation record for 3375d15 (before the partial-context fix)
+
+The following preserved report records the earlier implementation and report commits d522f1c/8a05be1. Its source, counts, artifact paths/hashes, warnings and then-pending gates are historical. Use the current source/evidence above for 376343b; old 378 Rust passes and old bundles must not be relabeled as fixed-code validation.
+
 # Tauri queued turns: final automated validation and native acceptance gap
 
 Date: 2026-11-16. Status: **DONE_WITH_CONCERNS** for final automated validation/reporting. Native original-editor acceptance is **unrun**, and whole-branch review/publication remain with Root. Builds and headless tests do not establish GUI or product acceptance.
