@@ -1,21 +1,29 @@
-# 划词功能集成清单
+<a id="划词功能集成清单"></a>
 
-## ✅ 已完成
+# Text Selection Feature Integration Checklist
 
-- [x] 创建 `TextSelectionToolbar` 组件
-- [x] 创建 `SelectableMessageResponse` 组件  
-- [x] 创建 `useTextSelection` Hook
-- [x] 创建状态管理 atoms
-- [x] 修改 `message.tsx` 导出必要的类型和组件
-- [x] 编写使用文档和示例代码
+<a id="-已完成"></a>
 
-## 📋 待完成集成任务
+## ✅ Completed
 
-### 任务 1: 在输入框中处理引用 ⚡ 高优先级
+- [x] Create `TextSelectionToolbar` component
+- [x] Create `SelectableMessageResponse` component
+- [x] Create `useTextSelection` Hook
+- [x] Create state-management atoms
+- [x] Update `message.tsx` to export necessary types and components
+- [x] Write usage documentation and example code
 
-**文件**: `apps/electron/src/renderer/components/ai-elements/rich-text-input.tsx`
+<a id="-待完成集成任务"></a>
 
-**需要添加的代码**:
+## 📋 Pending Integration Tasks
+
+<a id="任务-1-在输入框中处理引用-&#45;高优先级"></a>
+
+### Task 1: Handle Quotes in the Input ⚡ High Priority
+
+**File**: `apps/electron/src/renderer/components/ai-elements/rich-text-input.tsx`
+
+**Code to add** (original code comments retained: import at file top, declare in the component, observe quotes with useEffect, format Markdown quotes, append to the editor, then clear state):
 
 ```tsx
 // 1. 在文件顶部添加导入
@@ -44,56 +52,60 @@ React.useEffect(() => {
 }, [pendingQuote, editor, setPendingQuote])
 ```
 
-**验证**: 选中 AI 消息中的文本，点击 "Add to chat"，应该看到引用内容出现在输入框中。
+**Verification**: select text in an AI message and click “Add to chat”; the quoted content should appear in the input.
 
 ---
 
-### 任务 2: 找到并修改 AI 消息渲染组件 ⚡ 高优先级
+<a id="任务-2-找到并修改-ai-消息渲染组件-&#45;高优先级"></a>
 
-**步骤**:
+### Task 2: Find and Update the AI Message Renderer ⚡ High Priority
 
-1. 搜索使用 `MessageResponse` 的地方：
+**Steps**:
+
+1. Search for uses of `MessageResponse`:
    ```bash
    cd /Users/simmonj/Desktop/Work\ Projects/ASCI-main-ui
    grep -r "MessageResponse" apps/electron/src/renderer/components --include="*.tsx" | grep -v "test"
    ```
 
-2. 找到渲染 AI 消息的组件（通常在 `agent/` 或 `conversation/` 目录下）
+2. Find the component rendering AI messages (usually under `agent/` or `conversation/`).
 
-3. 将以下代码：
+3. Replace this code:
    ```tsx
    <MessageResponse basePath={basePath}>
      {content}
    </MessageResponse>
    ```
-   
-   替换为：
+
+   With:
    ```tsx
    <SelectableMessageResponse basePath={basePath}>
      {content}
    </SelectableMessageResponse>
    ```
 
-4. 添加导入：
+4. Add the import:
    ```tsx
    import { SelectableMessageResponse } from '@/components/ai-elements/message'
    ```
 
-**验证**: 在 AI 消息中选择文本，应该看到浮动工具栏出现。
+**Verification**: selecting text in an AI message should display a floating toolbar.
 
 ---
 
-### 任务 3: 实现侧边栏集成 ⚡ 高优先级
+<a id="任务-3-实现侧边栏集成-&#45;高优先级"></a>
 
-**需要找到的组件**: 侧边栏或右侧面板组件
+### Task 3: Implement Sidebar Integration ⚡ High Priority
 
-**搜索命令**:
+**Component to find**: sidebar or right-side panel component
+
+**Search command**:
 ```bash
 cd /Users/simmonj/Desktop/Work\ Projects/ASCI-main-ui
 find apps/electron/src/renderer/components -name "*sidebar*" -o -name "*panel*" | grep -E "\.tsx$"
 ```
 
-**需要添加的逻辑**:
+**Logic to add** (original comments describe adding this to the sidebar, opening it, formatting the quote, adapting input state to the actual sidebar, clearing state, and retaining the rest of the component; the literal input prefix means “Regarding the following content”):
 
 ```tsx
 // 在侧边栏组件中添加
@@ -128,15 +140,17 @@ function YourSidebarComponent() {
 }
 ```
 
-**验证**: 选中 AI 消息中的文本，点击 "Ask in sidebar"，侧边栏应该打开并显示引用内容。
+**Verification**: select text in an AI message and click “Ask in sidebar”; the sidebar should open with the quote.
 
 ---
 
-### 任务 4: 添加国际化支持 📝 中优先级
+<a id="任务-4-添加国际化支持-&#45;中优先级"></a>
 
-**文件位置**: `apps/electron/src/renderer/locales/`
+### Task 4: Add Internationalization Support 📝 Medium Priority
 
-**英文** (`en/common.json` 或新建 `en/text-selection.json`):
+**File location**: `apps/electron/src/renderer/locales/`
+
+**English** (`en/common.json` or new `en/text-selection.json`):
 ```json
 {
   "textSelection": {
@@ -147,7 +161,7 @@ function YourSidebarComponent() {
 }
 ```
 
-**中文** (`zh/common.json` 或新建 `zh/text-selection.json`):
+**Chinese** (`zh/common.json` or new `zh/text-selection.json`; original localized literals mean “selection,” “Ask in sidebar,” and “Add to chat”):
 ```json
 {
   "textSelection": {
@@ -158,7 +172,7 @@ function YourSidebarComponent() {
 }
 ```
 
-**修改 `TextSelectionToolbar` 组件**:
+**Update `TextSelectionToolbar`** (the original comment permits the alternative textSelection namespace):
 ```tsx
 import { useT } from '@/hooks/useT'
 
@@ -181,26 +195,30 @@ export function TextSelectionToolbar({ ... }) {
 
 ---
 
-### 任务 5: 测试 🧪 中优先级
+<a id="任务-5-测试-&#45;中优先级"></a>
 
-**测试场景**:
+### Task 5: Testing 🧪 Medium Priority
 
-- [ ] 选中短文本（一行）
-- [ ] 选中长文本（多行）
-- [ ] 选中包含代码块的文本
-- [ ] 选中包含列表的文本
-- [ ] 在滚动的情况下选中文本
-- [ ] 快速连续选中多次
-- [ ] 点击工具栏外部关闭
-- [ ] 点击按钮后工具栏关闭
-- [ ] 引用正确插入到输入框
-- [ ] 侧边栏正确打开并显示引用
+**Test scenarios**:
+
+- [ ] Select short text (one line)
+- [ ] Select long text (multiple lines)
+- [ ] Select text containing code blocks
+- [ ] Select text containing lists
+- [ ] Select text while scrolling
+- [ ] Make several selections in quick succession
+- [ ] Click outside the toolbar to close it
+- [ ] Toolbar closes after clicking a button
+- [ ] Quote inserts correctly into the input
+- [ ] Sidebar opens correctly and displays the quote
 
 ---
 
-### 任务 6: 样式优化 🎨 低优先级
+<a id="任务-6-样式优化-&#45;低优先级"></a>
 
-**可选的样式改进**:
+### Task 6: Style Improvements 🎨 Low Priority
+
+**Optional style improvements** (original comments describe toolbar style adjustments: stronger blur and shadow, padding adjustments, and slide-in animation):
 
 ```tsx
 // 在 TextSelectionToolbar 中调整样式
@@ -215,48 +233,56 @@ className={cn(
 
 ---
 
-## 🚀 快速启动
+<a id="-快速启动"></a>
 
-完成核心集成只需 3 步：
+## 🚀 Quick Start
 
-1. **修改输入框组件** (任务 1)
-2. **找到并修改 AI 消息组件** (任务 2)  
-3. **测试** (任务 5 的基本场景)
+Core integration takes only 3 steps:
 
-侧边栏集成（任务 3）可以稍后完成。
+1. **Update the input component** (Task 1)
+2. **Find and update the AI message component** (Task 2)
+3. **Test** (basic scenarios in Task 5)
 
-## 🔧 调试技巧
+Sidebar integration (Task 3) can follow later.
 
-如果功能不工作，检查：
+<a id="-调试技巧"></a>
 
-1. **工具栏不显示**:
-   - 检查是否使用了 `SelectableMessageResponse` 而不是 `MessageResponse`
-   - 打开浏览器开发者工具，检查是否有 JavaScript 错误
-   - 确认选择的文本在正确的容器内
+## 🔧 Debugging Tips
 
-2. **点击按钮无反应**:
-   - 检查 atoms 是否正确导入
-   - 在 `useEffect` 中添加 `console.log` 查看状态变化
-   - 确认输入框组件正在监听对应的 atom
+If the feature does not work, check:
 
-3. **引用格式不正确**:
-   - 检查 `split('\n').map(line => > ${line})` 的逻辑
-   - 确认编辑器的 `insertContent` API 使用正确
+1. **Toolbar does not appear**:
+   - Check that `SelectableMessageResponse` replaces `MessageResponse`
+   - Open browser developer tools and check for JavaScript errors
+   - Confirm the selected text is inside the correct container
 
-## 📞 需要帮助？
+2. **Buttons do nothing**:
+   - Check atoms are imported correctly
+   - Add `console.log` in `useEffect` to inspect state changes
+   - Confirm the input component observes the corresponding atom
 
-如果遇到问题：
+3. **Incorrect quote formatting**:
+   - Check the `split('\n').map(line => > ${line})` logic
+   - Confirm correct use of the editor's `insertContent` API
 
-1. 查看 `TEXT_SELECTION_FEATURE.md` 中的详细文档
-2. 参考 `text-selection-examples.tsx` 中的示例代码
-3. 检查浏览器控制台的错误信息
+<a id="-需要帮助"></a>
 
-## 🎉 完成标志
+## 📞 Need Help?
 
-当以下都能正常工作时，功能就完成了：
+If you encounter problems:
 
-- ✅ 选中 AI 消息中的文本时显示工具栏
-- ✅ 点击 "Add to chat" 后引用出现在输入框
-- ✅ 点击 "Ask in sidebar" 后侧边栏打开并显示引用
-- ✅ 工具栏样式美观，动画流畅
-- ✅ 支持中英文切换
+1. Read detailed documentation in `TEXT_SELECTION_FEATURE.md`
+2. Refer to example code in `text-selection-examples.tsx`
+3. Check browser console errors
+
+<a id="-完成标志"></a>
+
+## 🎉 Completion Criteria
+
+The feature is complete when all of the following work:
+
+- ✅ Selecting text in an AI message displays the toolbar
+- ✅ Clicking “Add to chat” inserts the quote into the input
+- ✅ Clicking “Ask in sidebar” opens the sidebar with the quote
+- ✅ Toolbar styling is attractive and animation is smooth
+- ✅ Chinese/English switching is supported

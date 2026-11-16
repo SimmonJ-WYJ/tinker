@@ -1,10 +1,10 @@
 name: lit-search retrieval benchmark
 
-# §8 召回基准：在干净网络（GitHub runner）跑 bench_retrieve.py，把 recall@20 表
-# 打到 job summary。本机到学术 API（openalex/crossref/arxiv）的 TLS 长期被中间盒
-# 重置（SSL_ERROR），本地出不了可信数 —— 故搬到 CI 跑。
+# §8 recall benchmark: run bench_retrieve.py on clean GitHub runner networking and publish recall@20
+# to job summary. Local TLS to academic APIs (openalex/crossref/arxiv) is persistently reset
+# by middleboxes (SSL_ERROR), preventing trustworthy local numbers; run in CI instead.
 #
-# 触发：手动 workflow_dispatch；或 push 改动 bench 脚本 / 本 workflow 时自动跑一次。
+# Trigger: manual workflow_dispatch, or automatic push changes to bench scripts / this workflow.
 
 on:
   workflow_dispatch:

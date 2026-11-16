@@ -1,11 +1,11 @@
-# Dependabot 依赖更新配置（#418 / PRD 0.3.0 §五 安全机制 "运维" 行）。
-# 漏洞驱动的自动修复 PR（Dependabot security updates）由仓库 Settings →
-# Code security → "Dependabot security updates" 开关启用；本文件提供分组与限流策略。
-# 当前只保留安全修复 PR：普通 version updates 通过 open-pull-requests-limit: 0 暂停。
-# security updates 与版本更新都会跑 ci.yml 的 audit job —— 高危漏洞无法绕过合并门槛。
+# Dependabot dependency updates (#418 / PRD 0.3.0 §V Security, Operations row).
+# Repository Settings → Code security → Dependabot security updates enables
+# vulnerability-driven repair PRs; this file supplies grouping and rate limits.
+# Security-fix PRs only: open-pull-requests-limit: 0 pauses ordinary version updates.
+# Both security and version updates run ci.yml audit; high-risk flaws cannot bypass merge gates.
 version: 2
 updates:
-  # Bun monorepo：在根目录解析 workspaces（packages/* + apps/*）与 bun.lock。
+  # Bun monorepo: resolve root workspaces (packages/* + apps/*) and bun.lock.
   - package-ecosystem: "bun"
     directory: "/"
     schedule:
@@ -21,7 +21,7 @@ updates:
     reviewers:
       - "liningftp"
 
-  # GitHub Actions 仅保留安全修复 PR，常规追新暂不开启。
+  # GitHub Actions: security fixes only; ordinary version updates remain disabled.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

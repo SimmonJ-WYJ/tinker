@@ -1,24 +1,32 @@
-# 图片任务中的自然续作授权
+<a id="图片任务中的自然续作授权"></a>
 
-状态：实现与本地验证完成，待协调串行整合。基线 fbde681（0.1.611）。关联 UX-20261107-01，沿用已批准的图片流程修复范围。
+# Authorization for Natural Continuations in Image Tasks
 
-## 复现与根因
+Status: Implementation and local validation complete, awaiting coordinated serial integration. Baseline fbde681 (0.1.611). Related to UX-20261107-01; retains the approved image workflow fix scope.
 
-“再次生成”被前缀处理拆成“次生成”，且识别器要求本条包含图片名词。“把这个女生加入旁边 并换了一个泳衣”不属于现有选图变换词。宿主仅提供参考素材集合，没有提供上一条已消费的图片任务语义，所以相同缺失在 hook、canUseTool 和执行守卫上重复出现。
+<a id="复现与根因"></a>
 
-## 行为与实现
+## Reproduction and Root Cause
 
-- 显式生图继续保持现有规则。省略图片名词的再次生成仅在上一个有效用户回合属于图片任务时允许。
-- 有明确视觉对象的编辑，在当前选图、当前真实上传附件或上一图片任务且会话有参考图时允许。单纯存在历史图片不构成授权。
-- 讨论、否定、引用、代码与其他敏感动作不构成生图请求。切到其他任务会清除图片任务上下文。
-- 宿主工厂从当前输入之前的顶层真实 SDK 用户记录重建语义，忽略 synthetic/tool_result/replay。入队记录带内部 _imageQueued 标记，只有实际消费后写入附件目录 .image-consumed-turns.jsonl 的实际回合记录（UUID、任务类别、是否排队） 才参与后续 query 恢复；侧车不包含消息、图片或凭据。恢复按真实消费顺序，未知队列或截断记录阻断旧任务继承，后续新的普通输入可建立新边界。旧版本没有队列标记的历史不能追溯判定其消费状态。队列上下文只在实际消费时更新，不读取未来已排队消息。
-- 只继承任务语义，不继承旧回合的批准、张数、账本或调用 ID。next 排队不取消在途请求；now 中断后旧调用继续无效，新回合重新取得有限授权。
-- 不改 UI、既有会话与图片格式、OAuth、安装版、其他工具审批或 Rust/Tauri。使用合成数据与假网络验证，不调用付费生图。
+The Chinese phrase meaning "generate again" was split by prefix handling into a phrase meaning "generate the next time," and the recognizer required an image noun in the current message. The request (English translation) "Add this girl beside it and change her swimsuit" did not match existing selected-image transformation terms. The host provided only the set of reference assets, without the semantics of the previous consumed image task, so the same omission recurred in the hook, canUseTool, and execution guard.
 
-历史文件范围只扫描一次后做纯意图折叠，同一附件在单次扫描中只验证一次。侧车丢失、截断或不可读时，标记为排队且无法确认消费的消息不提供授权。
+<a id="行为与实现"></a>
 
-## 验证与回滚
+## Behavior and Implementation
 
-先增加自然续作及视觉编辑红测，再接入宿主工厂与真实 MCP handler 合成测试；回归讨论/否定、数量、跨会话引用、队列 next/now/失败及取消。最终跑 lint、全仓 typecheck、全量 Bun tests、Electron build 与独立审查。撤回本次提交即可恢复旧识别；不迁移用户数据。发布为独立分支 draft PR，不合 main。
+- Explicit image generation retains existing rules. Regeneration that omits an image noun is allowed only when the previous valid user turn was an image task.
+- Editing with an explicit visual subject is allowed when there is a current image selection, an actual current upload, or a previous image task and reference images in the session. Historical images alone do not authorize it.
+- Discussion, negation, quotations, code, and other sensitive actions do not constitute image generation requests. Switching to another task clears the image task context.
+- The host factory reconstructs semantics from actual top-level SDK user records preceding the current input, ignoring synthetic/tool_result/replay records. Queued records carry an internal _imageQueued marker. Only actual turn records (UUID, task category, queued or not) written to the attachment directory's .image-consumed-turns.jsonl after consumption participate in later query restoration; the sidecar contains no messages, images, or credentials. Restoration follows actual consumption order. Unknown queues or truncated records block inheritance of older tasks; subsequent new ordinary input can establish a new boundary. Historical records from older versions without queue markers cannot retrospectively establish consumption status. Queue context updates only on actual consumption and never reads future queued messages.
+- Only task semantics are inherited, not earlier approvals, image counts, ledgers, or call IDs. Queuing with next does not cancel an in-flight request; after a now interruption, the old call remains invalid and the new turn obtains limited authorization again.
+- No changes to UI, existing session and image formats, OAuth, installed versions, other tool approvals, or Rust/Tauri. Validation uses synthetic data and fake networking, without paid image generation calls.
 
-最终证据与未验证边界见 [验证记录](../reports/2026-11-08-image-context-validation.md)。
+Historical files are scanned once and then folded by intent alone; each attachment is validated only once per scan. If the sidecar is missing, truncated, or unreadable, messages marked queued whose consumption cannot be confirmed provide no authorization.
+
+<a id="验证与回滚"></a>
+
+## Validation and Rollback
+
+First add failing tests for natural continuations and visual edits, then integrate synthetic tests for the host factory and actual MCP handler; regress discussion/negation, counts, cross-session references, queue next/now/failure, and cancellation. Finally run lint, repository-wide typecheck, all Bun tests, Electron build, and independent review. Reverting this commit restores the old recognition behavior; no user data migration. Publish as a separate branch and draft PR, without merging into main.
+
+See the [validation record](../reports/2026-11-08-image-context-validation.md) for final evidence and unverified boundaries.

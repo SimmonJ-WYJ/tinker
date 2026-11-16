@@ -1,9 +1,11 @@
-# 工作台侧栏与页面导航
+<a id="工作台侧栏与页面导航"></a>
 
-- 桌面侧栏固定 248px，不随屏幕宽度按比例缩放；常驻顶部工具栏高 52px。
-- 顶部提供侧栏开关、页面后退与前进；无历史时对应按钮禁用。
-- 宽度大于 1100px 时侧栏占据布局空间，收起后宽度为零。
-- 宽度不超过 1100px 时使用覆盖式抽屉；遮罩、Esc、关闭按钮均可关闭，关闭后焦点回到开关。
-- 点击抽屉内会话、项目或导航入口后关闭抽屉；展开项目树不关闭。
-- 页面历史包含会话和项目视图；恢复会话复用原会话与生成任务，不重新发送消息。新分支清除前进历史；跳过已删除的项目或会话。
-- 保留 Research / Coding 模式、项目选择、波纹过渡与生成中的阅读位置返回逻辑。
+# Workbench Sidebar and Page Navigation
+
+- The desktop sidebar has a fixed width of 248px and does not scale proportionally with screen width; the persistent top toolbar is 52px high.
+- The top toolbar provides a sidebar toggle and page back/forward buttons; each button is disabled when its history is empty.
+- Above 1100px wide, the sidebar occupies layout space and collapses to zero width.
+- At widths of 1100px or less, use an overlay drawer; the backdrop, Esc, and close button all dismiss it, returning focus to the toggle.
+- Clicking a session, project, or navigation entry in the drawer closes it; expanding the project tree does not.
+- Page history includes session and project views; restoring a session reuses its original session and generation task without resending messages. A new branch clears forward history; deleted projects or sessions are skipped.
+- Preserve Research / Coding modes, project selection, ripple transitions, and the logic for returning to the reading position during generation.

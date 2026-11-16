@@ -1,57 +1,69 @@
-# Rust Lab 离线执行闭环验证与回滚
+<a id="rust-lab-离线执行闭环验证与回滚"></a>
 
-基线 `94dad45fff5b2220b89d9d5bedce28df9a9590bf`，分支 `feat/rust-offline-run-loop`，工作区 `/private/tmp/tinker-rust-runloop-20261109`。仅迁移隔离实验链路，不代表生产执行器迁移完成。
+# Rust Lab offline run-loop validation and rollback
 
-## 本轮实现
+Baseline `94dad45fff5b2220b89d9d5bedce28df9a9590bf`, branch `feat/rust-offline-run-loop`, workspace `/private/tmp/tinker-rust-runloop-20261109`. Only the isolated experimental path is migrated; this does not mean production executor migration is complete.
 
-- Rust provider接口和唯一OfflineFixture适配器，成功/失败/慢速场景均无模型、网络、shell或付费调用。
-- 单活动线程、requestId/runId去重、参数冲突拒绝、取消令牌、终态后晚到片段隔离。正常约150ms/片段、慢速约1秒/片段，取消检查间隔5ms。
-- Rust Lab自身`app_local_data_dir()/runs-v1`，单写者锁、受限ID、符号/硬链接拒绝、私有文件权限。独立JSONL事实源、原子快照缓存和持久createdOrder，避免mtime相同导致最近run错选。
-- 启动元数据header最多512KiB，输入最多65536 UTF-8字节；普通事件16KiB、输出256KiB、4096事件及单run日志4MiB，上限同时生效。header-only崩溃直接恢复interrupted，不伪造provider启动。
-- 先持久化再向宿主确认，存储不确定时明确失败并阻断重试伪成功。截断日志显示只读恢复状态，损坏中段/未来版本拒绝覆盖。重启在途执行恢复interrupted，绝不自动执行provider。
-- Tauri三个独立命令：start_lab_run、cancel_lab_run、read_lab_run，文件工作经spawn_blocking，不接受前端路径、URL或模型。
-- React离线面板、严格协议和世代隔离，100ms非重叠游标读取，取消、失败、旧响应、重复点击和安全重试；恢复后独立显示原执行输入与部分输出，中英文固定错误提示，不改变当前草稿。
-- 旧submit_draft仍返回modelNotMigrated，草稿schema和只读历史API保留。生产Electron/shared/core/ui/依赖锁文件未变。
+<a id="本轮实现"></a>
 
-## 实际通过
+## Implementation this round
 
-| 检查 | 结果 |
+- Rust provider interface and sole OfflineFixture adapter; success/failure/slow scenarios involve no model, network, shell, or paid calls.
+- One active thread, requestId/runId deduplication, conflicting-parameter rejection, cancellation tokens, and isolation of late fragments after terminal state. Normal ~150ms/fragment, slow ~1 second/fragment, cancellation checks every 5ms.
+- Rust Lab's own `app_local_data_dir()/runs-v1`, single-writer lock, restricted IDs, symlink/hardlink rejection, private permissions. Independent JSONL source of truth, atomic snapshot cache, and durable createdOrder prevent selecting the wrong latest run when mtimes coincide.
+- Startup metadata header ≤512KiB, input ≤65536 UTF-8 bytes; ordinary events 16KiB, output 256KiB, 4096 events, per-run log 4MiB; all caps apply together. Header-only crashes recover directly as interrupted without inventing provider startup.
+- Persist before host acknowledgement; fail explicitly on uncertain storage and block false-success retries. Truncated logs show read-only recovery; corrupt middles/future versions reject overwrites. Restart restores in-flight execution as interrupted and never automatically runs a provider.
+- Three independent Tauri commands: start_lab_run, cancel_lab_run, read_lab_run; file work via spawn_blocking; no frontend paths, URLs, or models accepted.
+- React offline panel, strict protocol and generation isolation, nonoverlapping 100ms cursor reads, cancellation, failures, stale responses, repeated clicks, and safe retries; after recovery, show original run input and partial output independently, with fixed Chinese/English errors, leaving current draft unchanged.
+- Old submit_draft still returns modelNotMigrated; draft schema and read-only history API retained. Production Electron/shared/core/ui/dependency lockfiles unchanged.
+
+<a id="实际通过"></a>
+
+## Actual passing results
+
+| Check | Result |
 | --- | --- |
-| 原始Rust基线 | 63 passed，0 failed |
-| Rust完整测试 | 90 passed，0 failed，含原有测试、新22项核心测试、5项IPC测试/子进程夹具 |
-| Tauri真实handler | 真实参数解码和响应序列化，覆盖成功/分页/去重/失败/取消/错误码 |
-| 真实进程崩溃恢复 | 子测试进程通过真实handler启动慢速执行，已有片段落盘后exit跳过析构；新宿主恢复interrupted，输入/片段保留，序号不自动推进 |
-| Rust质量 | cargo fmt --check、clippy --all-targets -D warnings通过 |
-| Lab前端 | 30 tests，230 assertions，0 failed；typecheck、Vite build通过 |
-| 全仓Bun | 3376 passed，4 skipped，0 failed，380 files，8916 assertions |
-| 全仓typecheck | 6个workspace退出0 |
-| Lab ESLint | 临时配置复用原规则覆盖Lab，max-warnings=0通过，生产eslint配置未改 |
-| Electron构建 | electron:build退出0 |
-| 独立审查与simplify复盘 | 重要发现修复后复核通过，无剩余重要确认问题 |
-| 原生QA构建 | Tauri release arm64 .app构建通过；codesign --verify --deep --strict通过 |
+| Original Rust baseline | 63 passed, 0 failed |
+| Full Rust tests | 90 passed, 0 failed, including original tests, 22 new core tests, 5 IPC tests/subprocess fixtures |
+| Real Tauri handler | Real parameter decoding and response serialization, covering success/pagination/deduplication/failure/cancellation/error codes |
+| Real process-crash recovery | Child test process starts a slow run through the real handler, exits without destructors after fragments persist; new host restores interrupted, retains input/fragments, and does not automatically advance sequence |
+| Rust quality | cargo fmt --check, clippy --all-targets -D warnings passed |
+| Lab frontend | 30 tests, 230 assertions, 0 failed; typecheck, Vite build passed |
+| Repository-wide Bun | 3376 passed, 4 skipped, 0 failed, 380 files, 8916 assertions |
+| Repository-wide typecheck | 6 workspaces exited 0 |
+| Lab ESLint | Temporary configuration reusing original rules covered Lab; max-warnings=0 passed; production eslint configuration unchanged |
+| Electron build | electron:build exited 0 |
+| Independent review and simplify retrospective | Important findings fixed and rechecked; no remaining confirmed important issues |
+| Native QA build | Tauri release arm64 .app built; codesign --verify --deep --strict passed |
 
-全仓跳过的4项属于原有papers-rg-tool的包内rg二进制集成测试，当前复用依赖目录未提供该二进制。没有修改测试或生产依赖来隐藏跳过。本轮新增测试全部执行。
+The 4 repository-wide skips belong to existing papers-rg-tool bundled-rg binary integration tests; the reused dependency directory lacks that binary. No tests or production dependencies were changed to hide skips. All new tests this round executed.
 
-先写行为红测再实现。独立审查发现并修复：双层runs-v1路径、创建header后确认失败的永久queued、mtime碰撞最近run恢复错误、恢复后输入不可见，以及身份/连续序号/事件语义/启动响应绑定的前端校验缺口。相应回归已加入并通过。
+Behavior tests failed before implementation. Independent review found and fixed nested runs-v1 paths, permanent queued state after failed acknowledgement following header creation, incorrect latest-run recovery on mtime collisions, invisible recovered input, and missing frontend validation of identity/continuous sequence/event semantics/start-response binding. Corresponding regressions were added and passed.
 
-## 原生验证的准确边界
+<a id="原生验证的准确边界"></a>
 
-独立QA产物 `/private/tmp/tinker-rust-night-target/release/bundle/macos/Tinker Rust Run QA.app`，Info.plist和编译二进制均验证标识`com.tinker.rustlab.runqa.20261109`，arm64，临时adhoc签名、未Apple公证。没有复制或安装到Applications，没有启动此产物，没有读写真实用户会话或凭据。
+## Exact native-validation boundary
 
-桌面工具预检明确返回Mac锁屏，无法操作原生应用。本轮不请求夜间解锁、不自动解锁、不改密码/锁屏/全局电源设置，也不把mock-runtime或DOM测试写成真实WebView验收。
+Independent QA artifact `/private/tmp/tinker-rust-night-target/release/bundle/macos/Tinker Rust Run QA.app`; Info.plist and compiled binary both verified identifier `com.tinker.rustlab.runqa.20261109`, arm64, temporary adhoc signing, no Apple notarization. Not copied or installed into Applications, not launched, no real user sessions or credentials read/written.
 
-**未运行：原生UI中的成功、取消、失败、重启恢复四流程和双语/主题人工查看；相应原生截图缺失。** 当前只能认定Rust/Tauri handler闭环、前端自动测试和原生构建通过。Draft PR保留这些验收项，不可据此宣称完整原生闭环或生产兼容已全部验收。
+Desktop-tool preflight explicitly reported a locked Mac, preventing native-app operation. No nighttime unlock request, automatic unlock, password/lock-screen/global-power changes, or presentation of mock-runtime/DOM tests as real WebView acceptance.
 
-## 资源和保护
+**Not run: success, cancellation, failure, restart-recovery flows in native UI and manual bilingual/theme review; corresponding native screenshots are absent.** Only the Rust/Tauri handler loop, frontend automated tests, and native build can currently be considered passed. Draft PR retains these acceptance items; do not claim full native-loop or complete production-compatibility acceptance.
 
-复用既有`/private/tmp/tinker-rust-night-target`，未开并行Cargo缓存竞争，未执行cargo clean或删除用户文件。缓存约3.2GiB→3.7GiB；新工作区约126MiB（node_modules仅指向既有依赖），本批观察增长约0.65GiB，未超过3GiB预算。全局空闲在8.8–10GiB间变化，低于4GiB会停止新构建，本轮未触发。没有测量原生应用RSS或承诺整机内存下降。
+<a id="资源和保护"></a>
 
-没有改旧source、旧ASCI副本、打包工作树源码、当前安装版、密钥或真实会话。原source状态仍未知，不把它当作干净；原有挂起Git进程未被本轮处理。临时caffeinate仅用于本批有界执行，结束后释放。
+## Resources and protection
 
-## 发布判断及回滚
+Reused `/private/tmp/tinker-rust-night-target`, without parallel Cargo cache contention, cargo clean, or user-file deletion. Cache ~3.2GiB→3.7GiB; new workspace ~126MiB (node_modules points only to existing dependencies); observed batch growth ~0.65GiB, within the 3GiB budget. Global free space varied 8.8–10GiB; new builds stop below 4GiB, not triggered this round. No native-app RSS measurement or promise of lower whole-machine memory.
 
-隔离离线Lab、生产代码零差异、全部可执行新增自动检查及独立审查通过，适合发布为**Draft PR供审阅**，但原生UI验收仍待补。不会合并、auto-merge、部署、制作DMG或替换安装版。远端SHA和CI最终以实际核验为准，不能把0检查的pending状态称为正在运行CI或已绿。
+No changes to old source, old ASCI copies, packaging-worktree source, installed version, keys, or real sessions. Original source status remains unknown and is not considered clean; existing hung Git processes were untouched. Temporary caffeinate served only this bounded batch and was released afterward.
 
-回滚仅在独立分支revert本批提交并正常测试。旧草稿命令/会话文件/history-v1不需要反向迁移；runs-v1是独立实验数据，回滚不删除它。需要精确停用时移除RunPanel挂载和run_commands注册，原草稿与历史能力保留。未来再接真实provider、权限、模型/工具、真实后台任务和生产切换，均不在本轮完成范围。
+<a id="发布判断及回滚"></a>
 
-主要本机日志位于`/private/tmp/tinker-runloop-checks-20261109`：baseline-rust.log、ipc-red.log、rust-final.log、clippy.log、typecheck.log、lint.log、bun-final.log、electron-build.log、native-build.log。日志不加入提交，报告不包含真实用户记录。
+## Publication decision and rollback
+
+The isolated offline Lab, zero production-code differences, all executable new automated checks, and independent review passed, making this suitable for a **Draft PR for review**, with native UI acceptance still pending. No merge, auto-merge, deployment, DMG creation, or installed-version replacement. Final remote SHA/CI depend on actual verification; a pending state with 0 checks is neither running nor green CI.
+
+Rollback only reverts this batch's commit on the independent branch and runs normal tests. Old draft commands/session files/history-v1 need no reverse migration; runs-v1 is independent experimental data and is not deleted on rollback. For precise disablement, remove RunPanel mounting and run_commands registration, retaining original draft/history capabilities. Real providers, permissions, models/tools, real background tasks, and production switching remain future work outside this round.
+
+Main local logs are in `/private/tmp/tinker-runloop-checks-20261109`: baseline-rust.log, ipc-red.log, rust-final.log, clippy.log, typecheck.log, lint.log, bun-final.log, electron-build.log, native-build.log. Logs are not committed; the report includes no real user records.

@@ -1,238 +1,290 @@
-# ASCI 护城河多视角分析
+<a id="asci-护城河多视角分析"></a>
 
-**讨论发起人**：Yannik（PM）
-**参与**：鹰尼克（市场调研）、猫尼克（用户分析）、狐尼克（产品设计）、虎尼克（战略整合）
-**日期**：2026-04-28
-**核心议题**：在 AI 时代，工具型产品容易被 vibe-coding 复制，ASCI 真正的护城河是什么？
+# ASCI Moat Analysis from Multiple Perspectives
+
+**Discussion initiator**: Yannik (PM)
+**Participants**: Eagle Nick (market research), Cat Nick (user analysis), Fox Nick (product design), Tiger Nick (strategy integration)
+**Date**: 2026-04-28
+**Core question**: In an AI era where tool products are easily copied through vibe-coding, what is ASCI's real moat?
 
 ---
 
-# 一、鹰尼克：竞争格局 & 护城河评估
+<a id="一鹰尼克竞争格局-&#45;护城河评估"></a>
 
-## 1.1 前提验证：工具型产品确实没有护城河
+# I. Eagle Nick: Competitive Landscape & Moat Assessment
 
-这个判断是对的。用我们自己的 **Wrapper vs Native 鉴别公式** 来测——
+<a id="11-前提验证工具型产品确实没有护城河"></a>
 
-> 如果产品核心价值可通过 "ChatGPT + 自定义 Prompt" 复现 80%，就是 Wrapper。
+## 1.1 Validating the Premise: Tool Products Indeed Have No Moat
 
-当前市面大部分 "AI 科研工具" 处于 Wrapper 层：在 LLM API 上套壳，做文献检索+摘要。Elicit、Consensus、Scite、Perplexity Deep Research——它们的差异化在 UI 和 prompt engineering 层。这些确实可以被 vibe-coding 复现。
+This judgment is correct. Apply our own **Wrapper vs Native test**:
 
-## 1.2 ASCI 当前的护城河位置
+> If 80% of a product's core value can be reproduced with “ChatGPT + custom Prompt,” it is a Wrapper.
 
-对照我们的 **AI 护城河四机制** 框架：
+Most current “AI research tools” are Wrappers: LLM API shells providing literature search + summaries. Elicit, Consensus, Scite, Perplexity Deep Research differentiate through UI and prompt engineering. These can indeed be reproduced through vibe-coding.
 
-| 护城河 | ASCI 当前 | 潜力 | 说明 |
+<a id="12-asci-当前的护城河位置"></a>
+
+## 1.2 ASCI's Current Moat Position
+
+Against our **four AI moat mechanisms** framework:
+
+| Moat | ASCI today | Potential | Explanation |
 |--------|----------|------|------|
-| **数据飞轮** | ❌ 无 | 🟡 中 | 本地优先架构，暂无用户数据回流 |
-| **工作流嵌入** | 🟡 雏形 | 🟢 高 | 检索→综述→对象化 形成连贯工作流 |
-| **分发渠道** | ❌ 无 | 🟡 中 | 桌面应用+未来 Web，渠道待建 |
-| **品牌信任** | ❌ 无 | 🟢 高 | "可追溯的证据链"是建立信任的核心 |
+| **Data flywheel** | ❌ None | 🟡 Medium | Local-first architecture; no user-data feedback yet |
+| **Workflow embedding** | 🟡 Emerging | 🟢 High | Search→review→object creation forms a coherent workflow |
+| **Distribution** | ❌ None | 🟡 Medium | Desktop app + future Web; channels still to build |
+| **Brand trust** | ❌ None | 🟢 High | “Traceable evidence chains” are central to trust |
 
-**关键发现**：工作流嵌入 + 品牌信任 是 ASCI 最可行的双护城河组合。数据飞轮和分发是后续的事。
+**Key finding**: workflow embedding + brand trust are ASCI's most feasible dual moat. Data flywheel and distribution come later.
 
-## 1.3 竞品护城河对比
+<a id="13-竞品护城河对比"></a>
 
-| 产品 | 护城河类型 | 防御力 | ASCI 可学习什么 |
+## 1.3 Competitor Moat Comparison
+
+| Product | Moat type | Defensibility | What ASCI can learn |
 |------|-----------|--------|---------------|
-| Notion | 工作流嵌入 + 数据 | 极强 | 用户数据积累形成切换成本 |
-| Obsidian | 本地数据 + 插件生态 | 强 | 本地文件即标准格式，用户"拥有"数据 |
-| Zotero | 格式标准 + 社区 | 中强 | CSL/BibTeX 格式成为文献管理的 lingua franca |
-| Semantic Scholar | 数据飞轮 | 强 | 论文图谱数据是壁垒 |
-| Elicit | 品牌信任 | 中 | 在 "AI 文献检索" 领域建立了先发信任 |
+| Notion | Workflow embedding + data | Extremely strong | Accumulated user data creates switching costs |
+| Obsidian | Local data + plugin ecosystem | Strong | Local files use standard formats; users “own” data |
+| Zotero | Format standards + community | Moderately strong | CSL/BibTeX became the lingua franca of reference management |
+| Semantic Scholar | Data flywheel | Strong | Paper-graph data forms a barrier |
+| Elicit | Brand trust | Medium | First-mover trust in “AI literature search” |
 
-**鹰尼克的判断**：ASCI 不应该对标 Elicit/Consensus（它们是检索工具），而应该对标 **Obsidian + Zotero 的结合体**——以本地数据所有权 + 可扩展对象格式 + 社区标准 构建护城河。工具功能可以被复制，但**用户积累的研究数据 + 数据格式标准**很难被复制。
+**Eagle Nick's judgment**: ASCI should benchmark **Obsidian + Zotero combined**, rather than search tools Elicit/Consensus, building a moat through local data ownership + extensible object formats + community standards. Tool features can be copied, but **users' accumulated research data + data-format standards** are hard to copy.
 
 ---
 
-# 二、猫尼克：用户粘性 & 切换成本分析
+<a id="二猫尼克用户粘性-&#45;切换成本分析"></a>
 
-## 2.1 工具型产品的切换成本为什么低
+# II. Cat Nick: Retention & Switching Costs
 
-用 **AARRR 留存分析** 框架来看：
+<a id="21-工具型产品的切换成本为什么低"></a>
 
-传统 AI 工具的留存链：
+## 2.1 Why Tool Products Have Low Switching Costs
+
+Using the **AARRR retention analysis** framework:
+
+Traditional AI-tool retention chain:
 ```
-登录 → 输入问题 → 得到答案 → 离开
+Sign in → enter question → receive answer → leave
 ```
 
-这条链上唯一的粘性点是"答案质量"。一旦竞品答案质量追上来，用户切换成本为零——换一个网页/App 只需要一个点击。
+The only sticky point is answer quality. Once competitors catch up, switching costs are zero: another website/App is one click away.
 
-## 2.2 ASCI 可以构建的切换成本层级
+<a id="22-asci-可以构建的切换成本层级"></a>
 
-从 **行为队列分析** 视角，当用户完成以下行为后，切换成本逐级上升：
+## 2.2 Switching-Cost Levels ASCI Can Build
 
-| 层级 | 用户行为 | 切换成本 | 构建难度 |
+From **behavioral cohort analysis**, switching costs rise as users complete these actions:
+
+| Level | User behavior | Switching cost | Build difficulty |
 |------|---------|---------|---------|
-| L0 | 仅检索+看综述 | 零 | — |
-| L1 | 在综述上做了引用追溯 | 低（换了工具重新搜一次） | 低 |
-| L2 | 在论文上写了多条 Note | 中（Note 换工具就丢了） | 中 |
-| L3 | 建立了 EvidenceSet + Hypothesis 关联 | 高（知识结构难以迁移） | 中高 |
-| L4 | 积累了大量 CitationRelation（论文间关系图） | 极高（个人知识图谱） | 高 |
-| L5 | Agent 基于个人对象库工作 | 极高（Agent 不懂新工具里的你） | 高 |
+| L0 | Search + read reviews only | Zero | — |
+| L1 | Trace citations in reviews | Low (search again in another tool) | Low |
+| L2 | Write multiple Notes on papers | Medium (Notes lost when switching) | Medium |
+| L3 | Build EvidenceSet + Hypothesis links | High (knowledge structure hard to migrate) | Medium-high |
+| L4 | Accumulate many CitationRelations (paper relationship graph) | Extremely high (personal knowledge graph) | High |
+| L5 | Agent works from personal object library | Extremely high (Agent does not understand you in the new tool) | High |
 
-**核心洞察**：ASCI 的用户粘性不在功能本身，而在**用户用 ASCI 对象模型积累的个人研究知识资产**。这是经典的"数据重力"效应——数据越重，越难迁移。
+**Core insight**: ASCI's retention comes from **personal research knowledge assets accumulated through its object model**, rather than features themselves. This is classic “data gravity”: heavier data is harder to migrate.
 
-## 2.3 用 Sean Ellis 测试反推
+<a id="23-用-sean-ellis-测试反推"></a>
 
-"如果你不能再使用 ASCI，你会有多失望？"
+## 2.3 Working Backward from the Sean Ellis Test
 
-- 仅用检索功能的用户 → 不太失望（有替代品）
-- 已积累 50+ Note、10+ EvidenceSet 的用户 → 非常失望（知识带不走）
-- Agent 已熟悉其研究脉络的用户 → 极度失望（Agent 的上下文记忆不可迁移）
+“How disappointed would you be if you could no longer use ASCI?”
 
-**结论**：ASCI 的 PMF 信号不应只看 DAU，而要看**用户的数据深度**——有多少用户达到了 L3+。L3+ 用户的"非常失望"比例才是真正的 PMF 指标。
+- Search-only users → not very disappointed (alternatives exist)
+- Users with 50+ Notes and 10+ EvidenceSets → very disappointed (cannot take their knowledge along)
+- Users whose Agent understands their research context → extremely disappointed (Agent context memory cannot migrate)
 
-## 2.4 冷启动的诚实评估
+**Conclusion**: PMF signals should track **user data depth**, not just DAU: how many users reach L3+. The “very disappointed” share among L3+ users is the real PMF metric.
 
-`[推断]` ASCI 存在一个**冷启动谷**：新用户一开始只看到检索+综述（L0），此时切换成本为零。只有引导用户完成 "首次写 Note → 首次建 EvidenceSet → 首次让 Agent 操作对象" 的激活路径，才能跨过粘性阈值。
+<a id="24-冷启动的诚实评估"></a>
 
-**建议北极星指标**：不是"月活用户数"，而是"达到 L3 数据深度的用户比例"。
+## 2.4 Honest Cold-Start Assessment
+
+`[推断]` (inference) ASCI has a **cold-start valley**: new users initially see only search + reviews (L0), with zero switching cost. They cross the retention threshold only through “first Note → first EvidenceSet → first Agent object operation.”
+
+**Suggested North Star metric**: “share of users reaching L3 data depth,” rather than monthly active users.
 
 ---
 
-# 三、狐尼克：产品差异化 & 不可复制性
+<a id="三狐尼克产品差异化-&#45;不可复制性"></a>
 
-## 3.1 什么可以被 vibe-coding 复制？
+# III. Fox Nick: Product Differentiation & Resistance to Copying
+
+<a id="31-什么可以被-vibe-coding-复制"></a>
+
+## 3.1 What Can Vibe-Coding Copy?
 
 ```
-ChatGPT + "帮我做一个论文检索工具，支持关键词搜索和综述生成"
-→ 一个周末可以出原型
+ChatGPT + “Build me a paper-search tool with keyword search and review generation”
+→ A prototype in one weekend
 ```
 
-可以被复制的层：
-- UI 交互（侧边栏、卡片、搜索框）
-- LLM 调用（prompt engineering）
-- 基本检索流程（调用 API → 展示结果）
+Copyable layers:
+- UI interactions (sidebars, cards, search boxes)
+- LLM calls (prompt engineering)
+- Basic search flows (call API → display results)
 
-## 3.2 什么不能？
+<a id="32-什么不能"></a>
 
-### 不可复制层一：对象模型即数据协议
+## 3.2 What Cannot Be Copied?
 
-6 个对象 + 3 条协议不是代码问题，而是**设计决策问题**。vibe-coding 可以生成 CRUD，但不会生成"追加不覆盖 + 引用不复制 + 查询不遍历"的协议设计。
+<a id="不可复制层一对象模型即数据协议"></a>
 
-这类似于——任何人都能写 JSON，但 **JSON Schema** 和 **GraphQL spec** 需要深思熟虑的设计。如果 ASCI 的对象模型成为科研领域的开放标准（像 BibTeX 之于文献引用），它就从一个产品功能升级为**基础设施协议**。
+### Layer One: Object Model as Data Protocol
 
-### 不可复制层二：证据链的完整性担保
+6 objects + 3 protocols are a **design-decision problem**, not a coding problem. Vibe-coding can generate CRUD but not the protocol design “append, never overwrite + reference, never copy + query, never traverse.”
 
-"这个结论可以追溯到这篇论文的这个段落"——这不是 AI 能力问题，是**产品架构保证**。
+Anyone can write JSON, but **JSON Schema** and the **GraphQL spec** require careful design. If ASCI's object model becomes an open research standard (like BibTeX for references), it rises from product feature to **infrastructure protocol**.
 
-vibe-coding 做不出这个的原因：
-- 需要 0.1 的可信检索（A0-A4 审计标准）作为数据质量底座
-- 需要 0.2 的对象模型作为引用载体
-- 需要综述生成的思考链（B4）作为因果路径
-- 三者缺一环，引用链就断了
+<a id="不可复制层二证据链的完整性担保"></a>
 
-### 不可复制层三：Agent 对用户个人对象库的上下文理解
+### Layer Two: Guaranteed Evidence-Chain Integrity
 
-Agent 不是"接入 LLM API 回答问题"，而是**操作你的 Paper、Note、EvidenceSet、Hypothesis 这些个人对象**。这要求：
+“This conclusion traces to this paragraph of this paper” is a **product architecture guarantee**, not an AI capability.
 
-- Agent 理解你的研究脉络（通过 CitationRelation 图）
-- Agent 知道哪些 Hypothesis 有新证据待审查（V8）
-- Agent 可以在你的 Note 历史中找到相关批注
+Why vibe-coding cannot achieve this:
+- Requires 0.1 trusted retrieval (A0-A4 audit criteria) as the data-quality foundation
+- Requires the 0.2 object model as the reference carrier
+- Requires the review-generation reasoning chain (B4) as the causal path
+- Lose any of the three links and the citation chain breaks
 
-这是"Agent + 个人知识库"的深度耦合，不是 API 调用层的差异。
+<a id="不可复制层三agent-对用户个人对象库的上下文理解"></a>
 
-## 3.3 狐尼克的产品差异化建议
+### Layer Three: Agent Contextual Understanding of Personal Object Libraries
 
-| 差异化点 | 具体做法 | 不可复制性 |
+The Agent **operates your personal Paper, Note, EvidenceSet, and Hypothesis objects**, rather than merely answering through an LLM API. This requires:
+
+- Understanding your research context (through the CitationRelation graph)
+- Knowing which Hypotheses have new evidence awaiting review (V8)
+- Finding relevant annotations in your Note history
+
+This deeply couples Agent + personal knowledge base, beyond API-call differences.
+
+<a id="33-狐尼克的产品差异化建议"></a>
+
+## 3.3 Fox Nick's Differentiation Suggestions
+
+| Differentiation | Concrete action | Resistance to copying |
 |---------|---------|-----------|
-| **对象格式开源** | 把 Paper/EvidenceRef/Hypothesis 的 JSON Schema 开源 | 成为标准，竞品只能兼容你 |
-| **证据链可视化** | 从 Hypothesis → EvidenceSet → EvidenceRef → Paper 的可视化追溯图 | UI 可复制，但链的完整性不可复制 |
-| **本地数据所有权** | 用户数据存本地文件，标准格式，可带走 | 竞品用云端锁定，你用本地自由反锁定 |
-| **Agent 研究对象** | Agent 的操作单元是 ASCI 对象，不是纯文本对话 | 工具可复制，Agent 对"你的对象"的理解不可复制 |
+| **Open object formats** | Open-source Paper/EvidenceRef/Hypothesis JSON Schemas | Become a standard competitors must support |
+| **Evidence-chain visualization** | Trace graph Hypothesis → EvidenceSet → EvidenceRef → Paper | UI can be copied, chain integrity cannot |
+| **Local data ownership** | Local files, standard formats, portable | Counter cloud lock-in with local freedom |
+| **Agent research objects** | ASCI objects are the Agent's operating unit, rather than plain-text chat | Tools can be copied, understanding of your objects cannot |
 
 ---
 
-# 四、虎尼克：战略整合 & 行动建议
+<a id="四虎尼克战略整合-&#45;行动建议"></a>
 
-## 4.1 护城河三层模型
+# IV. Tiger Nick: Strategy Integration & Actions
 
-综合三位分析，ASCI 的护城河可以建模为三层：
+<a id="41-护城河三层模型"></a>
+
+## 4.1 Three-Layer Moat Model
+
+Combining the three analyses gives three layers:
 
 ```
-Layer 3: 品牌信任（长期，0.3+）
-├── "可追溯的证据链" 建立科学诚信品牌
-├── 开源对象格式建立社区信任
-└── GDPR 合规 + 本地数据所有权建立用户信任
+Layer 3: Brand trust (long term,0.3+)
+├── Traceable evidence chains build a research-integrity brand
+├── Open object formats build community trust
+└── GDPR + local data ownership build user trust
 
-Layer 2: 工作流嵌入（中期，0.2 开始）
-├── 检索→综述→对象化→假设追踪 的完整闭环
-├── Agent 对个人对象库的深度上下文理解
-└── 数据重力：用户的研究资产积累
+Layer 2: Workflow embedding (medium term, starts0.2)
+├── Complete search→review→objects→hypothesis-tracking loop
+├── Agent deeply understands personal object-library context
+└── Data gravity: accumulated user research assets
 
-Layer 1: 功能工具（短期，0.1 已完成）
-├── 可信检索 + 综述
-├── 论文管理 + Zotero 集成
-└── 基础 UI 交互
+Layer 1: Functional tools (short term,0.1 complete)
+├── Trusted retrieval + reviews
+├── Paper management + Zotero integration
+└── Basic UI interactions
 ```
 
-**关键洞察**：Layer 1 是门票，不是护城河。vibe-coding 可以复制 Layer 1。ASCI 必须在 0.2/0.3 构建 Layer 2，在后续版本构建 Layer 3。
+**Key insight**: Layer 1 is admission, not a moat; vibe-coding can copy it. ASCI must build Layer 2 in 0.2/0.3 and Layer 3 in later versions.
 
-## 4.2 最具战略价值的护城河排序
+<a id="42-最具战略价值的护城河排序"></a>
 
-按**防御力 × 构建速度**综合排序：
+## 4.2 Ranking the Most Strategic Moats
 
-| 排序 | 护城河 | 防御力 | 构建速度 | 启动版本 |
+Ranked by **defensibility × construction speed**:
+
+| Rank | Moat | Defensibility | Build speed | Starting version |
 |------|--------|--------|---------|---------|
-| **🥇** | **用户个人研究资产积累** | 极高 | 慢（需要用户使用） | 0.2 |
-| **🥈** | **对象模型成为开放标准** | 极高 | 中 | 0.2（开源格式） |
-| **🥉** | **Agent 对个人对象库的上下文理解** | 高 | 中 | 0.2/0.3 |
-| 4 | 证据链完整性追溯 | 中高 | 中 | 0.1/0.2 |
-| 5 | 本地数据所有权 vs 云端锁定 | 中 | 快 | 0.1 已有 |
-| 6 | 品牌信任（科研诚信） | 中高 | 极慢 | 长期 |
+| **🥇** | **Accumulated personal research assets** | Extremely high | Slow (requires usage) | 0.2 |
+| **🥈** | **Object model becomes an open standard** | Extremely high | Medium | 0.2 (open formats) |
+| **🥉** | **Agent contextual understanding of personal object library** | High | Medium | 0.2/0.3 |
+| 4 | Complete evidence-chain traceability | Medium-high | Medium | 0.1/0.2 |
+| 5 | Local data ownership vs cloud lock-in | Medium | Fast | Already in 0.1 |
+| 6 | Brand trust (research integrity) | Medium-high | Extremely slow | Long term |
 
-## 4.3 战略建议
+<a id="43-战略建议"></a>
 
-### 🥇 P0 行动：将 ASCI 对象格式设计为开放标准
+## 4.3 Strategic Suggestions
 
-这不是工程实现建议，而是**战略定位建议**。
+<a id="-p0-行动将-asci-对象格式设计为开放标准"></a>
 
-- 把 6 个对象的 JSON Schema 以独立文档发布（开源协议）
-- 设计时就考虑可扩展性（第三方可以定义自己的对象类型）
-- 参考 BibTeX/Zotero CSL 的生态位——它们不是"功能"，是"标准"
+### 🥇 P0 Action: Design ASCI Object Formats as an Open Standard
 
-如果成功，ASCI 不是"又一个 AI 科研工具"，而是"AI 时代科研数据的标准化协议"。竞品要么选择兼容（成为 ASCI 生态的一部分），要么选择不兼容（用户因为数据可移植性而倾向于 ASCI）。
+This is a **strategic positioning recommendation**, beyond engineering implementation.
 
-### 🥈 P1 行动：设计从 L0 → L3 的激活路径
+- Publish JSON Schemas for all 6 objects as independent documentation (open protocol)
+- Design for extensibility (third parties can define their own object types)
+- Follow the ecosystem position of BibTeX/Zotero CSL: standards rather than features
 
-猫尼克提出的"冷启动谷"是真实风险。建议在 0.2 的验证应用中，将以下行为设计为**有引导的激活路径**：
+Success makes ASCI “a standardized protocol for research data in the AI era,” beyond another AI research tool. Competitors either support it (joining the ecosystem) or do not (users favor ASCI for portability).
 
-1. 首次检索+综述（L0，继承 0.1）
-2. 点击综述引用 → 查看 Paper 详情（L1，证据链查看器）
-3. 在 Paper 上写第一条 Note（L2，札记面板）
-4. 将多篇论文归入 EvidenceSet（L3，假设追踪器）
+<a id="-p1-行动设计从-l0-&#45;l3-的激活路径"></a>
 
-每一步需要明确的 UI 引导和"啊哈时刻"。如果用户停留在 L0，ASCI 对他们来说就是一个可以被替代的检索工具。
+### 🥈 P1 Action: Design L0 → L3 Activation
 
-### 🥉 P2 行动：在 0.3 中强化数据所有权的叙事
+Cat Nick's cold-start valley is a real risk. In 0.2 validation apps, make these a **guided activation path**:
 
-本地存储 + 开放格式 = "你的数据永远是你的"。这在 AI 时代是稀缺的差异化——大多数 AI 产品用云端存储锁定用户。ASCI 反其道而行，用数据可移植性建立信任。
+1. First search + review (L0, inherited from 0.1)
+2. Click review citation → Paper detail (L1, evidence-chain viewer)
+3. Write first Note on a Paper (L2, notes panel)
+4. Group papers into an EvidenceSet (L3, hypothesis tracker)
 
-在 0.3 的 Privacy Policy 和产品文案中，把"数据所有权"从技术事实转化为用户可感知的价值主张。
+Each step needs clear UI guidance and an aha moment. Users remaining at L0 see ASCI as a replaceable search tool.
 
-## 4.4 一个诚实的提醒
+<a id="-p2-行动在-03-中强化数据所有权的叙事"></a>
 
-`[推断]` 上述护城河的理论值很高，但 ASCI 面临一个**时间窗口悖论**：
+### 🥉 P2 Action: Strengthen Data-Ownership Messaging in 0.3
 
-- 护城河需要时间积累（用户资产、对象标准采用、品牌信任）
-- AI 工具竞争加速（竞品迭代速度也在加快）
-- ASCI 目前还是小团队（4 人）
+Local storage + open formats = “your data always belongs to you.” This is rare differentiation in AI: most products lock users into cloud storage. ASCI takes the opposite approach, building trust through portability.
 
-这意味着：**护城河策略的正确性取决于执行速度**。0.2/0.3 的节奏（~5.5 周）是合理的，但如果竞品已经开始做对象化能力，窗口会收窄。
+In 0.3 Privacy Policy and product copy, translate data ownership from technical fact into a user-perceived value proposition.
 
-**鹰尼克建议**：持续监控 Elicit、Semantic Scholar、Consensus 的产品动态，尤其是它们是否引入"用户笔记""证据关联""假设追踪"等对象化功能。目前 `[未搜索，待验证]` 尚不确定它们的路线图。
+<a id="44-一个诚实的提醒"></a>
+
+## 4.4 An Honest Reminder
+
+`[推断]` (inference) These moats have high theoretical value, but ASCI faces a **time-window paradox**:
+
+- Moats take time (user assets, object-standard adoption, brand trust)
+- AI-tool competition accelerates (competitors iterate faster too)
+- ASCI remains a small team (4 people)
+
+Thus **the strategy's validity depends on execution speed**. The 0.2/0.3 cadence (~5.5 weeks) is reasonable, but the window shrinks if competitors start object capabilities.
+
+**Eagle Nick suggests**: continuously monitor Elicit, Semantic Scholar, and Consensus, especially user notes, evidence links, and hypothesis tracking. Currently `[未搜索，待验证]` (not searched, awaiting verification), their roadmaps remain uncertain.
 
 ---
 
-# 五、共识总结
+<a id="五共识总结"></a>
 
-| 角色 | 一句话判断 |
+# V. Consensus
+
+| Role | One-sentence judgment |
 |------|-----------|
-| 🦅 鹰尼克 | 不要对标 AI 检索工具，要对标 Obsidian+Zotero——护城河在数据格式标准和用户资产 |
-| 🐱 猫尼克 | 粘性不在功能在数据深度。北极星指标应该是 L3+ 用户比例，不是 DAU |
-| 🦊 狐尼克 | vibe-coding 能复制 UI 和 prompt，不能复制协议设计、证据链完整性和 Agent 对个人对象库的理解 |
-| 🐯 虎尼克 | 三层护城河：Layer 1 是门票，Layer 2 是防御，Layer 3 是品牌。0.2/0.3 必须建成 Layer 2 |
+| 🦅 Eagle Nick | Benchmark Obsidian+Zotero rather than AI search tools; the moat lies in format standards and user assets |
+| 🐱 Cat Nick | Retention is data depth; the North Star should be L3+ user share rather than DAU |
+| 🦊 Fox Nick | Vibe-coding copies UI/prompts, not protocol design, evidence integrity, or Agent understanding of personal objects |
+| 🐯 Tiger Nick | Three layers: Layer 1 admission, Layer 2 defense, Layer 3 brand. Build Layer 2 in 0.2/0.3 |
 
-**ASCI 真正的护城河 = 个人研究资产积累 × 开放对象标准 × 本地数据所有权 × Agent 上下文理解**
+**ASCI's real moat = accumulated personal research assets × open object standards × local data ownership × Agent contextual understanding**
 
-这四个乘起来，不是任何一个 vibe-coding 项目能在周末复制的。
+Multiplied together, these cannot be reproduced by a weekend vibe-coding project.

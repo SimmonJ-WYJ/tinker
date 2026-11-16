@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Onboarding 流程演示（重设版 · 按账号）</title>
+<title>Onboarding Flow Demo (Redesigned · Per Account)</title>
 <style>
   :root{
     --text:#1f1f1d; --soft:#6f6f69; --faint:#9a9a93;
@@ -19,7 +19,7 @@
   svg{display:block;}
   .ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 
-  /* ===== 顶部演示控制条 ===== */
+  /* ===== Top demo controls ===== */
   .demobar{
     position:fixed;top:0;left:0;right:0;height:52px;z-index:200;
     background:#fff;border-bottom:1px solid var(--hair);
@@ -36,7 +36,7 @@
   .demobar button.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
   .demobar button.primary:hover{background:var(--primary-hover);}
 
-  /* ===== 应用外壳（演示背景） ===== */
+  /* ===== App shell (demo background) ===== */
   .stage{position:fixed;top:52px;left:0;right:0;bottom:0;display:flex;background:var(--panel);overflow:hidden;}
   .left{width:240px;flex:none;background:var(--side);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:14px 12px;}
   .proj{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;font-weight:600;}
@@ -55,17 +55,17 @@
   .canvas{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;}
   .empty{max-width:520px;text-align:center;color:var(--faint);}
   .empty h2{color:var(--text);font-size:18px;margin:0 0 6px;}
-  /* starter chips（第 3 步用） */
+  /* Starter chips (step 3) */
   .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px;}
   .chip{border:1px solid var(--hair);background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;color:#333;display:flex;gap:8px;align-items:center;max-width:230px;text-align:left;}
 
-  /* ===== 高亮（spotlight）：被高亮元素抬到遮罩之上 ===== */
+  /* ===== Spotlight: raise highlighted elements above the overlay ===== */
   .dim{position:fixed;inset:52px 0 0 0;background:rgba(20,20,18,0.5);z-index:100;opacity:0;pointer-events:none;transition:opacity .18s;}
   .dim.show{opacity:1;pointer-events:auto;}
   .spot{position:relative;z-index:120;background:#fff !important;box-shadow:0 0 0 3px var(--ring),0 8px 24px rgba(0,0,0,.18);border-radius:10px;}
   .chips.spot{padding:14px;}
 
-  /* tooltip 卡片 */
+  /* Tooltip card */
   .tip{position:fixed;z-index:130;width:280px;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.22);padding:16px;display:none;}
   .tip.show{display:block;}
   .tip .k{font-size:11px;color:var(--accent);font-weight:600;letter-spacing:.04em;}
@@ -77,7 +77,7 @@
   .tip button.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
   .tip .skip{border:none;background:none;color:var(--faint);padding:7px 4px;}
 
-  /* ===== 全屏模态（登录 / 欢迎 / 完成） ===== */
+  /* ===== Fullscreen modals (sign-in / welcome / completion) ===== */
   .modal{position:fixed;inset:52px 0 0 0;z-index:150;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.92);}
   .modal.show{display:flex;}
   .card{width:380px;background:#fff;border:1px solid var(--hair);border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.12);padding:30px 28px;text-align:center;}
@@ -89,34 +89,34 @@
   .card .ghost{display:block;width:100%;margin-top:10px;background:none;border:none;color:var(--faint);font:inherit;font-size:13px;cursor:pointer;}
   .zbadge{width:18px;height:18px;border-radius:4px;background:#fff;color:var(--zotero);font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center;}
 
-  /* 完成态 checklist */
+  /* Completion checklist */
   .check{text-align:left;margin:4px 0 18px;}
   .check li{list-style:none;display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13.5px;color:#333;}
   .check .tick{width:20px;height:20px;border-radius:50%;background:#e3f0e3;color:#2f7d32;display:flex;align-items:center;justify-content:center;flex:none;}
 
-  /* 账号作用域说明浮条 */
+  /* Account scope explanation banner */
   .note{position:fixed;right:18px;bottom:18px;z-index:210;max-width:300px;background:#fff;border:1px solid var(--hair);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.12);padding:12px 14px;font-size:12px;color:var(--soft);line-height:1.55;}
   .note b{color:var(--text);}
 </style>
 </head>
 <body>
 
-  <!-- 顶部演示控制条 -->
+  <!-- Top demo controls -->
   <div class="demobar">
-    <b>Onboarding 演示</b>
-    <span class="stagename" id="stageName">登录门</span>
+    <b>Onboarding demo</b>
+    <span class="stagename" id="stageName">Sign-in gate</span>
     <div class="steps" id="dots"></div>
     <span class="sp"></span>
-    <button id="backBtn">← 上一步</button>
-    <button class="primary" id="restartBtn">↺ 重新跑一遍</button>
+    <button id="backBtn">← Previous</button>
+    <button class="primary" id="restartBtn">↺ Restart</button>
   </div>
 
-  <!-- 应用外壳背景 -->
+  <!-- App shell background -->
   <div class="stage">
     <aside class="left">
       <div class="proj">
         <svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
-        生物学
+        Biology
       </div>
       <div class="nav">
         <div class="item">
@@ -133,97 +133,97 @@
         </div>
       </div>
       <div class="ws-label">Workspace</div>
-      <div class="ws-item active">检索 大模型 + 蛋白结构…</div>
+      <div class="ws-item active">Search LLMs + protein structure…</div>
       <div class="ws-item">New Agent session</div>
       <div class="left-sp"></div>
-      <div class="user"><span class="ava">张</span>张三 · OPENSCI</div>
+      <div class="user"><span class="ava">Z</span>Zhang San · OPENSCI</div>
     </aside>
 
     <main class="center">
-      <div class="ctitle">工作区</div>
+      <div class="ctitle">Workspace</div>
       <div class="canvas">
         <div class="empty" id="canvasEmpty">
-          <h2>开始你的科研任务</h2>
-          <div>从左侧「New task」新建，或选择一个起步卡片。</div>
+          <h2>Start your research task</h2>
+          <div>Choose New task on the left, or select a starter card.</div>
           <div class="chips" id="starterChips">
-            <div class="chip">🔬 检索蛋白结构预测相关论文</div>
-            <div class="chip">📄 解析一篇 PDF 并提炼要点</div>
-            <div class="chip">📚 从 Zotero 导入文献综述</div>
-            <div class="chip">📝 生成一篇文献综述</div>
+            <div class="chip">🔬 Find papers on protein structure prediction</div>
+            <div class="chip">📄 Parse a PDF and extract key points</div>
+            <div class="chip">📚 Import a literature review from Zotero</div>
+            <div class="chip">📝 Generate a literature review</div>
           </div>
         </div>
       </div>
     </main>
   </div>
 
-  <!-- 遮罩 + spotlight tooltip -->
+  <!-- Overlay + spotlight tooltip -->
   <div class="dim" id="dim"></div>
   <div class="tip" id="tip">
     <div class="k" id="tipK">1 / 3</div>
-    <h3 id="tipH">标题</h3>
-    <p id="tipP">说明</p>
+    <h3 id="tipH">Title</h3>
+    <p id="tipP">Description</p>
     <div class="row">
-      <button class="skip" id="tipSkip">跳过引导</button>
+      <button class="skip" id="tipSkip">Skip tour</button>
       <span class="sp"></span>
-      <button class="primary" id="tipNext">下一步</button>
+      <button class="primary" id="tipNext">Next</button>
     </div>
   </div>
 
-  <!-- 登录模态 -->
+  <!-- Sign-in modal -->
   <div class="modal" id="m-login">
     <div class="card">
       <div class="logo"><svg class="ic" viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M5 21 12 3l7 18M8 14h8"/></svg></div>
-      <h2>欢迎使用 ASCI</h2>
-      <p>登录以同步你的项目与文献库。数据默认存于本地。</p>
-      <button class="full" id="loginBtn">使用 OPENSCI 登录</button>
-      <button class="ghost">取消</button>
+      <h2>Welcome to ASCI</h2>
+      <p>Sign in to sync your projects and library. Data is stored locally by default.</p>
+      <button class="full" id="loginBtn">Sign in with OPENSCI</button>
+      <button class="ghost">Cancel</button>
     </div>
   </div>
 
-  <!-- 欢迎模态（按账号） -->
+  <!-- Welcome modal (per account) -->
   <div class="modal" id="m-welcome">
     <div class="card">
       <div class="logo">👋</div>
-      <h2>欢迎，张三</h2>
-      <p>看起来是你第一次使用 ASCI。用大约 1 分钟完成 3 步上手，<br/>之后随时可在设置里重看。</p>
-      <button class="full" id="welcomeStart">开始上手（3 步）</button>
-      <button class="ghost" id="welcomeSkip">跳过，直接开始用</button>
+      <h2>Welcome, Zhang San</h2>
+      <p>It looks like this is your first time using ASCI. Take about 1 minute for 3 onboarding steps,<br/>then revisit them anytime in Settings.</p>
+      <button class="full" id="welcomeStart">Get started (3 steps)</button>
+      <button class="ghost" id="welcomeSkip">Skip and start using</button>
     </div>
   </div>
 
-  <!-- 完成模态 -->
+  <!-- Completion modal -->
   <div class="modal" id="m-done">
     <div class="card">
       <div class="logo" style="background:#e3f0e3;color:#2f7d32">✓</div>
-      <h2>上手完成 🎉</h2>
+      <h2>Onboarding complete 🎉</h2>
       <ul class="check">
-        <li><span class="tick">✓</span> 配置了模型渠道</li>
-        <li><span class="tick">✓</span> 连接了 Zotero 文献库</li>
-        <li><span class="tick">✓</span> 了解了如何开始任务</li>
+        <li><span class="tick">✓</span> Configured a model channel</li>
+        <li><span class="tick">✓</span> Connected a Zotero library</li>
+        <li><span class="tick">✓</span> Learned how to start tasks</li>
       </ul>
-      <p style="margin-bottom:14px">完成状态已按你的账号记忆：换设备不会重复引导。</p>
-      <button class="full" id="doneBtn">开始使用 ASCI</button>
+      <p style="margin-bottom:14px">Completion is remembered for your account: switching devices will not repeat onboarding.</p>
+      <button class="full" id="doneBtn">Start using ASCI</button>
     </div>
   </div>
 
-  <!-- 账号作用域说明 -->
+  <!-- Account scope explanation -->
   <div class="note">
-    <b>重设要点 · 按账号记忆</b><br/>
-    上手完成度跟随登录账号（uid），而非这台设备：<br/>
-    · 同账号换设备 → 不再重复引导<br/>
-    · 同设备换新账号 → 为新人重新引导<br/>
-    · 登出再登录 → 按账号判定，不误重放
+    <b>Redesign note · Remembered per account</b><br/>
+    Onboarding completion follows the signed-in account (uid), rather than this device:<br/>
+    · Same account, new device → No repeated onboarding<br/>
+    · Same device, new account → Onboard the new user<br/>
+    · Sign out and back in → Check account without accidental replay
   </div>
 
 <script>
-  // 流程状态机：登录 → 欢迎 → 3 步 spotlight → 完成
+  // Flow state machine: sign-in → welcome → 3 spotlight steps → completion
   const STAGES = [
-    { id:'login',   name:'登录门（强制）' },
-    { id:'welcome', name:'欢迎（按账号判定首次）' },
-    { id:'s1',      name:'第 1 步 · 配置模型', tip:{ target:'nav-configure', k:'1 / 3', h:'配置模型渠道', p:'连接你的 LLM（如 Claude / Kimi）。这是开始任务的前提。' } },
-    { id:'s2',      name:'第 2 步 · 连接 Zotero', tip:{ target:'nav-library', k:'2 / 3', h:'连接 Zotero 文献库', p:'在 Library 里启动 Zotero，检索到的论文可一键入库。' } },
-    { id:'s3',      name:'第 3 步 · 开始任务', tip:{ target:'starterChips', k:'3 / 3', h:'开始第一个任务', p:'点「New task」新建，或直接选一个起步卡片试试。', placeBelow:true } },
-    { id:'done',    name:'完成（按账号记忆）' },
+    { id:'login',   name:'Sign-in gate (required)' },
+    { id:'welcome', name:'Welcome (first use per account)' },
+    { id:'s1',      name:'Step 1 · Configure model', tip:{ target:'nav-configure', k:'1 / 3', h:'Configure model channel', p:'Connect your LLM (such as Claude / Kimi). This is required to start tasks.' } },
+    { id:'s2',      name:'Step 2 · Connect Zotero', tip:{ target:'nav-library', k:'2 / 3', h:'Connect Zotero library', p:'Launch Zotero in Library to add search results with one click.' } },
+    { id:'s3',      name:'Step 3 · Start a task', tip:{ target:'starterChips', k:'3 / 3', h:'Start your first task', p:'Click New task, or try a starter card.', placeBelow:true } },
+    { id:'done',    name:'Done (remembered per account)' },
   ];
   let i = 0;
 
@@ -245,13 +245,13 @@
     const r = el.getBoundingClientRect();
     tip.classList.add('show');
     if(below){
-      // 放在目标下方居中
+      // Center below target
       let left = r.left + r.width/2 - 140;
       left = Math.max(16, Math.min(left, window.innerWidth-296));
       tip.style.left = left+'px';
       tip.style.top = (r.bottom + 14)+'px';
     } else {
-      // 放在目标右侧
+      // Place to the right of target
       tip.style.left = (r.right + 14)+'px';
       tip.style.top = r.top+'px';
     }
@@ -272,7 +272,7 @@
       $('#tipK').textContent = s.tip.k;
       $('#tipH').textContent = s.tip.h;
       $('#tipP').textContent = s.tip.p;
-      $('#tipNext').textContent = (s.id==='s3') ? '完成 ✓' : '下一步';
+      $('#tipNext').textContent = (s.id==='s3') ? 'Done ✓' : 'Next';
       placeTip(s.tip.target, s.tip.placeBelow);
     }
   }
@@ -280,13 +280,13 @@
   function go(n){ i = Math.max(0, Math.min(STAGES.length-1, n)); render(); }
   const next = ()=>go(i+1);
 
-  // 控件
-  $('#loginBtn').onclick = next;            // 登录 → 欢迎
-  $('#welcomeStart').onclick = next;        // 欢迎 → 第1步
-  $('#welcomeSkip').onclick = ()=>go(STAGES.length-1); // 跳过 → 完成（演示用）
-  $('#tipNext').onclick = next;             // 步进
+  // Controls
+  $('#loginBtn').onclick = next;            // Sign-in → welcome
+  $('#welcomeStart').onclick = next;        // Welcome → step 1
+  $('#welcomeSkip').onclick = ()=>go(STAGES.length-1); // Skip → done (demo only)
+  $('#tipNext').onclick = next;             // Advance
   $('#tipSkip').onclick = ()=>go(STAGES.length-1);
-  $('#doneBtn').onclick = ()=>go(0);        // 重新跑
+  $('#doneBtn').onclick = ()=>go(0);        // Restart
   $('#backBtn').onclick = ()=>go(i-1);
   $('#restartBtn').onclick = ()=>go(0);
   window.addEventListener('resize', ()=>{ const s=STAGES[i]; if(s.tip) placeTip(s.tip.target, s.tip.placeBelow); });

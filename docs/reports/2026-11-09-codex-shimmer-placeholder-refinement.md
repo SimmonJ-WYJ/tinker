@@ -1,35 +1,43 @@
-# 用户复调：浅色占位与 Codex 式扫光
+<a id="用户复调浅色占位与-codex-式扫光"></a>
 
-本轮在本地分支 fix/config-placeholder-loading-contrast 继续调整，承接 f04afa7。用户明确要求占位文字更浅、运行状态默认字色与光感参考 Codex，随后再次要求只将框内示例调浅。
+# User Refinement: Lighter Placeholders and Codex-Style Shimmer
 
-## 最终改动
+This round continues on local branch fix/config-placeholder-loading-contrast from f04afa7. The user explicitly requested lighter placeholders and a running-state base text color and lighting modeled on Codex, then requested a further adjustment limited to lighter examples inside fields.
 
-- 新 channel-form.css 仅选中模型配置里的 input::placeholder 和空 Base URL 说明。
-- 浅色占位从 #737373 经 #999999 调至 #B4B4B4，辅助说明 #8F8F8F。深色占位 #858585，辅助说明 #999999。
-- 真实输入、标签与必填反馈保留原色，URL 示例前缀、空值门控及实际端点预览沿用上一提交。
-- 运行文字基色改为浅色 #5D5D5D、深色 #CDCDCD 的 55% 透明字色，窄白色扫光为 75%，不再是持续偏黑的主标题。
-- .6s 进入等待、1s 扫过、48 steps、4s 周期，其余时间保持底字。用单份文字的 CSS 背景裁切实现，不复制可访问文字、不新增 JS 定时器。
-- reduced-motion 与 forced-colors 恢复普通文字；配置占位在 forced-colors 使用系统 GrayText。
+<a id="最终改动"></a>
 
-## 参考与边界
+## Final Changes
 
-只读检查了本机 `/Applications/ChatGPT.app/Contents/Resources/app.asar` 的 Codex CadencedLoadingShimmer 样式与节奏。参考包含 55% 基色、75% 高光、半文字宽度渐变、600ms 初次等待、1s/48 steps 扫过、4s 调度。源 CSS/JS 留在 /tmp 作为核对资料，不提交到项目。没有读取聊天、认证、截图中 Key 或其他个人数据。
+- New channel-form.css targets only input::placeholder and empty Base URL descriptions in model configuration.
+- Light-theme placeholders changed from #737373 through #999999 to #B4B4B4; helper text is #8F8F8F. Dark-theme placeholders are #858585; helper text is #999999.
+- Real input, labels, and required-field feedback retain their colors; URL example prefixes, empty-value gating, and actual endpoint previews retain the previous commit's behavior.
+- Running text uses light #5D5D5D and dark #CDCDCD at 55% opacity, with a narrow white highlight at 75%, replacing the persistently dark primary title appearance.
+- .6s initial wait, 1s sweep, 48 steps, and a 4s cycle; the base text remains visible otherwise. CSS background clipping uses a single text copy without duplicating accessible text or adding JS timers.
+- reduced-motion and forced-colors restore ordinary text; configuration placeholders use system GrayText in forced-colors.
 
-GPT 不同输入场景使用不同占位 token。本轮根据用户指定的浅灰观感采用 #B4B4B4，不声称所有 GPT 表单都使用同一颜色。Tinker 的字体、字号和布局保留，未复制 Codex 的可见性调度实现。
+<a id="参考与边界"></a>
 
-本次用户选择覆盖上一轮“所有扫光端点至少 4.5:1”的视觉目标，旧报告的对比数字只描述 f04afa7，不代表这次更浅的视觉方案。
+## References and Boundaries
 
-## 验证
+Read-only inspection of local `/Applications/ChatGPT.app/Contents/Resources/app.asar` covered Codex CadencedLoadingShimmer styles and timing: 55% base color, 75% highlight, half-text-width gradient, 600ms initial wait, 1s/48 steps sweep, and 4s scheduling. Source CSS/JS remains in /tmp for comparison and is not committed to the project. No chats, authentication, screenshot Keys, or other personal data were read.
 
-- 全仓最终：3459 pass、4 既有 skip、0 fail，3463 tests / 384 files。
-- Typecheck：6 workspace 通过；lint 与 Electron build 通过。
-- 首次并行全仓运行有一个既有 runtime-provisioner 测试 5s 超时，未改运行时代码，结束并发后完整重跑通过。
-- 实际浏览器检查浅深色占位、辅助说明与真实输入各自颜色，中文/英文、390px、停止/重新开始、减少动态与强制颜色。
-- 时间采样验证 .6s 等待、1s 扫过、循环留白与重置，文字范围固定，单份标题可访问语义保留。
-- 精确循环边界的浮点采样曾失败，改为边界后 10ms 的采样通过。深色输入检查等待既有 300ms 主题过渡后通过，无生产代码绕过。
-- `/tmp/tinker-ux-contrast-qa-20261109/preview-v3-result.json` 为最终预览核验，原生模型请求为 0。
-- 临时预览入口未进入生产提交，独立静态预览留在 `/tmp/tinker-ux-view-20261109`，由本机 127.0.0.1:5204 提供。
+GPT uses different placeholder tokens in different input contexts. This round uses #B4B4B4 for the user's requested light-gray appearance, without claiming all GPT forms share this color. Tinker's font, font size, and layout remain; Codex visibility scheduling was not copied.
 
-用户确认预览后授权上传 GitHub，本次仅推送独立分支并创建 Draft PR，不合并、不安装或替换桌面 DMG。现用 0.1.615 不会自动更新；源码版本为提交钩子维护的 0.1.616。
+The user's choice this round overrides the previous visual target of “at least 4.5:1 at all shimmer endpoints” (English translation). Contrast figures in the old report describe f04afa7 only, not this lighter visual design.
 
-供 PR 复核的合成截图：[浅色](./assets/2026-11-09-provider-shimmer-light.png)、[深色](./assets/2026-11-09-provider-shimmer-dark.png)。两图只含模拟表单与聊天状态，未使用用户截图、真实会话或客户端配置。
+<a id="验证"></a>
+
+## Validation
+
+- Final repository-wide result: 3459 pass, 4 existing skip, 0 fail; 3463 tests / 384 files.
+- Typecheck: 6 workspaces passed; lint and Electron build passed.
+- The first parallel full-repository run hit an existing runtime-provisioner test's 5s timeout. Runtime code was unchanged; the complete rerun passed after concurrency ended.
+- Real-browser checks covered placeholder, helper, and actual input colors in light/dark themes, Chinese/English, 390px, stop/restart, reduced motion, and forced colors.
+- Time sampling verified the .6s wait, 1s sweep, idle interval, and reset; text ranges stayed fixed and single-copy title accessibility semantics remained.
+- Floating-point sampling at exact cycle boundaries initially failed; sampling 10ms after the boundary passed. Dark input checks passed after waiting for the existing 300ms theme transition, with no production-code bypass.
+- `/tmp/tinker-ux-contrast-qa-20261109/preview-v3-result.json` is the final preview verification; native model requests: 0.
+- Temporary preview entry points did not enter the production commit; the independent static preview remains at `/tmp/tinker-ux-view-20261109`, served locally at 127.0.0.1:5204.
+
+After confirming the preview, the user authorized uploading to GitHub. This round only pushes an independent branch and creates a Draft PR; it does not merge, install, or replace the desktop DMG. The current 0.1.615 installation will not automatically update; the source version is 0.1.616, maintained by commit hooks.
+
+Synthetic screenshots for PR review: [Light](./assets/2026-11-09-provider-shimmer-light.png), [Dark](./assets/2026-11-09-provider-shimmer-dark.png). Both contain only simulated forms and chat statuses, without user screenshots, real conversations, or client configuration.

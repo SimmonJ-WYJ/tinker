@@ -1,59 +1,71 @@
-# Settings 样式统一 Spec
+<a id="settings-样式统一-spec"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：（暂无）
-> **关联 PR**：（待开，目标 `main`）
-> **目标分支**：`main`
-> **基线分支**：`alex-20260602-2`（已含 Codex 风 Card / Input / Button 基础重写）
-> **领域语言事实源**：本 spec（未引入新术语）
-> **变更范围**：渲染层 + i18n（无新 key，仅修 inline 文案处不动）；不动 IPC、不动主进程、不动业务逻辑
+# Settings Style Unification Spec
 
----
-
-## 1. 背景
-
-最近把设置模块的视觉基线改成 Codex 风（细边框替代阴影、行 padding 加宽、Input/Button 圆角统一），但只动了**全局基础组件**（`.settings-card` / `ui/input` / `ui/button` / `SettingsRow`），**没有同步**所有自己魔改的 settings 子页面。
-
-### 1.1 审计结论（已扫 17 个 settings 子页面，详见 PR 描述）
-
-**重复实现的 row 组件 5 份**：
-- `ZoteroModuleRow`（ZoteroSettings.tsx）
-- `ZoteroMediaPanel.tsx` 里的自定义 row
-- `ZoteroArticlePanel.tsx` 状态卡 row
-- `AboutSettings.tsx` UpdateCard 行
-- `GeneralSettings.tsx` ThemeCardPicker 容器
-
-形态共通：grid `[1fr_8rem]` + 左侧 (title + 可选 pill + description) + 右侧 (action)。比 `SettingsRow` 多两件事：pill 槽位 + action 支持复杂控件（不只是 Switch/Select）。
-
-**重复实现的 pill 组件 5 份**：
-- `CapabilityPill`（ZoteroSettings 内置 / 内置 OCR badge）
-- `StatusPill`（ZoteroSettings 状态 pill，含 success/warning/destructive 配色）
-- `MetricPill`（ZoteroMediaPanel）
-- `agent/McpSection.tsx` 内置 badge / transport pill
-- `SkillCategoryView.tsx` 状态 pill
-
-形态共通：`inline-flex h-6 items-center rounded-full bg-X/10 text-X px-2.5 text-xs font-medium leading-[1]`。
-
-**未对齐的 sweep 类偏离 30+ 处**：
-- `px-4 py-3` 旧 row padding（应升 `px-5 py-5`）
-- `shadow-sm` / `shadow-xl` 残留
-- 手写 `border-t border-border/50`（应让 `SettingsCard divided` 接管）
-- `h-7` / `h-8` Input / Button（应继承新默认 `h-10` / `h-9`）
-- 描述文字 `leading-snug`（应 `leading-relaxed`）
-
-### 1.2 目标
-
-1. 抽出两个共性 primitive：`SettingsModuleRow` + `SettingsPill`，删除 5+5 份重复
-2. sweep 全部 settings 子页面的 padding / shadow / border / 旧尺寸 / leading
-3. 让"打开任一 settings 页 → 视觉自洽"成为不需要费力维护的状态
+> **Status**: Draft · Awaiting review
+> **Related issue**: (None yet)
+> **Related PR**: (To be opened, targeting `main`)
+> **Target branch**: `main`
+> **Baseline branch**: `alex-20260602-2` (already includes the Codex-style Card / Input / Button foundation rewrite)
+> **Domain source of truth**: This spec (no new terms introduced)
+> **Change scope**: Renderer + i18n (no new keys; inline copy stays unchanged); no IPC, main-process, or business-logic changes
 
 ---
 
-## 2. 设计方案
+<a id="1-背景"></a>
 
-### 2.1 新 primitive 1：`SettingsModuleRow`
+## 1. Background
 
-位置：`apps/electron/src/renderer/components/settings/primitives/SettingsModuleRow.tsx`
+The settings visual baseline recently changed to Codex style (thin borders replacing shadows, wider row padding, consistent Input/Button corner radii), but only **global base components** changed (`.settings-card` / `ui/input` / `ui/button` / `SettingsRow`); settings subpages with custom implementations were **not updated together**.
+
+<a id="11-审计结论已扫-17-个-settings-子页面详见-pr-描述"></a>
+
+### 1.1 Audit Findings (17 Settings Subpages Inspected; See PR Description)
+
+**5 duplicate row implementations**:
+- `ZoteroModuleRow` (ZoteroSettings.tsx)
+- Custom rows in `ZoteroMediaPanel.tsx`
+- Status-card rows in `ZoteroArticlePanel.tsx`
+- UpdateCard rows in `AboutSettings.tsx`
+- ThemeCardPicker container in `GeneralSettings.tsx`
+
+Shared form: grid `[1fr_8rem]` + left (title + optional pill + description) + right (action). Two additions beyond `SettingsRow`: a pill slot and actions supporting complex controls (beyond Switch/Select).
+
+**5 duplicate pill implementations**:
+- `CapabilityPill` (built-in / built-in OCR badge in ZoteroSettings)
+- `StatusPill` (ZoteroSettings status pill, with success/warning/destructive colors)
+- `MetricPill` (ZoteroMediaPanel)
+- Built-in badge / transport pill in `agent/McpSection.tsx`
+- Status pill in `SkillCategoryView.tsx`
+
+Shared form: `inline-flex h-6 items-center rounded-full bg-X/10 text-X px-2.5 text-xs font-medium leading-[1]`.
+
+**30+ class inconsistencies requiring a sweep**:
+- Old `px-4 py-3` row padding (should become `px-5 py-5`)
+- Remaining `shadow-sm` / `shadow-xl`
+- Handwritten `border-t border-border/50` (should be handled by `SettingsCard divided`)
+- `h-7` / `h-8` Input / Button (should inherit new defaults `h-10` / `h-9`)
+- `leading-snug` description text (should be `leading-relaxed`)
+
+<a id="12-目标"></a>
+
+### 1.2 Goals
+
+1. Extract two shared primitives: `SettingsModuleRow` + `SettingsPill`, removing 5+5 duplicates
+2. Sweep padding / shadow / border / old sizes / leading across all settings subpages
+3. Make "open any settings page → visually consistent" easy to maintain
+
+---
+
+<a id="2-设计方案"></a>
+
+## 2. Design
+
+<a id="21-新-primitive-1settingsmodulerow"></a>
+
+### 2.1 New Primitive 1: `SettingsModuleRow`
+
+Location: `apps/electron/src/renderer/components/settings/primitives/SettingsModuleRow.tsx`
 
 ```tsx
 interface SettingsModuleRowProps {
@@ -70,21 +82,25 @@ interface SettingsModuleRowProps {
 }
 ```
 
-实现要点：
-- 容器：`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-5 py-5`
-- 标题块：`<div className="flex items-center gap-2 leading-none"><span title /><pill /></div>`
-- 描述块：`mt-2 text-sm leading-relaxed text-muted-foreground`，仅 description 存在时渲染
-- action 槽：`flex justify-end`
+The preserved interface comments describe the row title, optional adjacent pill, optional description, right action slot (Switch / Button / SegmentedControl / progress bar), and container-padding override.
 
-**与现有 `SettingsRow` 的区别 / 边界**：
-- `SettingsRow` 仍保留，用于"左 label + 右 control"的简单行（无 pill、description 较短）；许多 Form 字段是这类
-- `SettingsModuleRow` 用于"一个能力 / 模块"（title + 状态 pill + 较长描述 + 复杂 action）
+Implementation details:
+- Container: `grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-5 py-5`
+- Title block: `<div className="flex items-center gap-2 leading-none"><span title /><pill /></div>`
+- Description block: `mt-2 text-sm leading-relaxed text-muted-foreground`, rendered only when description exists
+- Action slot: `flex justify-end`
 
-**待删除的 5 份重复**：见 §3.1 迁移清单
+**Difference / boundary from existing `SettingsRow`**:
+- Retain `SettingsRow` for simple "left label + right control" rows (no pill, short description); many Form fields fit this category
+- Use `SettingsModuleRow` for "a capability / module" (title + status pill + longer description + complex action)
 
-### 2.2 新 primitive 2：`SettingsPill`
+**5 duplicates to remove**: See §3.1 migration checklist
 
-位置：`apps/electron/src/renderer/components/settings/primitives/SettingsPill.tsx`
+<a id="22-新-primitive-2settingspill"></a>
+
+### 2.2 New Primitive 2: `SettingsPill`
+
+Location: `apps/electron/src/renderer/components/settings/primitives/SettingsPill.tsx`
 
 ```tsx
 type PillTone = 'neutral' | 'success' | 'warning' | 'destructive' | 'info'
@@ -96,70 +112,86 @@ interface SettingsPillProps {
 }
 ```
 
-实现要点：
-- 基础：`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium leading-[1]`
-- tone 配色：
+The preserved inline comment identifies 'neutral' as the default.
+
+Implementation details:
+- Base: `inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium leading-[1]`
+- Tone colors:
   - `neutral`: `bg-muted text-muted-foreground`
   - `success`: `bg-success/10 text-success`
   - `warning`: `bg-warning/10 text-warning`
   - `destructive`: `bg-destructive/10 text-destructive`
-  - `info`: `bg-info/10 text-info`（若 design token 无 info，沿用 primary）
+  - `info`: `bg-info/10 text-info` (use primary if the design tokens lack info)
 
-**待删除的 5 份重复**：`CapabilityPill` / `StatusPill` / `MetricPill` / `agent/McpSection` 内置 badge / `SkillCategoryView` 状态 pill。
+**5 duplicates to remove**: `CapabilityPill` / `StatusPill` / `MetricPill` / built-in badge in `agent/McpSection` / status pill in `SkillCategoryView`.
 
-### 2.3 sweep 规则（不抽 primitive，统一旧值）
+<a id="23-sweep-规则不抽-primitive统一旧值"></a>
 
-| sweep 项 | 旧 → 新 | 影响文件 |
+### 2.3 Sweep Rules (Standardize Old Values Without Extracting Primitives)
+
+| Sweep item | Old → New | Affected files |
 |---|---|---|
-| Row padding | `px-4 py-3` → `px-5 py-4`（带描述的高密度行）或 `px-5 py-5`（带 input 的标准行） | ChannelForm, McpServerForm, AboutSettings.UpdateCard, GeneralSettings.ThemeCardPicker, SkillCategoryView.SkillItemRow, VersionHistory, ZoteroArticlePanel |
-| Inline shadow | 删 `shadow-sm` / `shadow-xl` / `shadow-[...]` | GeneralSettings.SoundPicker, ProfileSettings.NameRow Popover, ShortcutSettings.ShortcutRecorder, ChannelSettings.ChannelRow logo, McpServerForm.textarea |
-| 手写 border 分隔 | `border-t border-border/50` 串联 row → 改用 `SettingsCard divided` | AgentRuntimeSection, AboutSettings.UpdateCard 折叠区, VersionHistory, ChannelForm sticky 头 |
-| 旧 Input / Button 尺寸 | `h-7` / `h-8` → 继承默认（`h-9` button / `h-10` input） | ChannelForm 自定义模型输入、测试连接 / 拉取模型按钮；GeneralSettings.SelectTrigger / SoundPicker；ProfileSettings.NameRow 编辑态；ZoteroArticlePanel SelectTrigger；SkillCategoryView 搜索框 |
-| 描述 leading | `leading-snug` → `leading-relaxed` | ZoteroMediaPanel description, ZoteroArticlePanel model.hint |
+| Row padding | `px-4 py-3` → `px-5 py-4` (dense rows with descriptions) or `px-5 py-5` (standard rows with inputs) | ChannelForm, McpServerForm, AboutSettings.UpdateCard, GeneralSettings.ThemeCardPicker, SkillCategoryView.SkillItemRow, VersionHistory, ZoteroArticlePanel |
+| Inline shadow | Remove `shadow-sm` / `shadow-xl` / `shadow-[...]` | GeneralSettings.SoundPicker, ProfileSettings.NameRow Popover, ShortcutSettings.ShortcutRecorder, ChannelSettings.ChannelRow logo, McpServerForm.textarea |
+| Handwritten border separators | Chained rows with `border-t border-border/50` → `SettingsCard divided` | AgentRuntimeSection, AboutSettings.UpdateCard collapsible section, VersionHistory, ChannelForm sticky header |
+| Old Input / Button sizes | `h-7` / `h-8` → inherit defaults (`h-9` button / `h-10` input) | ChannelForm custom model input, connection-test / fetch-model buttons; GeneralSettings.SelectTrigger / SoundPicker; ProfileSettings.NameRow edit state; ZoteroArticlePanel SelectTrigger; SkillCategoryView search box |
+| Description leading | `leading-snug` → `leading-relaxed` | ZoteroMediaPanel description, ZoteroArticlePanel model.hint |
 
-### 2.4 不做（明确 Out of scope）
+<a id="24-不做明确-out-of-scope"></a>
 
-- `SettingsHintBox` / `SettingsClickableRow` / `SettingsCollapsibleRow` / `SettingsKeyValueTextarea` — 这些 primitive 也有抽取价值，但涉及结构性改动（交互语义 / 颜色 token 扩展 / 折叠状态管理），单独成 PR 更清楚
-- 设置页交互行为改动（开关位置 / 字段排序 / 描述文案）
-- 主题 / token 调整
-- 设置页之外的列表组件（如对话流右侧列表、文献库列表等）
+### 2.4 Explicitly Out of Scope
+
+- `SettingsHintBox` / `SettingsClickableRow` / `SettingsCollapsibleRow` / `SettingsKeyValueTextarea`: Also worth extracting, but involve structural changes (interaction semantics / color-token extension / collapse-state management), clearer in separate PRs
+- Settings interaction changes (switch placement / field order / descriptive copy)
+- Theme / token changes
+- List components outside settings (such as the right-side conversation list or literature-library list)
 
 ---
 
-## 3. 实施计划
+<a id="3-实施计划"></a>
 
-### 3.1 迁移清单
+## 3. Implementation Plan
 
-按"先 primitive 后调用方"的顺序，每步可独立验证：
+<a id="31-迁移清单"></a>
 
-1. **新建 `SettingsModuleRow`** + 导出到 `primitives/index.ts`
-2. **新建 `SettingsPill`** + 导出
-3. **迁移 ZoteroSettings**：删 `ZoteroModuleRow` / `CapabilityPill` / `StatusPill` 三个本地组件 → 全部走新 primitive
-4. **迁移 ZoteroMediaPanel + ZoteroArticlePanel**：同上
-5. **迁移 AboutSettings.UpdateCard + GeneralSettings.ThemeCardPicker**：自定义行改用 `SettingsModuleRow`
-6. **迁移 agent/McpSection + SkillCategoryView 的 pill**：改用 `SettingsPill`
-7. **sweep 类**：按 §2.3 表逐文件改
+### 3.1 Migration Checklist
 
-### 3.2 受影响包
+Proceed "primitives first, callers second," with each step independently verifiable:
+
+1. **Create `SettingsModuleRow`** + export from `primitives/index.ts`
+2. **Create `SettingsPill`** + export
+3. **Migrate ZoteroSettings**: Remove local `ZoteroModuleRow` / `CapabilityPill` / `StatusPill` components → use the new primitives throughout
+4. **Migrate ZoteroMediaPanel + ZoteroArticlePanel**: Same approach
+5. **Migrate AboutSettings.UpdateCard + GeneralSettings.ThemeCardPicker**: Replace custom rows with `SettingsModuleRow`
+6. **Migrate pills in agent/McpSection + SkillCategoryView**: Use `SettingsPill`
+7. **Sweep classes**: Update file by file using §2.3
+
+<a id="32-受影响包"></a>
+
+### 3.2 Affected Packages
 
 - `apps/electron` 0.1.415 → 0.1.416 patch
 
 ---
 
-## 4. 验收
+<a id="4-验收"></a>
 
-| # | 标准 |
+## 4. Acceptance
+
+| # | Criterion |
 |---|---|
-| 1 | `bun run typecheck` 通过 |
-| 2 | `bun test` 通过（含 `key-parity.test.ts` 双语 key 对齐；本 spec 不动 i18n key，应自然通过）|
-| 3 | 17 个 settings 子页面在 `bun run dev` 里点过一遍，亮 / 暗主题切换无样式断层 |
-| 4 | 删除的 5 份 row + 5 份 pill 在 grep 中确认零残留 |
-| 5 | 旧 padding / shadow / border / 尺寸 sweep 完毕，grep `px-4 py-3` / `shadow-sm` / `border-t border-border/50` 在 settings/ 下不再命中（保留合理例外） |
+| 1 | `bun run typecheck` passes |
+| 2 | `bun test` passes (including bilingual key alignment in `key-parity.test.ts`; this spec changes no i18n keys, so it should pass naturally) |
+| 3 | Visit all 17 settings subpages in `bun run dev`; switching light / dark themes shows no visual inconsistencies |
+| 4 | grep confirms zero remnants of the removed 5 row + 5 pill implementations |
+| 5 | Old padding / shadow / border / size sweep complete; grep for `px-4 py-3` / `shadow-sm` / `border-t border-border/50` under settings/ returns no matches (reasonable exceptions retained) |
 
 ---
 
-## 5. 待确认
+<a id="5-待确认"></a>
 
-1. **`SettingsPill` 的 `info` tone**：是否需要新增 `--info` 色 token，还是 fallback 到 `primary`？现有 design.md token 表里没有 info 色——建议本次先**不引入 info tone**，等明确场景再加
-2. **`px-4 py-3` 的合理保留**：某些紧凑的 row（如 SkillCategoryView 的 chip filter）历史上故意压紧；本次 sweep 是否完全统一到 `py-4` 或更松？建议**默认升级**，特殊紧凑场景挂注释豁免
-3. **PR 拆分**：本次范围已经包含 5+5 primitive 迁移 + sweep ~30 处偏离。是否在 spec 实施过程中允许中途切 PR（如 primitive + Zotero 迁移先合一个，sweep 类合第二个）？建议**先做 1+2+3+4+6** 合并第一个 PR，**5+sweep**（§2.3 表）合第二个，按主题清晰
+## 5. Pending Confirmation
+
+1. **`SettingsPill` `info` tone**: Add a `--info` color token or fall back to `primary`? The current design.md token table has no info color. Recommendation: **omit info tone for now**, adding it when a specific use case is clear
+2. **Reasonable retention of `px-4 py-3`**: Some compact rows (such as SkillCategoryView chip filters) were intentionally dense. Should the sweep standardize everything to `py-4` or looser? Recommendation: **upgrade by default**, with commented exemptions for specially compact cases
+3. **PR splitting**: Scope includes 5+5 primitive migrations + ~30 class deviations. May implementation split PRs midway (such as primitives + Zotero migration first, then the class sweep)? Recommendation: **1+2+3+4+6** in the first PR, **5+sweep** (§2.3 table) in the second, grouped by clear themes

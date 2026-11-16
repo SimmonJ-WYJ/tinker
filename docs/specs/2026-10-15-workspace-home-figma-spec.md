@@ -1,33 +1,41 @@
-# ASCI 首屏按确认 Figma 稿落地
+<a id="asci-首屏按确认-figma-稿落地"></a>
 
-状态：已实现并完成页面级验收
-关联 issue / PR：无（本地修改）
-领域事实源：docs/design.md、docs/i18n.md；既有会话、项目和预览 atoms
-设计：https://www.figma.com/design/qNZ4GSgKdkHK51a5x79VF8/ASCI?node-id=47-57
+# ASCI Home Screen Implementation from the Approved Figma Design
 
-## 实现范围
+Status: implemented and page-level acceptance completed
+Related issue / PR: none (local changes)
+Domain source of truth: docs/design.md, docs/i18n.md; existing session, project, and preview atoms
+Design: https://www.figma.com/design/qNZ4GSgKdkHK51a5x79VF8/ASCI?node-id=47-57
 
-- 复用 ASCI-MacOS 当前工作区，保留现有 Google 登录和自定义模型改动。
-- 首屏正式 ASCI 图标、欢迎标题、888px 上限输入区、三个建议胶囊；遵循稿件最新版本。
-- 侧栏平铺真实 Projects，与 Recent 分组，保留增建/管理项目、设置、证据集和文件入口；不植入设计稿示例项目或模型。
-- 输入框复用 RichTextInput / ModelSelector / PermissionModeSelector 和实际发送逻辑，提示词仅填入，不自动发送。
-- 右侧默认收起；保留已有产物自动预览逻辑，手动预览与顶栏按钮可打开，右栏可关闭。
-- en/zh 同步，主题使用语义 token；系统字体；不增加依赖、不改 IPC。
+<a id="实现范围"></a>
 
-## 实施与验收
+## Implementation Scope
 
-- [x] 项目列表与首屏建议行为测试先行。
-- [x] 页面布局、导航和双语文案实现。
-- [x] 核对空态、真实项目切换、模型选择、建议填入、输入后发送及右栏开关。
-- [x] typecheck、相关测试、ESLint、renderer build，记录全仓基线问题。
-- [x] 1600×1000 对照 Figma，检查小窗口与暗色，保存实际渲染预览。
+- Reuse the current ASCI-MacOS workspace and retain existing Google sign-in and custom-model changes.
+- Use the official ASCI icon, welcome heading, input area capped at 888px, and three suggestion capsules on the home screen; follow the latest design version.
+- List real Projects alongside the Recent group in the sidebar; retain project creation/management, settings, evidence sets, and files; do not insert sample projects or models from the design.
+- Reuse RichTextInput / ModelSelector / PermissionModeSelector and the actual send logic; suggestions only populate the input and never send automatically.
+- Collapse the right panel by default; retain existing automatic artifact previews. Manual preview and the top-bar button can open it, and the panel can be closed.
+- Keep en/zh in sync; use semantic theme tokens and system fonts; add no dependencies and change no IPC.
 
-## 验证记录
+<a id="实施与验收"></a>
 
-- 当前设计稿读取后确认：英雄图标为 58px，主标题 42px；副文案已移除，输入区上移。实现以当前节点为准。
-- 1600×1000 实际组件渲染：输入区 x=496、y=403.5、888×176；Logo 58×58，位置 x=911、y=251，标题 y=317。采用项目规定的系统字体。
-- 实际 AppShell / AgentView + 隔离 IPC 夹具的浏览器验收：导航折叠/展开、建议只填入不发送、空输入禁用、输入后发送恰好调用一次现有 IPC、模型选择、右栏开关通过；en/zh、暗色、1024×768 无横向溢出，无页面异常。验收入口已删除，测试数据未写入生产界面。
-- 项目切换/创建、文档栏会话隔离、兼容文件预览、首屏建议与双语键集：26 项相关测试通过。
-- 全仓测试：2994 通过、2 失败。失败为本次未修改的 Tooltip / floating-surface 圆角断言，与上一轮既存基线一致。
-- 保留配置、证据集、Zotero、项目文件功能入口；项目标题可打开既有项目管理，右侧加号继续创建项目。
-- 类型检查、目标文件 ESLint 与 renderer 构建通过；未执行真实模型推理，未重新打包替换安装版客户端。
+## Implementation and Acceptance
+
+- [x] Write project-list and home-screen suggestion behavior tests first.
+- [x] Implement page layout, navigation, and bilingual copy.
+- [x] Check the empty state, real-project switching, model selection, suggestion insertion, sending after input, and right-panel toggle.
+- [x] Run typecheck, related tests, ESLint, and renderer build; record repository baseline issues.
+- [x] Compare against Figma at 1600×1000, check small windows and dark mode, and save actual rendered previews.
+
+<a id="验证记录"></a>
+
+## Validation Record
+
+- Reading the current design confirmed a 58px hero icon and 42px main heading; the subtitle has been removed and the input moved upward. Implementation follows the current node.
+- Actual component rendering at 1600×1000: input x=496, y=403.5, 888×176; Logo 58×58 at x=911, y=251; heading y=317. Uses the project's required system font.
+- Browser acceptance with actual AppShell / AgentView and isolated IPC fixtures passed navigation collapse/expand, suggestions populating without sending, disabled empty input, exactly one existing IPC call after sending, model selection, and right-panel toggle; en/zh, dark mode, and 1024×768 had no horizontal overflow or page exceptions. The acceptance entry point was deleted, and test data was not written into the production UI.
+- Project switching/creation, document-panel session isolation, compatible file previews, home-screen suggestions, and bilingual key sets: 26 related tests passed.
+- Repository tests: 2994 passed, 2 failed. Failures were Tooltip / floating-surface corner-radius assertions in untouched code, matching the previous existing baseline.
+- Retain settings, evidence sets, Zotero, and project-file entry points; the project heading opens existing project management, and the plus button on the right still creates projects.
+- Typecheck, target-file ESLint, and renderer build passed; no real-model inference was run and the installed client was not repackaged or replaced.

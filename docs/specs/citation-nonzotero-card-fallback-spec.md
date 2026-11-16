@@ -1,56 +1,74 @@
-# 引用/来源点击：非 Zotero 论文兜底打开摘要卡片
+<a id="引用来源点击非-zotero-论文兜底打开摘要卡片"></a>
 
-> 状态：实现中
-> 关联 issue：（待补）
-> 关联 PR：（待补）
-> 领域语言事实源：`CONTEXT.md`
-> 相关 spec：[`doi-paper-jump-spec.md`](./doi-paper-jump-spec.md)、[`conversation-trace-claim-spec.md`](./conversation-trace-claim-spec.md)
+# Citation/source clicks: open an abstract card as fallback for non-Zotero papers
 
-## 背景与问题
+> Status: Implementation in progress
+> Related issue: (to be added)
+> Related PR: (to be added)
+> Domain-language source of truth: `CONTEXT.md`
+> Related specs: [`doi-paper-jump-spec.md`](./doi-paper-jump-spec.md), [`conversation-trace-claim-spec.md`](./conversation-trace-claim-spec.md)
 
-综述 / 问答输出里的引用 `[N]`（含 `<quote>`）以及证据集里的证据条目，点击「查看原文 / Jump to source」时，对**不在 Zotero 库**里的论文存在两种糟糕表现：
+<a id="背景与问题"></a>
 
-- **对话流 `[N]` badge**：解析不到本地 PDF（`no-zotero-key` / `paper-not-found` / `no-pdf`）时，仅弹一条 toast 并滚回 §7 References，用户看不到任何论文内容。
-- **证据集「Jump to source」按钮**：按钮显示判定只看 `sourcePaper.state === 'present'`，但点击处理 `handleSelectPaperRef` 要求 `zoteroKey` 非空，否则 `return` —— 按钮亮着却**点了毫无反应**（silent no-op），比 toast 更令人困惑。
+## Background and problem
 
-根因：「查看 PDF 原文 + 高亮 quote」这件事强依赖 Zotero 本地附件，非 Zotero 论文（多为 OpenAlex 抓取，仅有 metadata + abstract）拿不到 PDF。
+Clicking “View original / Jump to source” on citations `[N]` (including `<quote>`) in review / Q&A output or evidence entries in evidence sets produces two poor experiences for papers **outside the Zotero library**:
 
-## 目标
+- **Conversation `[N]` badge**: When a local PDF cannot be resolved (`no-zotero-key` / `paper-not-found` / `no-pdf`), only a toast appears and the view scrolls back to §7 References; users see no paper content.
+- **Evidence-set “Jump to source” button**: Visibility checks only `sourcePaper.state === 'present'`, but the click handler `handleSelectPaperRef` requires a nonempty `zoteroKey`, otherwise it executes `return`. The enabled button **does nothing when clicked** (silent no-op), which is more confusing than a toast.
 
-非 Zotero 论文的引用 / 来源点击，统一**兜底打开摘要卡片**（OpenAlex/crossref metadata：标题、摘要、作者、DOI、`Add to Zotero`、Citation graph），而非 silent no-op 或仅 toast。**不弹 toast**（与 §7 DOI chip 行为一致，开卡片本身即反馈）。不改 Zotero 同步逻辑；改动集中在 renderer。
+Root cause: Opening the original PDF and highlighting a quote strongly depends on local Zotero attachments. Non-Zotero papers (mostly fetched from OpenAlex, with metadata + abstract only) have no available PDF.
 
-「在 Zotero 且有本地 PDF」的论文行为**不变**（仍打开 PDF + 高亮 quote）。
+<a id="目标"></a>
 
-## 行为契约
+## Goal
 
-| 入口 | 在 Zotero（有 PDF） | 不在 Zotero / 无 PDF |
+For non-Zotero paper citation / source clicks, consistently **open an abstract card as fallback** (OpenAlex/crossref metadata: title, abstract, authors, DOI, `Add to Zotero`, Citation graph), replacing silent no-ops or toast-only feedback. **Show no toast** (consistent with §7 DOI chips; opening the card itself provides feedback). Do not change Zotero synchronization; changes are concentrated in the renderer.
+
+Behavior for papers **in Zotero with a local PDF remains unchanged** (open PDF + highlight quote).
+
+<a id="行为契约"></a>
+
+## Behavior contract
+
+| Entry point | In Zotero (with PDF) | Outside Zotero / no PDF |
 |------|---------------------|----------------------|
-| 对话流 `[N]` badge | 右栏打开 PDF + 高亮 quote（不变） | 右栏打开摘要卡片（`useOpenDoiInRightPanel(doi)` 三层兜底，永不死路）；无 doi 才回退滚动 §7 |
-| 证据集「Jump to source」 | 全屏 PDF 覆盖层 + 高亮 quote（不变） | 全屏摘要卡片覆盖层（`PaperDetailRenderer`，由 `Paper` 本地字段映射 `PaperRecord`，无网络） |
-| §7 DOI chip | 摘要卡片 / PDF（不变） | 摘要卡片（不变） |
+| Conversation `[N]` badge | Open PDF in right panel + highlight quote (unchanged) | Open abstract card in right panel (`useOpenDoiInRightPanel(doi)` three-level fallback, never a dead end); scroll back to §7 only if doi is absent |
+| Evidence-set “Jump to source” | Fullscreen PDF overlay + highlight quote (unchanged) | Fullscreen abstract-card overlay (`PaperDetailRenderer`, mapping local `Paper` fields to `PaperRecord`, no network) |
+| §7 DOI chip | Abstract card / PDF (unchanged) | Abstract card (unchanged) |
 
-## 实现
+<a id="实现"></a>
 
-### ① 对话流 `[N]` badge —— `components/ai-elements/message.tsx`
+## Implementation
 
-`handleCitationTrace`：保持「先试 Zotero PDF」。`openEvidence(...)` 返回 `!ok` 时，不再 `toast + jumpToReferenceN`，改为 `void openDoi(doi)`（`useOpenDoiInRightPanel`）兜底打开摘要卡片。`doi` 缺失时仍 `jumpToReferenceN`（保留「滚到 §7」语义）。`.catch` 守底走 `jumpToReferenceN`。
+<a id="-对话流-n-badge-&#45;componentsai-elementsmessagetsx"></a>
 
-### ② 证据集「Jump to source」—— `components/library/NotesView.tsx`
+### ① Conversation `[N]` badge — `components/ai-elements/message.tsx`
 
-- `handleSelectPaperRef`：去掉 `if (!zoteroKey) return`。有 `zoteroKey` → 现有 `NotesViewPdfOverlay`；无 `zoteroKey` → 设置新的 `paperCardTarget`（由 `sourcePaper.ref: Paper` 映射成 `PaperRecord`）。
-- 新增 `NotesViewPaperOverlay`：复用 `FilePreviewOverlay` 的 Dialog 全屏形态，内部渲染 `PaperDetailRenderer`。Evidence Sets 是独立视图、无 agent session，`openInRightPanel` 在此为 no-op，故必须走视图内覆盖层（与「跳到综述」同理）。
-- `Paper → PaperRecord` 映射：`title/authors/year/venue/doi/abstract` 直取；`ts=nowIso()`、`query=null`、`source='evidence-set'`、`url=null`。
+`handleCitationTrace`: Keep trying the Zotero PDF first. When `openEvidence(...)` returns `!ok`, replace `toast + jumpToReferenceN` with `void openDoi(doi)` (`useOpenDoiInRightPanel`) to open an abstract card as fallback. If `doi` is missing, retain `jumpToReferenceN` (preserving scroll-to-§7 semantics). The `.catch` safety net uses `jumpToReferenceN`.
+
+<a id="-证据集jump-to-source-componentslibrarynotesviewtsx"></a>
+
+### ② Evidence-set “Jump to source” — `components/library/NotesView.tsx`
+
+- `handleSelectPaperRef`: Remove `if (!zoteroKey) return`. With `zoteroKey` → existing `NotesViewPdfOverlay`; without `zoteroKey` → set new `paperCardTarget` (map `sourcePaper.ref: Paper` to `PaperRecord`).
+- Add `NotesViewPaperOverlay`: Reuse the fullscreen Dialog form of `FilePreviewOverlay`, rendering `PaperDetailRenderer` inside. Evidence Sets is an independent view without an agent session; `openInRightPanel` is a no-op here, so an in-view overlay is required (as with “Jump to review”).
+- `Paper → PaperRecord` mapping: Take `title/authors/year/venue/doi/abstract` directly; `ts=nowIso()`, `query=null`, `source='evidence-set'`, `url=null`.
 
 ### ③ i18n —— `locales/{en,zh}/conversation/panels.json`
 
-移除失效的 `citation.trace.{noPdf,paperNotFound,noZoteroKey,failed}`（仅 message.tsx 引用，改动后全失效）。en + zh 同步删除，`key-parity` 守门。
+Remove defunct `citation.trace.{noPdf,paperNotFound,noZoteroKey,failed}` (referenced only by message.tsx, all obsolete after this change). Remove in en + zh together, guarded by `key-parity`.
 
-## 非目标
+<a id="非目标"></a>
 
-- 不做「一键 Add to Zotero → 等同步 → 自动打开 PDF」联动（更大改动，另议）。
-- 不改 Zotero 同步、不碰主进程解析级联。
+## Non-goals
 
-## 验证
+- Do not add a one-click Add to Zotero → wait for sync → automatically open PDF flow (a larger change for separate discussion).
+- Do not change Zotero synchronization or the main-process resolution cascade.
 
-- `bun run typecheck` / `bun test`（含 `key-parity`）。
-- 手动：问答输出点非 Zotero 引用 `[N]` → 右栏出摘要卡片；点 Zotero 内引用 → PDF + 高亮（回归）。证据集对非 Zotero 证据点「Jump to source」→ 出摘要卡片覆盖层；对 Zotero 证据 → PDF 覆盖层（回归）。zh↔en 各走一遍无 raw key。
+<a id="验证"></a>
+
+## Validation
+
+- `bun run typecheck` / `bun test` (including `key-parity`).
+- Manual: Click a non-Zotero citation `[N]` in Q&A output → abstract card in right panel; click a Zotero citation → PDF + highlight (regression). In evidence sets, click “Jump to source” for non-Zotero evidence → abstract-card overlay; Zotero evidence → PDF overlay (regression). Run once in each zh↔en language with no raw keys.

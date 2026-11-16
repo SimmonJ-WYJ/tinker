@@ -1,37 +1,47 @@
-# Session Papers Panel · UX 重做设计
+<a id="session-papers-panel-&#45;ux-重做设计"></a>
 
-**日期**: 2026-05-20
-**目标**: 右栏 Session files / 检索结果面板的复杂度减负 + 交互重构
-**范围**: `apps/electron/src/renderer/components/agent/SessionPapers*` 全部组件
-**分批**: 建议拆 2 个 PR（结构拆分 → UX 重做），避免 800+ 行单 PR
+# Session Papers Panel · UX Redesign
 
-## 背景与痛点
+**Date**: 2026-05-20
+**Goal**: reduce complexity and redesign interactions in the right-side Session files / search-results panel
+**Scope**: all `apps/electron/src/renderer/components/agent/SessionPapers*` components
+**Batches**: recommend 2 PRs (structural split → UX redesign), avoiding one 800+ line PR
 
-当前右栏 `SessionPapersPanel.tsx`（878 行）承载 Agent 检索结果。用户反馈三个痛点：
+<a id="背景与痛点"></a>
 
-1. **Dashboard 过于复杂**：常驻 Year 直方图 + Source 横向 bar + Relevance 五段渐变，信息密度高。Agent chat 场景以决策（挑论文）为主，不是数据探索，仪表盘对单次决策没用。
-2. **Toolbar 操作堆积**：一行塞入多选框 / 搜索 / count badge / info / filter / sort / refresh / expand = 7 个交互单元，高低频不分层。
-3. **常驻 checkbox 侵略屏效**：每张卡片左侧 24px checkbox 始终显示，但大多数时候用户不在做多选，视觉上像 todo list 不像论文条目。
+## Background and Pain Points
 
-## 设计原则
+Current right-side `SessionPapersPanel.tsx` (878 lines) contains Agent retrieval results. Users report three pain points:
 
-| Principle | 说明 |
+1. **Overcomplicated dashboard**: persistent Year histogram + horizontal Source bars + five-part Relevance gradient create high density. Agent chat focuses on choosing papers, not exploring data; the dashboard does not help individual decisions.
+2. **Overloaded toolbar**: checkbox / search / count badge / info / filter / sort / refresh / expand = 7 interaction units in one row, without separating frequent and rare actions.
+3. **Persistent checkboxes waste space**: a 24px checkbox always appears on each card's left, although users usually are not multiselecting; it looks like a todo list rather than paper entries.
+
+<a id="设计原则"></a>
+
+## Design Principles
+
+| Principle | Description |
 |-----------|------|
-| **P1 默认轻量、按需深入** | 常驻态做"瘦"；复杂功能（Overview / 多选 / Filter）藏到二级入口 |
-| **P2 操作分层** | 高频常驻 / 中频按钮 / 低频菜单 |
-| **P3 渐进式选择** | Checkbox 不常驻；显式按钮触发多选态后再常驻 |
-| **P4 信息密度服从场景** | 检索结果 = 决策导向，dashboard 默认不展开 |
+| **P1 Lightweight by default, deepen on demand** | Keep the persistent view lean; put complex features (Overview / multiselect / Filter) behind secondary entries |
+| **P2 Layer actions by frequency** | Frequent actions persistent / medium-frequency buttons / rare actions in menus |
+| **P3 Progressive selection** | Checkboxes appear persistently only after explicit entry into multiselect mode |
+| **P4 Match density to the task** | Retrieval results support decisions; dashboard collapsed by default |
 
-## 三态布局
+<a id="三态布局"></a>
 
-### 默认态
+## Three-State Layout
+
+<a id="默认态"></a>
+
+### Default State
 
 ```
 ┌────────────────────────────────────────────────┐
 │ Session files  .../default/198c65c1-3726-4d... │
 ├────────────────────────────────────────────────┤
-│ [🔍 search...]               30  [↕ Relevance ▾] │  ← Zone 1 高频
-│ [📊 Overview] [⚙ Filter]              [⋮ More] │  ← Zone 2 中频按钮
+│ [🔍 search...]               30  [↕ Relevance ▾] │  ← Zone 1 frequent
+│ [📊 Overview] [⚙ Filter]              [⋮ More] │  ← Zone 2 medium-frequency
 ├────────────────────────────────────────────────┤
 │ Blockchain for Tokenized Real-World Assets...  │
 │   ~72 · 2025 · Damodar Bihani et al.           │
@@ -42,41 +52,45 @@
 └────────────────────────────────────────────────┘
 ```
 
-- Zone 1（持久可见）：搜索框 + 总数 + sort 下拉
-- Zone 2（持久可见但低视觉权重）：Overview / Filter 触发器 + ⋮ More 菜单
-- 卡片列表：**无 checkbox**
+- Zone 1 (always visible): search + total count + sort dropdown
+- Zone 2 (always visible, lower visual emphasis): Overview / Filter triggers + ⋮ More menu
+- Card list: **no checkboxes**
 
-### Overview Popover 展开
+<a id="overview-popover-展开"></a>
 
-点击「📊 Overview」按钮 → 触发器变 active 态 → 下方弹出 Popover：
+### Overview Popover Open
+
+Click "📊 Overview" → trigger becomes active → Popover opens below:
 
 ```
-┌─ 30 篇分布概览 ──────────┐
-│ 年份                     │
+┌─ Distribution of 30 papers ────┐
+│ Years                    │
 │ ▂▂▃▅▄▅▆▅▃▂  (sparkline) │
 │ 1970────────────2026     │
 │                          │
-│ 来源                     │
+│ Sources                  │
 │ [Crossref · 15]          │
 │ [OpenAlex · 15]          │
 │                          │
-│ 相关度                   │
+│ Relevance                │
 │ ▒▒▒▒▒▒▒▒ Low → High     │
 └──────────────────────────┘
 ```
 
-可视化简化：
-- 年份：sparkline（自绘单条曲线，不要 57 段柱状）
-- 来源：chip 列表
-- 相关度：单条 lo-hi 渐变 bar
+Simplified visualizations:
+- Years: sparkline (one custom curve, not 57 histogram bars)
+- Sources: chip list
+- Relevance: one lo-hi gradient bar
 
-### 多选态
+<a id="多选态"></a>
 
-通过「⋮ More」→「☐ 批量操作」**显式触发**。进入后：
+### Multiselect State
+
+**Explicit entry** through "⋮ More" → "☐ Bulk actions." Then:
 
 ```
 ┌────────────────────────────────────────────────┐
-│ ■ 已选 2 / 30      [Add to Zotero] [Tag] [✕]  │  ← Bulk action bar（黑底）
+│ ■ 2 / 30 selected [Add to Zotero] [Tag] [✕]  │  ← black bulk-action bar
 ├────────────────────────────────────────────────┤
 │ ☑ Blockchain for Tokenized Real-World Assets   │
 │ ☑ A Taxonomy of Tokenisation Methods           │
@@ -84,76 +98,94 @@
 └────────────────────────────────────────────────┘
 ```
 
-- 所有卡片左侧出现 checkbox
-- 顶部黑色 bulk-bar 提供批量动作（Add to Zotero / Tag / Remove from session）+ ✕ 退出
-- 退出后 selectedKeys 清空，checkbox 隐藏，回到默认态
+- Checkboxes appear to the left of all cards
+- Top black bulk-bar provides actions (Add to Zotero / Tag / Remove from session) + ✕ exit
+- Exiting clears selectedKeys, hides checkboxes, and returns to default
 
-### 「⋮ More」菜单
+<a id="-more菜单"></a>
 
-| 项 | 行为 |
+### "⋮ More" Menu
+
+| Item | Behavior |
 |----|------|
-| ↻ 刷新 | 重新拉 `listSessionPapers(sessionId)`（保留现 refresh 按钮功能） |
-| ☐ 批量操作 | toggle `multiSelectActiveAtom` |
-| ⤢ 在新窗口打开 | 现有 expand 按钮功能 |
-| 显示密度 · 紧凑/标准 | toggle `densityAtom`（可选；不做也行） |
+| ↻ Refresh | Refetch `listSessionPapers(sessionId)` (retain existing refresh behavior) |
+| ☐ Bulk actions | Toggle `multiSelectActiveAtom` |
+| ⤢ Open in new window | Existing expand behavior |
+| Display density · Compact/Standard | Toggle `densityAtom` (optional; may omit) |
 
-## 组件结构（重组后）
+<a id="组件结构重组后"></a>
+
+## Component Structure (After Reorganization)
 
 ```
-SessionPapersPanel.tsx              orchestrator (~200 行)
-├── <SessionPapersHeader>           路径栏 + count
+SessionPapersPanel.tsx              orchestrator (~200 lines)
+├── <SessionPapersHeader>           path bar + count
 ├── <SessionPapersToolbar>          Zone 1 + Zone 2
 │   ├── <SessionPapersSearchInput>
 │   ├── <SessionPapersSortMenu>
 │   ├── <SessionPapersStatsPopoverTrigger>
 │   ├── <SessionPapersFilterPopoverTrigger>
 │   └── <SessionPapersMoreMenu>
-├── <SessionPapersBulkActionBar>    多选态显示
+├── <SessionPapersBulkActionBar>    shown in multiselect
 └── <SessionPapersList>
-    └── <SessionPaperCard>          multiSelect mode 决定是否渲 checkbox
+    └── <SessionPaperCard>          multiSelect mode controls checkbox rendering
 ```
 
-## 文件改动地图
+<a id="文件改动地图"></a>
 
-### 新增（6）
+## File Change Map
 
-| 文件 | 行数 | 责任 |
+<a id="新增6"></a>
+
+### Add (6)
+
+| File | Lines | Responsibility |
 |------|------|------|
-| `SessionPapersStatsPopover.tsx` | ~150 | Radix Popover 包裹简化可视化（sparkline + chip + lo-hi bar） |
-| `SessionPapersBulkActionBar.tsx` | ~80 | 顶部黑色 bar，已选计数 + 批量动作 + ✕ |
-| `SessionPapersMoreMenu.tsx` | ~60 | DropdownMenu：刷新 / 批量 / 新窗 / 密度 |
-| `SessionPapersToolbar.tsx` | ~120 | Zone 1 + Zone 2 容器，纯展示 + 上抛事件 |
-| `SessionPaperCard.tsx` | ~180 | 从 Panel 抽出，props: `multiSelectActive`, `density` |
-| `session-papers-ui-atoms.ts` | ~30 | 新增 atoms：multiSelectActive / selectedKeys / density |
+| `SessionPapersStatsPopover.tsx` | ~150 | Radix Popover wrapping simplified visualizations (sparkline + chips + lo-hi bar) |
+| `SessionPapersBulkActionBar.tsx` | ~80 | Top black bar with selected count + bulk actions + ✕ |
+| `SessionPapersMoreMenu.tsx` | ~60 | DropdownMenu: refresh / bulk / new window / density |
+| `SessionPapersToolbar.tsx` | ~120 | Zone 1 + Zone 2 container, presentation only + events upward |
+| `SessionPaperCard.tsx` | ~180 | Extract from Panel; props: `multiSelectActive`, `density` |
+| `session-papers-ui-atoms.ts` | ~30 | New atoms: multiSelectActive / selectedKeys / density |
 
-### 重构（1）
+<a id="重构1"></a>
 
-| 文件 | 当前行数 → 目标 | 改动 |
+### Refactor (1)
+
+| File | Current lines → target | Change |
 |------|----------------|------|
-| `SessionPapersPanel.tsx` | 878 → ~200 | 抽出 Toolbar / List / Card / BulkActionBar 子组件；读新增 atoms；orchestrator only |
+| `SessionPapersPanel.tsx` | 878 → ~200 | Extract Toolbar / List / Card / BulkActionBar; read new atoms; orchestrator only |
 
-### 删除（1）
+<a id="删除1"></a>
 
-| 文件 | 原因 |
+### Delete (1)
+
+| File | Reason |
 |------|------|
-| `SessionPapersStatsBar.tsx` (332 行) | 整块替换为 StatsPopover；数据层 `session-papers-stats.ts` 保留 |
+| `SessionPapersStatsBar.tsx` (332 lines) | Entirely replaced by StatsPopover; retain data layer `session-papers-stats.ts` |
 
-### 微动（2）
+<a id="微动2"></a>
 
-| 文件 | 改动 |
+### Minor Changes (2)
+
+| File | Change |
 |------|------|
-| `SessionPapersFilterPopover.tsx` | 不动逻辑；只在 Toolbar 改触发位置 |
-| `locales/{zh,en}/conversation.json` | 新增 ~10 keys（批量操作 / 已选 N / 显示密度 / Overview chip 文案等），zh+en 同步，key-parity 守门 |
+| `SessionPapersFilterPopover.tsx` | No logic changes; move trigger only in Toolbar |
+| `locales/{zh,en}/conversation.json` | Add ~10 keys (bulk actions / N selected / density / Overview chip copy, etc.), synchronized zh+en with key-parity guard |
 
-## 数据层（保留不动）
+<a id="数据层保留不动"></a>
 
-- `sessionPapersFilterFamilyAtom(sessionId)` — 过滤状态
-- `sessionPapersSortFamilyAtom(sessionId)` — 排序状态
-- `session-papers-filter.ts` — 过滤/排序/去重逻辑
-- `session-papers-stats.ts` — 直方图 / 来源 / 相关度聚合
-- `workspacePapersAtom` — workspace 级 paper 数据
+## Data Layer (Unchanged)
 
-## 新增 atoms（session-papers-ui-atoms.ts）
+- `sessionPapersFilterFamilyAtom(sessionId)` — filter state
+- `sessionPapersSortFamilyAtom(sessionId)` — sort state
+- `session-papers-filter.ts` — filter/sort/deduplication logic
+- `session-papers-stats.ts` — histogram / source / relevance aggregation
+- `workspacePapersAtom` — workspace-level paper data
+
+<a id="新增-atomssession-papers-ui-atomsts"></a>
+
+## New Atoms (session-papers-ui-atoms.ts)
 
 ```ts
 import { atom } from 'jotai'
@@ -173,82 +205,104 @@ export const sessionPapersSelectedKeysFamilyAtom = atomFamily(
 export const sessionPapersDensityAtom = atom<'compact' | 'normal'>('normal')
 ```
 
-## 交互细节
+<a id="交互细节"></a>
 
-### 多选态进入/退出
+## Interaction Details
 
-- **进入**：「⋮」→「☐ 批量操作」→ `setMultiSelectActive(true)`
-- **退出**：bulk-bar 上的 ✕ 或 ESC 键 → `setMultiSelectActive(false)` + `setSelectedKeys(new Set())`
-- **切换 session 时**：多选态自动重置（session-scoped atom，新 session 默认 false）
+<a id="多选态进入退出"></a>
 
-### Overview Popover 触发器
+### Enter/Exit Multiselect
 
-- 按钮在 Zone 2 第一个位置
-- 默认 ghost 样式；popover 打开时变 `bg-accent text-accent-foreground`
-- 用 Radix Popover；点击外部 / ESC 关闭
+- **Enter**: "⋮" → "☐ Bulk actions" → `setMultiSelectActive(true)`
+- **Exit**: bulk-bar ✕ or ESC → `setMultiSelectActive(false)` + `setSelectedKeys(new Set())`
+- **On session switch**: reset multiselect automatically (session-scoped atom, false by default for new sessions)
 
-### 卡片 checkbox 隐藏 vs 显示
+<a id="overview-popover-触发器"></a>
 
-- 默认态：`hidden`（CSS `display: none`）
-- 多选态：所有卡片显示 checkbox（不 hover 触发）
-- 这样多选态进入后视觉变化明确，不依赖 hover-only 触发
+### Overview Popover Trigger
 
-## 分批合并策略
+- First button in Zone 2
+- Default ghost style; becomes `bg-accent text-accent-foreground` while open
+- Use Radix Popover; outside click / ESC closes
 
-### PR 1：结构拆分（无可见变化）
+<a id="卡片-checkbox-隐藏-vs-显示"></a>
 
-- 把 `SessionPapersPanel` 拆成 Toolbar / List / Card / 子组件
-- 旧 UI 完全保留，行为不变
-- review 聚焦在「大块代码移动是否安全」
-- 工程量：1.5 天
+### Card Checkbox Visibility
 
-### PR 2：UX 重做
+- Default: `hidden` (CSS `display: none`)
+- Multiselect: show checkboxes on all cards (not hover-triggered)
+- This makes entering multiselect visually explicit, independent of hover-only triggers
 
-- 在拆好的结构上做：
+<a id="分批合并策略"></a>
+
+## Phased Merge Strategy
+
+<a id="pr-1结构拆分无可见变化"></a>
+
+### PR 1: Structural Split (No Visible Change)
+
+- Split `SessionPapersPanel` into Toolbar / List / Card / subcomponents
+- Preserve old UI and behavior completely
+- Review focuses on safe movement of large code blocks
+- Effort: 1.5 days
+
+<a id="pr-2ux-重做"></a>
+
+### PR 2: UX Redesign
+
+- On the split structure, implement:
   - StatsBar → StatsPopover
-  - MoreMenu 加入
-  - 多选态 + BulkActionBar
-  - 卡片 checkbox 显示逻辑
+  - MoreMenu
+  - Multiselect + BulkActionBar
+  - Card checkbox visibility
   - i18n
-- review 聚焦在「交互逻辑是否正确」
-- 工程量：3-4 天
+- Review focuses on correct interaction logic
+- Effort: 3-4 days
 
-## 工程量总计
+<a id="工程量总计"></a>
 
-| 任务 | 人天 |
+## Total Effort
+
+| Task | Person-days |
 |------|------|
-| Panel 拆分（PR 1） | 1.5 |
-| StatsPopover（含简化可视化） | 1 |
-| 多选 + BulkActionBar | 1 |
-| MoreMenu + 显示密度 | 0.5 |
-| Toolbar 重构 + 视觉打磨 | 0.5 |
-| i18n + zh/en 同步 + key-parity | 0.5 |
-| 测试 + 走查 | 0.5–1 |
-| **合计** | **5–5.5 人天** |
+| Panel split (PR 1) | 1.5 |
+| StatsPopover (including simplified visualizations) | 1 |
+| Multiselect + BulkActionBar | 1 |
+| MoreMenu + density | 0.5 |
+| Toolbar refactor + visual polish | 0.5 |
+| i18n + zh/en synchronization + key-parity | 0.5 |
+| Tests + walkthrough | 0.5–1 |
+| **Total** | **5–5.5 person-days** |
 
-## 验证标准
+<a id="验证标准"></a>
 
-- [ ] 默认态：toolbar 视觉权重清晰，列表卡片无 checkbox
-- [ ] 「📊 Overview」点击弹出 Popover，再次点击或 ESC 关闭
-- [ ] 「⚙ Filter」点击弹出现有 FilterPopover（逻辑不变）
-- [ ] 「⋮」展开菜单 4 项，「批量操作」toggle 进入多选态
-- [ ] 多选态：所有卡片 checkbox 显示，顶部 bulk-bar 显示
-- [ ] bulk-bar 「Add to Zotero」批量提交（沿用现有 Add to Zotero IPC）
-- [ ] bulk-bar ✕ 或 ESC 退出多选态，selectedKeys 清空
-- [ ] 切换 session：多选态自动重置
-- [ ] zh ↔ en 切换：新增 keys 双语正常
-- [ ] `bun run typecheck` + `bun test` 通过
+## Validation Criteria
 
-## 不在范围
+- [ ] Default: clear toolbar visual hierarchy, no list-card checkboxes
+- [ ] "📊 Overview" opens Popover; click again or ESC closes
+- [ ] "⚙ Filter" opens existing FilterPopover (unchanged logic)
+- [ ] "⋮" opens 4-item menu; "Bulk actions" toggles multiselect
+- [ ] Multiselect: all card checkboxes and top bulk-bar visible
+- [ ] bulk-bar "Add to Zotero" submits in bulk (reuse existing Add to Zotero IPC)
+- [ ] bulk-bar ✕ or ESC exits multiselect and clears selectedKeys
+- [ ] Session switch resets multiselect automatically
+- [ ] zh ↔ en: new keys display correctly in both languages
+- [ ] `bun run typecheck` + `bun test` pass
 
-- **批量 Tag / Remove from session**：需要新 IPC，本次只接现有 Add to Zotero；其它批量动作显示但 toast「待上线」
-- **显示密度持久化**：先做内存态，不写设置文件
-- **Command Palette (Cmd+K)**：方案 C 提过，本轮不做
-- **移动端 / 小窗适配**：不在 0.2.x 范围
-- **批量动作的真实业务接口**（如批量打标签）：依赖数据层进一步设计
+<a id="不在范围"></a>
 
-## Out of Scope · 后续可考虑
+## Outside Scope
 
-- StatsPopover 加「过滤入口」（点 chip 直接 filter by source）
-- 多选态支持 shift-click 范围选择
-- 卡片右侧加 hover quick action（「+」加 Note、「📌」收藏到 ProjectFiles）
+- **Bulk Tag / Remove from session**: requires new IPC; connect only existing Add to Zotero; show other bulk actions with "Coming soon" toast
+- **Persistent display density**: in-memory state first, no settings-file writes
+- **Command Palette (Cmd+K)**: mentioned in option C, excluded this round
+- **Mobile / small-window adaptation**: outside 0.2.x
+- **Actual business interfaces for bulk actions** (e.g. bulk tagging): depends on further data-layer design
+
+<a id="out-of-scope-&#45;后续可考虑"></a>
+
+## Out of Scope · Future Considerations
+
+- Add filter entry in StatsPopover (click chip to filter by source)
+- Shift-click range selection in multiselect mode
+- Hover quick actions on card right ("+" add Note, "📌" save to ProjectFiles)

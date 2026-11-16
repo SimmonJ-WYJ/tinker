@@ -1,120 +1,144 @@
-# 埋点能力现状 × 目标看板指标对照
+<a id="埋点能力现状-&#45;目标看板指标对照"></a>
 
-> **状态**：现状盘点（对照 0.3.0 milestone 埋点 issue 与数据看板目标）
-> **关联 issue**：[#416](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/416) Sentry · [#426](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/426) PostHog 行为 · [#427](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/427) 自进化信号
-> **关联文档**：[ADR-011 遥测架构](../adr/ADR-011-telemetry-architecture.md) · [telemetry-spec](./telemetry-spec.md) · `~/Downloads/埋点/格物0.3-PostHog埋点Spec-v0.4.3.md`（dashboard 目标 Spec，38 事件）
-> **数据源现状**：PostHog Cloud EU，distinct_id = 本地匿名 deviceId（#420 登录未落地，尚未按账户归属）
+# Current instrumentation capabilities × target dashboard metrics
+
+> **Status**: Current-state inventory (against 0.3.0 milestone instrumentation issues and dashboard targets)
+> **Related issues**: [#416](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/416) Sentry · [#426](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/426) PostHog behavior · [#427](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/427) Self-evolution signals
+> **Related documents**: [ADR-011 Telemetry architecture](../adr/ADR-011-telemetry-architecture.md) · [telemetry-spec](./telemetry-spec.md) · `~/Downloads/埋点/格物0.3-PostHog埋点Spec-v0.4.3.md` (dashboard target Spec, 38 events)
+> **Current data source**: PostHog Cloud EU, distinct_id = local anonymous deviceId (#420 login not implemented, no account attribution yet)
 
 ---
 
-## 一、三个 issue 的实现状态
+<a id="一三个-issue-的实现状态"></a>
 
-| Issue | 内容 | 状态 | 说明 |
+## 1. Implementation status of the three issues
+
+| Issue | Content | Status | Notes |
 |-------|------|------|------|
-| **#416** | Sentry 崩溃上报 + 脱敏 | ✅ **已支持** | main+renderer 双进程，beforeSend 脱敏（邮箱/IP/路径用户名段）；DSN 已配 |
-| **#426** | PostHog 行为埋点 + 数据采集 tab + 地域 opt-in/out | 🟡 **部分支持** | 架构+6 个事件+consent tab+时区地域判定已落地；事件清单远少于看板所需（6 vs 38） |
-| **#427** | 自进化 5 类信号 + 独立通道 + toggle | 🟡 **部分支持** | schema+采集+本地 JSONL+toggle 已落地；**上报通道等后端（ADR-002 未拍板）**，且走独立通道不进 PostHog |
+| **#416** | Sentry crash reporting + redaction | ✅ **Supported** | main+renderer processes, beforeSend redaction (email/IP/path username segments); DSN configured |
+| **#426** | PostHog behavior instrumentation + Data Collection tab + regional opt-in/out | 🟡 **Partially supported** | Architecture + 6 events + consent tab + timezone-region determination implemented; event list far short of dashboard needs (6 vs 38) |
+| **#427** | 5 self-evolution signal kinds + separate channel + toggle | 🟡 **Partially supported** | Schema + collection + local JSONL + toggle implemented; **reporting channel awaits backend (ADR-002 undecided)**, and uses a separate channel outside PostHog |
 
 ---
 
-## 二、当前已上报的数据（事实清单）
+<a id="二当前已上报的数据事实清单"></a>
 
-### 2.1 PostHog 行为事件（6 个）→ 进 PostHog，可做看板
+## 2. Data currently reported (fact inventory)
 
-| 事件 | 属性 | 触发点 |
+<a id="21-posthog-行为事件6-个-进-posthog可做看板"></a>
+
+### 2.1 PostHog behavior events (6) → sent to PostHog, usable for dashboards
+
+| Event | Properties | Trigger |
 |------|------|--------|
-| `app_launched` | `appVersion` / `platform` / `uiLocale` | 主进程 app ready |
-| `profile_created` | （空） | 本地档案首次创建 |
-| `login_completed` | （空，**占位未接**） | 等 #420 登录 |
-| `search_executed` | `source` / `resultCount` / `durationMs` / `success` | 检索结果落库 |
-| `review_generated` | `paperCount` / `durationMs` / `success` | 综述实体化成功 |
-| `agent_task_completed` | `numTurns` / `durationMs` / `success` / `resultSubtype` / `modelId` / `channelType` | 一次 runAgent 结束 |
+| `app_launched` | `appVersion` / `platform` / `uiLocale` | Main-process app ready |
+| `profile_created` | (empty) | First local profile creation |
+| `login_completed` | (empty, **unwired placeholder**) | Awaiting #420 login |
+| `search_executed` | `source` / `resultCount` / `durationMs` / `success` | Search results persisted |
+| `review_generated` | `paperCount` / `durationMs` / `success` | Review successfully materialized |
+| `agent_task_completed` | `numTurns` / `durationMs` / `success` / `resultSubtype` / `modelId` / `channelType` | One runAgent finishes |
 
-**公共维度**：`distinct_id` = 登录后账户 uid（OPENSCI uid，#420），未登录回落匿名 deviceId。
-**账户归属已接**（登录成功 `$identify` 合并匿名历史 + `$set` person 属性 `institution` / `discipline` / `signup_method`）。仍缺：`current_activation_level` / `pmf_status` / `install_source`（属漏斗/召回事件，另议）。
+**Common dimensions**: `distinct_id` = account uid after login (OPENSCI uid, #420), anonymous deviceId fallback when logged out.
+**Account attribution wired** (successful login `$identify` merges anonymous history + `$set` person properties `institution` / `discipline` / `signup_method`). Still missing: `current_activation_level` / `pmf_status` / `install_source` (funnel/recall events, separate discussion).
 
-### 2.2 自进化信号（5 类 + 隐式反馈）→ 走独立通道，**不进 PostHog**
+<a id="22-自进化信号5-类-&#45;隐式反馈-走独立通道不进-posthog"></a>
 
-落本地 `~/.asci/telemetry/signals.jsonl`，endpoint 未配则不外发（后端未建）。
+### 2.2 Self-evolution signals (5 kinds + implicit feedback) → separate channel, **outside PostHog**
 
-| kind | 字段 |
+Persist locally at `~/.asci/telemetry/signals.jsonl`; no external sending without endpoint configuration (backend not built).
+
+| kind | Fields |
 |------|------|
 | `task_structure` | promptChars / attachmentCount / mentionedSkillCount / numTurns / durationMs / success |
 | `tool_usage` | toolName / success / durationMs |
 | `model_choice` | modelId / channelType |
-| `error_event` | stage / message(脱敏) / retryable |
+| `error_event` | stage / message (redacted) / retryable |
 | `workspace_structure` | workspaceHash / sessionCount / paperCount / noteCount |
 | `implicit_feedback` | action(copy/save/cite/discard/retry) / target |
 
-### 2.3 Sentry → 崩溃/异常 + 堆栈（脱敏）
+<a id="23-sentry-&#45;崩溃异常-&#45;堆栈脱敏"></a>
+
+### 2.3 Sentry → crashes/exceptions + stacks (redacted)
 
 ---
 
-## 三、目标看板指标 × 能否算出 × 如何加工
+<a id="三目标看板指标-&#45;能否算出-&#45;如何加工"></a>
 
-目标 = `格物0.3-数据看板预览` 的 8 块看板。下表按"现有数据能否支撑"分三档。
+## 3. Target dashboard metrics × calculability × processing
 
-### ✅ A. 现在就能算（用已上报的 6 事件 + Sentry）
+Targets = the 8 dashboards in `格物0.3-数据看板预览` (Gewu 0.3 dashboard preview). The table groups targets by whether existing data supports them.
 
-| 目标指标 | 用什么 | PostHog 加工方式 |
+<a id="-a-现在就能算用已上报的-6-事件-&#45;sentry"></a>
+
+### ✅ A. Calculable now (using the 6 reported events + Sentry)
+
+| Target metric | Source | PostHog processing |
 |----------|--------|------------------|
-| DAU / WAU / MAU | `app_launched` | Trends → unique users（distinct_id 去重），按日/周/月 |
-| 版本 / 平台 / 语言分布 | `app_launched.appVersion/platform/uiLocale` | Trends breakdown by 属性 |
-| 检索次数 / 成功率 | `search_executed` (+`success`) | Trends 总数 + `success=true` 占比 |
-| 检索来源分布 | `search_executed.source` | breakdown by source |
-| **检索 TTLT P90**（§9.3） | `search_executed.durationMs` | Trends → 属性数值 P90（检索不流式，durationMs 即 TTLT）✅ 完全对齐 |
-| 综述次数 / 成功率 | `review_generated` (+`success`) | 同上 |
-| 综述论文数分布 | `review_generated.paperCount` | 直方图 / 平均 |
-| **综述 TTLT P90**（§9.3） | `review_generated.durationMs` | P90（≈全程时长；见下"近似"注意） |
-| Agent 任务量 / 成功率 / 轮次 | `agent_task_completed` | Trends + breakdown |
-| **模型选型分布**（§9.8 单维） | `agent_task_completed.modelId` / `channelType` | breakdown by modelId |
-| 崩溃数 / 崩溃率 / 按版本平台 | Sentry | Sentry Issues + release/tag 维度 |
+| DAU / WAU / MAU | `app_launched` | Trends → unique users (deduplicate distinct_id), daily/weekly/monthly |
+| Version / platform / language distribution | `app_launched.appVersion/platform/uiLocale` | Trends breakdown by property |
+| Search count / success rate | `search_executed` (+`success`) | Trends total + `success=true` proportion |
+| Search source distribution | `search_executed.source` | breakdown by source |
+| **Search TTLT P90** (§9.3) | `search_executed.durationMs` | Trends → numeric property P90 (search is nonstreaming, so durationMs is TTLT) ✅ Exact match |
+| Review count / success rate | `review_generated` (+`success`) | Same as above |
+| Review paper-count distribution | `review_generated.paperCount` | Histogram / average |
+| **Review TTLT P90** (§9.3) | `review_generated.durationMs` | P90 (≈total duration; see approximation caveat below) |
+| Agent task volume / success rate / turns | `agent_task_completed` | Trends + breakdown |
+| **Model-selection distribution** (§9.8 single dimension) | `agent_task_completed.modelId` / `channelType` | breakdown by modelId |
+| Crash count / rate / by version and platform | Sentry | Sentry Issues + release/tag dimensions |
 
-### 🟡 B. 部分能算 / 只能近似（缺分层或精确字段）
+<a id="-b-部分能算-&#45;只能近似缺分层或精确字段"></a>
 
-| 目标指标 | 现状 | 缺口 |
+### 🟡 B. Partially calculable / approximate only (missing segmentation or exact fields)
+
+| Target metric | Current state | Gap |
 |----------|------|------|
-| 整体留存（D1/D7/D30） | `app_launched` 可做 PostHog Retention | ✅ 整体留存能做；但**无法按 L0/L2/L3 分层**（§9.2 留存对照做不了，缺 `current_activation_level`） |
-| 激活漏斗（粗） | `profile_created → search_executed → review_generated` 可拼 3 步漏斗 | **不是 §9.1 的 L0→L3 阶梯**：缺 `first_l{n}_reached` 去重派生、L2(写 Note)/L3(建 EvidenceSet) 事件；现有漏斗每步可重复计数、非"首次达成" |
-| 综述 TTLT | `review_generated.durationMs` | 是否严格等于"提交→全部 token"取决于打点位置，需核对；当前为综述实体化耗时，可能含落盘 |
-| 新增用户近似 | `profile_created` | 非真实注册（#420 登录未落地）；登录后应改用 `login_completed` + 账户 distinct_id |
+| Overall retention (D1/D7/D30) | `app_launched` supports PostHog Retention | ✅ Overall retention possible; **cannot segment by L0/L2/L3** (§9.2 retention comparison unavailable, missing `current_activation_level`) |
+| Activation funnel (coarse) | `profile_created → search_executed → review_generated` supports a 3-step funnel | **Not the §9.1 L0→L3 ladder**: missing deduplicated `first_l{n}_reached` derivations and L2 (write Note)/L3 (create EvidenceSet) events; existing steps can count repeatedly, not first achievement |
+| Review TTLT | `review_generated.durationMs` | Whether it strictly equals submission→all tokens depends on instrumentation placement and needs checking; currently review materialization duration, potentially including persistence |
+| Approximate new users | `profile_created` | Not real signup (#420 login unimplemented); after login use `login_completed` + account distinct_id |
 
-### ❌ C. 现在算不出（缺事件 / 缺字段 / 缺后端）
+<a id="-c-现在算不出缺事件-&#45;缺字段-&#45;缺后端"></a>
 
-| 目标看板 / 指标 | 缺什么 | 要补的事件或字段 |
+### ❌ C. Not calculable now (missing events / fields / backend)
+
+| Target dashboard / metric | Missing | Events or fields to add |
 |----------------|--------|------------------|
-| **§9.1 L0→L3 阶梯漏斗** | 阶梯派生 + L2/L3 动作 | `first_l0/l2/l3_reached`（去重派生）、`note_created`、`evidence_set_created`、`current_activation_level`(person prop) |
-| **§9.2 阶梯留存对照** | 分层维度 | person property `current_activation_level` |
-| **§9.3 假成功率** ⭐ | 产物质量判定 | `review_generated` 加 `output_complete` + `claim_count` / `cited_paper_count`；`skill_execution_incomplete`(H2) + `incompleteness_type` |
-| **§9.3 综述 TTFT P90** ⭐ | 首 token 时点 | 新事件 `synthesis_first_token_received.ttft_ms`（现有只有全程 durationMs，无首 token） |
-| **§9.3 综述放弃率 / 路由准确率 / 报告投递率** | 对应事件 | `synthesis_abandoned`、skill 路由事件(H1)、`*_report_rendered` |
-| **§9.4 L2 气泡 A/B** | 实验框架 | `note_prompt_shown` + `experiment_exposed` + PostHog Feature Flags 接入 |
-| **§9.5 渠道 / Referral** | 获客 + 邀请 | person `install_source`、`invite_sent/accepted`(I 组) |
-| **§9.6 召回 / PMF** | J 组 | `inactive_user_detected` / `recall_message_*` / `pmf_survey_answered` + person `pmf_status` |
-| **§9.7 工作循环闭合（复用率/二次唤起/散点）** | 跨期引用 + 后端 | `seeded_from_*` / `references_*` / `source_note_ids` / `evidence_set_opened` + **服务端 24h 跨期 join**（ADR-002 后端未建） |
-| **§9.8 产物评价（点赞拉踩双维）** | claim 级评价 | `claim_feedback`(N1/N2) + `workflow_path` 维度（现有只有 modelId、无 workflow_path、无 claim 级赞踩） |
-| **任意 breakdown by 学科/来源/注册方式** | person properties | `identify` + install_source / discipline / signup_method |
-| **隐式反馈进看板** | 通道错位 | 现有 `implicit_feedback` 走自进化通道(本地 JSONL)，**不在 PostHog**；要进看板需另发 PostHog 事件或接通自进化后端 |
+| **§9.1 L0→L3 ladder funnel** | Ladder derivations + L2/L3 actions | `first_l0/l2/l3_reached` (deduplicated derivations), `note_created`, `evidence_set_created`, `current_activation_level` (person prop) |
+| **§9.2 Ladder retention comparison** | Segmentation dimension | person property `current_activation_level` |
+| **§9.3 False-success rate** ⭐ | Output quality determination | Add `output_complete` + `claim_count` / `cited_paper_count` to `review_generated`; `skill_execution_incomplete` (H2) + `incompleteness_type` |
+| **§9.3 Review TTFT P90** ⭐ | First-token timestamp | New event `synthesis_first_token_received.ttft_ms` (currently only full durationMs, no first token) |
+| **§9.3 Review abandonment / routing accuracy / report delivery rates** | Corresponding events | `synthesis_abandoned`, skill routing events (H1), `*_report_rendered` |
+| **§9.4 L2 bubble A/B** | Experiment framework | `note_prompt_shown` + `experiment_exposed` + PostHog Feature Flags integration |
+| **§9.5 Acquisition channels / Referral** | Acquisition + invitations | person `install_source`, `invite_sent/accepted` (group I) |
+| **§9.6 Recall / PMF** | Group J | `inactive_user_detected` / `recall_message_*` / `pmf_survey_answered` + person `pmf_status` |
+| **§9.7 Workflow loop closure (reuse/second invocation/scatter)** | Cross-period references + backend | `seeded_from_*` / `references_*` / `source_note_ids` / `evidence_set_opened` + **server-side 24h cross-period join** (ADR-002 backend not built) |
+| **§9.8 Output evaluation (up/down votes, two dimensions)** | Claim-level feedback | `claim_feedback` (N1/N2) + `workflow_path` dimension (currently modelId only, no workflow_path or claim-level votes) |
+| **Any breakdown by discipline/source/signup method** | person properties | `identify` + install_source / discipline / signup_method |
+| **Implicit feedback on dashboards** | Channel mismatch | Existing `implicit_feedback` uses self-evolution channel (local JSONL), **outside PostHog**; dashboard use requires another PostHog event or connected self-evolution backend |
 
 ---
 
-## 四、关键结论与差距根因
+<a id="四关键结论与差距根因"></a>
 
-1. **能立刻产出的看板**：基础健康度（DAU/WAU、检索/综述/任务的量与成功率、检索 TTLT、模型分布、崩溃率）——用现有 6 事件 + Sentry 即可在 PostHog 配出。
-2. **dashboard 大部分高级看板缺事件**：现状 6 个行为事件 vs Spec 目标 38 个 + 3 派生。漏斗（L0-L3）、留存分层、假成功率、TTFT、A/B、Referral、PMF、产物评价**都缺对应事件/字段**。
-3. **三个结构性根因**：
-   - **无 person properties / 无账户归属**：distinct_id 仍是匿名 deviceId（#420 登录未落地），无法按账户去重、无法 `current_activation_level` 分层、无法按学科/来源 breakdown。
-   - **闭环 §9.7 强依赖后端**：24h 跨期 join / `is_cross_session` 派生 PostHog 原生做不到，依赖 ADR-002 服务器栈（未拍板）。
-   - **自进化信号与 PostHog 通道隔离**：隐式反馈在自进化通道（本地 JSONL，后端未建），dashboard（PostHog）当前取不到。
+## 4. Key conclusions and root causes of gaps
+
+1. **Immediately available dashboards**: Basic health (DAU/WAU, search/review/task volumes and success, search TTLT, model distribution, crash rate), configurable in PostHog using existing 6 events + Sentry.
+2. **Most advanced dashboards lack events**: Current 6 behavior events vs Spec target 38 + 3 derived events. Funnels (L0-L3), segmented retention, false-success rate, TTFT, A/B, Referral, PMF, and output evaluation **all lack corresponding events/fields**.
+3. **Three structural root causes**:
+   - **No person properties / account attribution**: distinct_id remains anonymous deviceId (#420 login unimplemented), preventing account deduplication, `current_activation_level` segmentation, and discipline/source breakdowns.
+   - **§9.7 loop closure strongly depends on backend**: PostHog cannot natively perform 24h cross-period joins / `is_cross_session` derivation; depends on ADR-002 server stack (undecided).
+   - **Self-evolution signals isolated from PostHog**: Implicit feedback lives in the self-evolution channel (local JSONL, backend not built), inaccessible to the current PostHog dashboard.
 
 ---
 
-## 五、要补齐到目标，按优先级的工作项
+<a id="五要补齐到目标按优先级的工作项"></a>
 
-1. **接 person properties + 登录归属**（依赖 #420）：`identify` + install_source/discipline/signup_method/current_activation_level → 解锁留存分层、漏斗去重、breakdown。
-2. **扩 PostHog 事件清单（6 → Spec 的 A/B/C/D/E/F/H 组核心）**：补 `first_l{n}_reached`、`note_created`、`evidence_set_created`、`synthesis_first_token_received`、`synthesis_abandoned`、skill 路由/投递事件、`review_generated` 加 `output_complete`/`claim_count`（假成功率）。
-3. **A/B（§9.4）**：接 Feature Flags + `experiment_exposed`（0.3 Spec 标 W3，可后置）。
-4. **闭环（§9.7）**：等 ADR-002 后端，补 `seeded_from_*`/`references_*`/`evidence_set_opened` + 服务端跨期 join。
-5. **Referral/PMF/召回（§9.5/9.6）**：0.3 暂缓（Spec 已明示）。
+## 5. Prioritized work to reach targets
 
-> 详细的事件字段定义以 `格物0.3-PostHog埋点Spec-v0.4.3.md` 为准；本表只做"现状 → 目标"的差距对照。
+1. **Wire person properties + login attribution** (depends on #420): `identify` + install_source/discipline/signup_method/current_activation_level → enables retention segments, funnel deduplication, breakdowns.
+2. **Expand PostHog events (6 → core Spec groups A/B/C/D/E/F/H)**: Add `first_l{n}_reached`, `note_created`, `evidence_set_created`, `synthesis_first_token_received`, `synthesis_abandoned`, skill routing/delivery events, and `output_complete`/`claim_count` on `review_generated` (false-success rate).
+3. **A/B (§9.4)**: Integrate Feature Flags + `experiment_exposed` (0.3 Spec marks W3; may defer).
+4. **Loop closure (§9.7)**: Await ADR-002 backend; add `seeded_from_*`/`references_*`/`evidence_set_opened` + server-side cross-period joins.
+5. **Referral/PMF/recall (§9.5/9.6)**: Deferred in 0.3 (explicit in Spec).
+
+> Detailed event fields follow `格物0.3-PostHog埋点Spec-v0.4.3.md` (Gewu 0.3 PostHog instrumentation Spec); this table only compares current state → target gaps.

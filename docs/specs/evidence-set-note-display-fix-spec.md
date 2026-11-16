@@ -1,80 +1,94 @@
-# 证据集 Note 展示修复 Spec（issue #446）
+<a id="证据集-note-展示修复-specissue-446"></a>
 
-> **状态**：已实现 · 待 PR review
-> **关联 issue**：#446（[ops-feedback] library 论文下添加 note：证据集列表标题/副标题与详情页引用展示不符预期）
-> **关联 PR**：待开
-> **领域语言事实源**：`CONTEXT.md`（证据集 / Note / EvidenceRef / Anchor）
+# Evidence Set Note Display Fix Spec (issue #446)
+
+> **Status**: Implemented · Awaiting PR review
+> **Related issue**: #446 ([ops-feedback] adding a note under a library paper: evidence set list titles/subtitles and detail citations differ from expectations)
+> **Related PR**: Not yet opened
+> **Domain language source of truth**: `CONTEXT.md` (evidence set / Note / EvidenceRef / Anchor)
 
 ---
 
-## 1. 问题复核（issue 三个症状 ↔ 当前 main 现状）
+<a id="1-问题复核issue-三个症状-&#45;当前-main-现状"></a>
 
-issue 截图来自旧版打包构建（详情页还是 `NOTE` 区 + 引用块布局；现 main 已演进为
-`PairedCardsList` 配对卡片）。在当前 main（`2647134f`）逐条复核：
+## 1. Problem Review (Three Issue Symptoms ↔ Current Main)
 
-| # | issue 症状 | 当前 main 现状 | 结论 |
+The issue screenshots came from an older packaged build (details still used a `NOTE` area + quote blocks; current main has evolved to
+`PairedCardsList` paired cards). Item-by-item review on current main (`2647134f`):
+
+| # | Issue symptom | Current main | Conclusion |
 |---|-----------|---------------|------|
-| 1 | 证据集列表主标题未显示用户输入（显示成论文标题） | `NotesView.tsx` `NoteListItem` 已改为 `setName → note.content → 占位`（#556 携带落地） | **已修复**，本次仅回归验证 |
-| 2 | 列表副标题未显示关联论文 | 副行 = note.body 首段；与主标题重复时整行隐藏 → 列表行完全没有论文信息（`sourceTitle` 字段已有但未用） | **待修** |
-| 3 | note 详情展示冗余"引用内容" | 写入路径在无划词时用**正文前 200 字伪造** `sourceAnchor.snapshotText`；B3 起 `quote` 即 anchor.snapshotText → quote ≡ 正文前缀，`NoteDetailDialog` / `PaperNotesPanel.NoteCard` 把正文重复展示成引用块；该伪 quote 还会作为 PDF 跳转锚点（必然定位失败）。**存量数据已污染** | **待修（根因）** |
+| 1 | Evidence set list primary title does not show user input (shows the paper title) | `NotesView.tsx` `NoteListItem` already uses `setName → note.content → 占位` (placeholder) (delivered in #556) | **Fixed**, regression verification only this round |
+| 2 | List subtitle does not show the associated paper | Secondary row = first note.body paragraph; hidden entirely when it duplicates the primary title → no paper information in the list row (`sourceTitle` exists but is unused) | **Needs fix** |
+| 3 | Note detail shows redundant quoted content | When no text is selected, the write path **fabricates** `sourceAnchor.snapshotText` from the first 200 body characters; since B3, `quote` is anchor.snapshotText → quote ≡ body prefix. `NoteDetailDialog` / `PaperNotesPanel.NoteCard` duplicate body text as a quote block; the fake quote is also used as a PDF navigation anchor (necessarily failing to locate it). **Existing data is polluted** | **Needs fix (root cause)** |
 
-伪造点（写入路径）：
+Fabrication sites (write paths):
 
 - [usePaperNotes.ts:106-109](apps/electron/src/renderer/hooks/usePaperNotes.ts:106) —
   `snapshotText: (draft.quote ?? draft.content).slice(0, 200)`
 - [NotesView.tsx:449-452](apps/electron/src/renderer/components/library/NotesView.tsx:449) —
   `snapshotText: (pending.quote || content).slice(0, 200)`
 
-> 注：当前 UI 的"无划词直接添加"入口已被"添加证据集"dialog 取代（`createWithPaper`
-> 路径 anchor 为空串，干净），ItemDetailPanel 的 inline 空白笔记分支（rect=null）现已无触发点。
-> 但兜底代码仍在、且老版本产生的存量数据仍在用户库里，三处症状里 #3 对存量数据依旧可见。
+> Note: The current UI's direct-add-without-selection entry has been replaced by the Add Evidence Set dialog (the `createWithPaper`
+> path has an empty anchor and is clean); ItemDetailPanel's inline blank-note branch (rect=null) no longer has a trigger.
+> Fallback code remains, however, and old-version data remains in users' libraries; symptom #3 still affects existing data.
 
-## 2. 行为期望（BDD）
+<a id="2-行为期望bdd"></a>
 
-1. **划词建注**（摘要 / PDF 选区）：
-   - 证据集列表：主标题 = note 正文（截断），副标题 = 来源论文标题；
-   - note 详情（NoteDetailDialog）：展示引用块 = 划词原文（保留现有行为）；
-   - PDF 跳转锚点 = 划词原文。
-2. **添加证据集 → 新建**（name + 补充说明）：
-   - 列表：主标题 = 集合名，副标题 = 来源论文标题；
-   - 详情：无引用块（anchor 本来为空，保持）。
-3. **存量"直接添加"老数据**（quote 被正文前缀污染）：
-   - 详情 / 论文页笔记卡不再出现与正文重复的引用块；
-   - 不再把伪 quote 当 PDF 定位锚点。
-4. 对话来源证据集：列表副标题 = 「会话名 · 问题前 20 字」（复用现有 `conversationSourceTitle`）。
+## 2. Expected Behavior (BDD)
 
-## 3. 修复方案
+1. **Create annotation from selected text** (abstract / PDF selection):
+   - Evidence set list: primary title = note body (truncated); subtitle = source paper title.
+   - Note details (NoteDetailDialog): quote block = selected original text (preserve behavior).
+   - PDF navigation anchor = selected original text.
+2. **Add Evidence Set → Create** (name + additional description):
+   - List: primary title = set name; subtitle = source paper title.
+   - Details: no quote block (anchor is already empty; preserve).
+3. **Existing direct-add data** (quote polluted by body prefix):
+   - Details / paper-page note cards no longer show quote blocks duplicating the body.
+   - Fake quotes are no longer PDF location anchors.
+4. Conversation-sourced evidence sets: list subtitle = “conversation name · first 20 question characters” (reuse existing `conversationSourceTitle`).
 
-### 3.1 Fix-副标题：列表副行改为"来源标题"（renderer）
+<a id="3-修复方案"></a>
 
-`NotesView.tsx` `NoteListItem`：
+## 3. Fix Approach
 
-- 删除"note.body 首段"推导，副行 `preview` 改传 `note.sourceTitle`
-  （paper → 论文标题；review → 综述标题；conversation/none → 现有 `sourceTitle` 兜底文案）。
-- 主标题逻辑不动（`setName → content → 占位`）。
-- 去重守卫：`sourceTitle === primaryTitle` 时不渲染副行（防 set 名恰好等于论文标题的两行重复）。
+<a id="31-fix-副标题列表副行改为来源标题renderer"></a>
 
-不改 `PaperContainingEvidenceSetsPanel`（Referenced In 区在论文详情页内，论文上下文自明，
-副行继续显示 note 摘要更有信息量）；不改 `EvidenceSetCard` 组件 API（`preview` 语义即副行）。
+### 3.1 Fix Subtitles: Use Source Titles for List Secondary Rows (Renderer)
 
-### 3.2 Fix-引用伪造（写入路径，renderer）
+`NotesView.tsx` `NoteListItem`:
 
-无划词时 anchor 留空，不再用正文兜底：
+- Remove derivation from the first note.body paragraph; pass `note.sourceTitle` as secondary-row `preview`
+  (paper → paper title; review → review title; conversation/none → existing `sourceTitle` fallback).
+- Preserve primary-title logic (`setName → content → 占位`, ending with a placeholder).
+- Deduplication guard: omit secondary rows when `sourceTitle === primaryTitle` (avoid duplicate lines when a set name equals its paper title).
 
-- `usePaperNotes.ts` createNote：`snapshotText: (draft.quote ?? '').slice(0, 200)`
-- `NotesView.tsx` NotesViewPdfOverlay handleSave：`snapshotText: pending.quote.slice(0, 200)`
-  （该流必有选区；显式去掉 `|| content` 兜底）
-- 全仓 grep `snapshotText:` 构造点复查，确认无其他"正文兜底"残留
-  （`addPaperToEvidenceSet` / `createEvidenceSetWithPaper` 已是空串，符合预期）。
+Leave `PaperContainingEvidenceSetsPanel` unchanged (Referenced In is within paper details, so the paper context is clear;
+continuing to show note summaries is more informative). Leave the `EvidenceSetCard` API unchanged (`preview` already means secondary row).
 
-语义依据：anchor 表"在原文哪里划的"，note 正文是用户原创，不构成定位锚点；
-`addPaperToEvidenceSet` 已确立"无选区 → snapshotText 空串"的先例。
+<a id="32-fix-引用伪造写入路径renderer"></a>
 
-### 3.3 Fix-存量数据治理（查询层归一化，main 进程）
+### 3.2 Fix Fabricated Quotes (Write Paths, Renderer)
 
-不做 DB migration，在查询出口统一"伪 quote 判定"：
+Leave anchors empty without selected text; stop falling back to the body:
 
-`query-service.ts` 新增私有 helper：
+- `usePaperNotes.ts` createNote: `snapshotText: (draft.quote ?? '').slice(0, 200)`
+- `NotesView.tsx` NotesViewPdfOverlay handleSave: `snapshotText: pending.quote.slice(0, 200)`
+  (this flow always has a selection; explicitly remove the `|| content` fallback).
+- Search all `snapshotText:` construction sites repository-wide, confirming no body fallbacks remain
+  (`addPaperToEvidenceSet` / `createEvidenceSetWithPaper` already use empty strings, as expected).
+
+Semantic basis: An anchor represents where text was selected in the original; note bodies are user-authored and cannot serve as location anchors.
+`addPaperToEvidenceSet` already establishes the precedent “no selection → empty snapshotText.”
+
+<a id="33-fix-存量数据治理查询层归一化main-进程"></a>
+
+### 3.3 Fix Existing Data (Query-Layer Normalization, Main Process)
+
+Avoid a DB migration; centralize fake-quote detection at query outputs:
+
+Add a private helper in `query-service.ts`. Its retained Chinese comment explains that old versions generated anchor.snapshotText from the first 200 body characters without selection; matching body prefixes are treated as fabricated. Real paper quotes rarely match user-written prefixes, and hiding duplicates is acceptable even when they do.
 
 ```ts
 /** 伪引文判定：旧版本无划词时用正文前 200 字兜底生成 anchor.snapshotText；
@@ -87,48 +101,56 @@ function sanitizeQuote(snapshot: string, noteBody: string): string {
 }
 ```
 
-两处出口接入（均能拿到同行的 note body）：
+Integrate at two outputs (both have the same row's note body):
 
-- `queryNotesByPaper`（[query-service.ts:133](apps/electron/src/main/lib/objects/query-service.ts:133)）
-- `queryAllNotesWithPaper`（[query-service.ts:356](apps/electron/src/main/lib/objects/query-service.ts:356)）
+- `queryNotesByPaper` ([query-service.ts:133](apps/electron/src/main/lib/objects/query-service.ts:133))
+- `queryAllNotesWithPaper` ([query-service.ts:356](apps/electron/src/main/lib/objects/query-service.ts:356))
 
-收益：`NoteDetailDialog`、`PaperNotesPanel.NoteCard`、NotesView 搜索、PDF 跳转锚点等
-所有 consumer 一次治愈；纯读侧归一，可随时回退，无数据风险。
+Benefits: Repairs all consumers together, including `NoteDetailDialog`, `PaperNotesPanel.NoteCard`, NotesView search, and PDF navigation anchors.
+Read-side normalization only; reversible at any time with no data risk.
 
-**实现补充（复盘后扩展，超出上述两出口）**：
-- `sanitizeQuote` 仅对 **paper 锚点**生效（按 source kind 门控）——兜底伪造只发生在
-  paper md anchor 写入路径；conversation 的 Q/A 快照与 note 正文同源是合法形态，不判伪。
-- 第三个泄漏出口 `queryEvidenceSetDetail`：给 `EvidenceRefWithSource`（`@asci/shared`）
-  加派生只读字段 `quote`（查询层归一后的值），**raw `ref.source.anchor` 不动**
-  （promote / 导出 / `anchorContentHash` 幂等键依赖原始值）。消费侧改读 `quote`：
-  - `NotesView.onSelectPaperRef`（PairedCard → PDF 定位）
-  - `evidence-set-context-block.ts`（`<excerpts>` agent 注入 —— 否则会把用户正文
-    冒充论文原文喂给 Agent）
+**Implementation addendum (expanded after review beyond the two outputs above)**:
+- Apply `sanitizeQuote` only to **paper anchors** (gated by source kind): fallback fabrication occurred only in
+  paper md anchor write paths. Conversation Q/A snapshots legitimately share their source with note bodies and are not treated as fake.
+- Third leaking output `queryEvidenceSetDetail`: add derived read-only `quote` to `EvidenceRefWithSource` (`@asci/shared`)
+  (the query-normalized value); **leave raw `ref.source.anchor` unchanged**
+  (promote / export / `anchorContentHash` idempotency keys depend on the original). Consumers switch to `quote`:
+  - `NotesView.onSelectPaperRef` (PairedCard → PDF positioning)
+  - `evidence-set-context-block.ts` (`<excerpts>` agent injection, which would otherwise feed user-authored bodies
+    to the Agent as original paper text).
 
-**备选（不推荐）**：一次性 migration 清洗 `evidence_refs.source_anchor`。
-能根治存量，但要写迁移 + 判定逻辑相同、风险更高；查询层归一已覆盖全部可见症状。
+**Alternative (not recommended)**: One-time migration cleaning `evidence_refs.source_anchor`.
+This cures stored data but requires a migration with identical detection logic and greater risk; query normalization covers all visible symptoms.
 
-### 3.4 不做的事
+<a id="34-不做的事"></a>
 
-- 不引入 note "标题"字段（issue 的"标题"即正文首行心智，主标题=正文已满足）；
-- 不改 `EvidenceSetDetailSheet` / `PairedCardsList`（当前已无引用块，无症状）；
-- 不动 IPC 契约（无通道/类型变更，四联同步不触发）。
+### 3.4 Out of Scope
 
-## 4. 测试与验收
+- No note title field (the issue's “title” means the first body line; primary title = body already satisfies it).
+- No changes to `EvidenceSetDetailSheet` / `PairedCardsList` (no quote blocks remain there; no symptom).
+- No IPC contract changes (no channel/type changes, so four-way synchronization is not triggered).
 
-- **单测**（main 进程，`bun test`）：
-  - `sanitizeQuote`：空串 / 真实引文 / 正文前缀伪引文 / 带空白差异的前缀；
-  - `queryNotesByPaper` / `queryAllNotesWithPaper`：插入"伪 quote"行 → 返回 quote 为空；真实划词行 → 原样返回。
-- **手动 golden path**（`bun run dev`）：§2 的 4 条行为期望逐条走查；
-  zh ↔ en 切换确认列表副行无 raw key（本次预计**零新增 i18n key**：副行直接展示来源标题）。
-- `bun run typecheck` 通过。
+<a id="4-测试与验收"></a>
 
-## 5. 影响面与版本
+## 4. Tests and Acceptance
 
-- 改动包：`apps/electron`（renderer 2 文件 + main 1 文件）→ 开 PR 时 patch +1；
-- `packages/*` 无改动；无新依赖；无 IPC / schema 变更。
+- **Unit tests** (main process, `bun test`):
+  - `sanitizeQuote`: empty string / real quote / fake body-prefix quote / prefix with whitespace differences.
+  - `queryNotesByPaper` / `queryAllNotesWithPaper`: insert a fake-quote row → empty returned quote; real selection row → unchanged return.
+- **Manual golden path** (`bun run dev`): Walk all 4 expected behaviors in §2;
+  switch zh ↔ en to confirm no raw keys in subtitles (**zero new i18n keys** expected: source titles display directly).
+- `bun run typecheck` passes.
 
-## 6. 待确认（open questions）
+<a id="5-影响面与版本"></a>
 
-1. 列表副行统一改为"来源标题"（含命名集合）—— 命名集合现在副行显示的"补充说明首段"会被替换，可接受？（推荐：接受，列表口径统一为「集合是什么 + 来自哪」）
-2. 存量治理选查询层归一化（推荐）还是 DB migration？
+## 5. Impact and Version
+
+- Changed package: `apps/electron` (2 renderer files + 1 main file) → patch +1 when opening the PR.
+- No `packages/*` changes; no dependencies; no IPC / schema changes.
+
+<a id="6-待确认open-questions"></a>
+
+## 6. Open Questions
+
+1. Standardize list secondary rows as source titles (including named sets): this replaces named sets' current first-paragraph additional description. Acceptable? (Recommendation: yes; list semantics become “what the set is + where it came from.”)
+2. Normalize existing data at the query layer (recommended) or use a DB migration?

@@ -1,66 +1,72 @@
-# 执行步骤组 Spec（Execution Step Grouping Specification）
+<a id="执行步骤组-specexecution-step-grouping-specification"></a>
 
-> **状态**：设计已锁定 · 待实现
-> **关联 issue**：#375
-> **关联 PR**：#376（CONTEXT.md 领域语言 + 本 Spec）
-> **领域语言事实源**：仓库根 `CONTEXT.md`（回合 / 过程块 / 最终回答 / 执行步骤组 / 队友 / TodoBoard）
-> **实现交付**：分配给 itpretty
+# Execution Step Grouping Specification
 
-> **给实现者**：本 Spec 含完整 TDD 实现计划（任务分解 + 代码），可配合 `superpowers:executing-plans` 逐任务执行。任务步骤里的文件行号为撰写时快照，实现前请以实际代码为准（详见文末「已知实现层假设」）。
+> **Status**: Design locked · Implementation pending
+> **Related issue**: #375
+> **Related PR**: #376 (CONTEXT.md domain language + this Spec)
+> **Domain-language source of truth**: Root `CONTEXT.md` (turn / process block / final answer / execution step group / teammate / TodoBoard)
+> **Implementation delivery**: Assigned to itpretty
 
-**Goal:** 把对话流里连续的过程块（思考 + 工具调用）折叠成一行可展开的「执行步骤组」，对话流一级只保留最终回答 + 一行执行摘要，省屏效。
+> **For implementers**: This Spec includes a complete TDD implementation plan (tasks + code), usable task-by-task with `superpowers:executing-plans`. File line numbers reflect the writing-time snapshot; check actual code before implementation (see “Known implementation assumptions” at end).
 
-**Architecture:** 在 `AssistantTurnRenderer` 渲染前，用一个纯函数 `groupExecutionSteps` 把顶层内容块序列预处理成「渲染项列表」（透传块 / 执行步骤组）；新增 `ExecutionStepGroup` 组件渲染折叠行 + 可展开详情，内部复用现有 `ContentBlock` 逐条渲染步骤，保证流程样式一致。分组规则：连续≥2 个同说话人过程块成组；最终回答（text）、说话人切换、TodoBoard 卡片均切断分组；单步退化为直接渲染原块。
+**Goal:** Collapse consecutive process blocks (thinking + tool calls) into one expandable execution-step-group row, leaving only final answers + one execution summary at the top conversation level to save screen space.
 
-**Tech Stack:** TypeScript（严格模式，导入带 `.ts`/`.tsx` 扩展名）、React 18、Bun test、i18next（`conversation` 命名空间，en+zh 同步）、Tailwind 语义 token。
+**Architecture:** Before `AssistantTurnRenderer` renders, pure `groupExecutionSteps` preprocesses top-level blocks into render items (passthrough blocks / execution groups); new `ExecutionStepGroup` renders collapsed row + expandable details, reusing existing `ContentBlock` for each step to preserve styling. Group consecutive ≥2 same-speaker process blocks; final answers (text), speaker changes, and TodoBoard cards break groups; single steps render original blocks directly.
 
-**领域语言事实源：** 仓库根 `CONTEXT.md`（回合 / 过程块 / 最终回答 / 执行步骤组 / 队友 / TodoBoard）。
+**Tech Stack:** TypeScript (strict, imports include `.ts`/`.tsx` extensions), React 18, Bun test, i18next (`conversation` namespace, synchronized en+zh), Tailwind semantic tokens.
+
+**Domain-language source of truth:** Root `CONTEXT.md` (turn / process block / final answer / execution step group / teammate / TodoBoard).
 
 ---
 
-## 设计决策快照（已与产品锁定）
+<a id="设计决策快照已与产品锁定"></a>
 
-| # | 决策点 | 结论 |
+## Design decisions (locked with product)
+
+| # | Decision | Conclusion |
 |---|--------|------|
-| 1 | 分组边界 | 连续≥2 过程块成组；最终回答(text)切断；队友切换切断；TodoBoard 切断 |
-| 2 | 折叠行文案 | 运行中=当前步(转圈)；完成="已执行 N 步"；有失败="⚠ 已执行 N 步·M 步失败" |
-| 3 | 运行期默认 | 折叠，点击才展开 |
-| 4 | 子 Agent | 每个队友单独成组，折叠行带队友名徽标（⊙ 名字·执行 N 步） |
-| 5 | TodoBoard | 独立卡片保持可见，不折叠；同样切断分组 |
-| 6 | 错误 | 折叠行加报错徽标，不自动展开 |
-| 7 | 单步 | 只 1 步不成组，直接显原块（保留具体工具名） |
-| 8 | 展开后流式 | 跟随追加；该组跑完自动收成汇总行 |
-| 9 | 组内状态 | 两级嵌套：每步仍是一行，可再点开看详情 |
+| 1 | Group boundaries | Consecutive ≥2 process blocks group; final text / teammate change / TodoBoard break groups |
+| 2 | Collapsed copy | Running=current step (spinner); done=“Executed N steps”; failures=“⚠ Executed N steps · M failed” |
+| 3 | Runtime default | Collapsed, expand only on click |
+| 4 | Sub-Agents | Separate group per teammate, name badge on collapsed row (⊙ Name · Executed N steps) |
+| 5 | TodoBoard | Independent visible card, never collapsed; breaks groups |
+| 6 | Errors | Add error badge, no automatic expansion |
+| 7 | Single step | No group for 1 step; show original block, preserving specific tool name |
+| 8 | Streaming when expanded | Append live; automatically collapse into summary when group finishes |
+| 9 | Internal state | Two-level nesting: one row per step, expandable again for details |
 
 ---
 
 ## File Structure
 
-| 文件 | 责任 | 动作 |
+| File | Responsibility | Action |
 |------|------|------|
-| `apps/electron/src/renderer/components/agent/tool-result-lookup.ts` | 从 `allMessages` 中按 `tool_use_id` 查工具结果的纯函数（从 ContentBlock 抽出，供组件与分组摘要共用） | Create |
-| `apps/electron/src/renderer/components/agent/tool-result-lookup.test.ts` | 上面纯函数的单测 | Create |
-| `apps/electron/src/renderer/components/agent/group-execution-steps.ts` | 分组纯函数 `groupExecutionSteps` + 摘要 `summarizeExecutionGroup` + 类型 | Create |
-| `apps/electron/src/renderer/components/agent/group-execution-steps.test.ts` | 分组与摘要的单测（分组算法核心） | Create |
-| `apps/electron/src/renderer/components/agent/ExecutionStepGroup.tsx` | 折叠行 + 可展开详情组件；自动收起、报错徽标、队友徽标、当前步标签 | Create |
-| `apps/electron/src/renderer/components/agent/ContentBlock.tsx` | `useToolResult` 改为调用抽出的纯函数（无行为变化） | Modify (47-75) |
-| `apps/electron/src/renderer/components/agent/SDKMessageRenderer.tsx` | `AssistantTurnRenderer` 渲染循环改走 `groupExecutionSteps` | Modify (510-555) |
-| `apps/electron/src/renderer/locales/en/conversation/agent.json` | 新增执行组 i18n key（英文） | Modify |
-| `apps/electron/src/renderer/locales/zh/conversation/agent.json` | 新增执行组 i18n key（中文，与 en 同步） | Modify |
-| `apps/electron/package.json` | patch 版本号递增 | Modify |
+| `apps/electron/src/renderer/components/agent/tool-result-lookup.ts` | Pure lookup by `tool_use_id` in `allMessages` (extracted from ContentBlock, shared by component/group summary) | Create |
+| `apps/electron/src/renderer/components/agent/tool-result-lookup.test.ts` | Tests for the pure function above | Create |
+| `apps/electron/src/renderer/components/agent/group-execution-steps.ts` | Pure grouping `groupExecutionSteps` + summary `summarizeExecutionGroup` + types | Create |
+| `apps/electron/src/renderer/components/agent/group-execution-steps.test.ts` | Grouping/summary tests (core algorithm) | Create |
+| `apps/electron/src/renderer/components/agent/ExecutionStepGroup.tsx` | Collapsed row/expandable details; auto-collapse, error/teammate badges, current-step label | Create |
+| `apps/electron/src/renderer/components/agent/ContentBlock.tsx` | `useToolResult` delegates to extracted pure function (no behavior change) | Modify (47-75) |
+| `apps/electron/src/renderer/components/agent/SDKMessageRenderer.tsx` | `AssistantTurnRenderer` loop uses `groupExecutionSteps` | Modify (510-555) |
+| `apps/electron/src/renderer/locales/en/conversation/agent.json` | New execution-group i18n keys (English) | Modify |
+| `apps/electron/src/renderer/locales/zh/conversation/agent.json` | New execution-group i18n keys (Chinese, matching en) | Modify |
+| `apps/electron/package.json` | Increment patch version | Modify |
 
 ---
 
-## Task 1: 抽出工具结果查找纯函数
+<a id="task-1-抽出工具结果查找纯函数"></a>
 
-把 `ContentBlock.tsx` 里 `useToolResult` 的查找逻辑抽成独立纯函数 `findToolResultInMessages`，让分组摘要也能复用（且可单测）。`useToolResult` 改为只包一层 `useMemo`。
+## Task 1: Extract pure tool-result lookup
+
+Extract lookup logic from `useToolResult` in `ContentBlock.tsx` into pure `findToolResultInMessages`, reusable by group summaries and unit-testable. `useToolResult` becomes only a `useMemo` wrapper.
 
 **Files:**
 - Create: `apps/electron/src/renderer/components/agent/tool-result-lookup.ts`
 - Create: `apps/electron/src/renderer/components/agent/tool-result-lookup.test.ts`
 - Modify: `apps/electron/src/renderer/components/agent/ContentBlock.tsx:39-75`
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write failing tests**
 
 Create `apps/electron/src/renderer/components/agent/tool-result-lookup.test.ts`:
 
@@ -103,12 +109,12 @@ describe('findToolResultInMessages', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: Run tests and confirm failure**
 
 Run: `bun test apps/electron/src/renderer/components/agent/tool-result-lookup.test.ts`
 Expected: FAIL — `Cannot find module './tool-result-lookup.ts'`
 
-- [ ] **Step 3: 写最小实现**
+- [ ] **Step 3: Write minimal implementation**
 
 Create `apps/electron/src/renderer/components/agent/tool-result-lookup.ts`:
 
@@ -159,20 +165,20 @@ export function findToolResultInMessages(
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: Run tests and confirm success**
 
 Run: `bun test apps/electron/src/renderer/components/agent/tool-result-lookup.test.ts`
-Expected: PASS（4 个测试）
+Expected: PASS (4 tests)
 
-- [ ] **Step 5: 改 ContentBlock.tsx 复用纯函数**
+- [ ] **Step 5: Reuse pure function in ContentBlock.tsx**
 
-在 `ContentBlock.tsx` 顶部 import 区（约 37 行 `isSubagentToolUse` 那段附近）加入：
+Add to `ContentBlock.tsx` imports (near `isSubagentToolUse`, around line 37):
 
 ```ts
 import { findToolResultInMessages, type ToolResultData } from './tool-result-lookup.ts'
 ```
 
-删除 `ContentBlock.tsx` 第 39-75 行原有的 `ToolResultData` 接口与 `useToolResult` 实现，替换为：
+Delete original `ToolResultData` interface and `useToolResult` in `ContentBlock.tsx` lines 39-75; replace with:
 
 ```ts
 // ===== useToolResult Hook =====
@@ -186,10 +192,10 @@ function useToolResult(toolUseId: string, allMessages: SDKMessage[]): ToolResult
 }
 ```
 
-- [ ] **Step 6: 类型检查 + 测试**
+- [ ] **Step 6: Typecheck + tests**
 
 Run: `bun run typecheck && bun test apps/electron/src/renderer/components/agent/`
-Expected: PASS（含原 ContentBlock.test.ts 不回归）
+Expected: PASS (including no original ContentBlock.test.ts regression)
 
 - [ ] **Step 7: Commit**
 
@@ -200,15 +206,17 @@ git commit -m "refactor(conversation): 抽出 findToolResultInMessages 纯函数
 
 ---
 
-## Task 2: 分组纯函数 groupExecutionSteps
+<a id="task-2-分组纯函数-groupexecutionsteps"></a>
 
-实现分组核心算法 + 摘要函数。这是整个特性的可测试核心，必须先于组件落地。
+## Task 2: Pure grouping function groupExecutionSteps
+
+Implement core grouping algorithm + summary. This is the feature's testable core and must precede components.
 
 **Files:**
 - Create: `apps/electron/src/renderer/components/agent/group-execution-steps.ts`
 - Create: `apps/electron/src/renderer/components/agent/group-execution-steps.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write failing tests**
 
 Create `apps/electron/src/renderer/components/agent/group-execution-steps.test.ts`:
 
@@ -310,12 +318,12 @@ describe('summarizeExecutionGroup', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: Run tests and confirm failure**
 
 Run: `bun test apps/electron/src/renderer/components/agent/group-execution-steps.test.ts`
 Expected: FAIL — `Cannot find module './group-execution-steps.ts'`
 
-- [ ] **Step 3: 写最小实现**
+- [ ] **Step 3: Write minimal implementation**
 
 Create `apps/electron/src/renderer/components/agent/group-execution-steps.ts`:
 
@@ -446,10 +454,10 @@ export function summarizeExecutionGroup(
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: Run tests and confirm success**
 
 Run: `bun test apps/electron/src/renderer/components/agent/group-execution-steps.test.ts`
-Expected: PASS（8 个测试）
+Expected: PASS (8 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -460,42 +468,44 @@ git commit -m "feat(conversation): 新增 groupExecutionSteps 分组纯函数 + 
 
 ---
 
-## Task 3: 执行组 i18n key（en + zh 同步）
+<a id="task-3-执行组-i18n-keyen-&#45;zh-同步"></a>
 
-新增折叠行汇总文案。当前步标签复用已有的 `conversation.tool.*`（getToolPhrase）与 `agent.messages.thinkingStreaming`，无需新增；本任务只加「已执行 N 步」「N 步失败」两条。
+## Task 3: Execution-group i18n keys (en + zh together)
+
+Add collapsed-summary copy. Current-step labels reuse existing `conversation.tool.*` (getToolPhrase) and `agent.messages.thinkingStreaming`; only “Executed N steps” and “N steps failed” are new.
 
 **Files:**
 - Modify: `apps/electron/src/renderer/locales/en/conversation/agent.json`
 - Modify: `apps/electron/src/renderer/locales/zh/conversation/agent.json`
 
-- [ ] **Step 1: 定位 messages 段**
+- [ ] **Step 1: Locate messages section**
 
-两个文件都在 `"messages": { ... }` 段（en 文件约第 113 行）。该段已有 `thinkingStreaming` / `thinking` / `thinkingWithDuration` 等 key。
+Both files use `"messages": { ... }` (en around line 113), already containing `thinkingStreaming` / `thinking` / `thinkingWithDuration` keys.
 
-- [ ] **Step 2: en 加 key**
+- [ ] **Step 2: Add en keys**
 
-在 `apps/electron/src/renderer/locales/en/conversation/agent.json` 的 `"messages"` 对象内，`thinkingStreaming` 同级处加入（注意补逗号）：
+Inside `"messages"` in `apps/electron/src/renderer/locales/en/conversation/agent.json`, alongside `thinkingStreaming`, add (with commas):
 
 ```json
       "executedSteps": "Executed {{count}} steps",
       "executedStepsWithFailures": "Executed {{count}} steps · {{failed}} failed"
 ```
 
-- [ ] **Step 3: zh 加 key（同名）**
+- [ ] **Step 3: Add matching zh keys**
 
-在 `apps/electron/src/renderer/locales/zh/conversation/agent.json` 的 `"messages"` 对象内，同级处加入：
+Inside `"messages"` in `apps/electron/src/renderer/locales/zh/conversation/agent.json`, add alongside existing keys:
 
 ```json
       "executedSteps": "已执行 {{count}} 步",
       "executedStepsWithFailures": "已执行 {{count}} 步 · {{failed}} 步失败"
 ```
 
-- [ ] **Step 4: 跑 key-parity 校验**
+- [ ] **Step 4: Run key-parity validation**
 
 Run: `bun test apps/electron/src/renderer/locales/__tests__/key-parity.test.ts`
-Expected: PASS（en/zh key 对齐）
+Expected: PASS (matching en/zh keys)
 
-> 若上面路径不存在，先定位：`rg -l "key-parity" apps/electron --glob "*.test.*"` 然后跑该文件。
+> If the path does not exist, locate with `rg -l "key-parity" apps/electron --glob "*.test.*"`, then run that file.
 
 - [ ] **Step 5: Commit**
 
@@ -506,14 +516,16 @@ git commit -m "feat(i18n): 执行步骤组折叠行汇总文案（en+zh）"
 
 ---
 
-## Task 4: ExecutionStepGroup 组件
+<a id="task-4-executionstepgroup-组件"></a>
 
-折叠行（默认折叠）+ 可展开详情。运行中显示当前步（转圈），完成后显示「已执行 N 步」，有失败显示报错徽标；队友组带名字徽标；该组从 live→done 时自动收起。展开后逐条复用 `ContentBlock`，样式与今天一致。
+## Task 4: ExecutionStepGroup component
+
+Collapsed row (default) + expandable details. Running shows current step/spinner, done “Executed N steps,” failures an error badge; teammate groups include name badges; live→done auto-collapses. Expanded rows reuse `ContentBlock`, preserving current styling.
 
 **Files:**
 - Create: `apps/electron/src/renderer/components/agent/ExecutionStepGroup.tsx`
 
-- [ ] **Step 1: 写组件**
+- [ ] **Step 1: Write component**
 
 Create `apps/electron/src/renderer/components/agent/ExecutionStepGroup.tsx`:
 
@@ -649,10 +661,10 @@ export function ExecutionStepGroup({
 }
 ```
 
-- [ ] **Step 2: 类型检查**
+- [ ] **Step 2: Typecheck**
 
 Run: `bun run typecheck`
-Expected: PASS（确认 `ContentBlock` 为具名导出、`getToolPhrase`/`summarizeExecutionGroup`/`speakerDisplayName` 路径正确）
+Expected: PASS (confirm named `ContentBlock` export and correct `getToolPhrase`/`summarizeExecutionGroup`/`speakerDisplayName` paths)
 
 - [ ] **Step 3: Commit**
 
@@ -663,25 +675,27 @@ git commit -m "feat(conversation): 新增 ExecutionStepGroup 折叠组组件"
 
 ---
 
-## Task 5: 接入 AssistantTurnRenderer 渲染循环
+<a id="task-5-接入-assistantturnrenderer-渲染循环"></a>
 
-把 `SDKMessageRenderer.tsx` 的渲染循环从「逐块 map」改成「先 groupExecutionSteps，再按渲染项 map」。保留 TodoBoard 卡片（firstTaskIndex）、scenario 徽标、text 前置 gap 逻辑。
+## Task 5: Integrate AssistantTurnRenderer loop
+
+Change `SDKMessageRenderer.tsx` from mapping blocks directly to grouping with groupExecutionSteps then mapping render items. Preserve TodoBoard (firstTaskIndex), scenario badges, and pre-text gaps.
 
 **Files:**
-- Modify: `apps/electron/src/renderer/components/agent/SDKMessageRenderer.tsx`（import 区 + 510-555 渲染块）
+- Modify: `apps/electron/src/renderer/components/agent/SDKMessageRenderer.tsx` (imports + lines 510-555 rendering)
 
-- [ ] **Step 1: 加 import**
+- [ ] **Step 1: Add imports**
 
-在 `SDKMessageRenderer.tsx` import 区（已有 `import { TaskProgressCard, TASK_TOOL_NAMES } from './TaskProgressCard'` 一行附近）加入：
+Add in `SDKMessageRenderer.tsx` imports (near `import { TaskProgressCard, TASK_TOOL_NAMES } from './TaskProgressCard'`):
 
 ```ts
 import { groupExecutionSteps } from './group-execution-steps.ts'
 import { ExecutionStepGroup } from './ExecutionStepGroup.tsx'
 ```
 
-- [ ] **Step 2: 在 return 前计算渲染项**
+- [ ] **Step 2: Compute render items before return**
 
-在 `AssistantTurnRenderer` 的 `return (` 之前（即 `taskActivities` 的 `useMemo` 之后、约第 509 行 `return (` 上方）插入：
+Before `AssistantTurnRenderer`'s `return (` (after `taskActivities` `useMemo`, around line 509 `return (`), insert:
 
 ```tsx
   // 0.2.0：把顶层块序列预处理成「渲染项」——连续≥2 过程块折叠成执行步骤组
@@ -691,11 +705,11 @@ import { ExecutionStepGroup } from './ExecutionStepGroup.tsx'
   )
 ```
 
-> 注意：`topLevelEnriched` 的元素形如 `{ block, speaker }`，与 `groupExecutionSteps` 的 `EnrichedBlock` 同构，可直接传入。
+> Note: `topLevelEnriched` elements are `{ block, speaker }`, matching `groupExecutionSteps` `EnrichedBlock`; pass directly.
 
-- [ ] **Step 3: 替换渲染循环**
+- [ ] **Step 3: Replace render loop**
 
-把 `SDKMessageRenderer.tsx` 第 513-555 行的 `<div className={cn('space-y-2')}>{topLevelEnriched.map(...)}</div>` 整块替换为：
+Replace the entire `<div className={cn('space-y-2')}>{topLevelEnriched.map(...)}</div>` block in `SDKMessageRenderer.tsx` lines 513-555 with:
 
 ```tsx
         <div className={cn('space-y-2')}>
@@ -765,9 +779,9 @@ import { ExecutionStepGroup } from './ExecutionStepGroup.tsx'
         </div>
 ```
 
-> 不再需要原循环里基于 `firstTaskIndex` 的 `i === firstTaskIndex ? card : null` 分支——`groupExecutionSteps` 已把「仅首个 task 块透传、其余跳过」处理掉。
+> The original `firstTaskIndex`-based `i === firstTaskIndex ? card : null` branch is unnecessary; `groupExecutionSteps` already passes only the first task block and skips others.
 
-- [ ] **Step 4: 类型检查 + 全量测试**
+- [ ] **Step 4: Typecheck + full tests**
 
 Run: `bun run typecheck && bun test`
 Expected: PASS
@@ -781,38 +795,40 @@ git commit -m "feat(conversation): AssistantTurnRenderer 接入执行步骤组�
 
 ---
 
-## Task 6: 版本号递增 + 全链路验证
+<a id="task-6-版本号递增-&#45;全链路验证"></a>
+
+## Task 6: Version increment + end-to-end validation
 
 **Files:**
 - Modify: `apps/electron/package.json`（`version`）
 
-- [ ] **Step 1: patch 版本号 +1**
+- [ ] **Step 1: Patch version +1**
 
-把 `apps/electron/package.json` 的 `"version": "0.1.339-rc.1"` 改为 `"version": "0.1.340-rc.1"`。
-（若实现时已不是 0.1.339，按当前 patch +1。）
+Change `"version": "0.1.339-rc.1"` in `apps/electron/package.json` to `"version": "0.1.340-rc.1"`.
+(If no longer 0.1.339 at implementation time, increment current patch by 1.)
 
-- [ ] **Step 2: 机器校验**
+- [ ] **Step 2: Automated checks**
 
 Run: `bun run typecheck && bun test`
-Expected: 全 PASS（含 key-parity）
+Expected: All PASS (including key-parity)
 
-- [ ] **Step 3: simplify 复盘**
+- [ ] **Step 3: simplify retrospective**
 
-对 `group-execution-steps.ts`、`ExecutionStepGroup.tsx`、`SDKMessageRenderer.tsx` 改动跑一次 `@code-simplifier` / `simplify`，复盘组件化与可读性。
+Run `@code-simplifier` / `simplify` over changes in `group-execution-steps.ts`, `ExecutionStepGroup.tsx`, `SDKMessageRenderer.tsx` to review component structure/readability.
 
-- [ ] **Step 4: 手动 dev 走查（UI 必做，无法自验则显式告知用户）**
+- [ ] **Step 4: Manual dev walkthrough (mandatory for UI; explicitly tell user if unavailable)**
 
-Run: `bun run dev`，在浏览器里走以下 golden path + 边界：
+Run: `bun run dev`; walk these golden paths/boundaries in browser:
 
-1. **多步成组**：发一个会触发多次工具调用的请求 → 运行中折叠行显示当前步+转圈；跑完自动收成「已执行 N 步」。
-2. **展开/折叠**：点折叠行 → 逐条步骤一行；再点某步 → 展开该步详情（两级嵌套）。
-3. **单步退化**：只调一次工具的请求 → 不出现「执行 1 步」，直接显该工具行（如「读取 xxx」）。
-4. **文字切断**：Agent 中途回半句再继续 → 组 → 文字 → 新组。
-5. **队友分组**：触发派发子 Agent（狐尼克/鹰尼克）→ 每个队友单独一组，折叠行带 ⊙ 名字徽标。
-6. **TodoBoard**：触发 TodoWrite → 进度卡片独立可见，不被折叠（组 → 卡片 → 组）。
-7. **报错徽标**：制造一个工具失败（如读不存在的文件）→ 折叠行显示「⚠ 已执行 N 步·1 步失败」红色态，不自动展开。
-8. **i18n**：设置页切 zh↔en 各走一遍，折叠行汇总文案无 raw key、无漏翻。
-9. **历史回放**：重开一个历史会话 → 组按规则默认折叠，可正常展开。
+1. **Multiple-step group**: Request multiple tool calls → running row shows current step + spinner; completion automatically collapses to “Executed N steps.”
+2. **Expand/collapse**: Click group row → one row per step; click step → detailed expansion (two nested levels).
+3. **Single-step fallback**: One-tool request → no “Executed 1 step”; show original tool row (e.g. “Read xxx”).
+4. **Text breaks groups**: Agent replies partway then continues → group → text → new group.
+5. **Teammate grouping**: Dispatch sub-Agents (Fox Nick/Eagle Nick) → separate groups, each with ⊙ Name badge.
+6. **TodoBoard**: Trigger TodoWrite → progress card stays independently visible, never collapsed (group → card → group).
+7. **Error badge**: Cause tool failure (e.g. nonexistent file) → red “⚠ Executed N steps · 1 failed,” no auto-expansion.
+8. **i18n**: Run once in zh and en; summary copy has no raw keys/missing translations.
+9. **History replay**: Reopen historical session → groups default collapsed by rules, expand normally.
 
 - [ ] **Step 5: Commit**
 
@@ -823,27 +839,29 @@ git commit -m "chore(electron): patch 版本号递增（执行步骤组）"
 
 ---
 
-## Self-Review（写完计划后自检）
+<a id="self-review写完计划后自检"></a>
 
-**Spec coverage（设计决策 → 任务映射）：**
+## Self-Review (after writing plan)
 
-| 决策 | 落在 |
+**Spec coverage (design decision → task mapping):**
+
+| Decision | Location |
 |------|------|
-| ① 分组边界（text/队友/TodoBoard 切断，≥2 成组） | Task 2 `groupExecutionSteps` + 测试 |
-| ② 折叠行文案（运行=当前步 / 完成=N 步 / 失败徽标） | Task 3 i18n + Task 4 `labelText`/`StatusIcon` |
-| ③ 运行期默认折叠 | Task 4 `useState(false)` |
-| ④ 每队友一组 | Task 2 `speakerKey` 切断 + Task 4 队友徽标 |
-| ⑤ TodoBoard 独立可见 | Task 2 首个 task 块透传 + Task 5 TaskProgressCard 分支 |
-| ⑥ 报错徽标不自动展开 | Task 2 `summarizeExecutionGroup` + Task 4 失败态文案/图标 |
-| ⑦ 单步退化 | Task 2 `steps.length === 1 → block` + 测试 |
-| ⑧ 完成后自动收 | Task 4 `prevLiveRef` effect |
-| ⑨ 两级嵌套样式一致 | Task 4 展开区复用 `ContentBlock` |
+| ① Group boundaries (text/teammate/TodoBoard break, ≥2 group) | Task 2 `groupExecutionSteps` + tests |
+| ② Collapsed copy (running=current / done=N steps / failure badge) | Task 3 i18n + Task 4 `labelText`/`StatusIcon` |
+| ③ Collapsed by default while running | Task 4 `useState(false)` |
+| ④ One group per teammate | Task 2 `speakerKey` boundary + Task 4 teammate badge |
+| ⑤ TodoBoard independently visible | Task 2 first-task passthrough + Task 5 TaskProgressCard branch |
+| ⑥ Error badge without auto-expansion | Task 2 `summarizeExecutionGroup` + Task 4 error copy/icon |
+| ⑦ Single-step fallback | Task 2 `steps.length === 1 → block` + tests |
+| ⑧ Auto-collapse on completion | Task 4 `prevLiveRef` effect |
+| ⑨ Consistent two-level nesting | Task 4 expanded area reuses `ContentBlock` |
 
-**Placeholder scan：** 无 TBD / “handle edge cases” 占位；每个 code step 均给出完整代码。
+**Placeholder scan:** No TBD / “handle edge cases” placeholders; complete code for every code step.
 
-**Type consistency：** `EnrichedBlock`/`GroupStep`/`ExecutionRenderItem` 在 Task 2 定义，Task 4/5 一致引用；`ToolResultData`/`findToolResultInMessages` 在 Task 1 定义，Task 2 `summarizeExecutionGroup` 与 ContentBlock 一致引用；`isLive`/`speaker`/`steps` props 在 Task 4 定义、Task 5 一致传入。
+**Type consistency:** `EnrichedBlock`/`GroupStep`/`ExecutionRenderItem` defined in Task 2, consistently referenced in Tasks 4/5; `ToolResultData`/`findToolResultInMessages` defined in Task 1 and consistently used by Task 2 `summarizeExecutionGroup` and ContentBlock; `isLive`/`speaker`/`steps` props defined in Task 4, consistently passed by Task 5.
 
-**已知实现层假设（执行时需复核）：**
-- `topLevelEnriched` 元素结构与 `EnrichedBlock` 同构（`{ block, speaker }`）——见 SDKMessageRenderer.tsx:405-408，成立。
-- key-parity 测试路径若与 Task 3 Step 4 不符，按 `rg -l "key-parity"` 实际路径跑。
-- `usePreserveScrollOnExpand` 返回带 `snapshot()` 的对象（ContentBlock 用法一致）。
+**Known implementation assumptions (recheck during execution):**
+- `topLevelEnriched` matches `EnrichedBlock` (`{ block, speaker }`); SDKMessageRenderer.tsx:405-408 confirms.
+- If key-parity path differs from Task 3 Step 4, run actual path from `rg -l "key-parity"`.
+- `usePreserveScrollOnExpand` returns an object with `snapshot()` (consistent with ContentBlock usage).

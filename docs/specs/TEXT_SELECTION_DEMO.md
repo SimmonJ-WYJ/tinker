@@ -1,166 +1,184 @@
-# 划词功能演示脚本
+<a id="划词功能演示脚本"></a>
 
-## 🎬 演示场景 1: Add to Chat (添加到对话)
+# Text Selection Feature Demo Script
 
-### 用户操作流程：
+<a id="-演示场景-1-add-to-chat-添加到对话"></a>
+
+## 🎬 Demo Scenario 1: Add to Chat
+
+<a id="用户操作流程"></a>
+
+### User Workflow:
 
 ```
-1. 用户在 AI 回复中看到一段有用的内容
+1. User sees useful content in an AI reply
    ┌────────────────────────────────────────┐
-   │ AI: 量子计算是一种基于量子力学原理的  │
-   │ 计算方式，它利用量子比特的叠加态和    │
-   │ 纠缠态来进行信息处理...              │
+   │ AI: Quantum computing is based on      │
+   │ quantum mechanics, using qubit        │
+   │ superposition and entanglement...     │
    └────────────────────────────────────────┘
 
-2. 用户用鼠标拖动选中其中一段文字
+2. User drags the mouse to select text
    ┌────────────────────────────────────────┐
-   │ AI: 量子计算是一种基于量子力学原理的  │
-   │ 计算方式，它利用[量子比特的叠加态和]  │  ← 蓝色高亮选中
-   │ [纠缠态来进行信息处理]...            │
+   │ AI: Quantum computing is based on      │
+   │ quantum mechanics, using [qubit       │  ← Blue selection highlight
+   │ superposition and entanglement]...    │
    └────────────────────────────────────────┘
 
-3. 松开鼠标后，浮动工具栏淡入显示
+3. Releasing the mouse fades in the floating toolbar
    ┌─────────────────────────────────────┐
    │  💬 1 selection                     │
-   │  ├─ Ask in sidebar  ├─ Add to chat │  ← 工具栏从上方滑入
+   │  ├─ Ask in sidebar  ├─ Add to chat │  ← Toolbar slides in from above
    └─────────────────────────────────────┘
-           ↓ 工具栏悬浮在选中文本上方
+           ↓ Toolbar floats above selected text
    ┌────────────────────────────────────────┐
-   │ AI: 量子计算是一种基于量子力学原理的  │
-   │ 计算方式，它利用[量子比特的叠加态和]  │
-   │ [纠缠态来进行信息处理]...            │
+   │ AI: Quantum computing is based on      │
+   │ quantum mechanics, using [qubit       │
+   │ superposition and entanglement]...    │
    └────────────────────────────────────────┘
 
-4. 用户点击 "Add to chat" 按钮
-   [点击] → 工具栏淡出消失
-          → 引用内容出现在输入框
+4. User clicks "Add to chat"
+   [Click] → Toolbar fades away
+           → Quoted content appears in the input
 
-5. 输入框显示引用内容（Markdown 引用格式）
+5. Input shows the quote (Markdown blockquote)
    ┌────────────────────────────────────────┐
-   │ 输入框:                                │
-   │ > 量子比特的叠加态和                    │
-   │ > 纠缠态来进行信息处理                  │
+   │ Input:                                  │
+   │ > Qubit superposition and               │
+   │ > entanglement for information processing│
    │                                        │
-   │ █ ← 光标在引用后，可继续输入            │
+   │ █ ← Caret after quote, ready for typing  │
    └────────────────────────────────────────┘
 
-6. 用户继续输入问题
+6. User continues typing a question
    ┌────────────────────────────────────────┐
-   │ 输入框:                                │
-   │ > 量子比特的叠加态和                    │
-   │ > 纠缠态来进行信息处理                  │
+   │ Input:                                  │
+   │ > Qubit superposition and               │
+   │ > entanglement for information processing│
    │                                        │
-   │ 请详细解释这两个概念的区别█             │
+   │ Explain the differences in detail█       │
    └────────────────────────────────────────┘
 
-7. 发送后，AI 收到带引用的消息
+7. After sending, AI receives a quoted message
    ┌────────────────────────────────────────┐
    │ User:                                  │
    │ ┌──────────────────────────────────┐  │
-   │ │ > 量子比特的叠加态和              │  │
-   │ │ > 纠缠态来进行信息处理            │  │
+   │ │ > Qubit superposition and           │  │
+   │ │ > entanglement for information processing││
    │ │                                  │  │
-   │ │ 请详细解释这两个概念的区别        │  │
+   │ │ Explain the differences in detail  │  │
    │ └──────────────────────────────────┘  │
    └────────────────────────────────────────┘
 ```
 
 ---
 
-## 🎬 演示场景 2: Ask in Sidebar (侧边栏提问)
+<a id="-演示场景-2-ask-in-sidebar-侧边栏提问"></a>
 
-### 用户操作流程：
+## 🎬 Demo Scenario 2: Ask in Sidebar
+
+<a id="用户操作流程-1"></a>
+
+### User Workflow:
 
 ```
-1. 用户在 AI 回复中选中一段代码
+1. User selects code in an AI reply
    ┌────────────────────────────────────────┐
-   │ AI: 这是一个快速排序的实现:            │
+   │ AI: Here is a quicksort implementation:  │
    │                                        │
-   │ [def quicksort(arr):                   │  ← 选中代码块
+   │ [def quicksort(arr):                   │  ← Selected code block
    │     if len(arr) <= 1:                  │
    │         return arr]                    │
    └────────────────────────────────────────┘
 
-2. 工具栏弹出
+2. Toolbar appears
    ┌─────────────────────────────────────┐
    │  💬 1 selection                     │
    │  ├─ Ask in sidebar  ├─ Add to chat │
    └─────────────────────────────────────┘
 
-3. 用户点击 "Ask in sidebar"
-   [点击] → 侧边栏从右侧滑入
+3. User clicks "Ask in sidebar"
+   [Click] → Sidebar slides in from right
    
-   主界面 ◄────────────────┤ 侧边栏
+   Main view ◄───────────────┤ Sidebar
    ┌──────────────┐        ┌───────────────┐
-   │              │        │ 💬 侧边栏提问  │
-   │  对话内容    │   ◄─── │               │
-   │              │        │ 关于以下内容： │
+   │              │        │ 💬 Ask in sidebar│
+   │ Conversation │   ◄─── │                 │
+   │              │        │ About this:     │
    │              │        │               │
    │              │        │ > def quick... │
    │              │        │ > if len...    │
    │              │        │ > return arr   │
    │              │        │               │
    │              │        │ ____________  │
-   │              │        │ [发送]        │
+   │              │        │ [Send]          │
    └──────────────┘        └───────────────┘
 
-4. 用户在侧边栏输入问题
+4. User types a question in the sidebar
    ┌───────────────────────┐
-   │ 💬 侧边栏提问          │
+   │ 💬 Ask in sidebar         │
    │                       │
-   │ 关于以下内容：         │
+   │ About this:               │
    │                       │
    │ > def quicksort...    │
    │ > if len(arr)...      │
    │ > return arr          │
    │                       │
-   │ 这段代码的时间复杂度█  │
-   │ [发送]                │
+   │ This code's time complexity█│
+   │ [Send]                    │
    └───────────────────────┘
 
-5. 侧边栏显示 AI 回复
+5. Sidebar shows AI reply
    ┌───────────────────────┐
-   │ 💬 侧边栏提问          │
+   │ 💬 Ask in sidebar           │
    │ ─────────────────     │
-   │ User: 这段代码的时间   │
-   │ 复杂度是多少？         │
+   │ User: What is this code's   │
+   │ time complexity?            │
    │                       │
-   │ AI: 快速排序的平均时间 │
-   │ 复杂度是 O(n log n)... │
+   │ AI: Quicksort averages      │
+   │ O(n log n) time...          │
    │                       │
    │ ___________________   │
-   │ [继续提问]            │
+   │ [Ask another question]      │
    └───────────────────────┘
 ```
 
 ---
 
-## 🎬 演示场景 3: 多次选择和取消
+<a id="-演示场景-3-多次选择和取消"></a>
 
-### 交互流程：
+## 🎬 Demo Scenario 3: Repeated Selection and Cancellation
+
+<a id="交互流程"></a>
+
+### Interaction Flow:
 
 ```
-1. 第一次选择
-   选中文本 A → 工具栏出现在 A 上方
+1. First selection
+   Select A → toolbar above A
 
-2. 不点击按钮，直接选中另一段文本 B
-   → 工具栏立即消失
-   → 新工具栏出现在 B 上方
+2. Select another passage B without clicking buttons
+   → Toolbar disappears immediately
+   → New toolbar appears above B
 
-3. 点击空白区域
-   → 工具栏淡出消失
-   → 文本选择被清除
+3. Click blank space
+   → Toolbar fades away
+   → Selection clears
 
-4. 点击工具栏按钮
-   → 执行对应操作
-   → 工具栏消失
+4. Click toolbar button
+   → Perform corresponding action
+   → Toolbar disappears
 ```
 
 ---
 
-## 📱 视觉效果细节
+<a id="-视觉效果细节"></a>
 
-### 工具栏外观：
+## 📱 Visual Details
+
+<a id="工具栏外观"></a>
+
+### Toolbar Appearance:
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -168,113 +186,131 @@
 └─────────────────────────────────────────────────────┘
  ↑                ↑                  ↑
  │                │                  │
- └─ 选择指示器     └─ 操作按钮        └─ 操作按钮
-    灰色文字          带图标           带图标
+ └─ Selection indicator └─ Action button     └─ Action button
+    Gray text              With icon            With icon
     12px             14px             14px
 ```
 
-### 颜色方案（亮色主题）：
+<a id="颜色方案亮色主题"></a>
+
+### Color Scheme (Light Theme):
 
 ```
-工具栏背景: bg-background/95 (半透明白色 + 背景模糊)
-边框:      border-border/60 (浅灰色，60% 透明度)
-阴影:      shadow-lg (大阴影)
-文字:      text-muted-foreground (中等灰度)
-按钮悬停:  hover:bg-accent (强调色背景)
-图标:      size-3.5 (14px)
+Toolbar background: bg-background/95 (translucent white + background blur)
+Border:             border-border/60 (light gray,60% opacity)
+Shadow:             shadow-lg (large shadow)
+Text:               text-muted-foreground (medium gray)
+Button hover:       hover:bg-accent (accent background)
+Icons:              size-3.5 (14px)
 ```
 
-### 颜色方案（暗色主题）：
+<a id="颜色方案暗色主题"></a>
+
+### Color Scheme (Dark Theme):
 
 ```
-工具栏背景: bg-background/95 (半透明深色 + 背景模糊)
-边框:      border-border/60 (深灰色)
-阴影:      shadow-lg (深色阴影)
-文字:      text-muted-foreground (浅灰色)
-按钮悬停:  hover:bg-accent (暗色强调背景)
+Toolbar background: bg-background/95 (translucent dark + background blur)
+Border:             border-border/60 (dark gray)
+Shadow:             shadow-lg (dark shadow)
+Text:               text-muted-foreground (light gray)
+Button hover:       hover:bg-accent (dark accent background)
 ```
 
 ---
 
-## 🎭 动画效果
+<a id="-动画效果"></a>
 
-### 工具栏出现动画：
+## 🎭 Animation Effects
+
+<a id="工具栏出现动画"></a>
+
+### Toolbar Entrance Animation:
 
 ```
-时间: 0ms ──────────> 200ms
-透明度: 0% → 100%
-缩放:   95% → 100%
-位置:   略微向下 → 最终位置
+Time:    0ms ──────────> 200ms
+Opacity: 0% →100%
+Scale:   95% →100%
+Position: slightly below → final position
 
-关键帧:
+Keyframes:
   0ms:   opacity: 0, scale: 0.95, translateY: 2px
   200ms: opacity: 1, scale: 1, translateY: 0
 ```
 
-### 工具栏消失动画：
+<a id="工具栏消失动画"></a>
+
+### Toolbar Exit Animation:
 
 ```
-时间: 0ms ──────────> 150ms
-透明度: 100% → 0%
-缩放:   100% → 98%
+Time:    0ms ──────────> 150ms
+Opacity: 100% →0%
+Scale:   100% →98%
 
-关键帧:
+Keyframes:
   0ms:   opacity: 1, scale: 1
   150ms: opacity: 0, scale: 0.98
 ```
 
-### 按钮悬停效果：
+<a id="按钮悬停效果"></a>
+
+### Button Hover Effects:
 
 ```
-鼠标移入:
-  ├─ 背景色: transparent → bg-accent (100ms ease)
-  ├─ 文字色: text-muted-foreground → text-foreground (100ms ease)
-  └─ 光标: default → pointer
+Mouse enters:
+  ├─ Background: transparent → bg-accent (100ms ease)
+  ├─ Text: text-muted-foreground → text-foreground (100ms ease)
+  └─ Cursor: default → pointer
 
-鼠标移出:
-  └─ 反向动画
-```
-
----
-
-## 📐 尺寸规格
-
-```
-工具栏:
-├─ 高度: 44px (py-1.5 = 6px * 2 + 32px 内容)
-├─ 圆角: 12px (rounded-xl)
-├─ 内边距: px-2 py-1.5 (8px 左右, 6px 上下)
-└─ 最小宽度: 320px (自适应内容)
-
-选择指示器:
-├─ 图标: 14px (size-3.5)
-├─ 文字: 12px (text-xs)
-├─ 内边距: px-2 py-1 (8px 左右, 4px 上下)
-└─ 右边框: border-r
-
-按钮:
-├─ 高度: 32px (h-8)
-├─ 图标: 14px (size-3.5)
-├─ 文字: 12px (text-xs)
-├─ 间距: gap-1.5 (6px)
-└─ 内边距: px-3 (12px 左右)
+Mouse leaves:
+  └─ Reverse animation
 ```
 
 ---
 
-## 🔍 细节打磨
+<a id="-尺寸规格"></a>
 
-### 工具栏位置计算：
+## 📐 Dimensions
 
 ```
-基准点: 选中区域的中心顶部
-偏移:   向上 8px，水平居中
+Toolbar:
+├─ Height:44px (py-1.5 =6px*2 +32px content)
+├─ Radius:12px (rounded-xl)
+├─ Padding:px-2 py-1.5 (8px horizontal,6px vertical)
+└─ Minimum width:320px (adapts to content)
 
-计算公式:
+Selection indicator:
+├─ Icon:14px (size-3.5)
+├─ Text:12px (text-xs)
+├─ Padding:px-2 py-1 (8px horizontal,4px vertical)
+└─ Right border:border-r
+
+Buttons:
+├─ Height:32px (h-8)
+├─ Icon:14px (size-3.5)
+├─ Text:12px (text-xs)
+├─ Gap:gap-1.5 (6px)
+└─ Padding:px-3 (12px horizontal)
+```
+
+---
+
+<a id="-细节打磨"></a>
+
+## 🔍 Detail Refinement
+
+<a id="工具栏位置计算"></a>
+
+### Toolbar Position Calculation:
+
+```
+Reference: top center of selected region
+Offset:8px upward, horizontally centered
+
+Formula:
   left = selection.left + (selection.width / 2)
   top  = selection.top - toolbar.height - 8px
 
-边界检测:
+Boundary checks:
   if (left < viewport.left + toolbar.width/2)
     left = viewport.left + toolbar.width/2
   
@@ -282,72 +318,84 @@
     left = viewport.right - toolbar.width/2
   
   if (top < viewport.top + 8)
-    top = selection.bottom + 8  // 切换到下方显示
+    top = selection.bottom + 8  // Display below instead
 ```
 
-### 响应式适配：
+<a id="响应式适配"></a>
+
+### Responsive Adaptation:
 
 ```
-桌面 (>= 1024px):
-  └─ 完整工具栏，所有按钮横向排列
+Desktop (>=1024px):
+  └─ Full toolbar, all buttons horizontal
 
-平板 (768px - 1023px):
-  └─ 紧凑模式，减小间距和内边距
+Tablet (768px–1023px):
+  └─ Compact mode, less gap/padding
 
-移动 (< 768px):
-  ├─ 只显示图标，隐藏文字标签
-  └─ 或竖向排列按钮
-```
-
----
-
-## 🎯 交互反馈
-
-### 成功状态：
-
-```
-点击 "Add to chat" 后:
-  └─ 工具栏消失 + 输入框闪烁聚焦 (300ms)
-
-点击 "Ask in sidebar" 后:
-  └─ 工具栏消失 + 侧边栏滑入 (300ms ease-out)
-```
-
-### 错误状态：
-
-```
-如果操作失败 (例如输入框未找到):
-  ├─ 工具栏轻微抖动 (shake animation)
-  └─ 显示 toast 提示: "操作失败，请重试"
-```
-
-### 加载状态：
-
-```
-如果操作需要时间:
-  ├─ 按钮显示 loading 图标
-  ├─ 禁用其他操作
-  └─ 完成后恢复
+Mobile (<768px):
+  ├─ Icons only, hide text labels
+  └─ Or arrange buttons vertically
 ```
 
 ---
 
-## 🎨 视觉层次
+<a id="-交互反馈"></a>
+
+## 🎯 Interaction Feedback
+
+<a id="成功状态"></a>
+
+### Success State:
 
 ```
-层级 1 (最高): 工具栏
+After clicking "Add to chat":
+  └─ Toolbar disappears + input flashes/focuses (300ms)
+
+After clicking "Ask in sidebar":
+  └─ Toolbar disappears + sidebar slides in (300ms ease-out)
+```
+
+<a id="错误状态"></a>
+
+### Error State:
+
+```
+If action fails (e.g. input not found):
+  ├─ Toolbar shakes slightly (shake animation)
+  └─ Toast: "Operation failed, please retry"
+```
+
+<a id="加载状态"></a>
+
+### Loading State:
+
+```
+If operation takes time:
+  ├─ Button shows loading icon
+  ├─ Disable other actions
+  └─ Restore when done
+```
+
+---
+
+<a id="-视觉层次"></a>
+
+## 🎨 Visual Hierarchy
+
+```
+Layer1 (highest): toolbar
   z-index: 50
   backdrop-filter: blur(12px)
   box-shadow: 0 10px 40px rgba(0,0,0,0.1)
 
-层级 2: 选中文本高亮
-  background: selection color (浏览器默认)
+Layer2: selected-text highlight
+  background: selection color (browser default)
   
-层级 3: 消息内容
+Layer3: message content
   z-index: 1
   
-层级 4: 背景
+Layer4: background
   z-index: 0
 ```
 
-这个演示脚本详细描述了功能的每一个视觉和交互细节，可以作为设计和实现的参考！
+This demo script details every visual and interaction aspect of the feature and can serve as a design and implementation reference!

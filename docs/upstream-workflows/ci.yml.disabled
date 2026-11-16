@@ -1,9 +1,9 @@
 name: CI
 
-# 触发：pull_request / push（base=main）。
-# 版本号 bump 已左移到本地 pre-commit 钩子（scripts/bump-version-on-commit.mjs），
-# commit 时即钉到 origin/main patch+1；不再有服务端 auto-resolve 工作流 / pre-push 版本守门，
-# 故移除原 workflow_run 补偿路径。
+# Trigger: pull_request / push (base=main).
+# Version bumps moved to local pre-commit (scripts/bump-version-on-commit.mjs),
+# pinning origin/main patch+1 at commit time; server auto-resolve / pre-push version gates are gone,
+# so the former workflow_run compensation path is removed.
 on:
   pull_request:
     branches: [main]
@@ -19,8 +19,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 透传事件上下文。保留 ctx 间接层（下游 job 统一读 needs.ctx.outputs.*）便于将来扩展：
-  # 常规 pull_request / push 路径下 head_sha 留空，actions/checkout 自动用触发 ref。
+  # Forward event context. Keep ctx indirection (downstream reads needs.ctx.outputs.*) for extensibility:
+  # Ordinary pull_request / push leaves head_sha empty; actions/checkout uses the triggering ref.
   ctx:
     name: Resolve Context
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
-          # pull_request / push 常规路径：上下文直接来自事件，head_sha 留空走默认 ref。
+          # Ordinary pull_request / push: context comes from the event; empty head_sha uses default ref.
           echo "should_run=true" >> "$GITHUB_OUTPUT"
           echo "::notice::regular path (${{ github.event_name }})"
 
@@ -44,11 +44,11 @@ jobs:
     permissions:
       contents: read
 
-  # 任意文件改动都跑全套 CI（typecheck / test / lint / gitleaks）。
-  # 背景（#362 调查）：旧 paths-filter 只盯 packages/apps/根 package.json/bun.lock/根 tsconfig，
-  # 漏掉了 per-package tsconfig.json、eslint.config.js / eslint-rules/**、tests/**、bunfig.toml、
-  # docs/**、.github/** 与 scripts/** —— 改这些时 CI 静默跳过，校验出现盲区。
-  # 现在 'code' 对任何文件都为 true；保留 changes job + if 守门结构，便于将来再收窄。
+  # Any file change runs full CI (typecheck / test / lint / gitleaks).
+  # Background (#362): old paths-filter watched only packages/apps/root package.json/bun.lock/root tsconfig,
+  # missing per-package tsconfig.json, eslint.config.js / eslint-rules/**, tests/**, bunfig.toml,
+  # docs/**, .github/**, scripts/**; those changes silently skipped CI, creating blind spots.
+  # Now 'code' is true for every file; retain changes job + if gates for future narrowing.
   changes:
     name: Detect Changes
     needs: ctx
@@ -67,8 +67,8 @@ jobs:
             code:
               - '**'
 
-  # 串行预热 bun 全局缓存，避免 typecheck 与 test 并行启动时同时 cache miss
-  # 各自下载依赖。downstream 仅做本地链接，install 时间从 ~14s 降到 ~3-5s。
+  # Warm the global bun cache serially to avoid simultaneous typecheck/test cache misses
+  # downloading dependencies separately. Downstream links locally, reducing install ~14s to ~3-5s.
   prep-deps:
     name: Prep deps
     needs: changes
@@ -105,7 +105,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      # 命中 prep-deps 写入的 bun 全局缓存，install 走本地链接
+      # Hit global bun cache populated by prep-deps; install links locally
       - name: Restore bun install cache
         uses: actions/cache@v5
         with:
@@ -130,7 +130,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      # 同 prep-deps key，命中本地缓存
+      # Same prep-deps key, hitting local cache
       - name: Restore bun install cache
         uses: actions/cache@v5
         with:
@@ -143,7 +143,7 @@ jobs:
       - name: Run tests
         run: bun test
 
-  # ADR-003 B-6：禁止 Tailwind 调色板硬编码 className，强制语义 token
+  # ADR-003 B-6: prohibit hardcoded Tailwind palette classNames; require semantic tokens
   lint:
     name: Lint
     needs: [ctx, changes, prep-deps]
@@ -168,9 +168,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
-  # 依赖漏洞扫描（#418 / PRD 0.3.0 §五 安全机制 "运维" 行）：high+ 漏洞硬阻断 PR。
-  # 复用 prep-deps 预热的 bun 全局缓存，install 走本地链接。无 --ignore 豁免：
-  # 存量漏洞已在 root package.json overrides 中修掉，未来上游新曝 high 会即时阻断。
+  # Dependency scanning (#418 / PRD 0.3.0 §V Security, Operations): high+ vulnerabilities block PRs.
+  # Reuse prep-deps global bun cache for local linking. No --ignore exemptions:
+  # Existing vulnerabilities fixed in root package.json overrides; newly disclosed high flaws block immediately.
   audit:
     name: Dependency Audit
     needs: [ctx, changes, prep-deps]
@@ -219,10 +219,10 @@ jobs:
           gitleaks detect --source . --verbose \
             --log-opts="${{ github.event.before }}..${{ github.sha }}"
 
-  # 防呆：普通 PR 不得把 apps/electron/package.json.version bump 成 prerelease（-rc.N 等）形式
-  # 背景：0.x.y 阶段 CLAUDE.md「改到哪个包就 bump patch」，-rc.N 后缀只能由发版 agent 的
-  #       chore/release-* PR 添加。曾出现普通 PR 误把 version 一路 bump 到 0.1.179-rc.8 的事故。
-  # 只在「本 PR 改了 version」且「改成了 prerelease 形式」且「非 chore/release-* 分支」时 fail，避免误伤。
+  # Guard: ordinary PRs must not bump apps/electron/package.json.version to prerelease (-rc.N, etc.)
+  # Background: 0.x.y CLAUDE.md requires patch bumps for changed packages; -rc.N is reserved for
+  # release-agent chore/release-* PRs. An ordinary PR once accidentally bumped to 0.1.179-rc.8.
+  # Fail only when this PR changes version to prerelease and is not chore/release-*, avoiding false positives.
   version-lint:
     name: Version Lint
     needs: ctx
@@ -232,7 +232,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.ctx.outputs.head_sha }}
-          fetch-depth: 0   # 需要 base commit 在本地历史里，供 git show "$BASE_SHA:..." 读取
+          fetch-depth: 0   # Need base commit locally for git show "$BASE_SHA:..."
       - name: Disallow prerelease version in non-release PRs
         env:
           HEAD_REF: ${{ github.head_ref }}
@@ -243,20 +243,20 @@ jobs:
           echo "base version : $BASE_VERSION"
           echo "head version : $HEAD_VERSION"
           echo "head branch  : $HEAD_REF"
-          # 发版 PR（chore/release-*）允许带 -rc.N
+          # Release PRs (chore/release-*) may use -rc.N
           if [[ "$HEAD_REF" == chore/release-* ]]; then
             echo "::notice::Release branch — prerelease suffix allowed."
             exit 0
           fi
-          # 只在「本 PR 改了 version」且「新值是 prerelease 形式」时才 fail
+          # Fail only if this PR changed version and the new value is prerelease
           if [[ "$HEAD_VERSION" != "$BASE_VERSION" && "$HEAD_VERSION" == *-* ]]; then
             echo "::error::普通 PR 不得把版本号 bump 成 prerelease 形式（'$BASE_VERSION' → '$HEAD_VERSION'）。请改为 plain patch（如 0.1.180 → 0.1.181），不要碰 -rc.N 后缀；-rc.N 只能由发版 agent 的 chore/release-* PR 添加。详见 docs/release-playbook.md §3.1.1。"
             exit 1
           fi
           echo "::notice::Version OK."
 
-  # Gate job —— 将此作为 branch protection 中唯一的必需状态检查
-  # 被 path filter 跳过的 job 不会阻塞合并
+  # Gate job: use as the sole required branch-protection status check
+  # Jobs skipped by path filters do not block merging
   ci-status:
     name: CI Status
     if: always()

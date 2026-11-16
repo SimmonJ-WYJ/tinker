@@ -1,58 +1,76 @@
-# 自然图片编辑与批准后续作修复
+<a id="自然图片编辑与批准后续作修复"></a>
 
-状态：实现与本地验证完成，已无冲突整合 main `915d3ae`，重新验证后交付 Draft PR。分支 `fix/image-edit-approval-context`。
+# Natural Image Editing and Post-Approval Continuation Fix
 
-## 目标与边界
+Status: Implementation and local validation complete; integrated main `915d3ae` without conflicts, revalidated, and delivered a Draft PR. Branch `fix/image-edit-approval-context`.
 
-“你看看加入这个女生 三个人一起”在宿主已验证选图/上传时应识别为本回合图片编辑。显式批准合法图片调用后，任务语义可用于下一轮明确的“再次生成”，但批准参数、额外文件、数量和调用身份不可继承。缺少上下文、讨论/分析/询问、否定、代码/数据库/群聊等非视觉动作仍保守询问；跨会话引用和取消后调用仍拒绝。
+<a id="目标与边界"></a>
 
-只改 Electron 图片宿主与 shared 授权。保留敏感工具审批、计划模式和执行守卫。本轮相对 main 不修改 Rust、README/CLAUDE、用户真实 JSONL 或运行的安装包。交付仅推送修复分支并创建 Draft PR，不合并 main、不开 auto-merge、不发布、不打包、不付费生图。磁盘保留 4 GiB 停止线。
+## Goals and Boundaries
 
-## 已复核根因
+The request “take a look, add this girl, all three people together” (English translation) should be recognized as image editing in this turn when the host has verified a selected/uploaded image. After explicit approval of a valid image call, task semantics may support an explicit “generate again” request in the next turn, but approved parameters, extra files, quantities, and call identities must not carry over. Missing context, discussion/analysis/questions, negation, and nonvisual actions involving code/databases/group chats still ask conservatively; cross-conversation references and calls after cancellation remain rejected.
 
-1. `requestsImage` 将视觉编辑写成单个固定语序正则，并且请求前缀不包含“你看看”。有有效选图/上传也会误判动作在前、宾语在后的表达；不能为整句增加特例。
-2. `ImageRequestAuthorization.isImageTask()` 始终返回构造时的 automatic。手动 approve 只更改精确参数集合，后续工厂仍保留 false；侧车只在消费时写一次 false，重启后同样无法恢复。
+Change only Electron image hosting and shared authorization. Preserve sensitive-tool approval, plan mode, and execution guards. Relative to main, this round leaves Rust, README/CLAUDE, real user JSONL, and the running installation package unchanged. Delivery only pushes the fix branch and creates a Draft PR: no main merge, auto-merge, publication, packaging, or paid image generation. Preserve the 4 GiB disk stop threshold.
 
-## 实现计划（本线程串行执行）
+<a id="已复核根因"></a>
 
-### 1. 自然编辑边界
+## Reviewed Root Causes
 
-Files：`packages/shared/src/agent/image-request-authorization.ts` 及其测试；按需独立 `image-edit-intent.ts`。
+1. `requestsImage` encodes visual editing as a single fixed-word-order regex, and its request prefix omits the polite lead-in translated as “take a look.” Even with a valid selected/uploaded image, action-before-object expressions are misclassified; avoid special-casing entire sentences.
+2. `ImageRequestAuthorization.isImageTask()` always returns automatic from construction. Manual approve changes only the exact parameter set, leaving subsequent factories false; the sidecar writes false only once at consumption, so restart cannot restore it either.
 
-- [x] 先为原句和同义的动作先行/把字句/代词/多人同框写红测，限定真实上下文。
-- [x] 将视觉动作和视觉对象组合识别，去除礼貌引导词；讨论/否定/非视觉目的地先阻断。保留附件/引文/代码去授权处理。
-- [x] 回归局部画面约束、人数与输出张数、额外文件、选图身份、跨会话和取消。明确输出两张仍只放行两次，三个人不放行三张。
+<a id="实现计划本线程串行执行"></a>
 
-Run：`bun test packages/shared/src/agent/image-request-authorization.test.ts`。新增授权用例先失败为 ask，再观察通过，现有安全用例不得退化。
+## Implementation Plan (Executed Sequentially in This Thread)
 
-### 2. 批准语义、持久化及消费顺序
+<a id="1-自然编辑边界"></a>
 
-Files：shared 授权对象；`image-turn-journal.ts`、`image-turn-factory.ts` 及测试；真实 `image-approval-context.test.ts`、`image-generation-handler.fixture.ts`。
+### 1. Natural Editing Boundaries
 
-- [x] 先复现 approve 后 isImageTask false、live 续作 ask、重启恢复 ask。
-- [x] 合法显式批准使本对象图片任务语义单向确立；取消后晚到批准不改变状态。
-- [x] 宿主收到语义确立通知，只追加 `{kind:'image-task-confirmed',id}`，不保存参数、文件、提示词、次数或批准令牌。确认事件更新原消费记录，不重排消费顺序；未知 ID/损坏记录保守恢复。
-- [x] 工厂只在创建实际新消费回合时读取上一个授权对象的任务语义，新对象重新计算限额和文件范围。
-- [x] 验证正常/live/restart、已排队未消费、真实 now/next 消费、取消/晚到批准、确认旧回合不覆盖较新普通任务、损坏日志与写入失败。
-- [x] 使用真实 PermissionService hook/canUseTool/ExecutionGuard 和假网络 handler 做闭环，确认不重复弹卡，同时额外文件/危险终端/计划模式仍被拦截。
+Files: `packages/shared/src/agent/image-request-authorization.ts` and tests; separate `image-edit-intent.ts` if needed.
 
-Run：相关授权、factory/controller/journal、permission-flow、execution-guard、handler 测试。观察红测后再实现。
+- [x] First write red tests for the original sentence and synonymous action-first, Chinese disposal constructions, pronouns, and multiple people in one frame, restricted to real context.
+- [x] Recognize combinations of visual actions and objects, stripping polite lead-ins; block discussion/negation/nonvisual destinations first. Preserve removal of authorization from attachments/quotes/code.
+- [x] Regress local image constraints, people counts versus output counts, extra files, selected-image identity, cross-conversation cases, and cancellation. Explicitly requesting two outputs permits only two calls; three people does not permit three images.
 
-### 3. 验证与交付
+Run: `bun test packages/shared/src/agent/image-request-authorization.test.ts`. New authorization cases must first fail as ask, then pass; existing safety cases must not regress.
 
-- [x] 全仓 typecheck / Bun tests / lint，Electron build；不做 DMG，不争用 Cargo 缓存。
-- [x] 独立只读复审并修正确认问题；复核数据/授权不扩大、Rust零差异、无真实用户资料。
-- [x] `git diff --check`，正常版本/提交钩子，本地 Conventional Commit。记录根因、测试、SHA和未跑项目到 `docs/reports/2026-11-09-image-approval-validation.md`。
+<a id="2-批准语义持久化及消费顺序"></a>
 
-- [x] 合并最新 main，保留 Rust 主干变更，重新执行全量检查。
-交付流程：推送已验证修复分支、创建 Draft PR、核对远端 head 与 CI 并回帖复审。远端状态以 PR 和交付消息为准。
+### 2. Approval Semantics, Persistence, and Consumption Order
 
-## 设计判断
+Files: shared authorization object; `image-turn-journal.ts`, `image-turn-factory.ts`, and tests; actual `image-approval-context.test.ts`, `image-generation-handler.fixture.ts`.
 
-继承的是用户已明确确认的任务类别，不是许可。新 confirmation 事件属于宿主消费侧车，历史 user 文本或模型输出不能生成此事件。有效旧消费记录仍可读取；新增确认遇到旧读者时会保守失去续作上下文，不能扩大许可。旧版本丢失的批准事实不能回填或推测。本轮无需读取或修复用户已成功生成的真实会话。
+- [x] First reproduce isImageTask false after approve, live continuation ask, and restart restoration ask.
+- [x] A valid explicit approval establishes image-task semantics one way for this object; late approvals after cancellation do not change state.
+- [x] On semantic confirmation, the host only appends `{kind:'image-task-confirmed',id}`, without parameters, files, prompts, counts, or approval tokens. Confirmation updates the original consumption record without reordering; unknown IDs/corrupt records restore conservatively.
+- [x] The factory reads the previous authorization object's task semantics only when creating a genuinely newly consumed turn; the new object recalculates limits and file scope.
+- [x] Validate normal/live/restart, queued-but-unconsumed inputs, real now/next consumption, cancellation/late approval, confirmation of old turns not overriding newer ordinary tasks, corrupt journals, and write failures.
+- [x] Close the loop using real PermissionService hook/canUseTool/ExecutionGuard and a fake network handler; verify no duplicate approval cards while extra files/dangerous terminals/plan mode remain blocked.
 
-## 升级恢复
+Run: related authorization, factory/controller/journal, permission-flow, execution-guard, and handler tests. Observe red tests before implementation.
 
-旧 false 消费记录仅按实际消费顺序重算。当条有效选图或上传可提供视觉编辑证据；没有当条证据时移除现存引用集合，避免用后来才出现的文件推断旧编辑。未知普通输入在任意中间缺口均是继承屏障，用前缀计数检查；未知队列和尾部普通输入仍阻断恢复。旧记录不回写。
+<a id="3-验证与交付"></a>
 
-只留泛泛文本、false 记录且丢失批准事实的旧会话不能凭模型自述恢复；需要用户再明确一次图片请求或确认合法调用。额外文件、数量、失效来源仍按原边界确认或拒绝。复审发现的撤回、完整目的地、消费缺口和多人非视觉活动误判已补红测修复。
+### 3. Validation and Delivery
+
+- [x] Repository-wide typecheck / Bun tests / lint and Electron build; no DMG or Cargo cache contention.
+- [x] Independent read-only review and fixes for confirmed issues; verify data/authorization scope does not expand, zero Rust differences, and no real user information.
+- [x] `git diff --check`, normal version/commit hooks, local Conventional Commit. Record root causes, tests, SHA, and unrun items in `docs/reports/2026-11-09-image-approval-validation.md`.
+
+- [x] Merge latest main, retain Rust mainline changes, and rerun all checks.
+Delivery flow: Push the validated fix branch, create a Draft PR, verify remote head and CI, and post review follow-up. The PR and delivery message govern remote status.
+
+<a id="设计判断"></a>
+
+## Design Judgment
+
+What carries over is the user-confirmed task category, not permission. The new confirmation event belongs to the host consumption sidecar; historical user text or model output cannot create it. Valid older consumption records remain readable; older readers encountering new confirmations conservatively lose continuation context rather than expanding permission. Lost approval facts from old versions cannot be backfilled or inferred. This round need not read or repair real conversations where the user already generated images successfully.
+
+<a id="升级恢复"></a>
+
+## Upgrade Recovery
+
+Recompute old false consumption records only in actual consumption order. A selected/uploaded image on that input can supply visual-edit evidence; without contemporaneous evidence, remove the current reference set to avoid inferring old edits from files that appeared later. Unknown ordinary inputs at any intermediate gap block inheritance, checked with prefix counts; unknown queued and trailing ordinary inputs still block recovery. Old records are not rewritten.
+
+Old conversations retaining only generic text and false records with lost approval facts cannot recover from model self-report; the user must explicitly request an image again or confirm a valid call. Extra files, quantities, and invalid sources still require confirmation or rejection under existing boundaries. Review-found misclassifications involving withdrawal, full destinations, consumption gaps, and multiple-person nonvisual activities received red tests and fixes.

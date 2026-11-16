@@ -1,53 +1,67 @@
-# PDF 引文高亮精确化 Spec（按字符而非整行）
+<a id="pdf-引文高亮精确化-spec按字符而非整行"></a>
 
-> **状态**：已实现 · 待 review
-> **关联 PR**：（本次改动）
-> **领域语言事实源**：`CONTEXT.md`（quote / cite / evidence-set / textLayer）
-> **关键文件**：
-> - `apps/electron/src/renderer/components/preview/renderers/pdf-highlight-dom.ts`（新增，纯 DOM 子区间包裹逻辑）
-> - `apps/electron/src/renderer/components/preview/renderers/PdfRenderer.tsx`（apply* 重构 + 轻 effect 改写）
-> - `apps/electron/src/renderer/components/preview/renderers/PdfRenderer.css`（`.pdf-hl-inner` 规则）
-> - `apps/electron/src/renderer/components/preview/renderers/pdf-highlight-dom.test.ts`（新增单测）
+# PDF Citation Highlight Precision Spec (Characters Rather Than Whole Lines)
+
+> **Status**: Implemented · Awaiting review
+> **Related PR**: (This change)
+> **Domain source of truth**: `CONTEXT.md` (quote / cite / evidence-set / textLayer)
+> **Key files**:
+> - `apps/electron/src/renderer/components/preview/renderers/pdf-highlight-dom.ts` (new, pure DOM subrange wrapping)
+> - `apps/electron/src/renderer/components/preview/renderers/PdfRenderer.tsx` (apply* refactoring + lightweight effect rewrite)
+> - `apps/electron/src/renderer/components/preview/renderers/PdfRenderer.css` (`.pdf-hl-inner` rule)
+> - `apps/electron/src/renderer/components/preview/renderers/pdf-highlight-dom.test.ts` (new unit tests)
 
 ---
 
-## 1. 问题
+<a id="1-问题"></a>
 
-证据集详情面板点击某条 cite 会跳到 PDF 并高亮原文。当 quote 只覆盖一行中的**一部分**时（例如只想高亮 "WET files retained too much boilerplate and menu text"），实际却把整行 "similarly to Gao et al. [29], we found that WET files retained too much boilerplate and menu text." 全部染黄。
+## 1. Problem
 
-**根因**：pdfjs `TextLayerBuilder` 为每个 text item 生成一个透明 `<span>`，而一个 text item 常常就是一整个视觉行。旧实现 `applyQuoteHighlights()` / `applySearchHighlights()` 用游标遍历 `itemsStr[]`，只要某个 item 的字符区间 `[cursor, itemEnd)` 与命中区间 `[idx, endIdx)` **相交**，就给**整个** `textDivs[i]` span 加高亮 class —— 因此部分行的 quote 会点亮整行。
+Clicking a cite in the evidence-set details panel navigates to the PDF and highlights the original text. When a quote covers only **part** of a line (for example, "WET files retained too much boilerplate and menu text"), the entire line "similarly to Gao et al. [29], we found that WET files retained too much boilerplate and menu text." is instead colored yellow.
 
-## 2. 方案：内层 span 包裹（inner-span wrapping）
+**Root cause**: pdfjs `TextLayerBuilder` generates one transparent `<span>` per text item, often an entire visual line. The old `applyQuoteHighlights()` / `applySearchHighlights()` implementation walks `itemsStr[]` with a cursor; whenever an item's character range `[cursor, itemEnd)` **intersects** the hit range `[idx, endIdx)`, it adds the highlight class to the **whole** `textDivs[i]` span. Thus partial-line quotes highlight whole lines.
 
-不再给整个 span 加 class，而是对每个相交 span 计算**局部字符区间**，用 DOM `Range.surroundContents` 把匹配到的子串包进一个内层 `<span class="pdf-hl-inner ...">`，class + `data-note-id` 落在内层 span 上。内层 span 以普通 inline 流排布在父 span（`position:absolute` + transform 缩放）内部，背景框随字形（含 `scaleX` 拉伸）精确贴合。
+<a id="2-方案内层-span-包裹inner-span-wrapping"></a>
 
-下游行为（点击委托、hover tooltip、跳转滚动）天然复用：都靠 `data-note-id` 落在 textLayer `b.div` 内 + `closest('[data-note-id]')` 事件委托 / `querySelector('[data-note-id]')` 滚动定位，内层 span 携带该属性即可。
+## 2. Solution: Inner-span Wrapping
 
-**为何不用 overlay 矩形方案**：overlay 需重做事件委托、管理 pointer-events、且矩形在滚动/缩放后失效需重算，改动面更大更脆；内层 span 唯一代价（改动 pdfjs DOM）已被干净的 unwrap + `normalize()` 清理路径中和。
+Instead of adding a class to the entire span, calculate **local character subranges** for each intersecting span and use DOM `Range.surroundContents` to wrap the matching substring in an inner `<span class="pdf-hl-inner ...">`. Place the class + `data-note-id` on the inner span. It follows ordinary inline flow inside its parent (`position:absolute` + transform scaling), so the background closely fits the glyphs (including `scaleX` stretching).
 
-### 2.1 核心模块 `pdf-highlight-dom.ts`（纯 DOM，无 pdfjs/React 依赖，易单测）
+Downstream behavior (delegated clicks, hover tooltip, scroll navigation) is naturally reused: it relies on `data-note-id` inside textLayer `b.div`, `closest('[data-note-id]')` event delegation / `querySelector('[data-note-id]')` scroll positioning. Carrying the attribute on the inner span suffices.
 
-- `collectSpanSubRanges(itemsStr, rangeStart, rangeEnd, sepLen, styling, out)`：游标遍历 itemsStr，把命中区间映射到各 item 的局部子区间，聚合进共享 `Map<spanIndex, SpanSubRange[]>`。`localStart=max(0, rangeStart-cursor)`、`localEnd=min(itemLen, rangeEnd-cursor)`，`localEnd<=localStart` 跳过（覆盖空 item / 零长 / 落在合成分隔符里的命中）。
-- `wrapSpanSubRanges(span, subRanges)`：先合并重叠子区间（并集 class、后写覆盖 noteId），再**按 start 降序** `surroundContents` 逐个包内层 span（右往左包，文本节点切分后左侧偏移仍有效）；try/catch 兜底，失败则该段不包（绝不退回整 span 高亮）。
-- `clearInjectedHighlights(layerDiv)`：按 `PDF_HL_INNER_CLASS` 选中内层 span，提子节点回父节点、删 span、`normalize()` 合并相邻 `#text`。幂等、保留 pdfjs 给 `hasEOL` item 追加的 `<br>`。
+**Why not overlay rectangles**: Overlays require reworking event delegation and pointer-events management; rectangles become stale after scrolling/scaling and require recalculation, making the change larger and more fragile. The sole cost of inner spans (modifying pdfjs DOM) is offset by a clean unwrap + `normalize()` cleanup path.
 
-### 2.2 轻 effect 流程（PdfRenderer.tsx）
+<a id="21-核心模块-pdf-highlight-domts纯-dom无-pdfjsreact-依赖易单测"></a>
 
-清理 → 收集 → 包裹：`clearInjectedHighlights(layerDiv)` → 用共享 `subRangeMap` 让 quote 与 search 子区间按 span 汇入 → 逐 span `wrapSpanSubRanges`。`textMappingRef` 扩展出 `layerDiv` 供清理限定作用域。
+### 2.1 Core Module `pdf-highlight-dom.ts` (Pure DOM, No pdfjs/React Dependencies, Easy to Unit-test)
+
+- `collectSpanSubRanges(itemsStr, rangeStart, rangeEnd, sepLen, styling, out)`: Walk itemsStr with a cursor, map the hit range to local item subranges, and aggregate into a shared `Map<spanIndex, SpanSubRange[]>`. `localStart=max(0, rangeStart-cursor)`, `localEnd=min(itemLen, rangeEnd-cursor)`; skip `localEnd<=localStart` (covers empty items / zero lengths / hits in synthetic separators).
+- `wrapSpanSubRanges(span, subRanges)`: First merge overlapping subranges (union of classes, later noteId wins), then wrap inner spans individually with `surroundContents` in **descending start order** (right to left, preserving left-side offsets after text-node splitting). try/catch fallback leaves failed segments unwrapped (never falls back to whole-span highlighting).
+- `clearInjectedHighlights(layerDiv)`: Select inner spans by `PDF_HL_INNER_CLASS`, move their children to the parent, remove spans, and `normalize()` adjacent `#text` nodes. Idempotent; preserves `<br>` appended by pdfjs for `hasEOL` items.
+
+<a id="22-轻-effect-流程pdfrenderertsx"></a>
+
+### 2.2 Lightweight Effect Flow (PdfRenderer.tsx)
+
+Clear → collect → wrap: `clearInjectedHighlights(layerDiv)` → aggregate quote and search subranges per span into shared `subRangeMap` → `wrapSpanSubRanges` for each span. Extend `textMappingRef` with `layerDiv` to scope cleanup.
 
 ### 2.3 CSS
 
-pdfjs 的 `.textLayer :is(span,br)` 会把**所有**后代 span 设成 `position:absolute`；新增 `.textLayer .pdf-hl-inner { position: static }`（双 class 特异性 > pdfjs 单 span 规则）让内层 span 在父 span 内 inline 排布，背景贴合字形。背景色复用已有 `.note-quote-highlight` / `.pdf-search-match` / `.pdf-search-current` 规则（仍匹配内层 span），`:hover` 现在精确作用于子串。
+pdfjs `.textLayer :is(span,br)` makes **all** descendant spans `position:absolute`; add `.textLayer .pdf-hl-inner { position: static }` (two-class specificity > pdfjs single-span rule), allowing inner spans to flow inline within the parent and backgrounds to fit glyphs. Background colors reuse existing `.note-quote-highlight` / `.pdf-search-match` / `.pdf-search-current` rules (still matching inner spans); `:hover` now precisely targets substrings.
 
-## 3. 待跟踪 caveat：quote / search 两套 join 约定不一致
+<a id="3-待跟踪-caveatquote-&#45;search-两套-join-约定不一致"></a>
 
-- quote：`joinPdfItems` = `items.join(' ')`（单空格分隔）建 pageText，`collectSpanSubRanges` 用 `sepLen=1`
-- search：`items.join('')`（无分隔）建 pageText，`collectSpanSubRanges` 用 `sepLen=0`
+## 3. Caveat to Track: Different Quote / Search Join Conventions
 
-两条路径各自**内部自洽**，故 helper 把 `sepLen` 参数化、**不统一**。但 search 路径在多栏布局下（items 紧贴无自然空白，如 `Databasesestablished`）可能出现坐标偏差 —— 这是早于本次改动的遗留隐患。统一会移动 search 坐标，超出本次"高亮精确化"范围，**单独跟踪**。
+- Quote: `joinPdfItems` = `items.join(' ')` (single-space separator) constructs pageText; `collectSpanSubRanges` uses `sepLen=1`
+- Search: `items.join('')` (no separator) constructs pageText; `collectSpanSubRanges` uses `sepLen=0`
 
-## 4. 验证
+Each path is **internally consistent**, so the helper parameterizes `sepLen` and **does not unify them**. The search path may have coordinate offsets in multicolumn layouts (items touch without natural whitespace, such as `Databasesestablished`), a pre-existing risk. Unification would move search coordinates and exceeds this highlight-precision change; **track separately**.
+
+<a id="4-验证"></a>
+
+## 4. Validation
 
 - `bun run typecheck` ✅
-- `bun test`（含新增 `pdf-highlight-dom.test.ts` 13 例：局部区间数学、sepLen 0/1、空/零长跳过、精确包裹不染整行、保留 `<br>`、重叠合并、wrap→clear→wrap 幂等）✅
-- 人工（渲染类改动需在 `bun run dev` 走一遍，无法 headless 自验）：部分行 quote 只高亮子串、跨 span quote、多 fragment（`…` 桥接）、search match + current、同字形 quote+search 重叠、缩放 in/out 重建后重新精确包裹、点击/hover/跳转正常、跨高亮行选择复制仍带换行。
+- `bun test` (including 13 new `pdf-highlight-dom.test.ts` cases: local range math, sepLen 0/1, empty/zero-length skipping, precise wrapping without whole-line coloring, preserving `<br>`, overlap merging, wrap→clear→wrap idempotence) ✅
+- Manual (rendering changes require a pass in `bun run dev`, unavailable for headless self-validation): partial-line quotes highlight only substrings; cross-span quotes; multiple fragments (`…` bridging); search match + current; overlapping quote+search on the same glyphs; precise rewrapping after zoom in/out rebuilds; working click/hover/navigation; selecting and copying across highlighted lines retains newlines.

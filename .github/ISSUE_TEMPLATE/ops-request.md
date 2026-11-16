@@ -1,17 +1,25 @@
 ---
-name: 运营需求
-about: 运营团队提出的业务需求或功能改进
+<a id="name-运营需求about-运营团队提出的业务需求或功能改进labels-ops-request"></a>
+
+name: Operations Request
+about: Business requirements or feature improvements proposed by operations
 labels: ops-request
 ---
 
-## 想做什么
+<a id="想做什么"></a>
 
-<!-- 用一句话说明，例如：希望 Agent 支持批量处理论文摘要 -->
+## What You Want to Do
 
-## 为什么要做 / 做了有什么收益
+<!-- Describe the request in one sentence, for example: Support batch processing of paper abstracts in the Agent. -->
 
-<!-- 说明背景或痛点，以及做了之后能带来什么改变 -->
+<a id="为什么要做-&#45;做了有什么收益"></a>
 
-## 参考案例（可选）
+## Why It Is Needed / Expected Benefit
 
-<!-- 截图、竞品参考、类似功能链接，没有可以不填 -->
+<!-- Explain the background or pain point and what would improve after implementation. -->
+
+<a id="参考案例可选"></a>
+
+## References (Optional)
+
+<!-- Add screenshots, competitor references, or links to similar features. Leave blank if unavailable. -->

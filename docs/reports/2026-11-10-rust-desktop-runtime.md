@@ -1,75 +1,89 @@
-# 正式界面与 Rust 会话引擎迁移
+<a id="正式界面与-rust-会话引擎迁移"></a>
 
-状态：M1实现及本机验收完成，独立审查通过，默认未切换。开工及最新核验main为 `5683b781cc46ab631f73c7e84c735dcb9fb58021`。这不是整套产品完成替换。
+# Migration of the Production UI and Rust Session Engine
 
-## 架构与本批范围
+Status: M1 implementation and local acceptance complete, independent review passed, default unchanged. Main at startup and latest verification: `5683b781cc46ab631f73c7e84c735dcb9fb58021`. This does not complete replacement of the entire product.
 
-本批复用正式React renderer/preload，把隔离开发模式的会话服务切到Rust进程。Rust DesktopRuntime负责会话、不可变请求绑定、模型选择、执行、事件和恢复，JSONL sidecar与Tauri command共用该服务。默认生产仍走Electron/SDK。
+<a id="架构与本批范围"></a>
 
-| 路径 | 本批状态 | 证据边界 |
+## Architecture and Batch Scope
+
+This batch reuses the production React renderer/preload and switches session services to a Rust process in an isolated development mode. Rust DesktopRuntime owns sessions, immutable request bindings, model selection, execution, events, and recovery; JSONL sidecar and Tauri commands share this service. Production still defaults to Electron/SDK.
+
+| Path | Batch status | Evidence boundary |
 |---|---|---|
-| Rust DesktopRuntime / JSONL进程 | 已实现并独立审查 | 真实子进程、本机HTTP、合成数据 |
-| OpenAI兼容与Anthropic文本协议 | 已实现并独立审查 | 两协议本机模拟，不是线上模型 |
-| Tauri desktop_runtime_request | 已接相同服务 | 真实handler的MockRuntime，不是原生WebView |
-| 正式Electron UI的隔离Rust模式 | 已接线并通过原生主路径、边界回归和独立审查 | 实际Electron，不是Tauri壳或线上模型 |
-| 原默认Electron/SDK | 保留 | 无默认切换、无安装替换 |
-| 工具/权限/生图/媒体/后台与Tauri平台壳 | M2/M3 | 本批不得称完整迁移 |
+| Rust DesktopRuntime / JSONL process | Implemented and independently reviewed | Real subprocess, local HTTP, synthetic data |
+| OpenAI-compatible and Anthropic text protocols | Implemented and independently reviewed | Both protocols simulated locally, not online models |
+| Tauri desktop_runtime_request | Connected to the same service | Actual handler with MockRuntime, not a native WebView |
+| Isolated Rust mode in production Electron UI | Wired and passed native primary flow, boundary regressions, independent review | Actual Electron, not a Tauri shell or online model |
+| Original default Electron/SDK | Retained | No default switch or installation replacement |
+| Tools/permissions/image generation/media/background work and Tauri platform shell | M2/M3 | Must not call this a complete migration |
 
-代码入口：
+Code entry points:
 
-- `apps/tinker-rust/src-tauri/src/desktop_runtime/`：会话、模型配置注册表、执行与持久化。
-- `apps/tinker-rust/src-tauri/src/bin/tinker-runtime.rs`：真实JSONL进程入口。
-- `apps/tinker-rust/src-tauri/src/desktop_commands.rs`：相同application service的Tauri调用。
-- `apps/tinker-rust/src-tauri/src/chat_http/`：两协议codec与SSE分帧，复用同一HTTP、取消、秘密保护层。
-- `packages/shared/src/types/desktop-runtime.ts`：版本化请求、结果、事件与边界常量。
-- `apps/electron/src/main/entry.ts`：在导入旧服务前验证隔离预览。默认同步加载原`index.ts`，预览才加载独立bootstrap。
-- `apps/electron/src/main/lib/desktop-runtime/`、`main/ipc/desktop-runtime.ts`：JSONL客户端、正式消息投影、原IPC路由与隔离平台兼容服务。
+- `apps/tinker-rust/src-tauri/src/desktop_runtime/`: Sessions, model configuration registry, execution, persistence.
+- `apps/tinker-rust/src-tauri/src/bin/tinker-runtime.rs`: Actual JSONL process entry.
+- `apps/tinker-rust/src-tauri/src/desktop_commands.rs`: Tauri invocation of the same application service.
+- `apps/tinker-rust/src-tauri/src/chat_http/`: Both protocol codecs and SSE framing, sharing HTTP, cancellation, and secret protection.
+- `packages/shared/src/types/desktop-runtime.ts`: Versioned requests, results, events, and boundary constants.
+- `apps/electron/src/main/entry.ts`: Validates isolated preview before importing old services. Normal startup synchronously loads original `index.ts`; preview alone loads a separate bootstrap.
+- `apps/electron/src/main/lib/desktop-runtime/`, `main/ipc/desktop-runtime.ts`: JSONL client, production-message projection, original IPC routing, and isolated platform compatibility services.
 
-## 数据、模型与恢复契约
+<a id="数据模型与恢复契约"></a>
 
-- 只用独立 `desktop-runtime-v1`，不导入或改写真实聊天、项目、账户、渠道或密钥。宿主必须提前durable创建规范绝对根，服务每次open确认root和parent再写。
-- 元数据journal保存会话及不可变请求绑定，run JSONL保存输出和状态，snapshot仅缓存。启动先持锁验证全部数据，再标记非终态interrupted，不能验证失败时已改一部分日志。
-- profile、model、configRevision、input、effort按请求冻结。相同request重放不发HTTP，冲突拒绝。新发送可换profile，旧重放不回退当前选择。失败、取消和中断不进入下一轮成功父链。
-- 字节、会话、活动数及历史聚合有界。JSONL frame最多4MiB，历史页最多2MiB，宿主旧API聚合最多16MiB。没有静默截断冒充完整历史。
-- 配置仅由可信宿主加载，renderer只能传逻辑ID。公开metadata不含endpoint/key，模型effort由显式supportedEfforts决定，不按模型名称猜测。
-- 本批宿主网络仅numeric loopback，禁DNS、代理、重定向和自动重试。全部请求为伪key和合成内容，无真实凭据读取或模型费用。
+## Data, Model, and Recovery Contracts
 
-## 已完成的独立审查与回归
+- Uses only separate `desktop-runtime-v1`; no importing/rewriting real chats, projects, accounts, channels, or keys. The host must durably create a canonical absolute root beforehand; on every open the service validates root and parent before writing.
+- Metadata journal stores sessions and immutable request bindings; run JSONL stores output/state; snapshot is only a cache. Startup first validates all data under a lock, then marks nonterminal runs interrupted, avoiding partial log changes before validation failure.
+- profile, model, configRevision, input, and effort freeze per request. Replaying an identical request sends no HTTP; conflicts are rejected. New sends may change profile; old replay does not revert current selection. Failed, cancelled, and interrupted exchanges do not enter the next successful parent chain.
+- Bounded bytes, sessions, active counts, and historical aggregation. JSONL frames max 4MiB, history pages max 2MiB, host legacy-API aggregation max 16MiB. No silent truncation presented as complete history.
+- Only trusted hosts load configuration; renderer passes logical IDs only. Public metadata excludes endpoint/key; model effort uses explicit supportedEfforts, never name-based guesses.
+- This batch's host networking allows only numeric loopback, prohibiting DNS, proxies, redirects, and automatic retries. All requests use fake keys and synthetic content, without real credential reads or model fees.
 
-| 阶段 | 本地提交 | 最终证据 |
+<a id="已完成的独立审查与回归"></a>
+
+## Completed Independent Reviews and Regressions
+
+| Phase | Local commit | Final evidence |
 |---|---|---|
-| 设计 | c4400e03134853506bd1af5d799caf610cefbdd8 | tracked spec与生产链盘点 |
-| 会话服务与进程 | 36480123eb068b38e8f7e27d5865609f2ff90c01 | 171项Rust通过，独立SpecPass/QualityApprove |
-| 文本协议与effort | 696cdc684ef25811d6a61126ae7efccdee7cb3a3 | 最终186项Rust通过，独立SpecPass/QualityApprove |
-| 原正式UI与Rust接线 | 9e9c790d84bc5036d46b462f87cd3466f1914cf7 | 原生闭环、47项focused、独立SpecPass/QualityApprove |
-| PR后请求归属修复 | e1344fddc3d232d6151a362b633408a244b3526f | 独立requestId、54项focused、时钟回拨原生验证及复审通过 |
+| Design | c4400e03134853506bd1af5d799caf610cefbdd8 | Tracked spec and production-chain inventory |
+| Session service and process | 36480123eb068b38e8f7e27d5865609f2ff90c01 | 171 Rust checks passed, independent SpecPass/QualityApprove |
+| Text protocols and effort | 696cdc684ef25811d6a61126ae7efccdee7cb3a3 | Final 186 Rust checks passed, independent SpecPass/QualityApprove |
+| Original production UI and Rust wiring | 9e9c790d84bc5036d46b462f87cd3466f1914cf7 | Native loop, 47 focused checks, independent SpecPass/QualityApprove |
+| Post-PR request ownership fix | e1344fddc3d232d6151a362b633408a244b3526f | Independent requestId, 54 focused checks, native clock-rollback validation and re-review passed |
 
-Task1审查发现并修复了启动全局只读预检顺序、目录持久化同步及失败重试、2MiB边界预算，补有行为回归。Task2审查发现并修复了Anthropic多个message_delta的兼容性，真实HTTP和真实runtime进程先红后绿。usage-only/null更新保留已确认的正常stop，冲突stop仍失败。
+Task1 review found and fixed startup global read-only preflight ordering, directory durability synchronization/failure retry, and the 2MiB boundary budget, with behavioral regressions. Task2 review found and fixed compatibility with multiple Anthropic message_delta events; actual HTTP and runtime-process tests went red then green. usage-only/null updates preserve confirmed normal stop; conflicting stops still fail.
 
-真实进程验证包括两协议、两alias模型、逐字节Unicode、1/3/5轮次请求、跨协议切换、重启、重放、不支持能力先拒绝、失败后成功祖先、并发取消、超时、错误正文及已知key跨帧反射、截断、非法UTF8、预算和socket释放。没有工具runner，工具块明确unsupported，不能将它写成工具能力已迁移。
+Actual-process validation covers both protocols, two alias models, bytewise Unicode, 1/3/5-turn requests, cross-protocol switching, restart, replay, early rejection of unsupported capabilities, successful ancestors after failure, concurrent cancellation, timeout, error-body and known-key reflection across frames, truncation, invalid UTF8, budgets, and socket release. No tool runner exists; tool blocks explicitly return unsupported, so tool capability must not be reported as migrated.
 
-## 最终验收与操作方式
+<a id="最终验收与操作方式"></a>
 
-### 实际原生链路
+## Final Acceptance and Operation
 
-独立owned Electron进程加载本仓库原正式renderer/preload，使用原AgentView、AgentMessages、Jotai及全局监听，实际经过主进程IPC、Rust子进程、本机HTTP、持久历史。不是另一张mock页面。输入使用原编辑器，模型菜单使用真实指针事件，发送使用原按钮。
+<a id="实际原生链路"></a>
 
-- 初始Synthetic A，Unicode增量在完成前可见。原模型菜单切Synthetic B，第二轮正常显示。
-- 模拟服务先输出Unicode再返回坏SSE。部分回复、固定错误和原恢复卡保留，实际点击Restore draft恢复原文，未重新发送HTTP。
-- 流中尝试排队在清空输入和乐观消息之前拒绝，输入仍在，不创建额外HTTP。
-- 原停止按钮取消请求，`stoppedByUser`及每轮host stop注释保留。
-- 运行中刷新renderer，恢复当前完整文本快照再接增量。终态为11条稳定消息，无重复UUID。
-- 退出整个owned Electron及Rust，再以同一合成根重开。原保存标签、模型选择及11条历史恢复，不自动重发模型。
-- 中文深色与英文浅色重开检查通过。截图等待入场动画稳定后采集。
-- 测试入口只在renderer临时模拟Date构造与Date.now回拨，实际捕获第二次startedAt小于第一次、requestId不同且原UI正常完成。shim在finally恢复，没有修改系统时间。
+### Actual Native Chain
 
-原生模拟共5次HTTP，模型A后切B，所有请求真实携带high，角色数量为`[1,3,5,5,5]`，失败和取消未进入成功父链。11条消息是5条user、5条assistant和1条真实host取消注释，没有伪造SDK结果、session来源、token或费用。
+A separate owned Electron process loads this repository's original production renderer/preload, using the original AgentView, AgentMessages, Jotai, and global listeners, passing through actual main-process IPC, Rust subprocess, local HTTP, and persistent history. This is not a separate mock page. Input uses the original editor, the model menu uses real pointer events, and sending uses the original button.
 
-原生GUI使用一个OpenAI模拟profile。Anthropic通过真实Rust进程与HTTP测试，未在原生UI另测。GUI整进程重开为正常退出后重开，强制部分输出中断及interrupted恢复由真实进程适配测试覆盖，不能说成GUI强杀已验。Tauri为真实handler的MockRuntime，原生Tauri/WebView未验收。未运行线上模型。
+- Initially Synthetic A; Unicode increments visible before completion. Switch to Synthetic B through the original model menu; the second turn displays normally.
+- The mock service outputs Unicode before returning bad SSE. Partial reply, fixed error, and original recovery card remain; clicking Restore draft restores the original text without resending HTTP.
+- Attempting to queue during streaming is rejected before input clearing and optimistic-message creation; input remains, with no additional HTTP.
+- The original stop button cancels the request; `stoppedByUser` and per-turn host stop annotations remain.
+- Refreshing the renderer mid-run restores the complete current text snapshot before resuming increments. Terminal history contains 11 stable messages without duplicate UUIDs.
+- Quit the entire owned Electron and Rust processes, then reopen the same synthetic root. Original saved tabs, model selection, and 11 historical messages recover without automatic model resends.
+- Reopening in Chinese/dark and English/light passed. Screenshots wait for entrance animations to settle.
+- The test entry temporarily simulates Date construction and Date.now rollback only in the renderer. It captures a second startedAt earlier than the first, distinct requestIds, and normal original-UI completion. The shim is restored in finally; system time is unchanged.
 
-### 复现入口
+Native simulation made 5 HTTP requests, switching from model A to B. Every request actually carried high; role counts were `[1,3,5,5,5]`; failed and cancelled exchanges did not enter the successful parent chain. The 11 messages comprise 5 user, 5 assistant, and 1 actual host cancellation annotation, without fabricated SDK results, session origins, tokens, or costs.
 
-先构建Rust二进制和正式Electron资源，再编译测试入口并调用合成launcher：
+Native GUI used one OpenAI mock profile. Anthropic was tested through actual Rust processes and HTTP, not separately in native UI. GUI process reopening followed normal exit; forced interruption during partial output and interrupted recovery are covered by actual-process adapter tests, not GUI force-kill acceptance. Tauri uses actual-handler MockRuntime; native Tauri/WebView remains unaccepted. No online models ran.
+
+<a id="复现入口"></a>
+
+### Reproduction Entry
+
+Build the Rust binary and production Electron assets, then compile the test entry and invoke the synthetic launcher:
 
 ```sh
 cargo build --manifest-path apps/tinker-rust/src-tauri/Cargo.toml --bin tinker-runtime
@@ -78,69 +92,81 @@ bunx esbuild apps/electron/scripts/ui-runtime-acceptance-main.ts --bundle --plat
 bun apps/electron/scripts/ui-runtime-acceptance.ts /absolute/Electron /absolute/output /absolute/tinker-runtime
 ```
 
-最后三个参数是本机Electron可执行文件、输出目录、上一步Rust二进制。launcher仅创建自己的temp根、伪profile及本机模拟HTTP，不读取真实渠道。不得把真实配置复制到该目录或用真实模型地址替代本轮受限profile。
+The final three arguments are the local Electron executable, output directory, and Rust binary from the previous step. The launcher creates only its own temporary root, fake profile, and local mock HTTP, without reading real channels. Do not copy real configuration into that directory or replace this round's restricted profile with a real model endpoint.
 
-手动开发预览要求未打包、`TINKER_DESKTOP_RUNTIME=rust-preview`及显式`TINKER_DESKTOP_ROOT/BINARY/PROFILES`，`ASCI_CONFIG_HOME`严格为该根下`electron-compat`。根目录必须带相符marker并满足安全校验，错误配置拒绝启动。优先使用上述launcher，避免手工误指真实数据。
+Manual development preview requires an unpackaged app, `TINKER_DESKTOP_RUNTIME=rust-preview`, and explicit `TINKER_DESKTOP_ROOT/BINARY/PROFILES`; `ASCI_CONFIG_HOME` must be exactly `electron-compat` under that root. The root must carry a matching marker and pass security checks; invalid configuration rejects startup. Prefer the launcher above to avoid accidentally targeting real data.
 
-原生console仍有原initializer对尚未迁移域的探测错误，例如Zotero、ASR、更新、workspace papers及output feedback。它们被明确拒绝，未伪装成功，不阻止文本主路径。原有失败卡片及其中的说明继续复用，未在本轮做产品文案或视觉改版。
+The native console still reports original-initializer probes for unmigrated domains, such as Zotero, ASR, updates, workspace papers, and output feedback. These are explicitly rejected, never falsely reported successful, and do not block the primary text flow. Existing failure cards and explanations are reused; this round does not redesign product copy or visuals.
 
-### 最终检查
+<a id="最终检查"></a>
 
-| 检查 | 实际结果 | 本机日志 |
+### Final Checks
+
+| Check | Actual result | Local log |
 |---|---|---|
-| 全仓`bun test` | 3443 pass，0 fail，9454断言，400文件 | pr21-final-bun.log |
-| 全仓`bun run typecheck` | 六个workspace exit 0 | pr21-final-typecheck.log |
-| 全仓`bun run lint` | exit 0 | pr21-final-lint.log |
-| `bun run electron:build` | exit 0，含正常hook版本变更及PR后修复 | pr21-final-build.log |
-| Rust `cargo test` | 186个顶层测试通过，0失败，不重复计算子进程filtered测试 | final-rust.log |
+| Repository-wide `bun test` | 3443 pass, 0 fail, 9454 assertions, 400 files | pr21-final-bun.log |
+| Repository-wide `bun run typecheck` | Six workspaces exit 0 | pr21-final-typecheck.log |
+| Repository-wide `bun run lint` | exit 0 | pr21-final-lint.log |
+| `bun run electron:build` | exit 0, includes normal hook version changes and post-PR fix | pr21-final-build.log |
+| Rust `cargo test` | 186 top-level tests passed, 0 failed; filtered subprocess tests not counted again | final-rust.log |
 | Rust fmt / clippy all-targets `-D warnings` | exit 0 | final-fmt.log / final-clippy.log |
-| 最终定向UI/适配测试 | 54 pass，333断言，11文件 | ui-runtime-pr21-focused.log |
-| 最新原生自动化 | exit 0，5次合成HTTP，含实际renderer时钟回拨 | ui-runtime-pr21-native.log / pr21-identity/ui-runtime-http.json |
-| 独立规格及质量审查 | R1–R6和EOF问题关闭，SpecPass / QualityApprove | task-3-review.md |
-| PR后审查 | 时钟回拨P2修复复审通过，未发现其它重要问题 | pr21-review.md |
-| 全分支simplify复盘 | approve，无必须修改项 | simplify-runtime.md |
+| Final focused UI/adapter tests | 54 pass, 333 assertions, 11 files | ui-runtime-pr21-focused.log |
+| Latest native automation | exit 0, 5 synthetic HTTP requests, including actual renderer clock rollback | ui-runtime-pr21-native.log / pr21-identity/ui-runtime-http.json |
+| Independent spec and quality review | R1–R6 and EOF issues closed, SpecPass / QualityApprove | task-3-review.md |
+| Post-PR review | Clock-rollback P2 fix passed re-review; no other important issues found | pr21-review.md |
+| Full-branch simplify review | approve, no required changes | simplify-runtime.md |
 
-Rust命令均使用`--manifest-path apps/tinker-rust/src-tauri/Cargo.toml`。clippy参数为`--all-targets -- -D warnings`，fmt为`cargo fmt ... -- --check`。本机日志全部位于`/private/tmp/tinker-runtime-checks-20261110`。运行时剥离ambient服务变量，ASCI配置和runtime指向新建测试根，Cargo复用既有target。回环/原生验证使用正常工具权限，没有绕过拒绝。
+All Rust commands use `--manifest-path apps/tinker-rust/src-tauri/Cargo.toml`. clippy arguments: `--all-targets -- -D warnings`; fmt: `cargo fmt ... -- --check`. All local logs reside in `/private/tmp/tinker-runtime-checks-20261110`. Runs strip ambient service variables and point ASCI configuration/runtime to new test roots; Cargo reuses existing target. Loopback/native validation used normal tool permissions without bypassing rejections.
 
-正常提交hook把Electron workspace由0.1.617增至0.1.618，其他相关workspace也按正常hook更新。最新截图取自PR后请求归属修复的冻结源码，随后完整构建重新通过。Rust源码在该修复中没有变化，186项Rust结果对应相同Rust源码。没有制作或替换安装包。
+Normal commit hooks incremented the Electron workspace from 0.1.617 to 0.1.618, with other related workspaces updated by normal hooks. Latest screenshots use frozen source after the post-PR request ownership fix, followed by another successful full build. Rust source did not change in that fix; the 186 Rust results correspond to identical Rust source. No installation package was created or replaced.
 
-### 审查后补齐的边界
+<a id="审查后补齐的边界"></a>
 
-| 契约 | 修复及语义回归 |
+### Boundaries Completed After Review
+
+| Contract | Fix and semantic regression |
 |---|---|
-| 重载最新快照与事件分页 | 游标推进到完整快照sequence，超过128个delta的积压及后续增量均只出现一次 |
-| 所有失败Promise | polling/history的合法storeIo等错误也拒绝发送，关闭失效sidecar，不留不可见执行 |
-| 文件资源 | 全部deliverables资源拒绝，只允许可信构建资源，不经链接暴露私有根或其它文件 |
-| 新旧请求归属 | 显式登记有界独立requestId，带归属的旧EVENT/ERROR/COMPLETE和旧Promise不污染新请求，含新请求已结束后。无身份的旧SDK/external路径保持原兼容 |
-| 时钟回拨及相等时钟 | startedAt只表示真实时间，不再参与身份排序。五个本地入口捕获同一个opaque ID，成功、失败、回拨、相等时钟及重复点击均有回归 |
-| 工作区兼容目录 | 使用真实`.asci/.asci-dev`，实际preload low/high读写在启动与重开验证 |
-| 旧workspace索引迁移 | 在任何旧reader前预检main、tmp、bak候选，拒绝v1、future、畸形和不安全slug，owned外部sentinel及原索引不变 |
-| stdout EOF | 残缺frame后EOF立即失败，不等下一次请求超时，不重放 |
+| Reload latest snapshot and event pagination | Advance cursor to complete snapshot sequence; backlog beyond 128 deltas and later increments appear exactly once |
+| All failing Promises | Legitimate polling/history errors such as storeIo also reject sends and close invalid sidecars, leaving no invisible execution |
+| File resources | Reject all deliverables resources; permit only trusted build assets, without exposing private roots or other files through links |
+| Old/new request ownership | Explicitly register bounded independent requestIds; owned old EVENT/ERROR/COMPLETE and Promises cannot contaminate new requests, even after the new request ends. Old SDK/external paths without identity retain compatibility |
+| Rolled-back and equal clocks | startedAt represents actual time only and no longer orders identity. Five local entry points capture one opaque ID; success, failure, rollback, equal clocks, and duplicate clicks have regressions |
+| Workspace compatibility directories | Use actual `.asci/.asci-dev`; actual preload low/high reads/writes verified on startup and reopening |
+| Legacy workspace-index migration | Preflight main, tmp, bak candidates before any legacy reader; reject v1, future, malformed, and unsafe slugs; owned external sentinel and original index remain unchanged |
+| stdout EOF | EOF after an incomplete frame fails immediately, without waiting for the next request timeout or replaying |
 
-上述问题均有修复前行为RED和修复后GREEN，不用静态检查代替已执行的回归。文件系统TOCTOU及物理断电仍未测试，不能宣称抵抗恶意并发改写。
+All issues above have pre-fix behavioral RED and post-fix GREEN evidence; static checks do not substitute for executed regressions. Filesystem TOCTOU and physical power loss remain untested; no claim of resistance to malicious concurrent rewriting.
 
-### 正式页面证据
+<a id="正式页面证据"></a>
 
-![原正式UI的两轮Rust会话，第二次时间较早为受控renderer回拨验证](assets/rust-runtime-original-ui.png)
+### Production Page Evidence
 
-![重开后中文深色、部分失败与取消状态](assets/rust-runtime-restored-zh-dark.png)
+![Two Rust conversation turns in the original production UI; the second timestamp is earlier due to controlled renderer clock rollback](assets/rust-runtime-original-ui.png)
 
-### UI与默认路径影响
+![Chinese dark mode after reopening, with partial failure and cancellation states](assets/rust-runtime-restored-zh-dark.png)
 
-本批不是生产源码零差异。构建入口增加前置guard，正常main增加只读false预览状态，preload暴露主进程确认的只读boolean。renderer只补typed delta/snapshot、迟到请求归属、Rust错误说明和预览队列拒绝，账户及Sentry跳过只在强隔离预览true时发生。普通启动仍同步走旧index，flag为false。
+<a id="ui与默认路径影响"></a>
 
-未修改正式布局、CSS、图标或重做组件。平台偏好、主题、引导、用户档案、工作区索引仍由Electron在独立compat根提供，不称其已迁Rust。Rust只保存会话中的逻辑workspace关联，本批没有项目目录工具执行权限。完整旧SDK系统提示、记忆、工具及上下文策略仍属后续替代范围。
+### UI and Default-path Impact
 
-## 保护与回滚
+This batch does not have zero production-source differences. The build entry adds a preliminary guard, normal main adds read-only false preview state, and preload exposes a main-confirmed read-only boolean. Renderer changes cover typed delta/snapshot, late-request ownership, Rust error explanations, and preview queue rejection only; accounts and Sentry are skipped only under strongly isolated preview true. Normal startup still synchronously follows old index with flag false.
 
-本批仅在 `/private/tmp/tinker-research-cleanup-20261110` 的 `feat/rust-desktop-runtime` 实现，不向原dirty source写入，不清理其他worktree，不安装到Applications，不触碰用户正式应用或历史。开工原主仓有63项未提交，均留原处，旧source的慢状态不按干净处理。
+No production layout, CSS, icons, or component redesign. Platform preferences, themes, onboarding, profiles, and workspace indexes still come from Electron within the separate compat root and are not claimed migrated to Rust. Rust stores only logical workspace association within sessions; this batch grants no project-directory tool execution. The full old SDK system prompt, memory, tools, and context strategies remain future replacement scope.
 
-停用显式预览开关即可回到原默认SDK路径。Rust新数据保留在独立根，不以删除数据回滚。单阶段可按表中独立commit正常revert，不能reset或force丢掉用户及远端进展。只有工具、平台、数据、功能矩阵和正式灰度验收通过后，才评估默认切换及旧代码退役。
+<a id="保护与回滚"></a>
 
-交付分支为`feat/rust-desktop-runtime`，目标仓库`SimmonJ-WYJ/tinker`。交付方式是安全推送和Draft PR，不合并、不发布、不安装。具体最终head、PR及远端CI以GitHub当时记录为准，本机检查通过不等于远端CI通过。
+## Protection and Rollback
 
-## 剩余里程碑
+Implementation occurred only on `feat/rust-desktop-runtime` in `/private/tmp/tinker-research-cleanup-20261110`; no writes to original dirty source, cleanup of other worktrees, Applications installation, or access to the user's official app/history. The original main repository had 63 uncommitted changes at startup, all left in place; slow old-source status is not treated as clean.
 
-- M2：实际工具请求→授权→执行→结果→模型续轮，覆盖拒绝、取消、过期、错run零执行。完善队列、并发、富事件、产物和生图。Tauri加载同一正式renderer，逐域替换启动平台API。
-- M3：合成旧数据兼容、授权后的真实凭据及数据迁移与回退、三平台和同条件资源测量、功能逐项验收，再灰度改默认。
-- 本批不承诺全部模型、SDK及功能兼容，不声称整机内存改善或原生Tauri完整产品验收。物理断电、恶意并发文件系统TOCTOU和真实provider未验证。
+Disabling explicit preview returns to the original default SDK path. New Rust data stays in its separate root; rollback does not delete data. Individual stages may be normally reverted using independent commits in the table; no reset or force operation may discard user or remote progress. Consider default switching and old-code retirement only after tools, platform, data, feature matrix, and production staged acceptance pass.
+
+Delivery branch: `feat/rust-desktop-runtime`; target repository: `SimmonJ-WYJ/tinker`. Delivery is a safe push and Draft PR, without merge, release, or installation. Final head, PR, and remote CI follow GitHub's actual records; local checks passing does not mean remote CI passed.
+
+<a id="剩余里程碑"></a>
+
+## Remaining Milestones
+
+- M2: Actual tool request → authorization → execution → result → next model turn, covering rejection, cancellation, expiration, and wrong-run zero execution. Complete queues, concurrency, rich events, artifacts, and image generation. Tauri loads the same production renderer, replacing startup platform APIs domain by domain.
+- M3: Synthetic legacy-data compatibility, authorized real credential/data migration and rollback, three platforms and equivalent resource measurements, itemized feature acceptance, then staged default switching.
+- This batch promises neither all-model/SDK/feature compatibility nor whole-machine memory improvement or complete native Tauri product acceptance. Physical power loss, malicious concurrent filesystem TOCTOU, and real providers remain unverified.

@@ -1,98 +1,120 @@
-# ADR-013：文献检索数据服务 ——「部分自建分层」（元数据自建 + OA 全文复用 + 软件差异化）
+<a id="adr-013文献检索数据服务-部分自建分层元数据自建-&#45;oa-全文复用-&#45;软件差异化"></a>
 
-| 字段 | 内容 |
+# ADR-013: Literature Retrieval Data Service — Partial In-house Layers (Self-hosted Metadata + Reused OA Full Text + Software Differentiation)
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed（grill-with-docs + 2 轮 deep-research 裁决 2026-06-02，待产研 Lead 签字）|
-| **决策日期** | 2026-06-02 |
-| **拍板人** | （待填，建议产研 Lead）|
-| **作者** | （待填）|
-| **决策时点硬约束** | 0.5 文献数据服务实现 issue 开出前；**本 ADR 扩展 [ADR-002](./ADR-002-server-stack.md) 服务端栈（新增检索 workload），ADR-002 须同步更新** |
-| **关联** | [0.5 north-star](../milestones/0.5/north-star.md) · [ADR-001 本地优先](./ADR-001-local-storage.md) · [ADR-002 服务端栈](./ADR-002-server-stack.md)（需扩展）· [0.3 数据三分红线](../specs/0.3.0/0.3.0-prd.md) · [0.2 moat-analysis](../milestones/0.2/moat-analysis.md) · [CONTEXT.md 文献检索数据服务领域](../../CONTEXT.md) · 两轮 deep-research（task `ww7kiwqdq` / `wznt3zt3n`，2026-06-02）|
+| **Status** | Proposed (grill-with-docs + 2 deep-research rounds adjudicated 2026-06-02, awaiting product/engineering Lead sign-off) |
+| **Decision date** | 2026-06-02 |
+| **Decision maker** | (Pending; product/engineering Lead recommended) |
+| **Author** | (Pending) |
+| **Decision deadline** | Before opening 0.5 literature-data-service implementation issues; **this ADR extends [ADR-002](./ADR-002-server-stack.md) server stack with retrieval workload; ADR-002 must update simultaneously** |
+| **Related** | [0.5 north-star](../milestones/0.5/north-star.md) · [ADR-001 Local-first](./ADR-001-local-storage.md) · [ADR-002 Server Stack](./ADR-002-server-stack.md) (extension needed) · [0.3 Three-way Data Separation Red Line](../specs/0.3.0/0.3.0-prd.md) · [0.2 moat-analysis](../milestones/0.2/moat-analysis.md) · [CONTEXT.md Literature Retrieval Data Service Domain](../../CONTEXT.md) · Two deep-research rounds (tasks `ww7kiwqdq` / `wznt3zt3n`, 2026-06-02) |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-**现状**：ASCI 文献检索 = 一个跑在用户机器上的本地 MCP（`paper-search-mcp`），对 15+ 外部开放 API（OpenAlex/Crossref/Semantic Scholar/arXiv/PubMed…）**实时扇出（fan-out）**，**无自建索引 / 无缓存**。实测主力源会整源失败、同类查询返回数在 0↔45 间剧烈跳变、备用源慢且质量差（已默认关，见 `lit-search-failure-source-expansion-spec.md`）。
+## I. Background
 
-**三个真实痛点**（产研复盘提出）：① 检索**不全**（覆盖缺失，专业研究员搜不到要的）；② 检索**不准**（相关性差）；③ PDF **精读慢**（每篇现抓 → 解析 → RAG，分钟级）。
+**Current state**: ASCI literature retrieval is a local MCP (`paper-search-mcp`) on user machines, **fanning out live** to 15+ external open APIs (OpenAlex/Crossref/Semantic Scholar/arXiv/PubMed…), with **no self-hosted index or cache**. Measurements show whole primary-source failures, query counts swinging between 0↔45 for similar queries, and slow, poor-quality fallback sources (now disabled by default; see `lit-search-failure-source-expansion-spec.md`).
 
-**触发**：产研提出"规划自建文献库 / 往数据资产投入，否则是 AI 时代皮包公司"。grill-with-docs 会话把它收敛为方向假设，2 轮 deep-research（共 212 agent、48 源、对抗式验证）用外部证据验证。
+**Three real pain points** (product/engineering retrospective): ① **Incomplete** retrieval (coverage gaps; professionals cannot find what they need); ② **Inaccurate** retrieval (poor relevance); ③ **Slow close reading** of PDFs (fetch → parse → RAG per paper, taking minutes).
 
-**为何须 ADR**：这是 ASCI 从「纯本地优先（ADR-001）+ 服务端仅认证/遥测（ADR-002）」向「**本地优先 + 服务端文献数据服务**」的扩展——hard-to-reverse、未来读者会问"为什么从本地优先转向服务端语料"、且是多候选真实权衡的结果。三条全中，落 ADR。
+**Trigger**: Product/engineering proposed (English translation), "Plan an in-house literature library / invest in data assets, otherwise we are a shell company in the AI era." grill-with-docs narrowed this to a directional hypothesis, validated with external evidence through 2 deep-research rounds (212 agents, 48 sources, adversarial verification).
 
-## 二、决策维度
+**Why an ADR**: This extends ASCI from "pure local-first (ADR-001) + servers only for auth/telemetry (ADR-002)" to **local-first + server-side literature data service**. It is hard to reverse; future readers will ask why local-first shifted toward server corpora; and it reflects real tradeoffs among alternatives. All three criteria warrant an ADR.
 
-1. **自建到哪一层**：仅元数据 / +全文 / +全量语义向量？
-2. **检索/重排算力跑哪**：ASCI 服务端（ASCI 付费）vs 用户 BYOK key（用户付费）？
-3. **变现**：是否必须引入 freemium？
+<a id="二决策维度"></a>
 
-## 三、候选方案
+## II. Decision Dimensions
 
-| | A 纯 fan-out（现状）| B 重资产全自建 | C 部分自建分层（**选中**）|
+1. **Which layers to build**: Metadata only / +full text / +complete semantic vectors?
+2. **Where retrieval/reranking compute runs**: ASCI servers (ASCI pays) vs user BYOK (user pays)?
+3. **Monetization**: Must freemium be introduced?
+
+<a id="三候选方案"></a>
+
+## III. Alternatives
+
+| | A Pure fan-out (current) | B Fully in-house, asset-heavy | C Partial in-house layers (**selected**) |
 |---|---|---|---|
-| 元数据 | 实时打 API | 全量自托管 index | ✅ 全量自托管 index（OpenAlex）|
-| 全文 | 现抓现解析 | 全量自托管 | ✅ 仅缓存**可合法再分发的 OA 子集**，其余按需现抓+外链 |
-| 语义向量 | 无 | 全量 embedding（2 亿+）| ❌ 不做全量（不划算）|
-| 检索/重排算力 | 用户 BYOK | 全 server-side（ASCI 付费）| ✅ 默认跑用户 BYOK（ASCI 零每查询推理成本）|
-| 变现 | — | freemium **被成本逼成必须** | freemium **可选**（信誉修复须在免费层）|
-| 三痛点 | ❌ 全不治 | ✅ 治但代价失控 | ✅ 治且成本/合规可控 |
-| 4 人团队可行性 | — | ❌ 全量向量+全 server-side 养不起 | ✅ 元数据门槛低、全文复用、算力借 BYOK |
+| Metadata | Live API calls | Complete self-hosted index | ✅ Complete self-hosted index (OpenAlex) |
+| Full text | Fetch/parse on demand | Fully self-hosted | ✅ Cache only **OA subsets legally redistributable**, fetch/link the rest on demand |
+| Semantic vectors | None | Complete embedding (200 million+) | ❌ No full embedding (uneconomical) |
+| Retrieval/reranking compute | User BYOK | All server-side (ASCI pays) | ✅ User BYOK by default (zero ASCI per-query inference cost) |
+| Monetization | — | Costs **force** freemium | Freemium **optional** (credibility repair must remain free) |
+| Three pain points | ❌ Solves none | ✅ Solves at uncontrolled cost | ✅ Solves with bounded cost/compliance |
+| Feasibility for 4 people | — | ❌ Cannot sustain full vectors + server compute | ✅ Low metadata barrier, reused text, BYOK compute |
 
-**B 为何被否（grill 中途结论，被证据推翻）**：① 全量向量 embedding 2 亿+ 文档 RAM-bound、新鲜度管道，对 4 人不划算；② 全量原始全文**多数不可合法再分发**（见决策的许可红线）；③「全 server-side 算力」反转了 ASCI 的 BYOK 零推理成本模型，把每次搜索变成 ASCI 的账单，从而**被成本逼出 freemium**，又有把"信誉修复"关进付费墙、用户在转化前就 bounce 的陷阱。
+**Why B was rejected (mid-grill conclusion overturned by evidence)**: ① Embedding 200 million+ documents is RAM-bound with freshness pipelines, uneconomical for 4 people; ② Most raw full text **cannot legally be redistributed** (licensing red lines below); ③ All-server compute reverses BYOK's zero-inference-cost model, making every search ASCI's bill and **forcing freemium through costs**, risking a credibility-repair paywall that drives users away before conversion.
 
-## 四、决策
+<a id="四决策"></a>
 
-**采用 C：部分自建分层。**
+## IV. Decision
+
+**Adopt C: Partial in-house layers.**
 
 ```
-自建/自托管（ASCI 服务端 · 成本有界 · 合规清晰）
-  · OpenAlex 元数据全量 index（覆盖长尾；免费快照季度更新）
-  · 可合法再分发的预处理全文语料（精读"秒开"的底子）
-复用（不自研）
-  · 科学 PDF 解析：MinerU / olmOCR（SOTA、开源；olmOCR ~$176/百万页）
-按需现抓 + 外链（不缓存再分发，守许可红线）
-  · arXiv（逐篇 fetch + 回链）、非 OA、CC-NC / CC-ND 论文
-差异化软件层（跑用户 BYOK · ASCI 零每查询推理成本）  ← 真护城河
-  · agentic 迭代检索 + 混合(BM25⊕dense)召回 + LLM 重排 + 全文 RAG 精读
-不做：全量语义向量 embedding
-变现：freemium 为可选商业决策（信誉修复天然在免费层），非成本逼出来的必须项
+Self-build/self-host (ASCI servers · bounded costs · clear compliance)
+  · Complete OpenAlex metadata index (long-tail coverage; free quarterly snapshots)
+  · Legally redistributable preprocessed full text (foundation for instant close reading)
+Reuse (do not develop in-house)
+  · Scientific PDF parsing: MinerU / olmOCR (SOTA, open source; olmOCR ~$176/million pages)
+Fetch on demand + external links (no cached redistribution; licensing red lines)
+  · arXiv (individual fetch + backlink), non-OA, CC-NC / CC-ND papers
+Differentiated software (user BYOK · zero ASCI per-query inference cost) ← Actual moat
+  · Agentic iterative retrieval + hybrid(BM25⊕dense) recall + LLM reranking + full-text RAG
+Excluded: Complete semantic vector embedding
+Monetization: Optional freemium business decision (credibility repair stays free), not cost-forced
 ```
 
-### 许可红线（一手原文，落地硬约束）
+English rendering of the preserved conceptual diagram: Self-build/self-host on ASCI servers with bounded costs and clear compliance: full OpenAlex metadata index (long-tail coverage; free snapshots quarterly), legally redistributable preprocessed full-text corpus for instant close reading. Reuse scientific PDF parsers MinerU / olmOCR (SOTA, open source; olmOCR ~$176/million pages). Fetch/link arXiv, non-OA, CC-NC/CC-ND papers on demand without cached redistribution. Differentiate in software on user BYOK, with zero ASCI per-query inference: agentic iterative search + hybrid BM25⊕dense recall + LLM reranking + full-text RAG. Do not embed all semantic vectors. Freemium is optional business policy, with credibility repair free, never cost-forced.
 
-| 源 | 能否缓存+落库+**再分发**（商业）| 用法 |
+<a id="许可红线一手原文落地硬约束"></a>
+
+### Licensing Red Lines (Primary-source Wording, Hard Implementation Constraints)
+
+| Source | Cache + persist + **redistribute** commercially? | Usage |
 |---|---|---|
-| peS2o / S2ORC 散装（ODC-By）| ✅ 可（须署名）| 预处理全文语料核心（~824 万全文）|
-| PMC `oa_comm`（CC0/CC-BY）| ✅ 可（**仅 XML/纯文本，非 PDF**；须滤 ND/SA）| 生物医学全文；走官方 bulk 通道（FTP 2026-08 退役转 Cloud Service，届时复查）|
-| Semantic Scholar **API 实时数据** | ❌ 契约禁再分发 | 即时用不落库；要落库改走其 ODC-By 散装 |
-| arXiv 全文 | ❌ 默认许可禁第三方再分发 | **逐篇 fetch + 回链 arXiv，不可缓存成语料**（CS/物理/ML 重点注意）|
-| 非 OA / CC-NC / CC-ND | ❌ | 按需现抓 + 外链，不落库 |
+| peS2o / S2ORC bulk (ODC-By) | ✅ Yes (attribution required) | Core preprocessed full-text corpus (~8.24 million full texts) |
+| PMC `oa_comm` (CC0/CC-BY) | ✅ Yes (**XML/plain text only, not PDFs**; filter ND/SA) | Biomedical full text via official bulk channel (FTP retires 2026-08 for Cloud Service; recheck then) |
+| Semantic Scholar **live API data** | ❌ Contract prohibits redistribution | Transient use without persistence; use ODC-By bulk for persistence |
+| arXiv full text | ❌ Default license prohibits third-party redistribution | **Fetch individually + link back to arXiv; no cached corpus** (particularly CS/physics/ML) |
+| Non-OA / CC-NC / CC-ND | ❌ | On-demand fetching + external links, no persistence |
 
-> ⚠️ **逐篇上游版权风险**：ODC-By/桶级"可商业"是数据库/汇编层许可，**不等于每篇全文都无 per-work（含 NC/ND）限制**；商业全文 RAG（chunk/re-embed/生成衍生）须**保留并尊重逐篇 license 元数据**，落地前需法务确认（含 Europe PMC 作为欧盟节点 PDF 源的边界）。
+> ⚠️ **Per-work upstream copyright risk**: ODC-By/bucket-level commercial permission covers databases/compilations, **not freedom from per-work restrictions (including NC/ND)**. Commercial full-text RAG (chunking/re-embedding/derivatives) must **retain and honor per-paper license metadata**; obtain legal confirmation before implementation, including Europe PMC as an EU-node PDF source.
 
-### GDPR（可控，有现成模板）
+<a id="gdpr可控有现成模板"></a>
 
-论文元数据含作者姓名/邮箱 = 个人数据（公开不豁免）；但 **EU DSM 指令 Art.4 TDM 例外对商业主体开放**（除非权利人机读 opt-out）。EDPB Opinion 28/2024 落地清单：尊重 robots.txt/ai.txt、排除敏感源、控制器维护 opt-out 名单、作者邮箱假名化。**关键区分**：TDM 例外管"能不能挖"，**不管**"能不能再分发"（后者仍归各语料许可）。
+### GDPR (Manageable, Existing Templates)
 
-## 五、反转与印证
+Paper metadata containing author names/emails is personal data (public availability is no exemption). However, **EU DSM Directive Art.4 TDM exception applies to commercial entities** unless rights holders opt out in machine-readable form. EDPB Opinion 28/2024 checklist: honor robots.txt/ai.txt, exclude sensitive sources, controller maintains opt-out lists, pseudonymize author emails. **Key distinction**: TDM governs permission to mine, **not redistribution**, which remains subject to corpus licenses.
 
-- **反转** grill 中途结论：grill 一度推到「相关性层不碰任何语料 + 全文走 fan-out + 全 server-side 算力 + freemium 必须」。证据修正为：元数据**该自建**（门槛低）、全文**该缓存可合法再分发的 OA 子集**（纯 fan-out 正是"精读慢"病根）、全量向量**不做**、算力**回 BYOK**、freemium**可选**。
-- **印证** [0.2 moat-analysis](../milestones/0.2/moat-analysis.md)：可防御护城河 = **工作流嵌入 + 数据飞轮 + 软件质量**，**非囤原始论文**（OpenAlex 谁都能下）。Elicit（头部、融资充足）实证同路——用聚合器 API（~1.38 亿去重）、不自建全文语料、只 OA 或用户自带订阅取全文。"4 人团队复用聚合器 + 软件差异化"是被头部验证过的可行路径。
+<a id="五反转与印证"></a>
 
-## 六、后果
+## V. Reversals and Confirmation
 
-- **扩展 ADR-002**：服务端从"仅认证 + 遥测"新增检索 workload（元数据 index + OA 全文缓存）。ADR-002 须同步决策 index 引擎（ES/OpenSearch/Typesense）、存储、新鲜度管道（OpenAlex 免费快照季度更新；月度/每日变更需付费）。
-- **保 BYOK / 本地优先身份**：检索/重排默认跑用户 key，ASCI 服务端成本有界（只托管 index/语料，无每查询推理费）。
-- **0.6 查询飞轮 + 隐私红线**：查询/点击/采纳信号驱动相关性复利 = 0.6 opt-in；与 0.3"行为遥测绝不含研究内容"红线相撞（查询词=潜在研究内容），需重定义红线 + opt-in + 披露，0.5 不碰。
-- **两块前置 spike（落地前补，公开查不到，非方向 blocker）**：① 三档真实月成本 / 工程人月（内部 infra spike）；② agentic 端到端检索/重排增益的硬评测（自建小评测集量化"扛专业质疑"——目前仅有重排层单点证据：CoRank 在 5 个学术检索集 nDCG@10 50.6→55.5）。
-- **工程约束**：arXiv 不可缓存须逐篇 fetch+回链；PMC 须走官方 bulk 通道、商业仅用 XML/纯文本、逐篇按 license。
-- **风险**：① 逐篇上游版权（须法务）；② OpenAlex 实时规模已达 4.7 亿+（2026-02 Walden 重写），存储/索引成本须按当前规模上调，非快照标注的 330GB/1.6TB；③ 范围叠加（0.5 紧跟 0.4 超大版本，4 人团队）。
+- **Reversal** of mid-grill conclusion: It briefly favored no corpus in the relevance layer + full-text fan-out + all-server compute + mandatory freemium. Evidence corrected this to: **build metadata** (low barrier), **cache legally redistributable OA full text** (pure fan-out causes slow reading), **no full vectors**, **BYOK compute**, **optional freemium**.
+- **Confirmation** of [0.2 moat-analysis](../milestones/0.2/moat-analysis.md): Defensible moat = **workflow embedding + data flywheel + software quality**, **not hoarding raw papers** (anyone can download OpenAlex). Elicit, a well-funded leader, demonstrates the same route: aggregator APIs (~138 million deduplicated), no self-built full-text corpus, and only OA/user-provided subscriptions for full text. A four-person team reusing aggregators with software differentiation follows a leader-validated path.
 
-## 七、后续动作
+<a id="六后果"></a>
 
-- [ ] 产研 Lead 签字（Proposed → Accepted）
-- [ ] 同步修订 ADR-002（新增检索 workload 的栈/成本/新鲜度决策）
-- [ ] 阶段1 两块 spike：成本钱账 + agentic 检索评测集
-- [ ] 法务确认逐篇上游 license 过滤策略 + Europe PMC PDF 源边界
-- [ ] 0.5 north-star → to-issues 按支柱拆 tracer-bullet 垂直切片
+## VI. Consequences
+
+- **Extend ADR-002**: Servers gain retrieval workload (metadata index + OA full-text cache) beyond auth/telemetry. ADR-002 must decide index engine (ES/OpenSearch/Typesense), storage, and freshness pipeline (free OpenAlex snapshots quarterly; monthly/daily changes paid).
+- **Preserve BYOK / local-first identity**: Default retrieval/reranking uses user keys; ASCI server cost stays bounded to index/corpus hosting, no per-query inference fees.
+- **0.6 query flywheel + privacy red line**: Query/click/adoption signals compound relevance via 0.6 opt-in; conflicts with 0.3's "behavior telemetry never includes research content" (queries may be research content), requiring revised boundaries + opt-in + disclosure; outside 0.5.
+- **Two prerequisite spikes** (before implementation; not publicly available, not directional blockers): ① Actual monthly cost across three tiers / engineering person-months (internal infrastructure spike); ② Hard evaluation of agentic end-to-end search/reranking improvement (small in-house dataset quantifying professional defensibility; current evidence only isolates reranking: CoRank nDCG@10 50.6→55.5 across 5 academic retrieval sets).
+- **Engineering constraints**: arXiv fetched individually with backlinks, no cache; PMC official bulk, commercial XML/plain text only, per-paper licenses.
+- **Risks**: ① Per-work upstream copyright (legal review); ② OpenAlex live scale exceeds 470 million (2026-02 Walden rewrite), so storage/index estimates must increase from snapshot-labeled 330GB/1.6TB; ③ Accumulated scope (large 0.4 followed immediately by 0.5, team of 4).
+
+<a id="七后续动作"></a>
+
+## VII. Follow-up Actions
+
+- [ ] Product/engineering Lead sign-off (Proposed → Accepted)
+- [ ] Revise ADR-002 simultaneously (retrieval workload stack/cost/freshness)
+- [ ] Stage 1 two spikes: Cost accounting + agentic retrieval dataset
+- [ ] Legal confirmation of per-paper upstream-license filtering + Europe PMC PDF-source boundaries
+- [ ] 0.5 north-star → to-issues, split tracer-bullet vertical slices by pillar

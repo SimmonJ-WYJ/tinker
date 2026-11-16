@@ -1,52 +1,60 @@
-# 正式界面复用的 Rust Desktop Runtime 实施计划
+<a id="正式界面复用的-rust-desktop-runtime-实施计划"></a>
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development task-by-task。每个任务先行为红绿测试、再独立规格/质量审查。相关任务合成一个可用闭环后才发布 Draft PR。
+# Rust Desktop Runtime implementation plan reusing the production UI
 
-**状态**：M1实现及本机验收完成，三项任务独立审查通过。默认未切换，M2/M3未完成。用户已授权规划后直接实施。基线 main `5683b781cc46ab631f73c7e84c735dcb9fb58021`，PR #19/#20 已合并。只读设计在本机检查目录 milestone-design.md，下面为执行事实源。
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development task-by-task. Each task starts with behavior red/green tests, followed by independent specification/quality review. Publish a Draft PR only after related tasks form a usable end-to-end loop.
 
-**Goal:** 在原正式 UI 中，以明确 opt-in 的 Rust 进程承接文本会话、模型选择、多轮流式、取消、错误和历史重启恢复，并用同一 Rust application service 绑定 Tauri handler。
+**Status**: M1 implementation and local acceptance complete; all three tasks passed independent review. Default unchanged; M2/M3 incomplete. User authorized implementation directly after planning. Baseline main `5683b781cc46ab631f73c7e84c735dcb9fb58021`, PR #19/#20 merged. Read-only design is in milestone-design.md in the local checks directory; the following is the execution source of truth.
 
-**Architecture:** 原 renderer/preload 保持，Electron 主进程只增加薄后端路由、stdio client 和正式消息协议投影。会话/请求绑定与执行事实由 Rust 服务持有，沿用 RunController/context-v2；Tauri 与 stdio 使用同一 application service。未切换默认 Electron/SDK，不扩展 RustLab 页面。
+**Goal:** In the existing production UI, use an explicitly opted-in Rust process for text sessions, model selection, multi-turn streaming, cancellation, errors, and restart/history recovery, binding Tauri handlers to the same Rust application service.
 
-**Tech Stack:** 现有 React/TypeScript/Electron、Rust/Tauri、serde/reqwest/tokio、Bun，优先复用依赖。
+**Architecture:** Keep renderer/preload; Electron main adds only thin backend routing, stdio client, and production message-protocol projection. Rust owns session/request bindings and execution facts, reusing RunController/context-v2; Tauri and stdio share one application service. Default Electron/SDK unchanged; no RustLab page expansion.
 
-## 总里程碑
+**Tech Stack:** Existing React/TypeScript/Electron, Rust/Tauri, serde/reqwest/tokio, Bun; prefer dependency reuse.
 
-| 阶段 | 可用结果 | 完整切换前的缺口 |
+<a id="总里程碑"></a>
+
+## Overall milestones
+
+| Stage | Usable result | Gaps before complete switch |
 |---|---|---|
-| M1 本轮 | 原 UI → 真实 Rust 子进程 → 文本 HTTP provider，正式会话与恢复；共用 Tauri IPC | 仍借 Electron 平台，真实模型/原生环境另验 |
-| M2 | 工具/权限/产物/生图/后台执行一致性；Tauri 加载同一 renderer，逐域实现平台服务 | 所有旧能力、资源协议、系统认证与密钥库对齐 |
-| M3 | 合成旧数据兼容、用户授权导入/回滚、三平台和同条件资源测试，正式灰度 | 满足功能矩阵后才改默认和退役旧实现 |
+| M1 this round | Existing UI → real Rust subprocess → text HTTP provider, production sessions/recovery; shared Tauri IPC | Still uses Electron platform; real models/native environments require separate validation |
+| M2 | Consistent tools/permissions/artifacts/generation/background execution; Tauri loads same renderer with platform services implemented by domain | Align all old capabilities, resource protocols, system authentication, key stores |
+| M3 | Synthetic legacy-data compatibility, user-authorized import/rollback, three platforms and same-condition resource tests, production rollout | Change default and retire old implementation only after meeting feature matrix |
 
-本轮不将 M2/M3 写成已完成。无承诺几天迁完，不根据 Rust 语言推算内存收益。
+Do not describe M2/M3 as complete this round. No promise to migrate in days or infer memory benefits from Rust.
 
 ## Global Constraints
 
-- 保持原正式 UI、样式、布局与默认 Electron/SDK 行为。只在未打包、显式 opt-in、独立新建模拟数据根及可信 profile 配置同时有效时允许新路由，缺任一条件拒绝而非静默改根。
-- 不读取真实 channels.json、系统密钥、会话、账户或项目数据，不发真实模型请求，不安装/部署。不恢复科研能力。不写原 dirty 工作树。
-- 本轮可信宿主 profile 只允许 numeric loopback，禁 DNS/代理/重定向与外部地址。profile/model/revision 由宿主定义，renderer 只发送逻辑 ID，秘密不返回给 UI、日志、错误或持久化。
-- 模型配置接口本轮为可信 profile 注册、元数据发现和模型选择，不声称迁完真实渠道凭据 CRUD。前端原渠道设置中未迁移的修改/探测接口明确 unsupported，不回落真实旧服务。
-- DesktopRuntime caller root须由可信宿主预先在稳定父目录中durable创建，既有absolute非symlink目录；core不递归建caller祖先。每次open在namespace写入前确认root及直接parent，namespace/session自有目录链由core确认。
-- 原始 run DTO/schema、Lab 命令与历史 reader 兼容，不重写真实数据。新正式会话使用独立 `desktop-runtime-v1` 命名空间及锁。
-- 会话数量最多128，每会话最多128个请求记录，title最多1024 UTF-8字节，ID沿用64字节ASCII验证，时间戳为JS安全整数毫秒。现有输入/输出/事件/上下文上限保持，不裁剪冒充完整历史。
-- 同一session的create支持reuseDraft=true；sessions.update只变title/pinned/archived；删除先tombstone且停止该session，不能在执行中释放文件锁或删除仍活跃run。
-- 新 wire 版本1，单 JSONL frame最多4MiB，pending最多32，历史按序分页且每页最多2MiB序列化正文，正式旧API聚合最多16MiB，超限明确失败。任何 transport 错误不能自动重放副作用。
-- session的当前profile可随明确的新send切换，历史每turn绑定不改；空draft首发选另一渠道也可用。旧requestId重放不能回退当前profile或触发HTTP。
-- 请求身份冻结 session/request/profile/model/configRevision/input/effort，重放同一请求不再次调用 provider。失败、取消、中断不可作父链，重试新请求只继承最近成功祖先。
-- 未迁移的 tool/thinking/多模态、附件/目录/MCP/skills、coding、queue/fork/rewind/compact 等要明确拒绝，不丢参数后假成功。默认 UI 始终传的 `taskMode:search` 是文本模式元数据，不能错误拒绝普通发送；默认 effort high 必须有明确协议映射，不能忽略。
-- 请求取消后不接收晚到 delta，不接受迟到旧终态覆盖新请求。取消/拒绝不执行工具。本轮没有实际工具runner；模型返回工具块应明确 unsupported且执行计数为零，完整授权执行在M2。
-- renderer显式登记有界的opaque requestId，终态清理后仍拒绝带归属的旧请求回调。startedAt只用于真实时间，不参与身份排序，时钟回拨或相等仍可发送。旧ERROR/COMPLETE和旧发送Promise不能修改新请求的错误、草稿、running及终态副作用，无身份的旧SDK/external调用保持原兼容。
-- 本轮文本预览不开放deliverables文件资源，避免提前实现将再次迁移的文件服务；正式界面静态资源按可信构建目录放行，真实产物协议留M2统一接入。
-- 面向用户新增说明/error走en/zh i18n，注释与日志中文，不用any，不加第二套状态库，不批量改内部ASCI标识。源码软500/硬800行，按域拆分。
-- 每任务独立提交/审查，无重要未修问题才下一任务。最终Rust/Bun/类型/lint/构建与实际可行界面验证，无CI记录不称通过。正常hooks，安全分支/Draft PR，不强推/合并/安装。
+- Preserve production UI, styles, layout, and default Electron/SDK behavior. Allow new routing only when unpackaged, explicitly opted in, using a separate newly created synthetic-data root and valid trusted-profile configuration; reject if any condition is absent rather than silently changing root.
+- Do not read real channels.json, system keys, sessions, accounts, or projects; no real model requests, installation/deployment, restored research features, or writes to the original dirty worktree.
+- Trusted host profiles allow numeric loopback only this round; disable DNS/proxies/redirects/external addresses. Host defines profile/model/revision; renderer sends logical IDs only; secrets never return to UI, logs, errors, or persistence.
+- Model configuration this round means trusted-profile registration, metadata discovery, and model selection, not complete real-channel credential CRUD migration. Unmigrated modification/probe interfaces in original channel settings return unsupported, without falling back to real legacy services.
+- Trusted host must durably precreate DesktopRuntime caller root under a stable parent: existing absolute non-symlink directory; core does not recursively create caller ancestors. Each open verifies root and direct parent before namespace writes; core verifies its own namespace/session directory chain.
+- Original run DTO/schema, Lab commands, and history readers remain compatible; no real-data rewriting. New production sessions use separate `desktop-runtime-v1` namespace and lock.
+- At most 128 sessions and 128 request records per session; title ≤1024 UTF-8 bytes; IDs retain 64-byte ASCII validation; timestamps are JS-safe integer milliseconds. Preserve existing input/output/event/context limits; never truncate while claiming full history.
+- Same-session create supports reuseDraft=true; sessions.update changes only title/pinned/archived; deletion first tombstones and stops that session, without releasing locks during execution or deleting active runs.
+- New wire version 1, JSONL frame ≤4MiB, pending ≤32, ordered history pages ≤2MiB serialized body each, old production API aggregation ≤16MiB; fail explicitly on overflow. No transport error automatically replays side effects.
+- A session's current profile may change on an explicit new send; historical per-turn bindings never change. Empty drafts may first send using another channel. Old requestId replay must not revert current profile or trigger HTTP.
+- Freeze request identity session/request/profile/model/configRevision/input/effort; replaying a request does not invoke provider again. Failed/canceled/interrupted runs cannot be parents; a new retry inherits only the latest successful ancestor.
+- Explicitly reject unmigrated tool/thinking/multimodal, attachments/directories/MCP/skills, coding, queue/fork/rewind/compact, etc.; do not discard parameters and fake success. Default UI `taskMode:search` is text-mode metadata and must not wrongly reject ordinary sends; default effort high requires explicit protocol mapping, never silent omission.
+- Accept no late deltas after cancellation or stale terminal states overwriting new requests. Cancellation/rejection executes no tools. There is no actual tool runner this round; tool blocks from models return explicit unsupported with execution count zero; full authorized execution belongs to M2.
+- Renderer explicitly registers bounded opaque requestIds; after terminal cleanup, continue rejecting callbacks for owned old requests. startedAt is real time only, never identity ordering; equal/backward clocks must permit sends. Old ERROR/COMPLETE and send Promises cannot change new request errors, drafts, running state, or terminal side effects; unidentified legacy SDK/external calls retain compatibility.
+- Text preview does not expose deliverables file resources this round, avoiding premature file services that would migrate again; production static UI assets allow trusted build directories, real artifact protocols integrate together in M2.
+- New user-facing descriptions/errors use en/zh i18n; comments/logs use Chinese; no any, second state library, or bulk internal ASCI identifier renames. Source soft limit 500/hard 800 lines; split by domain.
+- Independent commit/review per task; proceed only without important unresolved findings. Final Rust/Bun/type/lint/build and feasible UI validation; no CI-passed claim without records. Normal hooks, safe branch/Draft PR, no force push/merge/install.
 
-## 方案取舍
+<a id="方案取舍"></a>
 
-先让 Tauri 直接加载现 UI 会先遇到 auth、同步主题、settings、更新、媒体、窗口和大量启动 API，容易变成空成功桥。先把真实业务放入 Rust application service，再用两个薄 transport 接它，可以更快让用户在熟悉 UI 验证新引擎；后续 Tauri 不再重迁会话逻辑。临时 Electron sidecar client 不承担新长期业务。
+## Tradeoffs
 
-## 共同 wire 契约
+Loading the current UI in Tauri first encounters auth, synchronous themes, settings, updates, media, windows, and many startup APIs, risking a bridge that only pretends to succeed. Putting real business logic into Rust application services first and connecting two thin transports lets users validate the new engine in familiar UI sooner; Tauri later avoids remigrating session logic. The temporary Electron sidecar client owns no new long-term business logic.
 
-请求/响应只用固定方法白名单和固定错误码，stdout只有JSONL协议。读取事件采用有界sequence游标轮询，不引入无限push队列。`chat.send`启动后台执行后立即回复，不能阻塞cancel。
+<a id="共同-wire-契约"></a>
+
+## Shared wire contract
+
+Requests/responses use fixed method allowlists and error codes; stdout contains JSONL protocol only. Read events by bounded sequence-cursor polling, without infinite push queues. `chat.send` returns immediately after starting background execution so cancel cannot be blocked.
 
 ```ts
 interface DesktopRequest {
@@ -63,75 +71,87 @@ interface DesktopReply {
 }
 ```
 
-畸形frame若无合法id可发固定stderr码并关闭，让client统一fail pending，不能回显坏内容或输出伪合法reply。
+Malformed frames without valid IDs may emit a fixed stderr code and close; the client fails all pending requests consistently, without echoing malformed content or producing falsely valid replies.
 
-result/error严格二选一，未知版本/字段/方法/ID/超限报固定码，不回显原始参数。Rust公开profile DTO不包含endpoint/key；秘密profile由trusted constructor或受控CLI配置初始化，Tauri command不接受renderer配置。Tauri `desktop_runtime_request`使用同一服务和decoder，不复制第二套业务。
+Exactly one of result/error; unknown versions/fields/methods/IDs/overflow return fixed codes without raw parameters. Public Rust profile DTOs omit endpoint/key; secret profiles initialize through trusted constructors or controlled CLI config, never renderer-supplied Tauri configuration. Tauri `desktop_runtime_request` uses the same service/decoder, without duplicate business logic.
 
-`sessions.create`接title/profileId/workspaceId/reuseDraft；空draft的复用只在同profile/workspace下，正常create不隐式归入当前project。`sessions.update`接sessionId与title/pinned/archived，不能任意patch。
+`sessions.create` accepts title/profileId/workspaceId/reuseDraft; empty drafts reuse only with the same profile/workspace; normal create does not implicitly join current project. `sessions.update` accepts sessionId and title/pinned/archived, never arbitrary patches.
 
-`chat.send`明确接requestId/sessionId/profileId/modelId/userMessage/startedAt/effort。start时间/请求绑定在历史与事件里保持，events记录包含sessionId/requestId/runId/sequence/kind，delta仅增量text，终态固定码。session history返回稳定turn/消息身份及状态、模型和时间，兼容层生成同一SDKMessage投影，不能编造usage/cost或SDK session provenance。
+`chat.send` explicitly accepts requestId/sessionId/profileId/modelId/userMessage/startedAt/effort. History/events preserve start time/request bindings; events include sessionId/requestId/runId/sequence/kind; deltas contain incremental text only, terminal states fixed codes. Session history returns stable turn/message identities, states, models, and times; compatibility layer generates the same SDKMessage projection without inventing usage/cost or SDK session provenance.
 
-## Task 1：Rust 正式会话 facade、真实进程与 Tauri 共用服务
+<a id="task-1rust-正式会话-facade真实进程与-tauri-共用服务"></a>
 
-**Files:** 新增 `packages/shared/src/types/desktop-runtime.ts` 与barrel；Rust `src/desktop_runtime/`（mod/protocol/profile/session/store分域），`src/bin/tinker-runtime.rs`，`src/desktop_commands.rs`，测试 `tests/desktop_runtime.rs`/`desktop_process.rs`/`desktop_invoke.rs`，适当修改Cargo/lib/main。
+## Task 1: Rust production-session facade, real process, and shared Tauri service
 
-**Consumes:** 既有RunController/RunStore/context-v2/ChatHttpProvider、合成trusted profiles。Task1先以既有OpenAI文本跑通服务，effort/public协议选择的出站映射由紧随Task2完成，Task3前必须过对应门槛；Task1不能声称已支持原UI发送。
-**Produces:** `DesktopRuntime::open(root, profiles)` 及固定wire `dispatch`，真实stdout/stdio binary，同coreTauri状态及handler。实现者在首个测试前固定精确API并同步TS/Rust contract，不擅改上述wire方法语义。
+**Files:** Add `packages/shared/src/types/desktop-runtime.ts` and barrel; Rust `src/desktop_runtime/` (mod/protocol/profile/session/store domains), `src/bin/tinker-runtime.rs`, `src/desktop_commands.rs`, tests `tests/desktop_runtime.rs`/`desktop_process.rs`/`desktop_invoke.rs`; appropriately adjust Cargo/lib/main.
 
-- [x] 明确session journal与run日志的事实源关系：先持久化不可变请求绑定与用户输入再启动run；启动前写入失败不调用provider。中间崩溃保留请求为interrupted/不确定，不自动重放。RunStore中输入/父链与绑定不一致拒绝。索引/缓存可重建，不让两个独立JSON都自认事实源。
-- [x] RED：session create/list/update/draft重用、不同会话历史隔离；请求绑定冲突；真实进程两轮与重启第三轮mock HTTP捕获1/3/5条角色消息，Unicode保留。
-- [x] 实现bounded元数据/请求journal、单写锁、每会话复用控制器、最多16活跃会话，迟到终态归属与重启恢复，不在每个请求open而interrupt活跃run。
-- [x] RED并实现：同时send只一次provider；更换input/model/revision/effort冲突；失败/取消部分输出保存；进程kill后interrupted；坏/截断/未来schema、安全路径和存储失败先拒绝。
-- [x] 真实进程测试：未知/超大/截断frame、错误reply ID、stdout不混日志、EOF关闭、慢provider期间cancel快速返回，父进程断开不留模型请求、无自动重发。stdin不提供任意路径/命令执行。
-- [x] Tauri真实invoke(MockRuntime)调用同服务；对非法参数同错误码；旧Lab tests继续通过。
-- [x] 运行Rust fmt/test/clippy，记录实际红绿/计数和各故障窗口未测项，独立review后Root提交。
+**Consumes:** Existing RunController/RunStore/context-v2/ChatHttpProvider, synthetic trusted profiles. Task1 first runs the service with existing OpenAI text; outbound effort/public protocol mapping follows in Task2 and must meet its gate before Task3. Task1 cannot claim original-UI send support.
+**Produces:** `DesktopRuntime::open(root, profiles)` and fixed-wire `dispatch`, real stdout/stdio binary, same-core Tauri state/handler. Before first test, fix exact API and synchronize TS/Rust contracts; do not alter wire-method semantics above without authorization.
 
-## Task 2：两种文本协议与 effort 映射
+- [x] Define source-of-truth relationship between session journal and run logs: persist immutable request bindings/user input before starting run; pre-start write failure never calls provider. Crashes leave request interrupted/uncertain without automatic replay. Reject RunStore input/parent-chain mismatches. Index/cache rebuildable; no two independent JSON files both claiming truth.
+- [x] RED: Session create/list/update/draft reuse, cross-session history isolation; request-binding conflicts; real-process two turns + third after restart, mock HTTP captures 1/3/5 role messages, Unicode preserved.
+- [x] Implement bounded metadata/request journals, single-writer lock, reused controller per session, at most 16 active sessions, late-terminal ownership and restart recovery; do not open per request and interrupt active runs.
+- [x] RED and implement: Concurrent sends call provider once; input/model/revision/effort changes conflict; failures/cancellation preserve partial output; process kill restores interrupted; reject bad/truncated/future schemas, unsafe paths, and storage failures first.
+- [x] Real-process tests: Unknown/oversized/truncated frames, wrong reply IDs, no logs on stdout, EOF closure, prompt cancel response during slow provider, no lingering model requests after parent disconnect, no automatic resend. stdin offers no arbitrary path/command execution.
+- [x] Real Tauri invoke (MockRuntime) calls same service; illegal parameters produce same codes; old Lab tests continue passing.
+- [x] Run Rust fmt/test/clippy; record real red/green counts and untested fault windows; Root commits after independent review.
 
-**Files:** Rust provider新增Anthropic codec（按域拆文件），必要共享HTTP/SSE/secret/timeouts helpers；desktop profile/factory扩展protocol，合成server测试。现有OpenAI API/Run DTO兼容。
+<a id="task-2两种文本协议与-effort-映射"></a>
 
-**Consumes:** Task1 trusted profile registry与request/effort不可变绑定。
-**Produces:** `openai-chat` 与 `anthropic-messages` 文本provider均可选，明确capability。仅codec/私有provider工厂扩展，不触及renderer。
+## Task 2: Two text protocols and effort mapping
 
-- [x] RED：两模型/两协议真实loopback请求、正确路径/auth/角色/system字段、provider不支持effort或字段先拒绝；默认high及可支持effort真实出站，不静默忽略。
-- [x] Anthropic按官方Messages streaming的message_start→content_block_*→message_delta→message_stop验证状态，ping可忽略，文本增量UTF-8按字节分片可重组。非文本/tool/thinking块明确unsupported；error/非成功stop/truncated不伪装完成。
-- [x] 复用已验证取消/总120秒与idle15秒上限、域名禁用/loopback宿主范围、HTTP错误脱敏；测试并发取消、错误body/key反射、超时断流和socket清理，工具执行计数始终0。
-- [x] 官方协议参考：[Claude streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)、[Messages](https://platform.claude.com/docs/en/api/messages)。只引用协议，不调用真实服务。
-- [x] Rust tests/fmt/clippy通过且review后提交。
+**Files:** Add Rust Anthropic provider codec (split by domain), shared HTTP/SSE/secret/timeout helpers as needed; extend desktop profile/factory protocol, synthetic-server tests. Existing OpenAI API/Run DTO compatible.
 
-## Task 3：正式 Electron UI 的隔离 opt-in 路由与消息投影
+**Consumes:** Task1 trusted-profile registry and immutable request/effort bindings.
+**Produces:** Selectable `openai-chat` and `anthropic-messages` text providers with explicit capabilities. Extend codec/private provider factory only, without renderer changes.
 
-**Files:** main新域 `lib/desktop-runtime/{client,router,projection,config}.ts`（按职责命名），`ipc/desktop-runtime.ts`，最小调整agent-session/channel域入口；shared stream union及原 `hooks/useGlobalAgentListeners.ts` 支持typed text_delta，测试原AgentView/AgentMessages/Atom真实组件。preload原API不改形状。
+- [x] RED: Real loopback requests for two models/protocols, correct paths/auth/roles/system fields; reject unsupported effort/fields first; default high and supported effort actually go outbound, never ignored silently.
+- [x] Validate Anthropic state against official Messages streaming message_start→content_block_*→message_delta→message_stop; ignore ping; byte-fragmented UTF-8 deltas reassemble. Explicitly unsupported nontext/tool/thinking blocks; error/non-success stop/truncation never fake completion.
+- [x] Reuse validated cancellation, total 120-second/idle 15-second caps, disabled domains/loopback-only host scope, HTTP error redaction; test concurrent cancellation, error-body/key reflection, timeout/broken stream/socket cleanup, with tool execution always 0.
+- [x] Official protocol references: [Claude streaming](https://platform.claude.com/docs/en/build-with-claude/streaming), [Messages](https://platform.claude.com/docs/en/api/messages). Reference protocols only, no real service calls.
+- [x] Commit after Rust tests/fmt/clippy and review pass.
 
-**Consumes:** Task1/2 wire、sidecar binary及trusted synthetic profiles。正式 session list/create/messages/sdkMessages/update/delete/send/stop必须一致路由，不能只改send让历史仍读旧后端。
-**Produces:** 原UI+preload+main IPC→真实Rust进程→mock HTTP→持久历史→原UI，关闭opt-in回旧SDK。所有新业务归Rust，TS只适配。
+<a id="task-3正式-electron-ui-的隔离-opt-in-路由与消息投影"></a>
 
-- [x] RED：默认不启用且旧IPC回归通过；packaged、缺root/配置/binary、非新命名空间、外部目标或异常配置不能启用。路径由主进程可信配置选定，renderer不能执行binary/改env/root。
-- [x] 在独立preview设置域初始化可选profile/model默认值，保持原设置接口与用户随后选择；不触及真实配置。平台偏好本轮可复用旧服务的隔离root实现，不能将这写成Rust配置存储已全部替代。
-- [x] Rust分支必须先分派，不执行旧sticky/context写入或SDK，未迁移操作不fallback。未迁移read/write明确unsupported，有语义安全的既有平台/独立root读服务保留且记录。
-- [x] profile元数据从Rust经原listChannels结构返回，至少2模型可选；未知profile/model/disabled/revision冲突拒绝；渠道凭据CRUD不调用旧decrypt/keychain。
-- [x] 同一history投影生成旧AgentMessage和SDKMessage，稳定UUID防重，user/assistant/terminal状态与durable记录一致。新增typed ASCI text_delta映射到现有applyAgentEvent，终态仅一个完整assistant，不反复推同UUID快照。
-- [x] STREAM_COMPLETE在history已可读后发送并保持startedAt；cancel stoppedByUser；固定错误恢复running且部分内容存在；旧进程/旧请求的晚到事件不能盖掉新流。sidecarexit/坏帧/超时清pending/停止poll，不自动重启重发。
-- [x] queue先明确unsupported，原有optimistic queue/draft恢复不得永久卡住；coding、工具、附件/目录、MCP/skill、非支持override拒绝不静默丢弃。保留原UI源，必须修改的listener/行为helper做最小共享适配且默认旧路径回归。
-- [x] 真实sidecar+localserver的main/preload委托集成，原AgentView/AgentMessages显示Unicode增量/两轮/失败/取消/重开。native Electron可用时用独立owned进程、独立userData和合成fixture实际页面验收/截图，不触碰现有App；阻碍如实记录，不绕过权限。
-- [x] 全仓Bun/type/lint/Electronbuild，Rust回归适当，独立review通过后提交。
+## Task 3: Isolated opt-in routing and message projection in production Electron UI
 
-## Task 4：整体验收、兼容矩阵与 Draft 交付
+**Files:** New main domain `lib/desktop-runtime/{client,router,projection,config}.ts` (responsibility-based names), `ipc/desktop-runtime.ts`, minimal agent-session/channel entry adjustments; shared stream union and original `hooks/useGlobalAgentListeners.ts` support typed text_delta; test original AgentView/AgentMessages/Atom real components. Original preload API shape unchanged.
 
-- [x] 执行真进程两协议/两模型、1/3/5上下文、多会话、重放、取消/拒工具、失败/kill/恢复与默认旧路径回归，收敛首次发现后重跑受影响项。
-- [x] 原UI组件/CSS差异清单与可行原生/模拟证据，区分Electron UI、Tauri MockRuntime、原生Tauri未测。未使用的接口不说已迁完。
-- [x] 更新tracked report，列明actual路径/default路径、尚未迁移功能及M2入口、准确命令/计数/log、凭据与数据保护/回滚；不改README/CLAUDE无关规则。
-- [x] 格式/类型/lint/fullBun/Cargo/Electron构建、敏感diff审查、独立全分支review与simplify；发布继续使用正常fetch+merge最新main、push安全分支/Draft、核实完整head/CI状态和PR后review回帖流程，实际远端状态以PR记录为准。
+**Consumes:** Task1/2 wire, sidecar binary, trusted synthetic profiles. Production session list/create/messages/sdkMessages/update/delete/send/stop route consistently; do not change only send while history still reads legacy backend.
+**Produces:** Original UI+preload+main IPC→real Rust process→mock HTTP→persistent history→original UI; disabling opt-in returns to old SDK. Rust owns all new business logic; TS only adapts.
 
-## 回滚与完成定义
+- [x] RED: Disabled by default, old IPC regression passes; packaged builds, missing root/config/binary, existing namespace, external targets, or abnormal configuration cannot enable. Main trusted config selects paths; renderer cannot execute binary/change env/root.
+- [x] Initialize selectable profile/model defaults in independent preview settings, preserving original settings interface and later user choice; leave real config untouched. Platform preferences may reuse old services with isolated roots this round; do not call this full Rust configuration-storage replacement.
+- [x] Dispatch Rust branch first, without old sticky/context writes or SDK; no fallback for unmigrated operations. Explicit unsupported reads/writes; retain and document semantically safe existing platform/isolated-root read services.
+- [x] Rust profile metadata returns through original listChannels structure, at least 2 models selectable; unknown profile/model/disabled/revision conflicts rejected; credential CRUD never calls old decrypt/keychain.
+- [x] One history projection generates old AgentMessage and SDKMessage with stable UUID deduplication and user/assistant/terminal states matching durable records. New typed ASCI text_delta maps to existing applyAgentEvent; exactly one complete assistant at terminal state, no repeated same-UUID snapshots.
+- [x] STREAM_COMPLETE emits only after readable history, retaining startedAt; cancellation sets stoppedByUser; fixed errors restore running with partial content; late old-process/request events cannot overwrite new streams. Sidecar exit/bad frames/timeouts clear pending/stop polling, without automatic restart/resend.
+- [x] Queue initially explicitly unsupported; original optimistic queue/draft recovery must not hang permanently; reject coding, tools, attachments/directories, MCP/skill, unsupported overrides without silent omission. Preserve UI source; minimally adapt shared listener/behavior helpers where necessary, regressing default old path.
+- [x] Real sidecar+local-server main/preload delegation integration; original AgentView/AgentMessages show Unicode deltas/two turns/failure/cancellation/reopen. When native Electron is available, use independent owned process/userData and synthetic fixtures for actual page acceptance/screenshots without touching existing App; record blockers honestly, never bypass permissions.
+- [x] Full Bun/types/lint/Electron build, appropriate Rust regression; commit after independent review passes.
 
-停用opt-in即可回原默认backend；新命名空间保持给新版读取，不以删除它解决回滚。旧用户数据/安装版从未被切换。本轮只有正式UI→Rust实际进程、同coreTauriinvoke及上述恢复/取消都实测，才称M1完成；若nativeGUI不可用则单列未验收，不说完整产品可替换。M2/M3未完时保留Electron/SDK。
+<a id="task-4整体验收兼容矩阵与-draft-交付"></a>
 
-## 已完成阶段证据（持续更新）
+## Task 4: Overall acceptance, compatibility matrix, and Draft delivery
 
-- Task 1：`36480123eb068b38e8f7e27d5865609f2ff90c01`。Rust session facade、持久化绑定、JSONL进程、Tauri共用handler已实现。171项Rust回归、fmt/clippy通过，独立规格与质量审查通过。恢复全局只读预检、目录同步重试及精确分页预算的审查发现均有修复和回归。
-- Task 2：`696cdc684ef25811d6a61126ae7efccdee7cb3a3`。两种文本协议、可信模型effort声明与真实出站字段已实现。最终186项Rust回归、fmt/clippy、共享类型与定向lint通过，独立复审通过。Anthropic多顶层delta修复有真实HTTP和runtime进程红绿测试。
-- 上述测试使用合成数据、伪凭据与本机回环服务。Tauri为真实handler的MockRuntime调用，尚非原生窗口。正式UI接线与验收证据见Task 3，不把上述核心测试外推为整套产品替换。
+- [x] Real-process two protocols/models, 1/3/5 context, multiple sessions, replay, cancellation/tool rejection, failure/kill/recovery, and default legacy regressions; resolve initial findings and rerun affected checks.
+- [x] Original UI component/CSS difference inventory and feasible native/simulated evidence; distinguish Electron UI, Tauri MockRuntime, untested native Tauri. Do not claim unused interfaces migrated.
+- [x] Update tracked report: actual/default paths, unmigrated features and M2 entry, exact commands/counts/logs, credential/data protection/rollback; no unrelated README/CLAUDE rule changes.
+- [x] Format/types/lint/full Bun/Cargo/Electron build, sensitive-diff review, independent full-branch review/simplify; publication uses normal fetch+merge latest main, safe-branch push/Draft, full head/CI verification, and post-PR review-reply workflow; actual remote status follows PR records.
 
-- Task 3：`9e9c790d84bc5036d46b462f87cd3466f1914cf7`。原正式UI经真实preload/main/Rust/本机HTTP完成发送、多轮、两模型、失败草稿恢复、取消、运行中刷新、整进程重开及中英/主题。R1–R6与EOF问题有修复和回归。
-- PR后修复：`e1344fddc3d232d6151a362b633408a244b3526f`。独立requestId替代时间戳排序，五个UI入口、迟到回调、默认SDK可选元数据和无身份legacy兼容均有回归。实际renderer回拨时钟后仍正常完成，没有改系统时间。最终54项focused/333断言、全仓3443 Bun、186 Rust、六workspace类型、lint及完整Electron构建通过，独立复审和simplify通过。正常hook将Electron workspace版本由0.1.617增至0.1.618，无安装包或默认切换。详见[验收报告](../reports/2026-11-10-rust-desktop-runtime.md)。
+<a id="回滚与完成定义"></a>
+
+## Rollback and definition of done
+
+Disable opt-in to restore original default backend; retain new namespace for newer readers, never delete it to implement rollback. Old user data/installed version never switched. M1 requires actual production UI→Rust process, same-core Tauri invoke, and the recovery/cancellation tests above; if native GUI unavailable, list it as unaccepted, never claim full product replacement. Retain Electron/SDK while M2/M3 are incomplete.
+
+<a id="已完成阶段证据持续更新"></a>
+
+## Completed-stage evidence (updated continuously)
+
+- Task 1: `36480123eb068b38e8f7e27d5865609f2ff90c01`. Rust session facade, durable bindings, JSONL process, and shared Tauri handler implemented. 171 Rust regressions and fmt/clippy passed; independent specification/quality reviews passed. Review findings on global read-only recovery preflight, directory-sync retries, and exact pagination budgets fixed with regressions.
+- Task 2: `696cdc684ef25811d6a61126ae7efccdee7cb3a3`. Two text protocols, trusted-model effort declarations, and real outbound fields implemented. Final 186 Rust regressions, fmt/clippy, shared types, targeted lint passed; independent re-review passed. Anthropic multiple-top-level-delta fix has real HTTP/runtime-process red/green tests.
+- These tests use synthetic data, fake credentials, and local loopback services. Tauri is real-handler MockRuntime invocation, not native windows. See Task 3 for production UI wiring/acceptance; do not extrapolate core tests to full product replacement.
+
+- Task 3: `9e9c790d84bc5036d46b462f87cd3466f1914cf7`. Original production UI through real preload/main/Rust/local HTTP completed sends, multi-turn, two models, failed-draft recovery, cancellation, refresh during execution, full-process reopen, and Chinese/English/themes. R1–R6 and EOF issues fixed with regressions.
+- Post-PR fix: `e1344fddc3d232d6151a362b633408a244b3526f`. Independent requestId replaces timestamp ordering; regressions cover five UI entry points, late callbacks, optional default-SDK metadata, unidentified legacy compatibility. Actual renderer completes after clock rollback, without system-clock changes. Final 54 focused tests/333 assertions, 3443 repository-wide Bun tests, 186 Rust tests, six-workspace types, lint, and full Electron build passed; independent re-review and simplify passed. Normal hook incremented Electron workspace 0.1.617→0.1.618, no installer or default switch. See [acceptance report](../reports/2026-11-10-rust-desktop-runtime.md).

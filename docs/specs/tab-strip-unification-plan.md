@@ -2,15 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让主对话流顶部采用 Codex 式单行 header；右侧栏顶部继续使用统一组件化 tab 视觉。
+**Goal:** Give the main conversation flow a Codex-style single-line header; keep unified component-based tab styling at the top of the right sidebar.
 
-**Architecture:** 新增一个轻量 tab strip primitive 文件，仅负责 className 拼装和状态变体。`TabBar` 保留会话 tab 业务逻辑，但渲染列表由所有可见 tab 收敛为当前会话的 Codex 式单行 header；`AgentView` 不再额外渲染第二行会话标题；`RightPanelTabBar` 继续渲染全部上下文 tab，并复用 tab chip primitive。
+**Architecture:** Add a lightweight tab strip primitive file responsible only for className composition and state variants. `TabBar` retains conversation-tab business logic, but narrows rendering from all visible tabs to a Codex-style single-line header for the current conversation; `AgentView` no longer renders a second conversation-title row; `RightPanelTabBar` still renders all context tabs, reusing the tab chip primitive.
 
 **Tech Stack:** React 18, Jotai, Tailwind, Bun test.
 
 ---
 
-### Task 1: 测试主顶部 tab 选择逻辑
+<a id="task-1-测试主顶部-tab-选择逻辑"></a>
+
+### Task 1: Test Main Header Tab Selection Logic
 
 **Files:**
 - Test: `apps/electron/src/renderer/components/tabs/TabBar.test.ts`
@@ -52,7 +54,9 @@ Export `selectTopConversationTabs()` from `TabBar.tsx` and use it before renderi
 Run: `bun test apps/electron/src/renderer/components/tabs/TabBar.test.ts`
 Expected: PASS.
 
-### Task 2: 抽共享顶部导航 primitive
+<a id="task-2-抽共享顶部导航-primitive"></a>
+
+### Task 2: Extract Shared Top Navigation Primitives
 
 **Files:**
 - Create: `apps/electron/src/renderer/components/tabs/tab-strip-primitives.ts`
@@ -110,7 +114,9 @@ Create class helpers for root, right-panel chip, current-conversation header ent
 Run: `bun test apps/electron/src/renderer/components/tabs/TabBar.test.ts apps/electron/src/renderer/components/tabs/tab-strip-primitives.test.ts`
 Expected: PASS.
 
-### Task 3: 版本与验证
+<a id="task-3-版本与验证"></a>
+
+### Task 3: Version and Validation
 
 **Files:**
 - Modify: `apps/electron/package.json`

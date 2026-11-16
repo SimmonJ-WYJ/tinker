@@ -1,68 +1,86 @@
-# 助手输出反馈按钮 Spec（Output Feedback Buttons Specification）
+<a id="助手输出反馈按钮-specoutput-feedback-buttons-specification"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：#477（feat(conversation): 助手输出新增 👍/👎 反馈按钮）
-> **关联 PR**：—（待开）
-> **领域语言事实源**：本 spec §3 数据模型；术语收敛进 `CONTEXT.md` 待补
-> **改动包**：`@asci/shared`（IPC 通道 + 类型）、`apps/electron`（renderer + main + preload）
+# Assistant Output Feedback Buttons Specification
 
----
-
-## 1. 概述与目的
-
-在每条助手消息底部的动作工具栏新增一对「👍 赞同 / 👎 不赞同」按钮，让用户一键表达对该条输出的**直观感受**，并把每次点击落盘。这是 ASCI 第一个面向"输出质量"的用户反馈采集入口，为后续评估输出质量、按维度（模型 / 能力包 scenario）切分分析提供第一手数据。
-
-**设计判据**：零学习成本（图标自解释）、单击即可表态、不打断对话流；后端负责把"一次点击"沉淀为可分析的结构化事件。
-
-### 1.1 不做的事（Non-scope）
-
-- 反馈数据的聚合分析 / 看板 / 导出（后续 issue）。
-- 「不赞同」追加原因输入框（先只做一键信号，二期再考虑二级输入）。
-- 把反馈回流给 Agent 影响后续生成（纯采集，不闭环）。
-- 跨设备同步 / 云端上报（先本地落盘）。
+> **Status**: draft · awaiting review
+> **Related issue**: #477 (feat(conversation): add 👍/👎 feedback buttons to assistant output)
+> **Related PR**: — (to be opened)
+> **Domain language source of truth**: §3 data model; terminology consolidation into `CONTEXT.md` pending
+> **Changed packages**: `@asci/shared` (IPC channels + types), `apps/electron` (renderer + main + preload)
 
 ---
 
-## 2. 交互规格
+<a id="1-概述与目的"></a>
 
-### 2.1 位置与顺序
+## 1. Overview and Purpose
 
-渲染于 `apps/electron/src/renderer/components/agent/SDKMessageRenderer.tsx` 的 `<MessageActions>`（约 666–700 行），插入到 **`<CopyButton>` 之后**，其余按钮整体后移：
+Add “👍 Agree / 👎 Disagree” buttons to the action toolbar beneath each assistant message, allowing users to express their **immediate impression** in one click and persist each click. This is ASCI's first user-feedback entry focused on output quality, supplying firsthand data for later quality evaluation and analysis by model / capability-pack scenario.
 
-| 顺序 | 按钮 | 组件 / 图标 | 说明 |
+**Design criteria**: zero learning cost (self-explanatory icons), one-click expression, uninterrupted conversation; backend turns each click into a structured analyzable event.
+
+<a id="11-不做的事non-scope"></a>
+
+### 1.1 Non-scope
+
+- Feedback aggregation / dashboards / export (later issue).
+- Additional reason input for disagreement (one-click signals first, secondary input in phase two).
+- Feedback influencing subsequent Agent generation (collection only, no closed loop).
+- Cross-device synchronization / cloud reporting (local persistence first).
+
+---
+
+<a id="2-交互规格"></a>
+
+## 2. Interaction Specification
+
+<a id="21-位置与顺序"></a>
+
+### 2.1 Position and Order
+
+Render in `<MessageActions>` in `apps/electron/src/renderer/components/agent/SDKMessageRenderer.tsx` (approximately lines 666–700), **after `<CopyButton>`**, shifting subsequent buttons:
+
+| Order | Button | Component / icon | Note |
 |------|------|------------|------|
-| 1 | 复制 | `CopyButton` | 不动 |
-| **2** | **赞同** | **`MessageAction` + lucide `ThumbsUp`** | **新增** |
-| **3** | **不赞同** | **`MessageAction` + lucide `ThumbsDown`** | **新增** |
-| 4 | 加入证据集 | `AddToEvidenceSetButton` | 后移 |
-| 5 | Debug 复制 | `DebugCopyButton`（dev-only） | 后移 |
-| 6 | 分支 | `MessageAction` + `Split` | 后移 |
-| 7 | 撤回 | `MessageAction` + `Undo2` | 后移 |
+| 1 | Copy | `CopyButton` | Unchanged |
+| **2** | **Agree** | **`MessageAction` + lucide `ThumbsUp`** | **New** |
+| **3** | **Disagree** | **`MessageAction` + lucide `ThumbsDown`** | **New** |
+| 4 | Add to evidence set | `AddToEvidenceSetButton` | Shift later |
+| 5 | Debug copy | `DebugCopyButton` (dev-only) | Shift later |
+| 6 | Branch | `MessageAction` + `Split` | Shift later |
+| 7 | Withdraw | `MessageAction` + `Undo2` | Shift later |
 
-> 图标尺寸沿用现有 `className="size-4"`；两个新图标**必须**来自 lucide 库 <https://lucide.dev/icons/>（[`thumbs-up`](https://lucide.dev/icons/thumbs-up) / [`thumbs-down`](https://lucide.dev/icons/thumbs-down)），经 `lucide-react` 引入，不自绘、不引第三方图标库。
+> Retain existing `className="size-4"`; both new icons **must** come from lucide <https://lucide.dev/icons/> ([`thumbs-up`](https://lucide.dev/icons/thumbs-up) / [`thumbs-down`](https://lucide.dev/icons/thumbs-down)), imported through `lucide-react`; no custom drawing or other icon libraries.
 
-### 2.2 状态机（单条消息）
+<a id="22-状态机单条消息"></a>
 
-三态互斥单选：`none`（未表态，默认）→ `up` / `down`。
+### 2.2 State Machine (Per Message)
 
-| 当前态 | 点击赞同 | 点击不赞同 |
+Three mutually exclusive states: `none` (default, no feedback) → `up` / `down`.
+
+| Current | Click agree | Click disagree |
 |--------|---------|-----------|
 | `none` | → `up` | → `down` |
-| `up` | → `none`（取消） | → `down`（切换） |
-| `down` | → `up`（切换） | → `none`（取消） |
+| `up` | → `none` (cancel) | → `down` (switch) |
+| `down` | → `up` (switch) | → `none` (cancel) |
 
-- **选中态高亮**：选中的按钮用语义 token（如 `text-primary` / `text-foreground` + 实心填充态），未选中沿用工具栏默认的 `text-muted-foreground`；**禁止 Tailwind 调色板硬编码**（不写 `text-green-500` 等）。
-- **乐观更新**：点击即切换 UI 状态，再异步落盘；写失败时回滚并通过现有 toast 提示（遵循"错误必须可见 + 引导行动"）。
-- **回显**：切换会话 / 重开应用后，按 `sessionId` 拉取该会话已有反馈，回填每条消息的选中态。
-- **粒度**：每条助手消息独立记录，互不影响。
+- **Selected highlight**: semantic tokens (e.g. `text-primary` / `text-foreground` + filled state); unselected uses toolbar `text-muted-foreground`; **no hardcoded Tailwind palette** such as `text-green-500`.
+- **Optimistic update**: update UI immediately, persist asynchronously; rollback on write failure and show existing toast (errors must be visible and actionable).
+- **Restoration**: on session switch / application reopening, retrieve feedback by `sessionId` and populate message selections.
+- **Granularity**: each assistant message is independent.
 
 ---
 
-## 3. 数据模型
+<a id="3-数据模型"></a>
 
-### 3.1 落盘事件（append-only JSONL，一行一事件）
+## 3. Data Model
 
-存储位置：`~/.asci/feedback/<sessionId>.jsonl`（dev 走 `~/.asci-dev/feedback/<sessionId>.jsonl`），与 `~/.asci/conversations/<id>.jsonl` 的按会话分文件模式对齐。**追加写**，包含切换 / 取消（`none`）在内的每一次变更都追加一行，保留完整轨迹；回显时按 `messageUuid` 折叠取**最后一条**。
+<a id="31-落盘事件append-only-jsonl一行一事件"></a>
+
+### 3.1 Persistent Events (Append-Only JSONL, One Event per Line)
+
+Location: `~/.asci/feedback/<sessionId>.jsonl` (dev: `~/.asci-dev/feedback/<sessionId>.jsonl`), matching conversation-per-file storage at `~/.asci/conversations/<id>.jsonl`. **Append** every change, including switching / cancellation (`none`), retaining full history; restore by folding on `messageUuid` and taking the **last event**.
+
+Original type comments describe messageUuid as the last-event fold key; optional paired user-message UUID, workspace/model/scenario dimensions; none as cancellation; ISO 8601 write time; and a restoration map excluding none.
 
 ```typescript
 // packages/shared/src/types/output-feedback.ts
@@ -92,13 +110,15 @@ export interface OutputFeedbackEvent {
 export type SessionFeedbackMap = Record<string, Exclude<OutputFeedbackValue, 'none'>>
 ```
 
-> 选型理由：反馈是**追加型事件日志**，符合 CLAUDE.md「追加型日志走 JSONL」约定；不是关系型 / 大量结构化数据，不引 SQLite。按会话分文件让回显只读单个小文件，避免全量扫描。
+> Rationale: feedback is an **append-only event log**, matching CLAUDE.md's JSONL convention; it is not relational / large structured data, so do not introduce SQLite. Per-session files make restoration read one small file rather than scanning all data.
 
 ---
 
-## 4. IPC 通道契约
+<a id="4-ipc-通道契约"></a>
 
-新增通道常量 + 请求/响应类型，文件 `packages/shared/src/types/output-feedback.ts`（紧接 §3 类型）：
+## 4. IPC Channel Contract
+
+Add constants and request/response types in `packages/shared/src/types/output-feedback.ts` (after §3 types). Original comments define SET as write/switch/cancel returning current folded state, GET_FOR_SESSION as restoration-map retrieval, and none → null in results for renderer highlighting.
 
 ```typescript
 export const OUTPUT_FEEDBACK_IPC_CHANNELS = {
@@ -128,28 +148,32 @@ export interface OutputFeedbackGetForSessionInput {
 export type OutputFeedbackGetForSessionResult = SessionFeedbackMap
 ```
 
-记得在 `packages/shared/src/types/index.ts` re-export 新模块。
+Re-export the module in `packages/shared/src/types/index.ts`.
 
 ---
 
-## 5. 四联同步落点（照文件改）
+<a id="5-四联同步落点照文件改"></a>
 
-| # | 层 | 文件 | 改动 |
+## 5. Four-Layer Synchronization Locations (By File)
+
+| # | Layer | File | Change |
 |---|----|------|------|
-| 1 | shared | `packages/shared/src/types/output-feedback.ts` **(新建)** | §3 类型 + §4 通道常量与请求/响应类型 |
+| 1 | shared | `packages/shared/src/types/output-feedback.ts` **(new)** | §3 types + §4 constants and request/response types |
 | 1' | shared | `packages/shared/src/types/index.ts` | `export * from './output-feedback.ts'` |
-| 2 | main | `apps/electron/src/main/lib/output-feedback-service.ts` **(新建)** | `appendEvent(event)` 追加写 JSONL；`getSessionMap(sessionId)` 读文件折叠成 `SessionFeedbackMap`；目录不存在则懒建 |
-| 2' | main | `apps/electron/src/main/lib/config-paths.ts` | 新增 `getOutputFeedbackDir()` → `~/.asci/feedback/`、`getOutputFeedbackPath(sessionId)` → `~/.asci/feedback/<sessionId>.jsonl`（仿 `getConversationMessagesPath`） |
-| 2'' | main | `apps/electron/src/main/ipc.ts` | `ipcMain.handle` 注册两个通道，调用 service；外部调用 try/catch，失败向上抛 |
-| 3 | preload | `apps/electron/src/preload/index.ts` | `contextBridge` 暴露 `outputFeedback: { set, getForSession }`（仿现有 `evidenceSets` 块，约 752 / 1523 行两处都要补：实现 + 类型声明） |
-| 4 | renderer | `apps/electron/src/renderer/atoms/session-feedback-atoms.ts` **(新建)** | 持有 `SessionFeedbackMap` 的 atom + 拉取/更新 action（仿 `session-evidence-atoms.ts`） |
-| 4' | renderer | `SDKMessageRenderer.tsx` | §6 渲染改动 |
+| 2 | main | `apps/electron/src/main/lib/output-feedback-service.ts` **(new)** | `appendEvent(event)` appends JSONL; `getSessionMap(sessionId)` reads and folds to `SessionFeedbackMap`; lazily create missing directory |
+| 2' | main | `apps/electron/src/main/lib/config-paths.ts` | Add `getOutputFeedbackDir()` → `~/.asci/feedback/`, `getOutputFeedbackPath(sessionId)` → `~/.asci/feedback/<sessionId>.jsonl` (follow `getConversationMessagesPath`) |
+| 2'' | main | `apps/electron/src/main/ipc.ts` | Register two `ipcMain.handle` channels calling service; external calls use try/catch and propagate failures |
+| 3 | preload | `apps/electron/src/preload/index.ts` | Expose `outputFeedback: { set, getForSession }` through `contextBridge` (follow `evidenceSets`; update both implementation + type declaration near lines 752 / 1523) |
+| 4 | renderer | `apps/electron/src/renderer/atoms/session-feedback-atoms.ts` **(new)** | Atom holding `SessionFeedbackMap` + fetch/update actions (follow `session-evidence-atoms.ts`) |
+| 4' | renderer | `SDKMessageRenderer.tsx` | §6 renderer changes |
 
 ---
 
-## 6. 渲染层改动（SDKMessageRenderer.tsx）
+<a id="6-渲染层改动sdkmessagerenderertsx"></a>
 
-`import { ThumbsUp, ThumbsDown } from 'lucide-react'`（并入第 21 行现有 lucide import）。在第 673 行 `{textContent && <CopyButton content={textContent} />}` 之后插入：
+## 6. Renderer Changes (SDKMessageRenderer.tsx)
+
+`import { ThumbsUp, ThumbsDown } from 'lucide-react'` (merge into existing lucide import on line 21). After line 673's `{textContent && <CopyButton content={textContent} />}`, insert:
 
 ```tsx
 {textContent && lastUuid && (
@@ -162,17 +186,19 @@ export type OutputFeedbackGetForSessionResult = SessionFeedbackMap
 )}
 ```
 
-新增内部组件 `OutputFeedbackButtons`（同文件内，仿 `AddToEvidenceSetButton` 的就近定义）：
-- 从 `session-feedback-atoms` 读当前 `messageUuid` 的态（`up` / `down` / 无）。
-- 渲染两个 `<MessageAction tooltip={tConv('feedback.thumbsUp.tooltip' | 'feedback.thumbsDown.tooltip')} onClick={...}>`，分别放 `ThumbsUp` / `ThumbsDown`，选中态加语义 token 高亮。
-- `onClick`：按 §2.2 状态机算出 `next` 值 → 乐观更新 atom → `window.electronAPI.outputFeedback.set({...})`；catch 回滚 + toast。
-- 会话级回显在父层（会话加载处）调用一次 `outputFeedback.getForSession(sessionId)` 灌入 atom，组件只读。
+Add internal `OutputFeedbackButtons` component (same file, colocated like `AddToEvidenceSetButton`):
+- Read current `messageUuid` state (`up` / `down` / absent) from `session-feedback-atoms`.
+- Render two `<MessageAction tooltip={tConv('feedback.thumbsUp.tooltip' | 'feedback.thumbsDown.tooltip')} onClick={...}>`, containing `ThumbsUp` / `ThumbsDown`; highlight selection with semantic tokens.
+- `onClick`: calculate `next` through §2.2 → optimistic atom update → `window.electronAPI.outputFeedback.set({...})`; catch rolls back + toast.
+- Session restoration calls `outputFeedback.getForSession(sessionId)` once in the parent session-loading layer to populate the atom; components only read.
 
 ---
 
-## 7. i18n（硬约束）
+<a id="7-i18n硬约束"></a>
 
-命名空间 `conversation`，文件 `locales/{en,zh}/conversation/panels.json`，在 `fork` 块后新增 `feedback` 段（en / zh 同步落键，由 `key-parity` 守门）：
+## 7. i18n (Hard Constraint)
+
+Namespace `conversation`, file `locales/{en,zh}/conversation/panels.json`; add `feedback` after `fork`, synchronized en / zh keys under `key-parity`. Original Chinese literals translate to “Good response,” “Bad response,” and “Couldn't save your feedback, please try again.”
 
 ```jsonc
 // en
@@ -189,53 +215,61 @@ export type OutputFeedbackGetForSessionResult = SessionFeedbackMap
 }
 ```
 
-组件内全部走 `useT('conversation')` 的 `tConv('feedback.*')`，禁止 inline 硬编码（中或英）。
+All component copy uses `tConv('feedback.*')` from `useT('conversation')`; no inline hardcoding in either language.
 
 ---
 
-## 8. 存储与服务行为
+<a id="8-存储与服务行为"></a>
 
-- `appendEvent`：`appendFileSync(getOutputFeedbackPath(sessionId), JSON.stringify(event) + '\n')`；目录懒建。
-- `getSessionMap`：文件不存在 → 返回 `{}`；逐行 parse（跳过坏行并 `console.warn`），按 `messageUuid` 覆盖式折叠，`value==='none'` 的从 map 删除，最终只留 `up`/`down`。
-- 时间戳由 **主进程** 用 `new Date().toISOString()` 生成（渲染层不传时间，避免时钟不一致）。
-- 全程 try/catch；写失败向上抛由 IPC 层转成 renderer reject，触发乐观更新回滚 + toast。
+## 8. Storage and Service Behavior
+
+- `appendEvent`: `appendFileSync(getOutputFeedbackPath(sessionId), JSON.stringify(event) + '\n')`; create directory lazily.
+- `getSessionMap`: missing file → `{}`; parse each line (skip corrupt lines and `console.warn`), fold by overwriting per `messageUuid`, delete entries with `value==='none'`, retaining only `up`/`down`.
+- **Main process** generates timestamps with `new Date().toISOString()` (renderer sends no time, avoiding inconsistent clocks).
+- try/catch throughout; propagate write failures through IPC as renderer rejection, triggering optimistic rollback + toast.
 
 ---
 
-## 9. 版本号递增
+<a id="9-版本号递增"></a>
 
-| 包 | 当前 | 目标 |
+## 9. Version Increments
+
+| Package | Current | Target |
 |----|------|------|
 | `@asci/shared` | 0.1.92 | 0.1.93 |
 | `apps/electron` | 0.1.410 | 0.1.411 |
 
-（`@asci/core` / `@asci/ui` 不涉及，不动。）
+(`@asci/core` / `@asci/ui` are unaffected and unchanged.)
 
 ---
 
-## 10. 测试计划
+<a id="10-测试计划"></a>
 
-- **shared**：`OutputFeedbackEvent` 类型 + 通道常量编译期校验（随 `typecheck`）。
-- **main**：`output-feedback-service.test.ts`（仿 `evidence-set-service.test.ts`，用 `setConfigDirForTesting` 重定向到 tmp）——覆盖追加多事件后折叠取最后一条、`none` 删除、坏行跳过、文件不存在返回 `{}`。
-- **i18n**：`key-parity.test.ts` 自动校验 en/zh 新键对齐。
-- **手动 golden path**（`bun run dev`）：点赞 → 高亮；再点取消；点踩切换；重开会话回显；设置页切 zh↔en tooltip 无 raw key。
+## 10. Test Plan
+
+- **shared**: compile-time checks for `OutputFeedbackEvent` types + channel constants (`typecheck`).
+- **main**: `output-feedback-service.test.ts` (follow `evidence-set-service.test.ts`, redirect to tmp through `setConfigDirForTesting`): append multiple events and fold to last, delete on `none`, skip corrupt lines, missing file returns `{}`.
+- **i18n**: `key-parity.test.ts` checks aligned new en/zh keys automatically.
+- **Manual golden path** (`bun run dev`): thumbs-up highlights; repeat cancels; thumbs-down switches; reopen restores; switch zh↔en in settings with no raw tooltip keys.
 
 ---
 
 ## 11. Done When
 
-- [ ] 工具栏按 复制 → 赞同 → 不赞同 → 加入证据集 → (Debug) → 分支 → 撤回 顺序展示，dev / prod 一致。
-- [ ] 两个新图标来自 lucide（`ThumbsUp` / `ThumbsDown`），`size-4`，与现有图标同体系。
-- [ ] 三态互斥单选 + 取消 + 语义 token 高亮；乐观更新 + 失败回滚 + toast。
-- [ ] 事件落盘 `~/.asci/feedback/<sessionId>.jsonl`，字段齐全；重开会话回显。
-- [ ] IPC 四联同步完成（shared → main → preload → renderer）。
-- [ ] en + zh 文案同步，无 raw key。
-- [ ] `bun run typecheck` / `bun test`（含 service 测试 + `key-parity`）通过。
-- [ ] `@asci/shared` 0.1.93、`apps/electron` 0.1.411。
+- [ ] Toolbar order is Copy → Agree → Disagree → Add to evidence set → (Debug) → Branch → Withdraw, consistently in dev / prod.
+- [ ] Both new icons are lucide (`ThumbsUp` / `ThumbsDown`), `size-4`, matching existing icons.
+- [ ] Mutually exclusive three-state selection + cancellation + semantic highlighting; optimistic updates + rollback + toast.
+- [ ] Complete events persist at `~/.asci/feedback/<sessionId>.jsonl`; reopening restores selections.
+- [ ] Four IPC layers synchronized (shared → main → preload → renderer).
+- [ ] en + zh copy synchronized, no raw keys.
+- [ ] `bun run typecheck` / `bun test` (service + `key-parity`) pass.
+- [ ] `@asci/shared` 0.1.93, `apps/electron` 0.1.411.
 
 ---
 
-## 12. 开放问题
+<a id="12-开放问题"></a>
 
-1. 反馈文件按 `sessionId` 还是 `conversationId` 分？本 spec 取 `sessionId`（组件直接可得，与证据集 preview 的身份键一致）；若后续分析更需要 conversation 维度，再在事件里补 `conversationId` 字段（向后兼容，老行缺字段即视为未知）。
-2. `model` / `scenario` 维度当前能否在渲染层稳定拿到？若拿不到先留空，不阻塞主功能；后续从 turn 元数据补。
+## 12. Open Questions
+
+1. Files by `sessionId` or `conversationId`? This spec chooses `sessionId` (directly available in components, same identity key as evidence-set preview); if future analysis needs conversations, add `conversationId` to events compatibly, treating missing old fields as unknown.
+2. Can renderer reliably obtain `model` / `scenario` now? Leave empty if unavailable, without blocking core functionality; populate from turn metadata later.

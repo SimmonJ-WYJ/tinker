@@ -1,238 +1,286 @@
-# 架构参考
+<a id="架构参考"></a>
 
-Tinker 渲染进程 / 主进程 / Provider / 状态层的技术参考。仅记录"源码难以一眼看出"的横切关系与约定；
-每个文件具体实现以源码头部中文注释为准。
+# Architecture Reference
 
-2026-11-10 科研退役将科研运行接线与历史兼容区分开。本文保留旧模块位置以便读取历史数据，不能据此重新启动科研服务。批次与验证边界见[退役报告](./reports/2026-11-10-research-retirement.md)。
+Technical reference for Tinker's renderer / main process / Provider / state layers. Records only cross-cutting relationships and conventions
+that are not obvious from source at a glance; individual implementations are defined by their Chinese file-header comments.
 
----
-
-## IPC 通信模式（最重要的架构模式）
-
-一条 IPC 通道需要在 **四处** 同步修改：
-
-1. **类型 & 常量** —— `packages/shared/src/...` 定义通道名常量与请求/响应类型
-2. **主进程处理** —— `apps/electron/src/main/ipc.ts` 通过 `ipcMain.handle()` 注册，调用 `main/lib/` 服务
-3. **Preload 桥接** —— `apps/electron/src/preload/index.ts` 通过 `contextBridge.exposeInMainWorld` 暴露类型安全 API
-4. **渲染进程** —— 通过 `window.electronAPI.*` 调用，Jotai atoms 中封装
-
-### 主要通道组
-
-- `IPC_CHANNELS` —— 基础通道（运行时、Git、环境）
-- `CHANNEL_IPC_CHANNELS` —— 渠道管理
-- `AGENT_IPC_CHANNELS` —— Agent 功能
-- `CAPABILITY_PACK_IPC_CHANNELS` —— 能力包只读列表（详见 [`agent-sdk-integration.md`](./agent-sdk-integration.md#agentmcp-和技能边界)）
-- `ATTACHMENT_IPC_CHANNELS` —— 附件管理（保存/读取/另存/删除/文件对话框/文本提取）
-- `ENVIRONMENT_IPC_CHANNELS` —— 环境检查
-- `PROXY_IPC_CHANNELS` —— 代理设置
-- `GITHUB_RELEASE_IPC_CHANNELS` —— GitHub 发布
+The 2026-11-10 research retirement separates research runtime wiring from historical compatibility. Old module locations remain here for reading historical data; they are not instructions to restart research services. Batch and validation boundaries are in the [retirement report](./reports/2026-11-10-research-retirement.md).
 
 ---
 
-## 共享常量（`packages/shared/src/constants/`）
+<a id="ipc-通信模式最重要的架构模式"></a>
 
-跨文件 / 跨包重复的字面量统一收口到 shared，经 `packages/shared/src/index.ts` re-export，消费方一律 `import { X } from '@asci/shared'`。
+## IPC Communication Pattern (Most Important Architecture Pattern)
 
-### 位置决策树
+Each IPC channel requires synchronized changes in **four places**:
 
-| 类别 | 位置 |
-|------|------|
-| 安全 / 权限规则、跨域契约值（端口、模型 ID、URL、UI 策略值） | `packages/shared/src/constants/` |
-| 应用级配置（APP_NAME 等） | `packages/shared/src/config/` |
-| IPC 通道常量 | `packages/shared/src/types/`（**与请求/响应类型同文件**，不挪进 constants/） |
-| Telemetry 事件 / 通道 | `packages/shared/src/telemetry/` |
+1. **Types & constants** — Define channel constants and request/response types in `packages/shared/src/...`.
+2. **Main-process handling** — Register through `ipcMain.handle()` in `apps/electron/src/main/ipc.ts`, calling `main/lib/` services.
+3. **Preload bridge** — Expose type-safe APIs through `contextBridge.exposeInMainWorld` in `apps/electron/src/preload/index.ts`.
+4. **Renderer** — Call through `window.electronAPI.*`, wrapped in Jotai atoms.
 
-### 提取判据
+<a id="主要通道组"></a>
 
-- ✅ 同语义、≥2 文件重复（如 Zotero 端口 23119 曾散落 7 处）
-- ✅ 跨包 / 跨进程契约值（如默认 Claude 模型 ID：main + core provider profiles 共用）
-- ❌ 偶然相等的数字（各处 300ms 防抖语义独立，不收）
-- ❌ 具名单用本地常量（papers-rg limits、scrypt 参数、窗口尺寸等，原地即可）
+### Main Channel Groups
 
-### 文件清单
-
-| 文件 | 内容 |
-|------|------|
-| `github-repo.ts` | GitHub 仓库标识、Releases URL |
-| `permission-rules.ts` / `hard-permission-rules.ts` | 工具 / 命令安全分级与硬规则 |
-| `zotero.ts` | Zotero connector 端口 23119、本地 API / connector 基址、ping 超时（含拼接守门测试） |
-| `models.ts` | 默认 Claude 模型 ID（默认会话模型 + channel 探测模型共用） |
-| `ui.ts` | 渲染层 UI 策略值：复制反馈时长、作者列表截断数 |
-
-风格：SCREAMING_SNAKE_CASE 具名导出 + 中文头注释说明来源；含逻辑 / 模板拼接时配同目录 `*.test.ts`。
+- `IPC_CHANNELS` — Basic channels (runtime, Git, environment)
+- `CHANNEL_IPC_CHANNELS` — Channel management
+- `AGENT_IPC_CHANNELS` — Agent features
+- `CAPABILITY_PACK_IPC_CHANNELS` — Read-only capability pack listing (see [`agent-sdk-integration.md`](./agent-sdk-integration.md#agentmcp-和技能边界))
+- `ATTACHMENT_IPC_CHANNELS` — Attachment management (save/read/save as/delete/file dialogs/text extraction)
+- `ENVIRONMENT_IPC_CHANNELS` — Environment checks
+- `PROXY_IPC_CHANNELS` — Proxy settings
+- `GITHUB_RELEASE_IPC_CHANNELS` — GitHub releases
 
 ---
 
-## 主进程服务层（`apps/electron/src/main/lib/`）
+<a id="共享常量packagessharedsrcconstants"></a>
 
-### Agent 核心
+## Shared Constants (`packages/shared/src/constants/`)
 
-| 服务 | 职责 |
+Centralize literals repeated across files/packages in shared, re-export through `packages/shared/src/index.ts`, and always consume via `import { X } from '@asci/shared'`.
+
+<a id="位置决策树"></a>
+
+### Location Decision Table
+
+| Category | Location |
 |------|------|
-| `agent-orchestrator.ts` | Agent 核心编排：并发守卫、渠道查找、环境变量构建、SDK 路径解析、消息持久化、事件流处理、错误处理、首轮自动命名、子 Agent 装配（可用自建能力包与 Registry，经 `runOrchestratorQuery` 注入 SDK `options.agents`） |
-| `agent-session-manager.ts` | 会话管理：SDK 消息持久化、会话元数据 CRUD、JSONL 存储 |
-| `agent-prompt-builder.ts` | 通用系统提示词、工作区上下文与已注册 Agent 清单；内置科研小队不再提供，科研路由已退役；保留权限、文件、PDF 与输出语言策略 |
-| `agent-permission-service.ts` | 工具权限检查、权限模式管理 |
-| `agent-ask-user-service.ts` | AskUser 请求处理 |
-| `agent-exit-plan-service.ts` | ExitPlan 服务 |
-| `agent-workspace-manager.ts` | 工作区管理：MCP Server 配置、Skills 配置、工作区 CRUD |
-| `agent-team-reader.ts` | 团队配置读取 |
-| `channel-manager.ts` | 渠道 CRUD、API Key AES-256-GCM 加密（safeStorage）、连接测试、模型获取 |
+| Security / permission rules, cross-domain contract values (ports, model IDs, URLs, UI policy values) | `packages/shared/src/constants/` |
+| Application configuration (APP_NAME, etc.) | `packages/shared/src/config/` |
+| IPC channel constants | `packages/shared/src/types/` (**same file as request/response types**, not constants/) |
+| Telemetry events / channels | `packages/shared/src/telemetry/` |
 
-### Agent SDK 子 Agent 装配（A0）
+<a id="提取判据"></a>
 
-详见 [`agent-sdk-integration.md` — Orchestrator + 子 Agent](./agent-sdk-integration.md#agentmcp-和技能边界)。
+### Extraction Criteria
 
-| 服务 | 职责 |
+- ✅ Same semantics, repeated in ≥2 files (e.g. Zotero port 23119 once appeared in 7 places).
+- ✅ Cross-package / cross-process contract values (e.g. default Claude model ID shared by main + core provider profiles).
+- ❌ Coincidentally equal numbers (300ms debounce values with independent semantics remain separate).
+- ❌ Named local constants used once (papers-rg limits, scrypt parameters, window dimensions, etc. stay local).
+
+<a id="文件清单"></a>
+
+### Files
+
+| File | Content |
 |------|------|
-| `subagent-registry.ts` | `SubagentRegistry` 接口 + in-memory 实现；三类来源（`builtin` / `user-config` / `capability-pack`）按优先级管理命名空间；`snapshot()` 产出 SDK `options.agents` 字典 |
-| `subagent-registry-seed.ts` | 把 `buildBuiltinAgents` 展开为 builtin RegistryEntry —— builtin / pack 走同一 Registry 路径 |
-| `run-orchestrator-query.ts` | **唯一** SDK query entrypoint（A0 ①）；`assembleQueryOptions()` 注入 `options.agents` + 通用 SubagentStart/Stop / pack.taskCompleted hooks，科研 hooks 不再装配 |
-| `capability-pack-loader.ts` | 加载自建能力包、校验与展开模板并注册到 Registry；跳过三个退役内置 packId，不删除已安装目录 |
-| `capability-pack-service.ts` | 只读 `listCapabilityPacks`，没有 toggle/import/uninstall；列表不展示三个退役内置 packId |
-| `subagent-spans-hook.ts` | SubagentStart/Stop FIFO 配对成 `SubagentSpan` |
-| `agent-orchestrator-spans-sink.ts` | 500ms debounce + 批量落 `AgentSessionMeta.subagentSpans`，cleanup 路径 `flush()` 兜底 |
-| `emit-filesystem-agents.ts` / `emit-mcp-config.ts` / `mark-claude-project-trusted.ts` | 旧兼容实现保留，生产编排已停止调用；不自动覆盖用户 agents/MCP 文件或修改 trust |
-| `runtime-skill-projection.ts` | 本次自有技能 plugin 投影及 SDK/后台任务租约，不修改用户源目录；未知/修改技能保留 |
-| `pack-task-completed-hook.ts` | SubagentStop 命中 capability-pack 时 emit `pack.taskCompleted` |
-| `paper-meta-cap-hook.ts` 等科研 hook | 保留的旧源码，不再接入当前 query |
+| `github-repo.ts` | GitHub repository identifiers, Releases URL |
+| `permission-rules.ts` / `hard-permission-rules.ts` | Tool / command safety classification and hard rules |
+| `zotero.ts` | Zotero connector port 23119, local API / connector base URLs, ping timeout (with composition guard tests) |
+| `models.ts` | Default Claude model ID (shared by default conversation model + channel probe model) |
+| `ui.ts` | Renderer UI policy values: copy feedback duration, author-list truncation count |
 
-### 工具与文件
-
-| 服务 | 职责 |
-|------|------|
-| `workspace-watcher.ts` | 工作区文件监听：MCP 配置 / Skills / 附件目录的文件系统变化 |
-| `attachment-service.ts` | 附件存储/读取/删除、文件对话框 |
-| `document-parser.ts` | PDF / Office / 文本文件提取 |
-| `file-preview-service.ts` | 文件预览服务 |
-
-### 系统服务
-
-| 服务 | 职责 |
-|------|------|
-| `runtime-init.ts` | 运行时初始化：Shell 环境、Bun、Git 检测（`bun-finder.ts`、`git-detector.ts`、`shell-env.ts`） |
-| `config-paths.ts` | 配置路径管理：`~/.asci/` 目录结构 |
-| `user-profile-service.ts` | 用户档案持久化 |
-| `settings-service.ts` | 应用设置持久化（Agent 配置、通知、Tab 状态、快捷键覆盖等） |
-| `updater/` | Electron Updater 集成 |
-| `global-shortcut-service.ts` | 全局快捷键注册 |
-| `quick-task-window.ts` | 快速任务窗口管理 |
-
-### Zotero 历史兼容（九项主动科研命令已退役）
-
-| 模块 | 职责 |
-|------|------|
-| `zotero-library.ts` | 旧数据读取兼容，不在启动时自动同步 |
-| `zotero-integration.ts` | 旧集成源码保留，九项 Zotero 入队/配置/重建等主动命令已封堵 |
-| `zotero-context-block.ts` | Zotero 上下文块构建 |
-| `zotero-client/` | Zotero MCP 客户端 |
-
-通用 OCR/ASR/PDF/Python 不随 Zotero 退役。OCR/ASR 使用既有独立设置字段，在 MCP 设置中管理，ASR 默认关闭且不在挂载时下载。历史状态/读取与缓存/权重管理保持，九项 Zotero 科研重建/入队/自动下载等入口明确不可用。论文/图谱主动写入与历史页面的对应围栏见退役记录第三批，普通笔记、读取/导出与已有资料管理保留；不将科学专属写入围栏泛化为所有用户数据不可编辑。
+Style: Named SCREAMING_SNAKE_CASE exports + Chinese header comments explaining sources; logic / template composition requires colocated `*.test.ts`.
 
 ---
 
-## AI Provider 适配器（`packages/core/src/providers/`）
+<a id="主进程服务层appselectronsrcmainlib"></a>
 
-两层解耦：**Adapter（协议级）** + **Profile（配置级）**。新增 provider 只需扩 `ProviderType` 联合（`@asci/shared`）+ `adapterRegistry` / `profileRegistry` 各加一行，调用层（channel-manager、agent-orchestrator、ChannelForm）零代码改动。
+## Main-Process Service Layer (`apps/electron/src/main/lib/`)
 
-### Adapter — 协议级
+<a id="agent-核心"></a>
 
-- **接口**（`types.ts`）—— `ProviderAdapter` 定义 `buildStreamRequest()` + `parseSSELine()`，承担 HTTP 请求构建 + SSE 解析
-- **注册表**（`index.ts:adapterRegistry`）—— 按 `ProviderType` 查找；当前 6 个 provider 全部映射到同一个 `AnthropicAdapter`（都走 Anthropic Messages API / "Anthropic Skin"）
-- **SSE 读取器**（`sse-reader.ts`）—— 通用 fetch + ReadableStream
-- **URL 工具**（`url-utils.ts`）—— `normalizeAnthropicBaseUrl` 等
+### Agent Core
 
-### Profile — 配置级
+| Service | Responsibility |
+|------|------|
+| `agent-orchestrator.ts` | Core Agent orchestration: concurrency guards, channel lookup, environment construction, SDK path resolution, message persistence, event streaming, error handling, first-turn automatic naming, subagent assembly (user-created capability packs and Registry, injected into SDK `options.agents` through `runOrchestratorQuery`) |
+| `agent-session-manager.ts` | Conversation management: SDK message persistence, session metadata CRUD, JSONL storage |
+| `agent-prompt-builder.ts` | General system prompts, workspace context, registered Agent list; built-in research teams are no longer supplied and research routing is retired; permission, file, PDF, and output-language policies remain |
+| `agent-permission-service.ts` | Tool permission checks, permission-mode management |
+| `agent-ask-user-service.ts` | AskUser request handling |
+| `agent-exit-plan-service.ts` | ExitPlan service |
+| `agent-workspace-manager.ts` | Workspace management: MCP Server configuration, Skills configuration, workspace CRUD |
+| `agent-team-reader.ts` | Team configuration reading |
+| `channel-manager.ts` | Channel CRUD, API Key AES-256-GCM encryption (safeStorage), connection tests, model fetching |
 
-承担"6 个 provider 之间的端点级差异"，独立于协议：
+<a id="agent-sdk-子-agent-装配a0"></a>
 
-- **契约**（`profile.ts`）—— `ProviderProfile` 接口：`defaultProbeModel` / `extraHeaders` / `validateEndpoint?` / `formatAuthError?` / `defaultCapabilities` / `fetchModels` + `FetchFn` 依赖注入类型
-- **注册表**（`profile-registry.ts:profileRegistry`）—— 按 `ProviderType` 查找 profile；`getProfile(provider)` 单 entrypoint
-- **6 个 profile**（`profiles/<provider>-profile.ts`）—— 每个 provider 一个数据驱动 profile：
-  - **anthropic** / **openrouter**：远程拉模型清单（profile 内部用注入的 `fetchFn`）
-  - **minimax** / **kimi** / **moonshot** / **deepseek**：静态清单
-  - **moonshot**：`validateEndpoint` 拦截 OpenAI 端点（`/v1`）+ 返回 i18n key
-  - **kimi**：`formatAuthError` 对 `/coding` 401 返回 `{baseMessageKey, detailSnippet?}`，由调用方走 `t()` 拼装
-  - **openrouter**：`extraHeaders` 注入 ranking header（`HTTP-Referer` / `X-Title`），`defaultProbeModel` 返回 namespaced 模型
-- **Capabilities**（`capabilities.ts`）—— `getDefaultCapabilities(provider)` / `getEffectiveCapabilities(channel)` 读 profile，取代了原 `@asci/shared/utils/channel-capabilities.ts` 的 switch
+### Agent SDK Subagent Assembly (A0)
 
-### 调用层入口（统一收口）
+See [`agent-sdk-integration.md` — Orchestrator + Subagents](./agent-sdk-integration.md#agentmcp-和技能边界).
 
-- **`apps/electron/src/main/lib/channel-manager.ts`** —— `fetchModels` / `testProviderConnection` / `testAnthropicCompat` 全部走 `getProfile()`，无任何 `switch (provider)` 分支
-- **`apps/electron/src/main/lib/agent-orchestrator.ts`** —— `getEffectiveCapabilities(channel)` from `@asci/core`
-- **`apps/electron/src/renderer/components/settings/ChannelForm.tsx`** —— `getDefaultCapabilities(provider)` from `@asci/core`
+| Service | Responsibility |
+|------|------|
+| `subagent-registry.ts` | `SubagentRegistry` interface + in-memory implementation; priority-based namespaces from three sources (`builtin` / `user-config` / `capability-pack`); `snapshot()` produces the SDK `options.agents` dictionary |
+| `subagent-registry-seed.ts` | Expands `buildBuiltinAgents` into builtin RegistryEntry objects; builtin / pack use the same Registry path |
+| `run-orchestrator-query.ts` | **Sole** SDK query entrypoint (A0 ①); `assembleQueryOptions()` injects `options.agents` + general SubagentStart/Stop / pack.taskCompleted hooks; research hooks are no longer assembled |
+| `capability-pack-loader.ts` | Loads user-created capability packs, validates/expands templates, registers in Registry; skips three retired built-in packIds without deleting installed directories |
+| `capability-pack-service.ts` | Read-only `listCapabilityPacks`, without toggle/import/uninstall; list omits three retired built-in packIds |
+| `subagent-spans-hook.ts` | FIFO-pairs SubagentStart/Stop into `SubagentSpan` |
+| `agent-orchestrator-spans-sink.ts` | 500ms debounce + batch writes to `AgentSessionMeta.subagentSpans`, with cleanup-path `flush()` fallback |
+| `emit-filesystem-agents.ts` / `emit-mcp-config.ts` / `mark-claude-project-trusted.ts` | Old compatibility implementations remain; production orchestration no longer calls them; no automatic overwriting of user agents/MCP files or trust changes |
+| `runtime-skill-projection.ts` | Per-run owned skill plugin projection and SDK/background-task leases; does not modify user source directories; unknown/modified skills remain |
+| `pack-task-completed-hook.ts` | Emits `pack.taskCompleted` when SubagentStop matches a capability pack |
+| Research hooks such as `paper-meta-cap-hook.ts` | Retained old source, no longer connected to current queries |
 
-### Profile 与 i18n 解耦
+<a id="工具与文件"></a>
 
-Profile 在 `@asci/core`，不依赖 Electron 主进程 i18n。涉及文案的字段（`validateEndpoint.messageKey` / `formatAuthError.{baseMessageKey, detailSnippet?}`）返回 i18n key 与已截断的 detail snippet，由 channel-manager 走 `t()` 拼装最终文案。
+### Tools and Files
 
-### 多模态支持
+| Service | Responsibility |
+|------|------|
+| `workspace-watcher.ts` | Workspace file watching: MCP configuration / Skills / attachment-directory filesystem changes |
+| `attachment-service.ts` | Attachment storage/reading/deletion, file dialogs |
+| `document-parser.ts` | PDF / Office / text extraction |
+| `file-preview-service.ts` | File preview service |
 
-- **图片** —— Anthropic 格式 `{ type: 'image', source: { type: 'base64', media_type, data } }`
-- **文档** —— 提取文本后注入 `<file>` XML 标签
+<a id="系统服务"></a>
+
+### System Services
+
+| Service | Responsibility |
+|------|------|
+| `runtime-init.ts` | Runtime initialization: Shell environment, Bun, Git detection (`bun-finder.ts`, `git-detector.ts`, `shell-env.ts`) |
+| `config-paths.ts` | Configuration path management: `~/.asci/` directory structure |
+| `user-profile-service.ts` | User profile persistence |
+| `settings-service.ts` | App settings persistence (Agent settings, notifications, Tab state, shortcut overrides, etc.) |
+| `updater/` | Electron Updater integration |
+| `global-shortcut-service.ts` | Global shortcut registration |
+| `quick-task-window.ts` | Quick task window management |
+
+<a id="zotero-历史兼容九项主动科研命令已退役"></a>
+
+### Zotero Historical Compatibility (Nine Active Research Commands Retired)
+
+| Module | Responsibility |
+|------|------|
+| `zotero-library.ts` | Old-data read compatibility, without automatic startup synchronization |
+| `zotero-integration.ts` | Old integration source retained; nine active Zotero queue/configuration/rebuild commands blocked |
+| `zotero-context-block.ts` | Zotero context block construction |
+| `zotero-client/` | Zotero MCP client |
+
+General OCR/ASR/PDF/Python remain despite Zotero retirement. OCR/ASR use existing independent settings managed in MCP settings; ASR defaults off and does not download on mount. Historical status/reading and cache/weight management remain; nine Zotero research rebuild/queue/automatic-download entries are explicitly unavailable. Paper/graph active-write boundaries and historical-page guards are recorded in retirement batch three; ordinary notes, reading/export, and existing material management remain. Do not generalize research-only write guards into a ban on editing all user data.
 
 ---
 
-## Jotai 状态管理（`apps/electron/src/renderer/atoms/`）
+<a id="ai-provider-适配器packagescoresrcproviders"></a>
 
-| Atom 文件 | 管理的状态 |
+## AI Provider Adapters (`packages/core/src/providers/`)
+
+Two decoupled layers: **Adapter (protocol)** + **Profile (configuration)**. Adding a provider only extends the `ProviderType` union (`@asci/shared`) and adds a row each to `adapterRegistry` / `profileRegistry`; callers (channel-manager, agent-orchestrator, ChannelForm) need zero code changes.
+
+<a id="adapter-&#45;协议级"></a>
+
+### Adapter — Protocol Level
+
+- **Interface** (`types.ts`) — `ProviderAdapter` defines `buildStreamRequest()` + `parseSSELine()` for HTTP request construction + SSE parsing.
+- **Registry** (`index.ts:adapterRegistry`) — Lookup by `ProviderType`; all current 6 providers map to the same `AnthropicAdapter` (Anthropic Messages API / "Anthropic Skin").
+- **SSE reader** (`sse-reader.ts`) — General fetch + ReadableStream.
+- **URL utilities** (`url-utils.ts`) — `normalizeAnthropicBaseUrl`, etc.
+
+<a id="profile-&#45;配置级"></a>
+
+### Profile — Configuration Level
+
+Handles endpoint-level differences among 6 providers independently of protocol:
+
+- **Contract** (`profile.ts`) — `ProviderProfile` interface: `defaultProbeModel` / `extraHeaders` / `validateEndpoint?` / `formatAuthError?` / `defaultCapabilities` / `fetchModels` + `FetchFn` dependency injection type.
+- **Registry** (`profile-registry.ts:profileRegistry`) — Profile lookup by `ProviderType`; `getProfile(provider)` as sole entrypoint.
+- **6 profiles** (`profiles/<provider>-profile.ts`) — One data-driven profile per provider:
+  - **anthropic** / **openrouter**: Fetch remote model lists (using injected `fetchFn` inside the profile).
+  - **minimax** / **kimi** / **moonshot** / **deepseek**: Static lists.
+  - **moonshot**: `validateEndpoint` intercepts OpenAI endpoints (`/v1`) + returns i18n keys.
+  - **kimi**: `formatAuthError` returns `{baseMessageKey, detailSnippet?}` for `/coding` 401; callers compose through `t()`.
+  - **openrouter**: `extraHeaders` injects ranking headers (`HTTP-Referer` / `X-Title`); `defaultProbeModel` returns a namespaced model.
+- **Capabilities** (`capabilities.ts`) — `getDefaultCapabilities(provider)` / `getEffectiveCapabilities(channel)` read profiles, replacing the switch in former `@asci/shared/utils/channel-capabilities.ts`.
+
+<a id="调用层入口统一收口"></a>
+
+### Caller Entry Points (Centralized)
+
+- **`apps/electron/src/main/lib/channel-manager.ts`** — `fetchModels` / `testProviderConnection` / `testAnthropicCompat` all use `getProfile()`; no `switch (provider)` branches.
+- **`apps/electron/src/main/lib/agent-orchestrator.ts`** — `getEffectiveCapabilities(channel)` from `@asci/core`.
+- **`apps/electron/src/renderer/components/settings/ChannelForm.tsx`** — `getDefaultCapabilities(provider)` from `@asci/core`.
+
+<a id="profile-与-i18n-解耦"></a>
+
+### Profile and i18n Decoupling
+
+Profiles live in `@asci/core` without Electron main-process i18n dependencies. Text-related fields (`validateEndpoint.messageKey` / `formatAuthError.{baseMessageKey, detailSnippet?}`) return i18n keys and truncated detail snippets; channel-manager composes final text using `t()`.
+
+<a id="多模态支持"></a>
+
+### Multimodal Support
+
+- **Images** — Anthropic format `{ type: 'image', source: { type: 'base64', media_type, data } }`.
+- **Documents** — Extract text and inject it into `<file>` XML tags.
+
+---
+
+<a id="jotai-状态管理appselectronsrcrendereratoms"></a>
+
+## Jotai State Management (`apps/electron/src/renderer/atoms/`)
+
+| Atom file | Managed state |
 |-----------|-----------|
-| `agent-atoms.ts` | Agent 会话列表、当前会话、流式状态（`AgentStreamState`）、工作区选择、渠道选择、权限/AskUser 请求队列（按 sessionId Map） |
-| `channels-atoms.ts` | 全局渠道列表缓存、渠道加载完成标志、思考块展开偏好 |
-| `active-view.ts` | 主面板视图切换（'conversations' / 'library'） |
-| `settings-tab.ts` | 设置面板当前标签页 |
-| `tab-atoms.ts` | 多标签页状态：tabs、activeTabId、流式指示、小地图缓存（仅 Agent tab） |
-| `user-profile.ts` | 用户档案（姓名 + 头像） |
-| `updater.ts` | 自动更新状态（检查/下载/安装），优雅降级（updater 不可用时保持 idle） |
-| `library-atoms.ts` | 旧文献库兼容状态 |
-| `zotero-atoms.ts` | 旧 Zotero 状态兼容，不表示仍开放新工作流 |
-| `side-panel-layout.ts` | 侧边栏布局 |
-| `search-atoms.ts` | 搜索状态 |
-| `draft-session-atoms.ts` | 草稿会话 |
-| `shortcut-atoms.ts` / `notifications.ts` / `proxy-atoms.ts` / `environment.ts` | 快捷键覆盖 / 通知 / 代理 / 环境检查 |
+| `agent-atoms.ts` | Agent session list, current session, streaming state (`AgentStreamState`), workspace/channel selection, permission/AskUser queues (Map by sessionId) |
+| `channels-atoms.ts` | Global channel-list cache, channel-loaded flag, thinking-block expansion preference |
+| `active-view.ts` | Main-panel view switching ('conversations' / 'library') |
+| `settings-tab.ts` | Current settings tab |
+| `tab-atoms.ts` | Multiple-tab state: tabs, activeTabId, streaming indicators, minimap cache (Agent tabs only) |
+| `user-profile.ts` | User profile (name + avatar) |
+| `updater.ts` | Auto-update state (check/download/install), graceful degradation (idle when updater unavailable) |
+| `library-atoms.ts` | Legacy literature-library compatibility state |
+| `zotero-atoms.ts` | Legacy Zotero state compatibility; does not mean new workflows remain available |
+| `side-panel-layout.ts` | Sidebar layout |
+| `search-atoms.ts` | Search state |
+| `draft-session-atoms.ts` | Draft sessions |
+| `shortcut-atoms.ts` / `notifications.ts` / `proxy-atoms.ts` / `environment.ts` | Shortcut overrides / notifications / proxy / environment checks |
 
 ---
 
-## 渲染进程组件架构（`apps/electron/src/renderer/components/`）
+<a id="渲染进程组件架构appselectronsrcrenderercomponents"></a>
 
-- **`app-shell/`** —— 三面板布局（LeftSidebar | MainArea | RightSidePanel）；侧边栏含工作区选择器、Working/置顶区、日期分组会话列表、流式指示器
-- **`agent/`** —— Agent 模式；`AgentView`（纯展示 + 交互，IPC 监听已提升到全局）、`AgentHeader`（渠道/模型选择）、`AgentMessages`（消息列表 + 工具活动）、`ToolActivityItem`、`ProjectSwitcher`、`PermissionBanner` / `AskUserBanner`
-- **`tabs/`** —— 标签栏系统；`TabBar` / `TabBarItem` / `TabContent` / `TabPreviewPanel`（仅渲染 Agent tab）
-- **`common/`** —— 跨模块复用组件；`UserAvatar`、`CopyButton`、`ModelSelector`、`AttachmentPreviewItem`、`format-message-time`
-- **`settings/`** —— 设置面板；`GeneralSettings`、`ChannelSettings` / `ChannelForm`、`AgentSettings`、`McpServerForm`、`ProxySettings`、`ShortcutSettings`、`AboutSettings`；含 `primitives/` 可复用表单组件
-- **`file-browser/`** —— 工作区文件树浏览
-- **`preview/`** —— 文件预览面板（PDF / 图片 / 文本）
-- **`library/`** —— 旧文献数据兼容视图
-- **`ai-elements/`** —— Markdown / 代码块 / Mermaid / 推理折叠 / 富文本输入
-- **`quick-task/`** —— 快速任务窗口（全局快捷键触发）
-- **`onboarding/`** / **`welcome/`** —— 新手引导、欢迎页
-- **`shortcuts/`** / **`environment/`** —— 快捷键设置、环境检查 UI
-- **`ui/`** —— Radix UI 封装组件（现代化设计）
+## Renderer Component Architecture (`apps/electron/src/renderer/components/`)
+
+- **`app-shell/`** — Three-panel layout (LeftSidebar | MainArea | RightSidePanel); sidebar includes workspace selector, Working/pinned area, date-grouped session list, and streaming indicators.
+- **`agent/`** — Agent mode; `AgentView` (presentation + interaction; IPC listeners lifted globally), `AgentHeader` (channel/model selection), `AgentMessages` (message list + tool activity), `ToolActivityItem`, `ProjectSwitcher`, `PermissionBanner` / `AskUserBanner`.
+- **`tabs/`** — Tab system; `TabBar` / `TabBarItem` / `TabContent` / `TabPreviewPanel` (Agent tabs only).
+- **`common/`** — Shared components; `UserAvatar`, `CopyButton`, `ModelSelector`, `AttachmentPreviewItem`, `format-message-time`.
+- **`settings/`** — Settings panel; `GeneralSettings`, `ChannelSettings` / `ChannelForm`, `AgentSettings`, `McpServerForm`, `ProxySettings`, `ShortcutSettings`, `AboutSettings`; includes reusable `primitives/` forms.
+- **`file-browser/`** — Workspace file-tree browsing.
+- **`preview/`** — File preview panel (PDF / image / text).
+- **`library/`** — Legacy literature data compatibility views.
+- **`ai-elements/`** — Markdown / code blocks / Mermaid / reasoning collapse / rich text input.
+- **`quick-task/`** — Quick task window (global shortcut trigger).
+- **`onboarding/`** / **`welcome/`** — Onboarding and welcome page.
+- **`shortcuts/`** / **`environment/`** — Shortcut settings and environment-check UI.
+- **`ui/`** — Radix UI wrapper components (modern design).
 
 ---
 
-## 全局 Hooks（`apps/electron/src/renderer/hooks/`）
+<a id="全局-hooksappselectronsrcrendererhooks"></a>
 
-| Hook | 职责 |
+## Global Hooks (`apps/electron/src/renderer/hooks/`)
+
+| Hook | Responsibility |
 |------|------|
-| `useGlobalAgentListeners` | 全局 Agent IPC 监听器。在 `main.tsx` 顶层挂载，使用 `useStore()` 直接操作 atoms。处理流式事件、完成/错误、标题更新、权限请求、AskUser 请求。**永不随组件卸载销毁** ——确保页面切换（如设置页）时流式输出与权限请求不丢失 |
+| `useGlobalAgentListeners` | Global Agent IPC listener mounted at the top of `main.tsx`, manipulating atoms directly through `useStore()`. Handles streaming events, completion/errors, title updates, permission requests, and AskUser requests. **Never destroyed on component unmount** — preserves streaming output and permission requests during page switches (e.g. to settings). |
 
 ---
 
-## 渲染进程初始化组件（`apps/electron/src/renderer/main.tsx`）
+<a id="渲染进程初始化组件appselectronsrcrenderermaintsx"></a>
 
-| 组件 | 职责 |
+## Renderer Initialization Components (`apps/electron/src/renderer/main.tsx`)
+
+| Component | Responsibility |
 |------|------|
-| `AgentSettingsInitializer` | 加载 Agent 渠道/模型/工作区设置、订阅 MCP / 文件变化事件 |
-| `AgentListenersInitializer` | 挂载 `useGlobalAgentListeners`，全局 Agent IPC 监听 |
-| `NotificationsInitializer` | 加载桌面通知开关 / 通知音设置 |
-| `TabStatePersistenceInitializer` | 启动时恢复标签页，运行时防抖写入 `settings.json` |
-| `UpdaterInitializer` | 订阅主进程推送的自动更新状态变化事件 |
+| `AgentSettingsInitializer` | Loads Agent channel/model/workspace settings; subscribes to MCP / file change events |
+| `AgentListenersInitializer` | Mounts `useGlobalAgentListeners` for global Agent IPC listening |
+| `NotificationsInitializer` | Loads desktop notification toggles / sound settings |
+| `TabStatePersistenceInitializer` | Restores tabs at startup; debounced writes to `settings.json` during runtime |
+| `UpdaterInitializer` | Subscribes to auto-update status changes pushed by main |
 
 ---
 
-## 相关资料
+<a id="相关资料"></a>
 
-- [`build-and-packaging.md`](./build-and-packaging.md) —— 构建与打包细节、Agent SDK external 规则
-- [`agent-sdk-integration.md`](./agent-sdk-integration.md) —— Agent SDK 核心流程、Orchestrator 深入
-- [`CLAUDE.md`](../CLAUDE.md) —— 顶层硬约束与开发纪律
+## Related Resources
+
+- [`build-and-packaging.md`](./build-and-packaging.md) — Build and packaging details, Agent SDK external rules.
+- [`agent-sdk-integration.md`](./agent-sdk-integration.md) — Agent SDK core flow, Orchestrator details.
+- [`CLAUDE.md`](../CLAUDE.md) — Top-level hard constraints and development discipline.

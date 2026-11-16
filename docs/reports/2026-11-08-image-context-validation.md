@@ -1,46 +1,56 @@
-# 图片自然续作授权验证
+<a id="图片自然续作授权验证"></a>
 
-基线：`fbde681afe228e408c73e5e6125fd72c658f1f2c`（main，Electron 0.1.611）。隔离开发分支：`fix/image-context-continuations`。本轮源码版本由仓库版本脚本更新为 Electron 0.1.612、shared 0.1.143、根 0.1.41。
+# Image continuation authorization validation
 
-## 实际修复
+Baseline: `fbde681afe228e408c73e5e6125fd72c658f1f2c` (main, Electron 0.1.611). Isolated development branch: `fix/image-context-continuations`. Repository version scripts updated this round's source versions to Electron 0.1.612, shared 0.1.143, root 0.1.41.
 
-- “再次生成 / 重新生成 / 再来一张 / Generate again / Try again”仅在宿主已建立图片任务上下文时允许。
-- “把这个女生加入旁边 并换了一个泳衣”等自然视觉修改需要当前真实上传、选中版本或有参考图的图片任务上下文。仅有历史图片文件不构成授权。
-- 讨论费用、权限、提示词，引用他人指令，代码任务、群聊/团队添加等不提供生图授权。“不过先别生成 / 先不要操作”撤回任务，“背景不要画人物 / 标题不要绘制阴影”保留整体生图请求。
-- 每个新用户回合仍建立独立数量和参数授权。默认一张，旧调用取消后不能借用新回合权限；精确选图、当前会话引用、未知文件外发、计划模式和危险终端规则保持。
-- 工厂在普通发送前读取宿主用户历史，在 SDK 真正消费登记队列时轮换。新增内部排队标记及附件目录 `.image-consumed-turns.jsonl` 消费侧车，保存 UUID、任务类别和是否排队，不保存消息或凭据。恢复保留 now/next 的真实消费顺序，未知或截断记录阻断旧任务继承。
-- 历史范围固定次数扫描，纯意图折叠不逐回合重读全部图片，同一附件单次扫描去重。没有量化内存或整机性能收益。
+<a id="实际修复"></a>
 
-## 检查证据
+## Actual fixes
 
-| 检查 | 结果 |
+- “Generate again / Regenerate / Another image / Generate again / Try again” (first three translated from Chinese) are allowed only when the host has established image-task context.
+- Natural visual edits such as “Add this girl alongside and change her swimsuit” (English translation) require a current real upload, selected version, or image-task context with reference images. Historical image files alone do not authorize generation.
+- Discussing costs, permissions, prompts, quoting others' instructions, coding tasks, or adding people to group chats/teams does not authorize generation. “But don't generate yet / Don't act yet” withdraws the task; “Don't draw people in the background / Don't draw a shadow on the title” retains the overall generation request (English translations).
+- Each new user turn still establishes independent count and parameter authorization. Default one image; canceled old calls cannot borrow a new turn's permission. Exact image selection, current-session references, unknown-file external sending, plan mode, and dangerous-terminal rules remain.
+- Before ordinary sends, the factory reads host user history; rotation occurs when the SDK actually consumes a registered queue item. Added an internal queue marker and attachment-directory `.image-consumed-turns.jsonl` consumption sidecar storing UUID, task category, and queued status, without messages or credentials. Recovery preserves actual now/next consumption order; unknown or truncated records block old-task inheritance.
+- History scans use a fixed number of passes; pure intent folding does not reread every image for every turn, and a single attachment scan deduplicates. No quantified memory or whole-machine performance benefits.
+
+<a id="检查证据"></a>
+
+## Check evidence
+
+| Check | Result |
 | --- | --- |
-| 原始自然续作/编辑红测 | 9 项失败，确认是现有规则缺失 |
-| 多句否定、队列恢复、顺序、日志截断、局部约束红测 | 分批复现后修复，保留回归 |
-| 六文件图片定向检查 | 107 pass，0 fail，266 assertions |
-| 全仓 `bun test` | 3330 pass，0 fail，371 files，8726 assertions |
-| 全仓 `bun run typecheck` | 6 个 workspace 退出 0 |
-| 改动 TS 文件 ESLint | 退出 0 |
-| `bun run electron:build` | 退出 0 |
-| `bun install --frozen-lockfile --ignore-scripts` | 退出 0，无第三方依赖或锁文件变更 |
-| `git diff --check` | 通过 |
-| 独立只读代码审查与简化复盘 | 原重要问题修复后 Ready，无新的重要发现 |
+| Original natural-continuation/edit failing tests | 9 failed, confirming missing existing rules |
+| Multisentence negation, queue recovery, order, truncated logs, local constraints failing tests | Reproduced in batches, fixed, regressions retained |
+| Six-file targeted image checks | 107 pass, 0 fail, 266 assertions |
+| Repository-wide `bun test` | 3330 pass, 0 fail, 371 files, 8726 assertions |
+| Repository-wide `bun run typecheck` | 6 workspaces exited 0 |
+| ESLint on changed TS files | Exit 0 |
+| `bun run electron:build` | Exit 0 |
+| `bun install --frozen-lockfile --ignore-scripts` | Exit 0, no third-party dependency or lockfile changes |
+| `git diff --check` | Passed |
+| Independent read-only code review and simplification retrospective | Ready after original important findings fixed; no new important findings |
 
-完整测试最初在受限沙箱中有 14 项 loopback 监听失败。允许本机测试端口后，最终全仓结果如上；没有修改相关登录、桥接或 HTML 预览产品代码来规避测试。另一次类型检查发现工厂局部推断循环，补显式类型后最终类型检查通过。
+The full suite initially had 14 loopback-listening failures in the restricted sandbox. After allowing local test ports, final repository-wide results were as above; no related login, bridge, or HTML-preview product code was changed to evade tests. Another typecheck found a factory-local inference cycle; final typecheck passed after explicit types were added.
 
-日志位于本机构建目录 `/tmp/tinker-image-context-checks-20261108`，关键文件为 `target-verified.log`、`test-verified.log`、`typecheck-verified.log`、`lint-verified.log`、`build-verified.log`。
+Logs are in local build directory `/tmp/tinker-image-context-checks-20261108`; key files: `target-verified.log`, `test-verified.log`, `typecheck-verified.log`, `lint-verified.log`, `build-verified.log`.
 
-## 宿主链路与未验证项
+<a id="宿主链路与未验证项"></a>
 
-- 执行真实 ImageTurnFactory → ImageTurnController → AgentPermissionService hook/canUseTool，确认自然续作不产生权限卡，取消后拒绝，危险终端仍拒绝。
-- 独立进程执行真实 MCP generate_image handler，使用合成图片、本地临时目录与假网络。共 7 次假 API 调用，覆盖普通手动重试、选图编辑、账本去重、消费切换、now 在途旧回合拒绝及计划模式。不是付费模型端到端结果。
-- 测试使用隔离配置与合成消息，没有读取用户真实会话、复制凭据、调用付费生图、登录 Google、替换或启动安装版。
-- 没有重新进行真实桌面 UI 或真实 SDK 模型端到端生图验证，当前挂载运行的 0.1.611 应用不会自动获得本分支修复。
-- 老版本没有排队标记，无法追溯证明历史中某个旧入队消息是否实际消费。新格式无法证明的队列和消费日志异常均采用保守恢复。
-- React 布局、引用 UI、OAuth、Rust/Tauri 本轮未修改。适合之后迁移的边界仍是纯授权规则和宿主回合契约，不同时重写第二套功能。
+## Host pipeline and unverified items
 
-## 交付与回滚
+- Executed real ImageTurnFactory → ImageTurnController → AgentPermissionService hook/canUseTool; confirmed natural continuations create no permission card, canceled requests are denied, and dangerous terminals remain denied.
+- Ran real MCP generate_image handler in an independent process with synthetic images, local temporary directories, and fake networking. 7 fake API calls covered ordinary manual retries, selected-image edits, ledger deduplication, consumption switching, rejection of old in-flight now turns, and plan mode. These are not paid-model end-to-end results.
+- Tests used isolated configuration and synthetic messages without reading real user sessions, copying credentials, paid generation, Google login, or replacing/launching installed versions.
+- No renewed real desktop UI or real SDK-model end-to-end generation validation; the currently mounted/running 0.1.611 app does not automatically receive branch fixes.
+- Old versions lack queue markers, so historical consumption of an old queued message cannot be proven retrospectively. Unprovable queues and abnormal consumption logs use conservative recovery in the new format.
+- React layouts, reference UI, OAuth, and Rust/Tauri were unchanged this round. Pure authorization rules and host-turn contracts remain the suitable future migration boundary; do not rewrite a second feature implementation simultaneously.
 
-按父对话协调只完成独立本地提交，待与会话/引用界面工作串行整合后统一发布。此记录不代表已推送或远端 CI 通过，不另开重复 PR，不合并、不部署、不打包安装。
+<a id="交付与回滚"></a>
 
-撤回本轮提交即可恢复旧授权行为。没有数据迁移。侧车只记录内部消费语义，旧版忽略新排队属性和侧车，不需要删除用户会话、图片、设置或密钥。
+## Delivery and rollback
+
+Per parent-conversation coordination, complete only an independent local commit, then publish together after serial integration with session/reference UI work. This record does not establish push or passing remote CI; no duplicate PR, merge, deployment, or installer packaging.
+
+Reverting this round's commit restores old authorization behavior. No data migration. The sidecar records only internal consumption semantics; old versions ignore new queue properties and sidecar, requiring no deletion of user sessions, images, settings, or keys.

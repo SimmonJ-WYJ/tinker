@@ -1,12 +1,14 @@
 # Tinker
 
-Tinker 是基于现有 ASCI 项目演进的 AI Agent 桌面应用。根据任务切换聊天、写作、编程和图像能力。
+Tinker is an AI Agent desktop application evolved from the existing ASCI project. It uses chat, writing, coding, and image capabilities according to the task.
 
-已交付安装包的基线为 **0.1.603-rc.1 候选版**；当前开发源码版本以 `apps/electron/package.json` 为准。源码提交不会自动更新安装包，也不表示已经稳定发布或通过 Apple 公证。
+The delivered installer baseline is **the 0.1.603-rc.1 candidate**. The current development source version is defined in `apps/electron/package.json`. A source commit does not automatically update the installer or indicate a stable release or Apple notarization.
 
-## 本机开发
+<a id="本机开发"></a>
 
-需要 Bun 1.2.5+、Node.js，以及相应平台的 Electron/native 依赖。
+## Local Development
+
+Requires Bun 1.2.5+, Node.js, and the Electron/native dependencies for the target platform.
 
 ```sh
 bun install
@@ -14,27 +16,33 @@ TINKER_CANDIDATE=1 ASCI_SKIP_LOGIN=1 bun run electron:build
 TINKER_CANDIDATE=1 ASCI_SKIP_LOGIN=1 bun run electron:start
 ```
 
-本候选采用免登录、本机自带 Key。API Key 仅在应用内配置，不要提交到 Git。
-Mac 候选资料隔离在 `~/Library/Application Support/Tinker Candidate`；没有自动迁移现有 ASCI 会话或渠道。
+This candidate uses local bring-your-own keys without sign-in. Configure API keys only inside the application. Never commit them to Git.
+Mac candidate data is isolated in `~/Library/Application Support/Tinker Candidate`. Existing ASCI sessions and channels are not migrated automatically.
 
-## 当前清理与兼容边界
+<a id="当前清理与兼容边界"></a>
 
-当前源码正在按依赖退役科研专属流程，保留通用聊天、模型/渠道、生图、项目、历史读取/导出和媒体能力。执行批次与测试边界见[科研退役记录](docs/reports/2026-11-10-research-retirement.md)。现有 Electron/SDK 后端仍承担生产功能，Rust/Tauri 是独立迁移路径，未用它替换正式界面或用户数据。
+## Current Retirement and Compatibility Boundaries
 
-## 旧候选验证记录与限制
+The source is retiring research-specific workflows according to their dependencies while preserving general chat, models/channels, image generation, projects, history reading/export, and media capabilities. See the [research retirement report](docs/reports/2026-11-10-research-retirement.md) for implementation batches and test boundaries. The existing Electron/SDK backend still provides production functionality. Rust/Tauri is a separate migration path and has not replaced the formal interface or user data.
 
-以下是上列旧候选版本的记录，不代表当前源码或新安装包的完整验收。
+<a id="旧候选验证记录与限制"></a>
 
-- 上次候选构建回归：3127 通过、4 跳过、0 失败；类型检查与构建通过。
-- 已实测首页、模型缺省设置入口、中文切换、项目创建、搜索、示例草稿及返回后保留草稿。
-- 真实 Key 认证、聊天/生图端到端、连续编辑和另一台电脑首次安装仍需验收。
-- macOS 安装包当前为临时签名，未公证。本仓库不包含安装包、个人渠道、Key 或会话数据。
-- 内部 `@asci/*` 命名空间暂时保留，避免破坏已有模块契约；图形标志沿用现有版本。
+## Earlier Candidate Verification and Limitations
 
-原项目的 CI、自动发布和通知配置保存在 `docs/upstream-workflows/*.disabled`，不会在本仓库自动执行。更新源和对外发行配置尚待确认，不要直接执行旧配置向原仓库发布。
+The following records concern the earlier candidate listed above. They do not constitute complete acceptance of the current source or a new installer.
 
-当前 issue 与 PR 默认提交到 [`SimmonJ-WYJ/tinker`](https://github.com/SimmonJ-WYJ/tinker)，上游历史链接保留原仓库归属。
+- Previous candidate build regression: 3127 passed, 4 skipped, 0 failed. Type checking and the build passed.
+- Tested the home screen, default-model settings entry, Chinese language switching, project creation, search, sample drafts, and draft retention after returning.
+- Real-key authentication, end-to-end chat/image generation, continuous editing, and first installation on another computer still require acceptance testing.
+- The macOS installer currently uses ad-hoc signing and is not notarized. This repository contains no installers, personal channels, keys, or session data.
+- Internal `@asci/*` namespaces are retained for now to preserve existing module contracts. The existing graphic mark is retained.
 
-## 项目来源与许可
+The original project's CI, automatic release, and notification configurations are stored in `docs/upstream-workflows/*.disabled` and do not run automatically in this repository. Update sources and external distribution settings still require confirmation. Do not run the old configurations to publish to the upstream repository.
 
-保留原有 ASCI/OPENSCI Labs 及贡献者归属。许可见 [LICENSE](LICENSE)，声明见 [NOTICE](NOTICE)。原项目文档见 [历史 README](docs/history/ASCI-README.md) 与 [历史领域语言](docs/history/ASCI-CONTEXT.md)。当前开发约定见 [CLAUDE.md](CLAUDE.md)，通用领域语言见 [CONTEXT.md](CONTEXT.md)；旧科研路线图不再作为当前产品目标。
+Issues and PRs currently target [`SimmonJ-WYJ/tinker`](https://github.com/SimmonJ-WYJ/tinker) by default. Historical upstream links retain their original repository context.
+
+<a id="项目来源与许可"></a>
+
+## Project Origins and Licensing
+
+Retain attribution to ASCI/OPENSCI Labs and the contributors. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Original project documentation is preserved in the [historical README](docs/history/ASCI-README.md) and [historical domain language](docs/history/ASCI-CONTEXT.md). Current development conventions are in [CLAUDE.md](CLAUDE.md), and general domain language is in [CONTEXT.md](CONTEXT.md). The old research roadmap is no longer a current product goal.

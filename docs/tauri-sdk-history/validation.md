@@ -1,81 +1,97 @@
-# Tauri SDK 历史接线验证与回滚
+<a id="tauri-sdk-历史接线验证与回滚"></a>
 
-基线main：`fdf92f3bb758d04c6f469fe8915d62e41a15f36b`。本阶段只接隔离Rust Lab的历史读取，不接生产Electron、模型、工具或后台任务。
+# Tauri SDK Historical Wiring Validation and Rollback
 
-## 生产不变与实际范围
+Baseline main: `fdf92f3bb758d04c6f469fe8915d62e41a15f36b`. This phase wires only history reading in isolated Rust Lab, without production Electron, models, tools, or background tasks.
 
-用户追加要求：“你这次改完确保界面和功能还有UI没有任何变化吧？”
+<a id="生产不变与实际范围"></a>
 
-- 生产`apps/electron`、`packages/shared`、`packages/core`、`packages/ui`和`bun.lock`与基线差异为0，没有新增文件
-- 新阅读区、样式、文案和命令仅属于`apps/tinker-rust`实验应用，不进入Electron入口或安装版
-- 原开发目录当前89个未提交文件逐项指纹核对不变，没有覆盖或清理用户工作
-- 提交钩子可以更新仓库根和Rust Lab的package版本，除此之外不修改生产依赖或版本
-- 已有生产相关测试通过不等于安装版全部交互逐项实机验收，不能据此保证未测流程或像素级一致
+## Unchanged Production and Actual Scope
 
-## 调用链
+Additional user request (English translation): "After this change, make sure the interface, functionality, and UI have no changes, right?"
 
-React HistoryPanel → `window.__TAURI__.core.invoke('read_session_history')` → Rust独立command → `spawn_blocking` → HistoryLibrary → 有界SDK/legacy扫描器 → 严格前端响应解码 → 安全文本阅读。
+- Production `apps/electron`, `packages/shared`, `packages/core`, `packages/ui`, and `bun.lock` have 0 differences from baseline and no new files
+- New reading area, styles, copy, and commands belong only to experimental `apps/tinker-rust`, outside Electron entry/installed app
+- Fingerprints of all 89 uncommitted files in the original development directory remain unchanged; no user work overwritten or cleaned
+- Commit hooks may update root and Rust Lab package versions; otherwise no production dependency/version changes
+- Passing existing production-related tests does not mean every installed-app interaction received itemized on-device acceptance, and cannot guarantee untested flows or pixel equivalence
 
-命令只接`sessionId`、`beforeLine`和`limit`，不接文件路径。后端固定读取自身`app_local_data_dir()/history-v1/<sessionId>.jsonl`。默认64条、最多256条、单行1MiB、页源行预算8MiB，沿用源行游标。门控使用共享try_lock，忙时返回固定错误，不堆叠多个解码。
+<a id="调用链"></a>
 
-原始SDK和旧消息可混排。原始JSON完整保留，包括uuid、parent_tool_use_id、工具输入/结果、thinking签名、图片引用、模型元数据和未知未来类型。text只提取顶层text块或字符串正文，不把tool_result内部文本当用户正文。SDK user允许合法缺省message/content，错误形状明确拒绝。界面仅安全文本预览，结构化记录有提示，没有执行工具、加载raw中的文件或渲染HTML。
+## Call Chain
 
-## 已通过
+React HistoryPanel → `window.__TAURI__.core.invoke('read_session_history')` → separate Rust command → `spawn_blocking` → HistoryLibrary → bounded SDK/legacy scanner → strict frontend response decoding → safe text reading.
 
-| 检查 | 实际结果 |
+The command accepts only `sessionId`, `beforeLine`, and `limit`, never file paths. Backend reads only its own `app_local_data_dir()/history-v1/<sessionId>.jsonl`. Default 64 records, max 256, 1MiB per line, 8MiB source-line budget per page, retaining source-line cursors. Shared try_lock gating returns a fixed error when busy, without stacking decoders.
+
+Raw SDK and legacy messages can mix. Original JSON is fully retained, including uuid, parent_tool_use_id, tool inputs/results, thinking signatures, image references, model metadata, and unknown future types. text extracts only top-level text blocks/string bodies, never tool_result internal text as user body. SDK user allows valid missing message/content; malformed shapes are explicitly rejected. UI provides safe text preview only, with structured-record notices; no tool execution, raw-file loading, or HTML rendering.
+
+<a id="已通过"></a>
+
+## Passed Checks
+
+| Check | Actual result |
 | --- | --- |
-| Rust全部测试 | 63 passed，0 failed，含原有草稿/历史/生命周期和SDK、host、IPC回归 |
-| Tauri InvokeRequest链 | 真实handler参数解码、async服务、JSON响应序列化与固定错误码，通过mock runtime验证 |
-| SDK新增测试 | 12项通过，原14项legacy读取测试保留通过 |
-| 前端src测试 | 15项通过，含原契约和新解析/界面测试 |
-| 全仓Bun | 3211 passed，0 failed，362文件，44.64秒 |
-| 生产专项回归 | 42 passed，0 failed，11文件，覆盖会话导航/消息渲染/图片/工具显示及附件 |
-| 类型与构建 | 全项目typecheck、Rust Lab Vite build、Electron build通过 |
-| Rust质量 | fmt check、clippy all-targets -D warnings通过 |
-| 前端lint | 临时只读扩展现有ESLint规则范围至Rust Lab的7个相关TS/TSX文件，max-warnings=0通过，生产配置未改 |
-| 完整原生构建 | 独立QA配置的Tauri release `.app`构建通过，没有发布或替换安装版 |
-| 原生实际交互 | 下节所述，使用真实Tauri bridge，没有模拟前端invoke |
+| All Rust tests | 63 passed, 0 failed, including existing draft/history/lifecycle and SDK/host/IPC regressions |
+| Tauri InvokeRequest chain | Actual-handler parameter decoding, async service, JSON response serialization, and fixed error codes verified through mock runtime |
+| New SDK tests | 12 passed; original 14 legacy-reader tests retained and passing |
+| Frontend src tests | 15 passed, including original contract and new parser/UI tests |
+| Repository-wide Bun | 3211 passed, 0 failed, 362 files, 44.64 seconds |
+| Focused production regressions | 42 passed, 0 failed, 11 files, covering session navigation/message rendering/images/tool display/attachments |
+| Types and builds | Full-project typecheck, Rust Lab Vite build, Electron build passed |
+| Rust quality | fmt check, clippy all-targets -D warnings passed |
+| Frontend lint | Temporarily extended existing ESLint rules read-only to 7 relevant Rust Lab TS/TSX files; max-warnings=0 passed, production configuration unchanged |
+| Complete native build | Separate-QA-configuration Tauri release `.app` built successfully, without release or installed-app replacement |
+| Actual native interaction | Described below, using actual Tauri bridge rather than mocked frontend invoke |
 
-先写失败测试再实现。首次缺frontendDist导致测试环境编译失败，补齐前端构建后得到预期SDK/host缺失失败。user缺省/string兼容也有单独先红后绿记录。
+Failing tests preceded implementation. Initial compilation failed because frontendDist was missing; after building the frontend, expected SDK/host absence failures appeared. Missing/string user compatibility also has separate red-then-green records.
 
-## 独立原生验收
+<a id="独立原生验收"></a>
 
-QA标识`com.tinker.rustlab.historyqa.20261108`，启动前同时验证bundle标识和编译后二进制包含该标识。使用新建、与现用应用分离的QA目录，仅放150条合成SDK记录。没有读取现用Tinker或真实Rust Lab历史，没有复制用户日志。
+## Independent Native Acceptance
 
-- 原生界面显示Rust已连接
-- 展开只读历史，读取得到源行87–150，共64条
-- 较早一页读取23–86，最新一页返回87–150
-- 切换missing会话后显示本地化缺文件提示
-- 恢复history会话可重新读取
-- 父界面切换英文后，历史标签/按钮和说明同步切换
-- 读取前后合成JSONL的SHA-256一致
-- QA进程已由本批清理，不影响现行Tinker
+QA identifier `com.tinker.rustlab.historyqa.20261108`; verified both bundle identifier and compiled-binary identifier before launch. New QA directories separate from active apps contain only 150 synthetic SDK records. No active Tinker/real Rust Lab history reads or copied user logs.
 
-![合成SDK历史原生阅读位置](native-history.png)
+- Native UI shows Rust connected
+- Expanding read-only history returns source lines 87–150, 64 records
+- Earlier page reads 23–86; latest page returns 87–150
+- Switching to missing session shows localized missing-file notice
+- Restoring history session allows reading again
+- Switching parent UI to English updates history labels/buttons/explanations
+- Synthetic JSONL SHA-256 identical before/after reading
+- This batch cleaned up its QA process without affecting current Tinker
 
-![英文界面的同一合成历史](native-history-en.png)
+![Native reading position for synthetic SDK history](native-history.png)
 
-截图只含合成数据，属于独立QA应用，不能代表生产界面已验收。
+![Same synthetic history in the English interface](native-history-en.png)
 
-## 失败、恢复与未运行
+Screenshots contain synthetic data only, from a separate QA app; they do not establish production-UI acceptance.
 
-首次debug QA构建因ENOSPC失败，同期全仓测试3178通过、33失败，日志证实临时文件创建空间不足。这轮结果未被视为通过。释放本批失败的QA构建缓存和按既有摘要校验过的可再生合成大输入文件后，保留源码、测量结果、指纹和生成器，改用现有release缓存完成QA构建。随后完整Bun重跑3211通过、0失败。未清理用户目录、安装或真实数据。
+<a id="失败恢复与未运行"></a>
 
-未运行/未实现：安装版全流程实机回归、真实用户日志导入、SDK/工具实际执行、后台取消/重连/rewind、图片富交互在Rust Lab中的迁移、Windows/Linux原生运行、恶意同系统用户并发替换文件的完整防御、跨文件重写稳定游标。
+## Failures, Recovery, and Unrun Scope
 
-本阶段没有量化SDK适配器或整个应用的内存峰值。源行预算不等于解析后堆内存上限，也不能套用上一阶段的读取器测量作为整机改善结论。每页仍扫描文件前缀。
+Initial debug QA build failed with ENOSPC; concurrent repository tests had 3178 passed, 33 failed, with logs proving insufficient space for temporary files. This was not treated as passing. After releasing only this batch's failed QA build cache and regenerable synthetic large inputs verified against established digests, retaining source, measurements, fingerprints, and generators, existing release cache completed QA building. A full Bun rerun then had 3211 passed, 0 failed. No user directories, installation, or real data cleaned.
 
-## 使用与回退
+Not run/implemented: Installed-app full-flow on-device regression, real-user log import, actual SDK/tool execution, background cancellation/reconnection/rewind, rich image interaction migration into Rust Lab, Windows/Linux native operation, complete defense against malicious same-system concurrent file replacement, stable cursors across file rewrites.
 
-本原型不会自动寻找生产历史。仅在已有授权的前提下，用户可将所选日志的副本放入Rust Lab独立`history-v1`目录，文件名为受限ID加`.jsonl`，在阅读区输入相同ID。不要将原始用户日志提交到Git或覆盖原应用文件。当前验收仅使用合成副本。
+This phase did not quantify SDK-adapter or whole-app peak memory. Source-line budgets are not parsed-heap limits, and prior reader measurements cannot establish whole-machine improvement. Every page still scans the file prefix.
 
-- 未合并时：保持/关闭本Draft即可，main和现行安装不变
-- 合并后的代码回退：在独立分支审阅并revert本PR的合并提交，正常测试后走PR，不对用户开发仓库做reset/clean
-- 精确停用：移除main.rs的history state/command注册和React HistoryPanel挂载，恢复上一版只验证草稿的Rust Lab，旧snapshot/save_draft/submit_draft/recover_draft命令和草稿schema不变
-- 历史只有只读打开，没有迁移、改写、修补或删除，回退不需要数据格式反向转换，也不应删除历史副本
-- 真实Tinker安装及用户原工作区从未被本阶段替换
+<a id="使用与回退"></a>
 
-## 复现主要检查
+## Usage and Rollback
+
+The prototype never automatically seeks production history. Only with existing authorization may a user place copies of selected logs in Rust Lab's separate `history-v1` directory, named with a restricted ID plus `.jsonl`, and enter that ID in the reader. Never commit original user logs to Git or overwrite original app files. Current acceptance uses synthetic copies only.
+
+- Before merge: Keep/close this Draft; main and current installation remain unchanged
+- Post-merge code rollback: Review and revert this PR's merge commit on a separate branch, test normally, use a PR; no reset/clean in the user's development repository
+- Precise disablement: Remove history state/command registration from main.rs and React HistoryPanel mounting, restoring prior draft-only Rust Lab validation; old snapshot/save_draft/submit_draft/recover_draft commands and draft schema remain
+- History is read-only, without migration, rewriting, repair, or deletion; rollback needs no reverse data-format conversion and should not delete history copies
+- Actual Tinker installation and original user workspace were never replaced in this phase
+
+<a id="复现主要检查"></a>
+
+## Reproducing Main Checks
 
 ```sh
 bun run --cwd apps/tinker-rust build
@@ -87,4 +103,4 @@ bun test
 bun run electron:build
 ```
 
-离线Cargo检查要求依赖已缓存。原生QA需要另设identifier，不可直接拿现用应用数据做冒烟。原始命令日志、分项报告、环境失败记录和生产不变断言留在Tinker-A本地diagnostics，不把本机路径/日志或构建产物加入提交。
+Offline Cargo checks require cached dependencies. Native QA needs a separate identifier, never current app data for smoke testing. Original command logs, detailed reports, environment failures, and production-unchanged assertions stay in local Tinker-A diagnostics; do not commit local paths/logs/build artifacts.

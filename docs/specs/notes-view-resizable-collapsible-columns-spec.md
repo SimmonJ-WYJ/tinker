@@ -1,99 +1,119 @@
-# 证据集视图 可拖拽改宽 + 预览栏可收起
+<a id="证据集视图-可拖拽改宽-&#45;预览栏可收起"></a>
 
-> 状态：设计已批准，待实现
-> 关联 issue：（无，本地迭代）
-> 关联 PR：（待补）
-> 领域语言事实源：`CONTEXT.md`
+# Evidence-set view: resizable columns + collapsible preview
 
-## 背景与问题
+> Status: Design approved, implementation pending
+> Related issue: (none, local iteration)
+> Related PR: (to be added)
+> Domain-language source of truth: `CONTEXT.md`
 
-证据集视图（`NotesView`）当前是三栏固定布局：
+<a id="背景与问题"></a>
 
-- 列表栏 `w-[380px]`（全部证据集）
-- 详情栏 `w-[520px]`（证据集详情）
-- 预览栏 `flex-1`（PDF / HTML / 对话预览）
+## Background and problem
 
-两个体验问题：
+The evidence-set view (`NotesView`) currently has a fixed three-column layout:
 
-1. **最右侧预览栏无法收起**——即使不需要预览，它也始终占据右半屏，挤压详情阅读空间。
-2. **各栏宽度写死，无法手动拖拽调整**——不同内容（长论文标题、宽 PDF）需要不同的栏宽分配。
+- List column `w-[380px]` (all evidence sets)
+- Detail column `w-[520px]` (evidence-set details)
+- Preview column `flex-1` (PDF / HTML / conversation preview)
 
-## 目标
+Two experience problems:
 
-1. 预览栏顶部加关闭按钮，可整体收起；收起后详情栏吃掉空出的空间。点击任意证据条目（论文 / review）重新展开预览栏。
-2. 「列表 | 详情」「详情 | 预览」两道分隔条均可拖拽改宽。
-3. 栏宽与预览栏收起状态用 localStorage 记忆，下次进入恢复。
+1. **The rightmost preview cannot collapse**: Even when unnecessary, it always occupies the right half of the screen, squeezing detail-reading space.
+2. **Column widths are hardcoded and cannot be dragged manually**: Different content (long paper titles, wide PDFs) needs different width allocations.
 
-非目标：
+<a id="目标"></a>
 
-- 不改最左侧全局应用导航栏（属于 app-shell，跨页面，本次不涉及）。
-- 不引入第三方可拖拽面板库（与现有自定义拖拽模式不一致，且违反「新依赖先比较、不默认引入」约束）。
+## Goals
 
-## 方案：轻量自定义可拖拽栏
+1. Add a close button at the top of the preview to collapse it entirely; the detail column takes the freed space. Clicking any evidence entry (paper / review) reopens preview.
+2. Both “list | detail” and “detail | preview” dividers support drag resizing.
+3. Remember widths and preview collapse state in localStorage and restore on next entry.
 
-复用项目已有的「拖拽 + `atomWithStorage` 记忆」模式（参考 `atoms/side-panel-layout.ts` 的 `sidePanelRatioAtom`）。零新依赖，改动集中在 `NotesView` 与一个新的 layout atom 文件、一个新的 `ColumnResizer` 组件。
+Non-goals:
 
-### 组件 / 单元
+- Do not change the leftmost global app navigation (part of app-shell, shared across pages, outside this change).
+- Do not introduce a third-party draggable-panel library (inconsistent with existing custom drag patterns and the constraint to compare new dependencies rather than add them by default).
 
-**1. `atoms/notes-layout.ts`（新增）** — 证据集视图布局状态，`atomWithStorage` 持久化：
+<a id="方案轻量自定义可拖拽栏"></a>
 
-| atom | key | 默认 | clamp |
+## Approach: lightweight custom resizable columns
+
+Reuse the existing drag + `atomWithStorage` persistence pattern (see `atoms/side-panel-layout.ts` and its `sidePanelRatioAtom`). No new dependencies; changes concentrate in `NotesView`, one new layout atom file, and one new `ColumnResizer` component.
+
+<a id="组件-&#45;单元"></a>
+
+### Components / units
+
+**1. `atoms/notes-layout.ts` (new)** — Evidence-set view layout state persisted by `atomWithStorage`:
+
+| atom | key | Default | clamp |
 |------|-----|------|-------|
 | `notesListWidthAtom` | `asci.notesView.listWidth` | 380 | 280–600 |
 | `notesDetailWidthAtom` | `asci.notesView.detailWidth` | 520 | 360–760 |
 | `notesPreviewCollapsedAtom` | `asci.notesView.previewCollapsed` | false | — |
 
-并导出 clamp 常量（`NOTES_LIST_MIN/MAX`、`NOTES_DETAIL_MIN/MAX`）供 resizer 与单测共用。
+Also export clamp constants (`NOTES_LIST_MIN/MAX`, `NOTES_DETAIL_MIN/MAX`) for shared use by resizers and unit tests.
 
-**2. `components/library/ColumnResizer.tsx`（新增）** — 通用列拖拽手柄。
+**2. `components/library/ColumnResizer.tsx` (new)** — General-purpose column drag handle.
 
 - props：`{ width: number; min: number; max: number; onResize: (next: number) => void }`
-- 渲染一个 4px 宽的竖向手柄；hover/active 时 `cursor-col-resize`，用语义色（如 `bg-border` / hover `bg-primary/40`），**禁止 Tailwind 调色板硬编码**。
-- 交互：`onPointerDown` 记录 `startX` 与 `startWidth` 并 `setPointerCapture`；`onPointerMove` 计算 `next = clamp(startWidth + (e.clientX - startX), min, max)` 调 `onResize`；`onPointerUp` 释放 capture。拖拽期间给 `document.body` 加 `select-none` 防止选中文本。
-- 纯函数 `clampWidth(value, min, max)` 抽出，便于单测。
+- Render a 4px vertical handle; use `cursor-col-resize` on hover/active and semantic colors (e.g. `bg-border` / hover `bg-primary/40`); **hardcoded Tailwind palette colors are forbidden**.
+- Interaction: `onPointerDown` records `startX` and `startWidth` and calls `setPointerCapture`; `onPointerMove` computes `next = clamp(startWidth + (e.clientX - startX), min, max)` and calls `onResize`; `onPointerUp` releases capture. Add `select-none` to `document.body` during dragging to prevent text selection.
+- Extract pure function `clampWidth(value, min, max)` for unit testing.
 
-**3. `components/library/NotesView.tsx`（改造布局，[NotesView.tsx:216](../../apps/electron/src/renderer/components/library/NotesView.tsx#L216)）**
+**3. `components/library/NotesView.tsx` (layout changes, [NotesView.tsx:216](../../apps/electron/src/renderer/components/library/NotesView.tsx#L216))**
 
-- 列表栏：`w-[380px]` → `style={{ width: listWidth }}` + `shrink-0`。
-- 列表栏后插 `<ColumnResizer>`，绑定 `notesListWidthAtom`。
-- 详情栏：`w-[520px]` → 预览栏展开时 `style={{ width: detailWidth }}` + `shrink-0`；预览栏收起时改为 `flex-1`（吃掉右侧空间）。
-- 详情栏后，仅当预览栏**未收起**时插 `<ColumnResizer>`，绑定 `notesDetailWidthAtom`。
-- 预览栏 `<main flex-1>`：仅当**未收起**时渲染。顶部加一个小标题条 + 关闭按钮（`PanelRightClose` 或 `X` 图标），点击 → `setNotesPreviewCollapsed(true)`。
+- List: `w-[380px]` → `style={{ width: listWidth }}` + `shrink-0`.
+- Insert `<ColumnResizer>` after the list, bound to `notesListWidthAtom`.
+- Detail: `w-[520px]` → `style={{ width: detailWidth }}` + `shrink-0` when preview is open; use `flex-1` when collapsed (taking the right-side space).
+- After detail, insert `<ColumnResizer>` bound to `notesDetailWidthAtom` only when preview is **not collapsed**.
+- Preview `<main flex-1>`: Render only when **not collapsed**. Add a small title bar + close button (`PanelRightClose` or `X` icon); click → `setNotesPreviewCollapsed(true)`.
 
-**4. 展开联动** — 用户点击证据条目触发 `setPreviewMode(...)` 的所有入口（`onSelectPaperRef` / `onSelectReview` / `onSelectConversation`），在设 `previewMode` 的同时 `setNotesPreviewCollapsed(false)`，确保收起态下点条目能重新弹出预览。
+**4. Reopening coordination** — At every evidence-entry handler triggering `setPreviewMode(...)` (`onSelectPaperRef` / `onSelectReview` / `onSelectConversation`), set `setNotesPreviewCollapsed(false)` along with `previewMode`, ensuring clicking an entry reopens a collapsed preview.
 
 ### i18n
 
-预览栏关闭按钮的 `aria-label` / tooltip 文案走 `useT('library')`，en + zh 同步加 key（如 `notes.view.preview.collapse` = "收起预览" / "Collapse preview"）。由 `key-parity` 测试守门。
+The preview close button's `aria-label` / tooltip uses `useT('library')`; add matching en + zh keys (e.g. `notes.view.preview.collapse` = “Collapse preview” in Chinese / “Collapse preview” in English). Guard with `key-parity` tests.
 
-### 数据流
+<a id="数据流"></a>
+
+### Data flow
 
 ```
-用户拖分隔条 → ColumnResizer.onPointerMove → clampWidth → set 宽度 atom（localStorage 落盘）
-                                                              → NotesView 重渲染，对应 aside width 更新
-用户点关闭按钮 → set notesPreviewCollapsed=true → 预览栏不渲染 + 详情栏 flex-1
-用户点证据条目 → set previewMode + set notesPreviewCollapsed=false → 预览栏重新渲染
+User drags divider → ColumnResizer.onPointerMove → clampWidth → Set width atom (localStorage)
+                                                              → NotesView rerenders, updates aside width
+User clicks close → set notesPreviewCollapsed=true → Hide preview + detail flex-1
+User clicks evidence → set previewMode + set notesPreviewCollapsed=false → Render preview again
 ```
 
-### 错误处理 / 边界
+<a id="错误处理-&#45;边界"></a>
 
-- 宽度始终经 `clampWidth` 收敛，localStorage 里被改坏的异常值在读出后由 clamp 兜底（在 resizer 设值与渲染用值两侧都 clamp）。
-- 预览栏收起时不渲染 `EvidenceItemPreviewPane`（其自带 ErrorBoundary 不受影响）。
-- 全屏 PDF 覆盖层（`NotesViewPdfOverlay`）与本改动正交，不变。
+### Error handling / boundaries
 
-### 测试
+- Always constrain widths with `clampWidth`; clamp malformed localStorage values after reading (both when the resizer sets values and when rendering uses them).
+- Do not render `EvidenceItemPreviewPane` when preview is collapsed (its own ErrorBoundary is unaffected).
+- Fullscreen PDF overlay (`NotesViewPdfOverlay`) is orthogonal and unchanged.
 
-- `clampWidth` 纯函数单测：低于 min、高于 max、区间内三类边界（Bun 原生 test）。
-- 拖拽手感、收起/展开联动、跨会话记忆：人工在 `bun run dev` 验证（无法自动化的部分明确告知）。
+<a id="测试"></a>
 
-### 版本
+### Tests
+
+- `clampWidth` pure-function unit tests: below min, above max, and within bounds (native Bun test).
+- Drag feel, collapse/reopen coordination, and cross-session persistence: verify manually in `bun run dev` (explicitly report portions that cannot be automated).
+
+<a id="版本"></a>
+
+### Version
 
 `@asci/electron` patch +1。
 
-## 受影响文件清单
+<a id="受影响文件清单"></a>
 
-- 新增：`apps/electron/src/renderer/atoms/notes-layout.ts`
-- 新增：`apps/electron/src/renderer/components/library/ColumnResizer.tsx`（+ 同名 `.test.ts` 测 clamp）
-- 改：`apps/electron/src/renderer/components/library/NotesView.tsx`
-- 改：`apps/electron/src/renderer/locales/{en,zh}/library/core.json`（preview.collapse key）
-- 改：`apps/electron/package.json`（version bump）
+## Affected file inventory
+
+- Add: `apps/electron/src/renderer/atoms/notes-layout.ts`
+- Add: `apps/electron/src/renderer/components/library/ColumnResizer.tsx` (+ matching `.test.ts` for clamp)
+- Modify: `apps/electron/src/renderer/components/library/NotesView.tsx`
+- Modify: `apps/electron/src/renderer/locales/{en,zh}/library/core.json` (preview.collapse key)
+- Modify: `apps/electron/package.json` (version bump)

@@ -16,7 +16,7 @@ Closes #
 
 - [ ] `bun run typecheck` passes
 - [ ] `bun test` passes
-- [ ] `bun run electron:build` passes（仅当改动影响构建时）
+- [ ] `bun run electron:build` passes (only when the change affects the build)
 - [ ] Manual testing (describe below)
 
 <!-- If manual testing, briefly describe what you tested: -->

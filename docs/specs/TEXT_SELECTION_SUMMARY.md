@@ -1,67 +1,89 @@
-# 划词功能实现总结
+<a id="划词功能实现总结"></a>
 
-## ✅ 已完成的工作
+# Text Selection Implementation Summary
 
-### 1. 核心组件
+<a id="-已完成的工作"></a>
 
-#### `TextSelectionToolbar` (文本选择工具栏)
-- 📁 位置：`apps/electron/src/renderer/components/ai-elements/text-selection-toolbar.tsx`
-- ✨ 功能：
-  - 浮动工具栏，显示在选中文本上方
-  - 显示选择数量指示器 "1 selection"
-  - 两个操作按钮：
-    - "Ask in sidebar" - 在侧边栏中提问
-    - "Add to chat" - 添加到当前对话框
-  - 点击外部自动关闭
-  - 带淡入动画效果
+## ✅ Completed Work
 
-#### `SelectableMessageResponse` (可选择的消息响应)
-- 📁 位置：`apps/electron/src/renderer/components/ai-elements/selectable-message-response.tsx`
-- ✨ 功能：
-  - 包装 `MessageResponse` 组件
-  - 集成文本选择功能
-  - 处理 "Ask in sidebar" 和 "Add to chat" 事件
-  - 管理工具栏的显示和隐藏
+<a id="1-核心组件"></a>
 
-### 2. 自定义 Hooks
+### 1. Core Components
+
+<a id="textselectiontoolbar-文本选择工具栏"></a>
+
+#### `TextSelectionToolbar` (Text Selection Toolbar)
+- 📁 Location: `apps/electron/src/renderer/components/ai-elements/text-selection-toolbar.tsx`
+- ✨ Features:
+  - Floating toolbar above selected text
+  - Selection count indicator "1 selection"
+  - Two action buttons:
+    - "Ask in sidebar" - Ask in the sidebar
+    - "Add to chat" - Add to the current chat input
+  - Automatically closes on outside clicks
+  - Fade-in animation
+
+<a id="selectablemessageresponse-可选择的消息响应"></a>
+
+#### `SelectableMessageResponse` (Selectable Message Response)
+- 📁 Location: `apps/electron/src/renderer/components/ai-elements/selectable-message-response.tsx`
+- ✨ Features:
+  - Wraps the `MessageResponse` component
+  - Integrates text selection
+  - Handles "Ask in sidebar" and "Add to chat" events
+  - Manages toolbar visibility
+
+<a id="2-自定义-hooks"></a>
+
+### 2. Custom Hooks
 
 #### `useTextSelection`
-- 📁 位置：`apps/electron/src/renderer/hooks/useTextSelection.ts`
-- ✨ 功能：
-  - 监听文本选择事件
-  - 计算工具栏位置（选中区域中心上方）
-  - 验证选择是否在容器内
-  - 提供清除选择的方法
+- 📁 Location: `apps/electron/src/renderer/hooks/useTextSelection.ts`
+- ✨ Features:
+  - Listens for text selection events
+  - Positions the toolbar (above the center of the selection)
+  - Validates that selection is inside the container
+  - Provides a method to clear selection
 
-### 3. 状态管理
+<a id="3-状态管理"></a>
+
+### 3. State Management
 
 #### `text-selection-atoms.ts`
-- 📁 位置：`apps/electron/src/renderer/atoms/text-selection-atoms.ts`
-- ✨ 包含：
-  - `pendingQuoteAtom` - 待添加到输入框的引用文本
-  - `sidebarQuoteAtom` - 侧边栏提问的引用文本
-  - `SelectedTextQuote` 接口定义
+- 📁 Location: `apps/electron/src/renderer/atoms/text-selection-atoms.ts`
+- ✨ Includes:
+  - `pendingQuoteAtom` - Quote text pending insertion into the input
+  - `sidebarQuoteAtom` - Quote text for a sidebar question
+  - `SelectedTextQuote` interface definition
 
-### 4. 文档和示例
+<a id="4-文档和示例"></a>
 
-- ✅ **使用指南**：`TEXT_SELECTION_FEATURE.md`
-- ✅ **集成示例**：`text-selection-examples.tsx`
-  - Agent 消息中使用示例
-  - 输入框处理引用示例
-  - 侧边栏处理引用示例
-  - 完整对话组件集成示例
+### 4. Documentation and Examples
 
-### 5. 组件修改
+- ✅ **Usage guide**: `TEXT_SELECTION_FEATURE.md`
+- ✅ **Integration examples**: `text-selection-examples.tsx`
+  - Agent message usage example
+  - Input quote handling example
+  - Sidebar quote handling example
+  - Complete conversation component integration example
 
-#### `message.tsx` 
-- ✅ 将 `MessageResponseProps` 从 `interface` 改为 `export interface`
-- ✅ 导出 `SelectableMessageResponse` 组件
+<a id="5-组件修改"></a>
 
-## 📋 下一步需要完成的工作
+### 5. Component Changes
 
-### 1. 输入框集成（高优先级）
+#### `message.tsx`
+- ✅ Changed `MessageResponseProps` from `interface` to `export interface`
+- ✅ Exported the `SelectableMessageResponse` component
 
-需要修改 `rich-text-input.tsx`，添加监听 `pendingQuoteAtom` 的逻辑：
+<a id="-下一步需要完成的工作"></a>
+
+## 📋 Remaining Work
+
+<a id="1-输入框集成高优先级"></a>
+
+### 1. Input Integration (High Priority)
+
+Modify `rich-text-input.tsx` to subscribe to `pendingQuoteAtom`:
 
 ```tsx
 // 在 rich-text-input.tsx 中添加
@@ -89,9 +111,11 @@ React.useEffect(() => {
 }, [pendingQuote, editor, setPendingQuote])
 ```
 
-### 2. 侧边栏集成（高优先级）
+<a id="2-侧边栏集成高优先级"></a>
 
-需要找到或创建侧边栏组件，添加监听 `sidebarQuoteAtom` 的逻辑：
+### 2. Sidebar Integration (High Priority)
+
+Find or create the sidebar component and subscribe to `sidebarQuoteAtom`. The retained code's Chinese input prefix means “Regarding the following content.”
 
 ```tsx
 // 在侧边栏组件中添加
@@ -119,9 +143,11 @@ React.useEffect(() => {
 }, [sidebarQuote, setSidebarQuote])
 ```
 
-### 3. 在实际会话中使用（高优先级）
+<a id="3-在实际会话中使用高优先级"></a>
 
-找到显示 Agent 消息的组件，将 `MessageResponse` 替换为 `SelectableMessageResponse`：
+### 3. Use in Actual Conversations (High Priority)
+
+Find the component displaying Agent messages and replace `MessageResponse` with `SelectableMessageResponse`:
 
 ```tsx
 // 找到类似这样的代码
@@ -135,13 +161,15 @@ React.useEffect(() => {
 </SelectableMessageResponse>
 ```
 
-可能的文件位置：
+Possible file locations:
 - `apps/electron/src/renderer/components/agent/*.tsx`
 - `apps/electron/src/renderer/components/ai-elements/*.tsx`
 
-### 4. i18n 国际化（中优先级）
+<a id="4-i18n-国际化中优先级"></a>
 
-需要添加文本选择相关的翻译：
+### 4. i18n Internationalization (Medium Priority)
+
+Add text-selection translations:
 
 **en.json**:
 ```json
@@ -154,7 +182,7 @@ React.useEffect(() => {
 }
 ```
 
-**zh.json**:
+**zh.json** (the retained values mean “selections,” “Ask in sidebar,” and “Add to chat”):
 ```json
 {
   "textSelection": {
@@ -165,68 +193,82 @@ React.useEffect(() => {
 }
 ```
 
-然后修改 `text-selection-toolbar.tsx` 使用 `useT` hook。
+Then modify `text-selection-toolbar.tsx` to use the `useT` hook.
 
-### 5. 测试和优化（中优先级）
+<a id="5-测试和优化中优先级"></a>
 
-- ✅ 测试文本选择在不同内容长度下的表现
-- ✅ 测试工具栏位置在不同滚动位置下的准确性
-- ✅ 测试多次快速选择的性能
-- ✅ 测试在移动端/小屏幕上的表现
-- ✅ 添加键盘快捷键支持（如 Cmd+K 快速触发）
+### 5. Testing and Optimization (Medium Priority)
 
-### 6. 样式微调（低优先级）
+- ✅ Test text selection with different content lengths.
+- ✅ Test toolbar positioning at different scroll positions.
+- ✅ Test performance during repeated rapid selections.
+- ✅ Test mobile/small-screen behavior.
+- ✅ Add keyboard shortcuts (such as Cmd+K to trigger quickly).
 
-- 调整工具栏的圆角、阴影、间距等细节
-- 添加更多的动画效果（如按钮 hover 效果）
-- 适配深色/浅色主题
+<a id="6-样式微调低优先级"></a>
 
-## 🔍 需要查找的文件
+### 6. Styling Refinements (Low Priority)
 
-为了完成集成，需要找到以下文件：
+- Adjust toolbar radii, shadows, spacing, and other details.
+- Add more animations (such as button hover effects).
+- Adapt dark/light themes.
 
-1. **输入框组件**：
-   - ✅ 已找到：`apps/electron/src/renderer/components/ai-elements/rich-text-input.tsx`
+<a id="-需要查找的文件"></a>
 
-2. **侧边栏组件**：
-   - 需要查找侧边栏的实现
-   - 可能在 `apps/electron/src/renderer/components/app-shell/` 下
+## 🔍 Files to Locate
 
-3. **Agent 会话组件**：
-   - 需要找到显示 AI 消息的组件
-   - 可能在 `apps/electron/src/renderer/components/agent/` 下
+Find these files to complete integration:
 
-## 🎯 快速启动指南
+1. **Input component**:
+   - ✅ Found: `apps/electron/src/renderer/components/ai-elements/rich-text-input.tsx`
 
-要启用这个功能，最简单的步骤：
+2. **Sidebar component**:
+   - Locate the sidebar implementation.
+   - Possibly under `apps/electron/src/renderer/components/app-shell/`.
 
-1. **找到显示 AI 消息的地方**，将：
+3. **Agent conversation component**:
+   - Locate the component displaying AI messages.
+   - Possibly under `apps/electron/src/renderer/components/agent/`.
+
+<a id="-快速启动指南"></a>
+
+## 🎯 Quick Start Guide
+
+The simplest steps to enable this feature:
+
+1. **Find where AI messages are displayed**, and change:
    ```tsx
    <MessageResponse>{content}</MessageResponse>
    ```
-   改为：
+   to:
    ```tsx
    <SelectableMessageResponse>{content}</SelectableMessageResponse>
    ```
 
-2. **在输入框组件中添加监听**，参考上面的代码片段
+2. **Add a subscription in the input component**, referring to the snippets above.
 
-3. **测试**：选中 AI 生成的文本，应该会看到工具栏弹出
+3. **Test**: Select AI-generated text; the toolbar should appear.
 
-## 📊 技术栈
+<a id="-技术栈"></a>
 
-- **UI 框架**：React 18 + TypeScript
-- **状态管理**：Jotai
-- **样式**：Tailwind CSS
-- **图标**：Lucide React
-- **类型安全**：完整的 TypeScript 类型定义
+## 📊 Technology Stack
 
-## 🐛 已知限制
+- **UI framework**: React 18 + TypeScript
+- **State management**: Jotai
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Type safety**: Complete TypeScript type definitions
 
-1. 目前仅支持鼠标选择，不支持触摸选择（移动端）
-2. 工具栏位置在极端滚动情况下可能需要调整
-3. 暂未实现键盘快捷键
+<a id="-已知限制"></a>
 
-## 📝 更新日志
+## 🐛 Known Limitations
 
-- 2026-09-03: 初始实现，完成核心功能和文档
+1. Currently supports mouse selection only, not touch selection (mobile).
+2. Toolbar positioning may require adjustment under extreme scrolling.
+3. Keyboard shortcuts are not yet implemented.
+
+<a id="-更新日志"></a>
+
+## 📝 Changelog
+
+- 2026-09-03: Initial implementation, core features and documentation complete.

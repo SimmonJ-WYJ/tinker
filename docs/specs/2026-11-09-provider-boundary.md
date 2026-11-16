@@ -1,19 +1,25 @@
-# Rust执行器provider边界解耦
+<a id="rust执行器provider边界解耦"></a>
 
-状态：已实现并完成自动验证与独立审查，原生UI补验仍受阻。基线80a0043aef0e37930a395c6666e5129f3942ffdf，独立分支refactor/rust-provider-boundary。
+# Decoupling the Rust Executor Provider Boundary
 
-## 范围
+Status: implemented with automated validation and independent review complete; additional native UI acceptance remains blocked. Baseline 80a0043aef0e37930a395c6666e5129f3942ffdf, separate branch refactor/rust-provider-boundary.
 
-RunProvider不再接OfflineScenario，控制器不得直接创建/执行OfflineFixture。宿主适配层将现有success/failure/slow选项绑定到provider后注入同一执行器，保留start_lab_run/cancel_lab_run/read_lab_run及现有UI/DTO/旧日志读取、去重、取消、失败保存、重启恢复。OfflineScenario若作为旧持久化兼容元数据保留，不能再充当provider执行参数或决定控制器行为。不得为隐藏类型而添加空转转发层。
+<a id="范围"></a>
 
-新增行为：任意注入的受信任provider发生受控错误或panic时，执行器必须形成明确终态、保留已提交片段，不能永远running；取消后provider晚到结果不得改写旧run，drop和重开不自动调用provider。默认唯一可由IPC选用的provider仍为离线fixture，前端不能传provider实现、URL或凭据。
+## Scope
 
-## 验收
+RunProvider no longer accepts OfflineScenario, and the controller must not directly create/execute OfflineFixture. The host adapter binds existing success/failure/slow options to a provider before injecting it into the same executor, preserving start_lab_run/cancel_lab_run/read_lab_run and existing UI/DTO/old-log reading, deduplication, cancellation, failure saving, and restart recovery. If OfflineScenario remains as compatibility metadata for old persistence, it must no longer serve as a provider execution parameter or determine controller behavior. Do not add idle forwarding layers merely to hide types.
 
-先写失败行为测试，再实现最小接口；至少两个不同注入provider走真实控制器，验证分段输出、错误和panic、重复请求、取消/晚到片段、重开不执行、落盘故障。现有Tauri handler测试证明旧命令继续走已注入provider链路；IPC/React协议不改变，生产Electron/packages/bun.lock零差异，无新依赖。运行Rust fmt/test/clippy，前端和全仓类型/测试/lint/构建、独立审查，验证后正常钩子推安全分支并仅开Draft PR。
+New behavior: if any injected trusted provider returns a controlled error or panics, the executor must reach an explicit terminal state and preserve committed chunks rather than remain running forever; late provider results after cancellation must not rewrite an old run, and drop/reopen must not automatically call the provider. The default and only provider selectable via IPC remains the offline fixture; the frontend cannot pass provider implementations, URLs, or credentials.
 
-原生UI补验独立阻碍：桌面工具getState两次均failed to start Node runtime: No such file or directory，尚未进入新的应用权限流程。成功/取消/失败/重启/双语主题/关闭返回仍未验收，不以自动测试替代；不再重试CUA，不换工具绕过。
+<a id="验收"></a>
 
-回滚：revert本批提交恢复上一版fixture执行器，不删除实验数据。不接真实网络、模型、密钥、付费调用，不安装/部署。复用既有Cargo缓存，磁盘低于4GiB停新构建，不清理用户文件。不操作有47/14项已有改动或读取超时的旧工作树。
+## Acceptance
 
-验证及回滚：[报告](../reports/2026-11-09-provider-boundary-validation.md)。
+Write failing behavioral tests first, then implement the minimal interface; at least two different injected providers must pass through the real controller, verifying chunked output, errors and panics, duplicate requests, cancellation/late chunks, reopening without execution, and disk-write failures. Existing Tauri handler tests prove old commands continue through the injected provider chain; IPC/React protocols remain unchanged, production Electron/packages/bun.lock have zero diff, and there are no new dependencies. Run Rust fmt/test/clippy, frontend and repository-wide type/tests/lint/build checks and independent review; after validation, push a safe branch through normal hooks and open only a Draft PR.
+
+Independent blocker for native UI acceptance: both desktop tool getState attempts returned failed to start Node runtime: No such file or directory, before entering the new app permission flow. Success/cancellation/failure/restart/bilingual themes/close-and-return remain unaccepted and are not replaced by automated tests; do not retry CUA or bypass it with another tool.
+
+Rollback: revert this batch of commits to restore the previous fixture executor without deleting experimental data. No real network, models, keys, or paid calls, and no installation/deployment. Reuse existing Cargo caches; stop new builds below 4GiB disk space and do not clean user files. Do not operate on old worktrees with 47/14 existing changes or read timeouts.
+
+Validation and rollback: [report](../reports/2026-11-09-provider-boundary-validation.md).

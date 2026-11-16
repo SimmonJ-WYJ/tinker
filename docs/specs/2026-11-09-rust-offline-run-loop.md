@@ -1,43 +1,55 @@
-# Rust Lab 离线执行闭环实施规格
+<a id="rust-lab-离线执行闭环实施规格"></a>
 
-状态：隔离闭环已实现，自动检查通过，原生UI受锁屏阻挡，待Draft审阅。基线 main 94dad45fff5b2220b89d9d5bedce28df9a9590bf。仅 apps/tinker-rust、本文及验证报告允许变更，包版本遵循钩子。北京时间00:10开始，01:25收束实现，02:00停止新增实现及长构建。
+# Rust Lab Offline Execution Loop Implementation Specification
 
-## 目标和边界
+Status: isolated loop implemented, automated checks passed; native UI blocked by the lock screen, awaiting Draft review. Baseline main 94dad45fff5b2220b89d9d5bedce28df9a9590bf. Changes allowed only in apps/tinker-rust, this document, and the validation report; package versions follow hooks. Started at 00:10 Beijing time, implementation wrapped up at 01:25, with no new implementation or long builds after 02:00.
 
-沿用既有 Rust Lab，不创建第二套工程。实现默认实验会话的离线执行、片段输出、请求去重、取消、失败保留、JSONL事件及快照、重启恢复为interrupted。模型/工具/网络/密钥/真实会话/生产Electron/安装均不接入。旧submit_draft仍为modelNotMigrated，旧草稿schema和只读历史不改。UI明确显示离线测试，不称真实模型成功。
+<a id="目标和边界"></a>
 
-## 协议（camelCase JSON，protocolVersion=1）
+## Goals and Boundaries
 
-- RunSnapshot：runId、requestId（相同受限ASCII ID，1..64）、providerKind='offlineFixture'、scenario（success/failure/slow）、input、output、status（既有RunStatus）、sequence（安全非负整数）、errorCode（string|null）、recoveryRequired（boolean）。
-- RunRecord：protocolVersion、runId、sequence、kind（started/delta/completed/failed/cancelled/interrupted）、text（string|null）、errorCode（string|null）；持久化首条是独立元数据header（input/requestId/scenario，上限512KiB，计入总日志4MiB预算），它不属于公开RunRecord、不对外发。正常started从序号1开始；header-only崩溃恢复直接记录interrupted为序号1、不伪造已启动，以便独立恢复并兼容64KiB输入。
-- RunEventPage：protocolVersion、snapshot、events、nextAfterSequence、hasMore。每页默认64，最多256项，游标不超过快照序号，未知协议/非法形状拒绝。
-- start_lab_run(requestId,input,scenario)→RunSnapshot。scenario只允许success/failure/slow，客户端不能传地址/路径/模型。相同requestId和参数返回同一run，不重复执行；同ID不同参数冲突。input上限沿用65536 UTF-8字节。
-- cancel_lab_run(runId)→RunSnapshot，重复取消幂等，终态不可被晚到片段改写。
-- read_lab_run(runId?,afterSequence?,limit?)→RunEventPage，runId缺省读取最近run；不存在返回runNotFound。
+Reuse the existing Rust Lab without creating a second project. Implement offline execution for the default experimental session, incremental output, request deduplication, cancellation, retention on failure, JSONL events and snapshots, and recovery as interrupted after restart. Do not connect models/tools/networks/keys/real sessions/production Electron/installations. Existing submit_draft remains modelNotMigrated; existing draft schema and read-only history remain unchanged. UI explicitly labels offline testing and does not claim real-model success.
 
-前端通过现有invoke进行有界游标读取，运行中约100ms一轮、同一时刻仅一轮，终态及卸载停止。并非真实模型SSE。使用现有桥接，无新增JS依赖；失败保留输入和部分输出，旧run晚到响应用请求世代隔离。
+<a id="协议camelcase-jsonprotocolversion1"></a>
 
-## Rust核心
+## Protocol (camelCase JSON, protocolVersion=1)
 
-- run_provider.rs：可替换provider trait，OfflineFixture为唯一实现，不访问网络或shell。正常输出、片段后失败、可取消慢速场景，全部明确离线。
-- run_store.rs：固定Rust Lab app_local_data_dir()/runs-v1，单写者锁、受限ID及符号链接检查，追加JSONL为事实源，快照可原子重建。独立于session-store-v1/history-v1，不塞进旧草稿记录。
-- run_controller.rs：一个活动run，有限队列/输出内存，取消令牌，先落盘再确认事件；存储失败不伪装完成。启动恢复旧inflight为interrupted，不自动调用provider。runId绑定唯一requestId，重复点击及重启重复提交不生成第二个run。
-- 事件单条上限16KiB、输出上限256KiB、事件最多4096、单run日志上限4MiB（任一到界停止）。分页最多256，不一次性向前端发送全部历史事件。
+- RunSnapshot: runId, requestId (same restricted ASCII ID, 1..64), providerKind='offlineFixture', scenario (success/failure/slow), input, output, status (existing RunStatus), sequence (safe nonnegative integer), errorCode (string|null), recoveryRequired (boolean).
+- RunRecord: protocolVersion, runId, sequence, kind (started/delta/completed/failed/cancelled/interrupted), text (string|null), errorCode (string|null); the first persisted entry is a separate metadata header (input/requestId/scenario, capped at 512KiB and included in the total 4MiB log budget). It is not a public RunRecord and is not emitted externally. Normal started begins at sequence 1; header-only crash recovery records interrupted directly at sequence 1 without inventing a start, enabling independent recovery and compatibility with 64KiB input.
+- RunEventPage: protocolVersion, snapshot, events, nextAfterSequence, hasMore. Default page size 64, maximum 256; cursors cannot exceed the snapshot sequence; reject unknown protocols/invalid shapes.
+- start_lab_run(requestId,input,scenario)→RunSnapshot. scenario permits only success/failure/slow; clients cannot supply addresses/paths/models. Identical requestId and parameters return the same run without rerunning; same ID with different parameters conflicts. Retain the input limit of 65536 UTF-8 bytes.
+- cancel_lab_run(runId)→RunSnapshot; repeated cancellation is idempotent, and late deltas cannot overwrite a terminal state.
+- read_lab_run(runId?,afterSequence?,limit?)→RunEventPage; omitting runId reads the latest run; absent runs return runNotFound.
 
-## 实施清单与文件所有权
+The frontend uses existing invoke for bounded cursor reads, about every 100ms while running, with only one read at a time; stop at terminal state or unmount. This is not real-model SSE. Reuse the existing bridge with no new JS dependencies; preserve input and partial output on failure, and isolate late responses from old runs by request generation.
 
-- [x] Rust行为红测后实现provider/store/controller，复用session_lifecycle。新增上述模块、run_types.rs及独立测试，lib.rs仅模块导出。
-- [x] Tauri真实handler接线与InvokeRequest回归：run_commands.rs、main.rs，不改变旧命令语义。
-- [x] React严格解码、单轮读取与过期响应处理、双语RunPanel和测试。main.tsx仅挂载隔离实验面板，保留原草稿和历史。
-- [x] 故障回归：正常/失败/取消/重复/取消竞态/旧run隔离/存储失败/损坏中段与截断尾部/未来版本/重启恢复，不依赖真实用户文件。
-- [x] 最终fmt/test/clippy、前端类型/测试/build、全仓typecheck/test、Electron build、独立审查、生产目录零差异。
-- [ ] 独立identifier原生QA，合成数据验证成功/取消/失败/重启恢复。锁屏受阻不绕过，明确未运行项。
-- [ ] 正常钩子提交安全分支，验证全通过才推送Draft PR，不强推/合并/部署/安装，核验具体SHA和真实CI数量。
+<a id="rust核心"></a>
 
-## 资源与回滚
+## Rust Core
 
-复用确认无并发占用的/private/tmp/tinker-rust-night-target，Cargo离线锁定依赖。新增长尽量≤3GiB，空闲<4GiB停止新构建，不清理用户目录或制作DMG。不并行跑争用同一Cargo缓存的命令。临时caffeinate只覆盖本批，结束释放。
+- run_provider.rs: replaceable provider trait, with OfflineFixture as its only implementation; no network or shell access. Normal output, failure after deltas, and cancellable slow scenarios are all explicitly offline.
+- run_store.rs: fixed Rust Lab app_local_data_dir()/runs-v1, single-writer lock, restricted IDs, and symlink checks; append-only JSONL is the source of truth, and snapshots can be rebuilt atomically. Separate from session-store-v1/history-v1; do not insert it into old draft records.
+- run_controller.rs: one active run, bounded queues/output memory, cancellation token, persist before acknowledging events; never pretend completion on storage failure. Recover old inflight runs as interrupted on startup without calling the provider automatically. runId binds a unique requestId; repeated clicks and resubmission after restart do not generate a second run.
+- Maximum event size 16KiB, output 256KiB, 4096 events, and 4MiB log per run (stop on reaching any limit). Pages are capped at 256; never send all historical events to the frontend at once.
 
-回滚只revert本批提交或移除实验面板/command注册；现行Electron和安装不变。runs-v1是独立新实验数据，回滚不删除它，也不迁移用户历史。未迁移能力仍标记未迁移。不承诺整机内存下降，资源测量只能描述本次离线Rust Lab。
+<a id="实施清单与文件所有权"></a>
 
-实际证据、原生UI未运行边界、资源与回滚见 [验证报告](../reports/2026-11-09-rust-offline-run-loop-validation.md)。
+## Implementation Checklist and File Ownership
+
+- [x] Implement provider/store/controller after Rust behavior red tests, reusing session_lifecycle. Add these modules, run_types.rs, and independent tests; lib.rs only exports modules.
+- [x] Wire real Tauri handlers and InvokeRequest regression: run_commands.rs, main.rs; preserve old command semantics.
+- [x] React strict decoding, one-read-at-a-time polling, stale-response handling, bilingual RunPanel, and tests. main.tsx mounts only the isolated experimental panel, retaining existing drafts and history.
+- [x] Failure regressions: normal/failure/cancel/duplicate/cancel race/old-run isolation/storage failure/corrupt middle and truncated tail/future version/restart recovery, independent of real user files.
+- [x] Final fmt/test/clippy, frontend types/tests/build, repository typecheck/test, Electron build, independent review, and zero differences in production directories.
+- [ ] Native QA with an independent identifier, validating success/cancel/failure/restart recovery with synthetic data. Do not bypass the lock screen; state unrun checks explicitly.
+- [ ] Commit to a safe branch with normal hooks; push a Draft PR only after all checks pass. No force-push/merge/deploy/install; verify the specific SHA and actual CI count.
+
+<a id="资源与回滚"></a>
+
+## Resources and Rollback
+
+Reuse /private/tmp/tinker-rust-night-target after confirming no concurrent use; Cargo dependencies remain offline and locked. Keep new growth ≤3GiB where possible; stop new builds below 4GiB free space. Do not clean user directories or create a DMG. Do not run commands concurrently against the same Cargo cache. Temporary caffeinate covers only this batch and is released afterward.
+
+Rollback only reverts this batch's commits or removes experimental panel/command registrations; current Electron and installation remain unchanged. runs-v1 is independent new experimental data and is neither deleted on rollback nor used to migrate user history. Unmigrated capabilities remain labeled unmigrated. Do not promise lower whole-machine memory use; resource measurements describe only this offline Rust Lab.
+
+Actual evidence, native-UI checks not run, resource use, and rollback are in the [validation report](../reports/2026-11-09-rust-offline-run-loop-validation.md).

@@ -1,8 +1,10 @@
-# 模型与渠道设置
+<a id="模型与渠道设置"></a>
 
-状态：已按两张确认稿实现；保留现有渠道数据和模型路由。
+# Model and Channel Settings
 
-- 给定已配置的文本和生图渠道，打开模型与渠道设置时，分别显示在「语言对话」和「图片生成」。点击渠道主体进入同窗编辑，独立开关只负责启停。
-- 给定编辑页，配置名称和类型优先并排；地址预览在地址下方，连接测试与密钥相邻，结果在下方。刷新和手动添加模型仍可用。生图协议直接显示在连接信息中；优先级、参考图设置和 PDF 能力放在高级设置。
-- 给定有效的编辑配置，点击保存应等待持久化后才回到列表。生图配置仅在用户点击测试时发送测试图请求。
-- 工作台侧栏移除顶部品牌区，首页和登录页品牌保持原样。
+Status: Implemented according to the two confirmed designs; existing channel data and model routing are preserved.
+
+- Given configured text and image-generation channels, opening model and channel settings displays them under "Language Conversation" and "Image Generation" respectively. Clicking a channel's body opens editing in the same window; the separate switch only enables/disables it.
+- On the edit page, prioritize placing configuration name and type side by side; place endpoint preview below the address, connection testing beside the key, and results underneath. Refresh and manual model entry remain available. Show the image-generation protocol directly in connection information; place priority, reference-image settings, and PDF capability under advanced settings.
+- Given a valid edited configuration, clicking Save waits for persistence before returning to the list. Image-generation configurations send a test-image request only when the user clicks Test.
+- Remove the top brand area from the workbench sidebar; preserve branding on the homepage and login page.

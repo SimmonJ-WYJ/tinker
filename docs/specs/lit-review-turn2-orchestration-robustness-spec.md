@@ -1,64 +1,80 @@
-> 历史科研规格：保存旧设计和数据语义，不作为当前新增功能或恢复运行接线的要求。科研主动功能正按[退役规格](./2026-11-10-research-retirement.md)分批收口，实际完成与未验收范围以对应执行记录为准。
+> Historical research specification: Preserves old design and data semantics; does not require new features or restoring runtime wiring. Active research features are being restricted in batches under the [retirement spec](./2026-11-10-research-retirement.md); corresponding execution records define actual completion and unaccepted scope.
 
-# lit-review Turn-2 编排健壮性 spec
+<a id="lit-review-turn-2-编排健壮性-spec"></a>
 
-> **状态**：L1+L2+L3 已实现（typecheck + 守门测试通过；待 >10 篇综述、其中 >8 已解析的行为验证）。阈值/deepReadCap 已下调为 10/8（见 semantic-first spec）。
-> **关联 issue**：（待补）
-> **关联 PR**：（待补，本 PR）
-> **领域语言事实源**：`CONTEXT.md`、`docs/specs/lit-review-semantic-first-reader-spec.md`、`docs/specs/lit-review-reader-evidence-cache-spec.md`
+# lit-review Turn-2 Orchestration Robustness Spec
 
-## 1. 背景与问题
+> **Status**: L1+L2+L3 implemented (typecheck + guard tests passed; awaiting behavioral validation with a review of >10 papers, >8 already parsed). Threshold/deepReadCap lowered to 10/8 (see semantic-first spec).
+> **Related issue**: (To be added)
+> **Related PR**: (To be added, this PR)
+> **Domain sources of truth**: `CONTEXT.md`, `docs/specs/lit-review-semantic-first-reader-spec.md`, `docs/specs/lit-review-reader-evidence-cache-spec.md`
 
-lit-review Turn-2 的执行是**纯 prompt 驱动**：scenario Agent 吐一个 `## REVIEW PLAN`，master（orchestrator）靠阅读 PLAN 协议的英文叙述来决定派哪些 SubAgent、派几个、最后调不调 terminal skill。PLAN 协议见 `agent-prompt-builder.ts` 的 “Scenario Agent PLAN dispatch protocol”（§5.3/§5.4）。
+<a id="1-背景与问题"></a>
 
-在一次 39 篇论文的真实 run 里（debug dump #4），观察到的实际派发是 `1 triager + 15 reader + 0 skimmer + 0 escalation`，且最后 master **自己用 Write 拼了综述 HTML**，绕过了 `literature-review-result` terminal skill。
+## 1. Background and Problem
 
-### 1.1 四个叠加失效（over-determined）
+lit-review Turn-2 execution is **entirely prompt-driven**: The scenario Agent emits a `## REVIEW PLAN`; the master (orchestrator) reads the PLAN protocol's English prose to decide which SubAgents to dispatch, how many, and whether to invoke the terminal skill. See the "Scenario Agent PLAN dispatch protocol" in `agent-prompt-builder.ts` (§5.3/§5.4).
 
-- **A — 条件步骤写成 `input` 散文。** `scenario/system-prompt.md` 的 triager / skimmer step 以 “INCLUDE THIS STEP ONLY when…” 开头，“要不要跑这一步”埋在 dispatch 字符串里，不是结构化字段。master 要读散文临场判断，是上下文压力下最先丢的逻辑。
-- **B — ≤5 升级 reader 不是 step，只是 `step_ordering` 叙述。** master 要自己从散文里：读 skimmer 的 `needsDeepRead[]` → 按 hit 强度排序 → 截 5 → 合成新 reader 派发。动态 fan-out 要从散文“发明”，极易整段蒸发。
-- **C — terminal_skill 调用与 master 自身 Write 能力竞争。** master 有 `Write`。证据已落 `.context/`、文件也读了，最省力路径就是自己拼 HTML。协议只说 “invoke that Skill”，**没有硬闸**禁止 master 直接写交付物。
-- **D — 上下文压缩冲掉 PLAN 本身。** PLAN 躺在早期一个 scenario tool_result 里；15 个 reader 把大量证据行灌回 master context，读完时压缩很可能已把 PLAN JSON 丢掉。压缩后 master 只剩 `.context` 文件 + 模糊记忆 → 只能即兴 Write。**这是最深的因：PLAN 易失，执行窗口又长又重。**
+An actual 39-paper run (debug dump #4) dispatched `1 triager + 15 reader + 0 skimmer + 0 escalation`; finally, the master **assembled review HTML itself using Write**, bypassing the `literature-review-result` terminal skill.
 
-## 2. 重构框架：脊柱 vs 尽力而为
+<a id="11-四个叠加失效over-determined"></a>
 
-把 Turn-2 的步骤分两类，分别用不同强度的手段保障：
+### 1.1 Four Overlapping Failures (Over-determined)
 
-- **硬保证（必须永远发生）**：`evidence-triager`（>10 时）→ core `reader` fan-out → **terminal skill 产出综述**。
-- **尽力而为（丢了降质但不破 run）**：`evidence-skimmer`、≤5 升级 `reader`。升级 reader 明确划入此类——未派到的论文在 terminal skill 里降级进 §7/§8 低置信，不为它单独上结构化 fan-out DSL（会引入新的 PLAN 语法歧义）。
+- **A — Conditional steps expressed as `input` prose.** triager / skimmer steps in `scenario/system-prompt.md` begin "INCLUDE THIS STEP ONLY when…"; whether to execute is buried in a dispatch string rather than a structured field. The master must judge prose on the spot, making this the first logic lost under context pressure.
+- **B — ≤5 escalation readers are not a step, only `step_ordering` prose.** The master must derive from prose: read skimmer `needsDeepRead[]` → sort by hit strength → take 5 → synthesize new reader dispatches. Dynamic fan-out must be "invented" from prose and can easily disappear altogether.
+- **C — terminal_skill invocation competes with the master's own Write capability.** The master has `Write`. Evidence is in `.context/` and files have been read, making self-assembled HTML the easiest route. The protocol says only "invoke that Skill," with **no hard gate** against the master writing the deliverable directly.
+- **D — Context compaction discards PLAN itself.** PLAN resides in an early scenario tool_result; 15 readers flood master context with evidence rows, so compaction may discard PLAN JSON by the time reading finishes. After compaction the master has only `.context` files + vague memory → improvised Write. **This is the deepest cause: PLAN is volatile and the execution window is long and heavy.**
 
-## 3. 方案（本轮范围 L1+L2+L3）
+<a id="2-重构框架脊柱-vs-尽力而为"></a>
 
-### L1 — terminal_skill 硬闸（修 C + D 最坏症状）
+## 2. Refactoring Framework: Backbone vs Best Effort
 
-**目标**：PLAN 声明了 `terminal_skill` 时，综述**只能**经该 Skill 产出；master 禁止自己 Write 交付物；证据被压缩也照调，Skill 自己 glob `.context/` 恢复。
+Divide Turn-2 steps into two categories with different levels of assurance:
 
-落地：
-- `agent-prompt-builder.ts` PLAN 协议 step 5 增加硬规则：*当 PLAN 含 `terminal_skill` 时，你（master）MUST NOT 自己写交付物产物（如 `reviews/*.html`）。该 Skill 是唯一生产者。即使 inline evidenceRows 已被压缩丢失，也仍然调用该 Skill —— 它会 glob `.context/*.evidence.json` 重建证据。绝不用 ad-hoc prompt / 直接 Write 代替它。*
-- `scenario/system-prompt.md` Turn-2 “Hard rule” 段回写同一条（双保险）。
-- `literature-review-result/SKILL.md` 的 `.context` glob 恢复**已在前序 PR 落地**（inline 缺失时 Glob `.context/*.evidence.json`）；本轮把它从“fallback”表述升级为“常规输入通道”（见 L2）。
+- **Hard guarantees (must always happen)**: `evidence-triager` (when >10) → core `reader` fan-out → **terminal skill produces the review**.
+- **Best effort (omission reduces quality without breaking the run)**: `evidence-skimmer`, ≤5 escalation `reader` instances. Escalation readers explicitly belong here: undispatched papers become low-confidence entries in terminal skill §7/§8; no separate structured fan-out DSL, which would introduce new PLAN syntax ambiguity.
 
-### L2 — terse reader 回传 + cache 当传输通道（修 D 根因）
+<a id="3-方案本轮范围-l1l2l3"></a>
 
-**目标**：reader / skimmer 不再把整套证据行灌回 master，只回**指针**；真正的行留在 `.context/`，terminal skill glob 取。master context 跨 15 个 reader 几乎不涨 → 压缩可能根本不触发。
+## 3. Solution (This Round: L1+L2+L3)
 
-reader / skimmer 回传契约改为 terse pointer（每篇一行）：
+<a id="l1-&#45;terminal_skill-硬闸修-c-&#45;d-最坏症状"></a>
+
+### L1 — terminal_skill Hard Gate (Fix C + D's Worst Symptom)
+
+**Goal**: When PLAN declares `terminal_skill`, the review **must** be produced by that Skill; the master cannot Write the deliverable itself. Invoke it even if evidence was compacted away; the Skill globs `.context/` to recover it.
+
+Implementation:
+- Add a hard rule to PLAN protocol step 5 in `agent-prompt-builder.ts`: *When PLAN includes `terminal_skill`, you (master) MUST NOT write deliverable artifacts yourself (such as `reviews/*.html`). That Skill is the sole producer. Even if compaction lost inline evidenceRows, still invoke the Skill: it globs `.context/*.evidence.json` to reconstruct evidence. Never replace it with an ad-hoc prompt / direct Write.*
+- Mirror this in the Turn-2 "Hard rule" paragraph of `scenario/system-prompt.md` for redundancy.
+- `.context` glob recovery in `literature-review-result/SKILL.md` **already shipped in a preceding PR** (Glob `.context/*.evidence.json` when inline input is missing); this round promotes it from a "fallback" to a "regular input channel" (L2).
+
+<a id="l2-&#45;terse-reader-回传-&#45;cache-当传输通道修-d-根因"></a>
+
+### L2 — Terse Reader Returns + Cache as Transport (Fix D's Root Cause)
+
+**Goal**: reader / skimmer return only **pointers**, without flooding the master with complete evidence rows. Actual rows stay in `.context/` for terminal skill globbing. Master context barely grows across 15 readers → compaction may never trigger.
+
+Change reader / skimmer returns to terse pointers (one line per paper):
 
 ```json
 { "N": 5, "source_id": "<parentItemKey>", "bucket": "deep-read",
   "rowCount": 4, "cacheFile": ".context/<key>.evidence.json" }
 ```
 
-- 完整 `rows` 只写进 `.context/<key>.evidence.json`（reader 已有此行为），**不再**整体回灌 master。
-- terminal skill 输入契约（`scenario/system-prompt.md` terminal_skill.input + `SKILL.md`）改为：**默认 glob `.context/*.evidence.json` 取证据行**，inline rows 变可选/省略。Skill 用每个 cache 文件里的 `source_id` + `N` 把行映射回 `papers[]` 的引文序号。
-- **静默丢失防护**：pointer 带 `rowCount`；若某篇 cache 文件缺失或 `rows` 为空，Skill 在 §7/§8 标该篇“证据缺失”，不静默跳过。
-- **对 fact-checker 的影响**：fact-checker 也能 glob `.context/` + 读最终综述做溯源校验，不依赖 master inline rows。需在 fact-checker 派发说明里点明证据源是 `.context/` + 综述产物。
+- Write complete `rows` only into `.context/<key>.evidence.json` (reader already does so); **stop** sending them wholesale back to the master.
+- Change the terminal skill input contract (`scenario/system-prompt.md` terminal_skill.input + `SKILL.md`): **glob `.context/*.evidence.json` for evidence rows by default**, making inline rows optional/omittable. The Skill maps rows to citation numbers in `papers[]` using each cache file's `source_id` + `N`.
+- **Silent-loss protection**: Pointers carry `rowCount`; if a paper's cache file is absent or `rows` empty, the Skill marks it "evidence missing" in §7/§8 rather than silently skipping it.
+- **Impact on fact-checker**: fact-checker can also glob `.context/` + read the final review for provenance verification, without master inline rows. Dispatch instructions must identify `.context/` + the review artifact as evidence sources.
 
-### L3 — 结构化 `when` 谓词（修 A，提升 skimmer 触发率）
+<a id="l3-&#45;结构化-when-谓词修-a提升-skimmer-触发率"></a>
 
-**目标**：把 “INCLUDE ONLY when…” 从 `input` 散文提出来，变成 step 上的 `when` 字段，master 机械求值而非读英文。复用已有的 `terminal_skill.condition` 机制（PLAN 协议 step 5 已能对 tool_results 求谓词）。
+### L3 — Structured `when` Predicates (Fix A, Improve Skimmer Dispatch)
 
-PLAN step 增加可选 `when`（dotted-path 比较，语法与 `terminal_skill.condition` 同形）：
+**Goal**: Move "INCLUDE ONLY when…" out of `input` prose into a step-level `when` field for mechanical evaluation rather than reading English. Reuse existing `terminal_skill.condition` (PLAN protocol step 5 already supports predicates over tool_results).
+
+Add optional `when` to PLAN steps (dotted-path comparison, same syntax as `terminal_skill.condition`):
 
 ```json
 { "subagent_type": "evidence-triager",
@@ -69,38 +85,48 @@ PLAN step 增加可选 `when`（dotted-path 比较，语法与 `terminal_skill.c
   "input": "…" }
 ```
 
-落地：
-- `agent-prompt-builder.ts` PLAN 协议加一条：*step 可带可选 `when` 谓词；派发前对累积 tool_results 求值，false 则跳过该 step、继续后续。无 `when` 的 step 无条件派发。* —— 与 step 5 的 `terminal_skill.condition` 同一求值心智。
-- `scenario/system-prompt.md` Turn-2 PLAN 把 triager / skimmer 的 “INCLUDE ONLY when…” 改写成 `when` 字段，`input` 只留真正的 dispatch 内容。
-- 谓词词汇表保持极简：`<stepName|inputField>.<path> <op> <literal>`，op ∈ `> >= < <= == !=`、`.length`。不引入布尔组合以外的复杂度（必要时拆成两个 step 或在散文里补一句）。
+The Chinese input placeholder in the preserved example means "input only, no INCLUDE ONLY prose."
 
-## 4. 暂不做（后手）
+Implementation:
+- Add to the PLAN protocol in `agent-prompt-builder.ts`: *Steps may carry an optional `when` predicate; evaluate it against accumulated tool_results before dispatch. If false, skip the step and continue. Steps without `when` dispatch unconditionally.* This uses the same evaluation model as step 5's `terminal_skill.condition`.
+- Rewrite triager / skimmer "INCLUDE ONLY when…" prose in the Turn-2 PLAN of `scenario/system-prompt.md` into `when` fields; retain only actual dispatch content in `input`.
+- Keep the predicate vocabulary minimal: `<stepName|inputField>.<path> <op> <literal>`, op ∈ `> >= < <= == !=`, `.length`. Introduce no complexity beyond Boolean combinations (split into two steps or add prose if necessary).
 
-- **L4 — PLAN 持久化**（Turn-2 PLAN 落 `.context/_plan.json`，压缩后 master 重读拿回配方）：L2 把 context 压力釜底抽薪后，压缩本就大概率不发生；L4 留作 L1+L2+L3 实测仍抖时的补强。
-- **L5 — 代码驱动 pipeline**（把 Turn-2 序列写成 orchestrator 确定性代码）：结构终局，能根治 A+B+C+D，但架构改动大，不应是第一步。
+<a id="4-暂不做后手"></a>
 
-## 5. 落地点清单
+## 4. Deferred (Follow-up Options)
 
-| 文件 | 改动 |
+- **L4 — Persist PLAN** (save Turn-2 PLAN to `.context/_plan.json`, letting the master reread its recipe after compaction): L2 removes the source of context pressure, likely avoiding compaction; reserve L4 if L1+L2+L3 remains unstable in actual runs.
+- **L5 — Code-driven pipeline** (deterministic orchestrator code for the Turn-2 sequence): The structural end state can solve A+B+C+D, but involves major architectural changes and should not be the first step.
+
+<a id="5-落地点清单"></a>
+
+## 5. Implementation Locations
+
+| File | Change |
 |------|------|
-| `apps/electron/src/main/lib/agent-prompt-builder.ts` | PLAN 协议：step 5 加 terminal_skill 硬闸（禁 master 自写交付物）；新增 step `when` 谓词求值规则 |
-| `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md` | Turn-2 PLAN：triager/skimmer 的 INCLUDE-ONLY 散文 → `when` 字段；terminal_skill.input 改为默认 glob `.context/`；Hard rule 回写 terminal_skill 硬闸 |
-| `apps/electron/default-capability-packs/lit-review/sub-agents/reader.md` | 回传契约改 terse pointer（rows 只落 cache）；保留 cache 写入 |
-| `apps/electron/default-capability-packs/lit-review/sub-agents/evidence-skimmer.md` | `covered[]` 同改 terse pointer |
-| `apps/electron/default-skills/literature-review-result/SKILL.md` | `.context` glob 从 fallback 升级为常规输入通道；rowCount 缺失防护 |
-| `apps/electron/default-capability-packs/lit-review/sub-agents/fact-checker.md` | 证据源点明 `.context/` + 综述产物 |
-| `apps/electron/default-capability-packs/lit-review/manifest.json` | 版本 patch 递增（开 PR 时） |
+| `apps/electron/src/main/lib/agent-prompt-builder.ts` | PLAN protocol: terminal_skill hard gate in step 5 (master cannot write deliverables); new step `when` predicate evaluation rule |
+| `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md` | Turn-2 PLAN: triager/skimmer INCLUDE-ONLY prose → `when` fields; terminal_skill.input defaults to glob `.context/`; mirror terminal_skill gate in Hard rule |
+| `apps/electron/default-capability-packs/lit-review/sub-agents/reader.md` | Terse pointer return contract (rows only in cache); retain cache writing |
+| `apps/electron/default-capability-packs/lit-review/sub-agents/evidence-skimmer.md` | Same terse pointer change for `covered[]` |
+| `apps/electron/default-skills/literature-review-result/SKILL.md` | Promote `.context` glob from fallback to regular input; rowCount loss protection |
+| `apps/electron/default-capability-packs/lit-review/sub-agents/fact-checker.md` | Identify `.context/` + review artifact as evidence sources |
+| `apps/electron/default-capability-packs/lit-review/manifest.json` | Increment patch version (when opening PR) |
 
-## 6. 验证
+<a id="6-验证"></a>
 
-- `bun run typecheck` + `bun test`（含 `default-capability-packs-load.test.ts` 守门，模板 token 不破）。
-- 行为验证需 >10 篇综述、其中 >8 篇**已解析（wiki 已 parse）**的库，实跑一次 Turn-2，确认：
-  1. master 不再自写 HTML（terminal skill 被调用）；
-  2. reader 回传是 terse pointer，master context 不随 reader 数线性膨胀；
-  3. skimmer 在 `light` 非空时被派发（`when` 生效）；
-  4. 中途若压缩，综述仍从 `.context/` 重建产出。
+## 6. Validation
 
-## 7. 未决
+- `bun run typecheck` + `bun test` (including `default-capability-packs-load.test.ts` guard; template tokens remain intact).
+- Behavioral validation requires a library for a >10-paper review, with >8 **already parsed (wiki parsed)**. Run Turn-2 and confirm:
+  1. Master no longer writes HTML itself (terminal skill invoked);
+  2. Readers return terse pointers; master context does not grow linearly with reader count;
+  3. Skimmer dispatches when `light` is nonempty (`when` takes effect);
+  4. If compaction occurs midway, the review is still reconstructed from `.context/`.
 
-- `when` 谓词仍是 master prose-evaluated（无真求值器）。论点：短结构化 `X.light.length > 0` 比埋在 200 词 input 里的整句更机械、更难漏——边际但真实改善。若仍不可靠，升级 L4/L5。
-- terse 回传后，master 对单篇证据质量失去可见性（只见 rowCount）。可接受：质量判断本就归 terminal skill + fact-checker。
+<a id="7-未决"></a>
+
+## 7. Open Questions
+
+- `when` predicates remain prose-evaluated by the master (no actual evaluator). Argument: A short structured `X.light.length > 0` is more mechanical and harder to miss than a sentence buried in a 200-word input: a marginal but real improvement. Escalate to L4/L5 if still unreliable.
+- After terse returns, the master loses visibility into individual paper evidence quality (sees only rowCount). Acceptable: Quality judgment already belongs to terminal skill + fact-checker.

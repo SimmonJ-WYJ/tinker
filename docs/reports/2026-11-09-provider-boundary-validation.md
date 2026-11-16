@@ -1,43 +1,53 @@
-# Provider边界解耦验证与原生补验状态
+<a id="provider边界解耦验证与原生补验状态"></a>
 
-基线main：80a0043aef0e37930a395c6666e5129f3942ffdf。分支refactor/rust-provider-boundary，工作树/private/tmp/tinker-provider-boundary-20261109。新阶段与上一阶段原生补验必须分别判断。
+# Provider Boundary Decoupling Validation and Native Follow-up Status
 
-## 一、原生补验仍受阻
+Baseline main: 80a0043aef0e37930a395c6666e5129f3942ffdf. Branch refactor/rust-provider-boundary, worktree /private/tmp/tinker-provider-boundary-20261109. Assess the new phase separately from the previous phase's outstanding native validation.
 
-本次桌面工具getState在进入应用权限流程前失败：`failed to start Node runtime: No such file or directory (os error 2)`。公开js_reset重置一次后同样失败，随后停止。未发起新的getApp权限请求，未消耗获准的一次应用访问重试，没有待批准请求。不换工具绕过，不安装或修改桌面自动化运行时，不启动QA或用户应用。
+<a id="一原生补验仍受阻"></a>
 
-成功/流式事件/取消和重复操作/失败保留/重启恢复/中英主题/关闭返回的真实原生窗口验收仍未执行。本轮无法判断桌面是否熄屏或锁定，不推断密码状态。没有临时保活进程。以下自动检查不能代替真实WebView验收。
+## I. Native Follow-up Remains Blocked
 
-## 二、本阶段实现
+The desktop tool getState failed before entering the app permission flow: `failed to start Node runtime: No such file or directory (os error 2)`. It failed identically after one reset through the public js_reset, then work stopped. No new getApp permission request was made; the authorized single app-access retry was not consumed, and no request awaits approval. No alternative tool bypass, desktop automation runtime installation or modification, or QA/user app launch.
 
-- RunProvider::execute仅接input、取消令牌和输出sink，不接OfflineScenario。
-- OfflineFixture在宿主按原有选项配置后作为Arc<dyn RunProvider>注入；控制器不再构造fixture，也不按场景选择执行行为。
-- RunHostState默认仍只绑定离线fixture，受信任Rust测试宿主可注入其他实现，IPC不能传实现、URL或凭据。真实start_lab_run调用已接上注入入口，没有只新增孤立trait。
-- scenario/providerKind仍为旧DTO、日志和去重的兼容元数据，尚未变成通用provider身份协议。本轮不改旧schema、UI或对外命令，不声称可直接挂真实模型。
-- provider panic映射固定providerPanicked失败终态，已提交片段保留；payload不进入JSONL/snapshot/IPC。Rust默认stderr panic hook保持，没有修改全局hook。
-- 注入provider必须遵守合作取消和输出sink错误；现有同步worker的Drop/join不会强制终止永不返回的第三方代码。这一边界未被本轮宣称解决。
+Actual native-window acceptance for success/streaming events/cancellation and duplicates/failure preservation/restart recovery/Chinese-English themes/close and return remains unperformed. This round cannot determine whether the display is off or the desktop locked and makes no inference about password status. No temporary keepalive process exists. The automated checks below cannot substitute for actual WebView acceptance.
 
-## 三、本次新跑的证据
+<a id="二本阶段实现"></a>
 
-| 检查 | 结果 |
+## II. Implementation in This Phase
+
+- RunProvider::execute accepts only input, a cancellation token, and an output sink, not OfflineScenario.
+- OfflineFixture is configured by the host with the original options and injected as Arc<dyn RunProvider>; the controller no longer constructs fixtures or selects execution behavior by scenario.
+- RunHostState still binds only the offline fixture by default. Trusted Rust test hosts can inject other implementations; IPC cannot pass implementations, URLs, or credentials. The actual start_lab_run call connects to injection, rather than merely adding an isolated trait.
+- scenario/providerKind remain compatibility metadata for the old DTO, logs, and deduplication; they are not yet a generic provider identity protocol. This round changes no old schema, UI, or public commands and does not claim real models can be attached directly.
+- Provider panics map to the fixed providerPanicked failed terminal state, preserving committed fragments; payloads never enter JSONL/snapshot/IPC. Rust's default stderr panic hook remains, with no global hook modification.
+- Injected providers must honor cooperative cancellation and output sink errors; the existing synchronous worker's Drop/join does not forcibly terminate third-party code that never returns. This round does not claim to solve that boundary.
+
+<a id="三本次新跑的证据"></a>
+
+## III. Fresh Evidence from This Run
+
+| Check | Result |
 | --- | --- |
-| Rust完整测试 | 96 passed、0 failed；较基线增加5个控制器注入/故障测试及1个真实handler测试 |
-| 真实Tauri handler | HostEcho/HostPanic不同实现使用旧DTO进入同一执行器，场景标签不决定其行为，错误/panic片段可读取 |
-| 控制器回归 | 分段输出、受控错误、panic、重复请求、cancel后晚到delta/panic、下一run隔离、drop/reopen不执行、落盘故障 |
-| Rust质量 | fmt --check、clippy --all-targets -D warnings通过 |
-| 全仓类型 | 6个workspace通过 |
-| 全仓Bun | 3376 passed、4 skipped、0 failed，380 files；4项为原有包内rg二进制集成测试，非新增用例 |
-| 前端及lint | Lab Vite build、复用原ESLint规则的Lab检查通过，前端源码没有改动 |
-| 原生编译 | cargo tauri build --no-bundle 离线release通过，仅编译未启动，旧QA .app未替换 |
-| 独立审查 | spec和quality均通过，无阻断回归；合作取消和metadata限制已审阅 |
-| Electron构建 | 本次electron:build通过，生产源码不变 |
+| Full Rust tests | 96 passed, 0 failed; 5 controller injection/failure tests and 1 actual-handler test added over baseline |
+| Actual Tauri handler | Different HostEcho/HostPanic implementations enter the same executor through the old DTO; scenario labels do not determine behavior, and error/panic fragments remain readable |
+| Controller regressions | Fragmented output, controlled errors, panic, duplicate requests, late delta/panic after cancel, next-run isolation, no execution on drop/reopen, disk-write failure |
+| Rust quality | fmt --check and clippy --all-targets -D warnings passed |
+| Repository-wide types | 6 workspaces passed |
+| Repository-wide Bun | 3376 passed, 4 skipped, 0 failed, 380 files; the 4 skips are existing package-local rg binary integration tests, not new cases |
+| Frontend and lint | Lab Vite build and Lab checks reusing existing ESLint rules passed; frontend source unchanged |
+| Native compilation | Offline release cargo tauri build --no-bundle passed; compiled without launching, and the old QA .app was not replaced |
+| Independent review | Both spec and quality passed, with no blocking regressions; cooperative cancellation and metadata limitations reviewed |
+| Electron build | This round's electron:build passed; production source unchanged |
 
-先写缺失新trait/注入接口的红编译，再实现并观测绿测；其余新增测试验证已保持语义，不声称逐例红绿。原始实施日志及Root新跑日志在/private/tmp/tinker-provider-checks-20261109，实施者报告同目录implementer-report.md，审查结果见reviewer-report.md。
+First observed failing compilation for the missing new trait/injection interface, then implemented and observed passing tests; other new tests verify preserved semantics, without claiming an individual red/green cycle for each. Original implementation logs and Root's fresh logs are in /private/tmp/tinker-provider-checks-20261109; implementer-report.md and reviewer-report.md are in the same directory.
 
-## 四、保护、发布与回滚
+<a id="四保护发布与回滚"></a>
 
-Electron、packages、bun.lock、Cargo.lock、Rust Lab前端和存储实现相对基线零差异；只改Rust执行器/provider/host接线及测试和本轮文档。包版本由正常钩子更新。未操作有47项和14项已有差异的旧工作树，source状态读取超时仍标未知。无真实会话、密钥、模型、网络请求或费用，无安装/部署。
+## IV. Protection, Publication, and Rollback
 
-复用既有Cargo缓存，未创建重复大型缓存，观察到约12GiB空闲，未清理用户文件。原生UI未验收是保留的发布限制；适合自动检查和独立审查通过后作为Draft供审阅，不合并或替换生产运行时。远端SHA/CI状态以最终实际核验为准，不把0记录称为CI绿。
+Electron, packages, bun.lock, Cargo.lock, Rust Lab frontend, and storage implementation have zero differences from baseline; changes cover only Rust executor/provider/host wiring, tests, and this round's documentation. Normal hooks update package versions. Older worktrees with 47 and 14 existing differences were untouched; source status remains unknown after a read timeout. No real sessions, keys, models, network requests, fees, installation, or deployment.
 
-回滚revert本批提交即可恢复旧fixture执行器，不删除数据或迁移schema。旧草稿submit_draft的modelNotMigrated、save/recover和history只读API保留。当前provider边界仅完成无需真实调用的接线，后续网络协议、真实模型认证与费用仍未实施。
+Reused the existing Cargo cache, created no duplicate large caches, observed approximately 12GiB free, and removed no user files. Unaccepted native UI remains a publication limitation; after automated checks and independent review pass, this is suitable as a Draft for review, without merging or replacing the production runtime. Remote SHA/CI status must reflect final actual verification; zero records does not mean green CI.
+
+Reverting this batch's commits restores the old fixture executor without deleting data or migrating schema. The old draft submit_draft modelNotMigrated, save/recover, and read-only history API remain. The current provider boundary completes only wiring that requires no real calls; subsequent network protocols, real model authentication, and fees remain unimplemented.

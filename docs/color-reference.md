@@ -1,63 +1,77 @@
-# ASCI 用色规范速查手册
+<a id="asci-用色规范速查手册"></a>
 
-> **快速参考**：本文档是 [`docs/design.md`](./design.md) 色彩部分的速查版，提供完整 HSL/HEX 色值对照表，方便开发时快速查阅和复制粘贴。
+# ASCI Color Guidelines Quick Reference
+
+> **Quick reference**: This document is a quick reference to the color section of [`docs/design.md`](./design.md) with complete HSL/HEX tables for fast lookup and copying during development.
 >
-> **真相源**：Token 数值的真相源是 [`apps/electron/src/renderer/styles/tokens.css`](../apps/electron/src/renderer/styles/tokens.css)（`:root` 与 `.dark` 两块）。
+> **Source of truth**: Token values are defined in [`apps/electron/src/renderer/styles/tokens.css`](../apps/electron/src/renderer/styles/tokens.css) (`:root` and `.dark` two blocks).
 >
-> **完整规范**：设计原则、组件层级、反模式清单等详见 [`docs/design.md`](./design.md)。
+> **Full specification**: For design principles, component hierarchy, and antipatterns, see [`docs/design.md`](./design.md).
 
 ---
 
-## 目录
+<a id="目录"></a>
 
-- [一、核心原则](#一核心原则)
-- [二、文字颜色 Token](#二文字颜色-token)
-- [三、背景颜色 Token](#三背景颜色-token)
-- [四、边框颜色 Token](#四边框颜色-token)
-- [五、专用场景色值](#五专用场景色值)
-- [六、快速复制代码块](#六快速复制代码块)
-- [七、Figma/设计工具色值](#七figma设计工具色值)
-- [八、使用规范](#八使用规范)
+## Contents
 
----
-
-## 一、核心原则
-
-1. **色彩克制** - 90% 使用中性灰系（HSL `0 0% *`），强调色仅在 Active/Primary/Link，警示色仅在 destructive/warning
-2. **Token 优先** - 禁止 `bg-red-500`、`text-blue-400` 等 Tailwind 调色板硬编码
-3. **语义优先** - 用 `bg-destructive` 而非 `bg-red-500`
-4. **亮/暗双主题** - 仅维护 `:root`（亮）与 `.dark`（暗）
-5. **配对使用** - 有色背景必须用配对前景色（`bg-primary` + `text-primary-foreground`）
+- [1. Core Principles](#一核心原则)
+- [2. Text Color Tokens](#二文字颜色-token)
+- [3. Background Color Tokens](#三背景颜色-token)
+- [4. Border Color Tokens](#四边框颜色-token)
+- [5. Specialized Colors](#五专用场景色值)
+- [6. Copyable Code Examples](#六快速复制代码块)
+- [7. Figma/Design Tool Colors](#七figma设计工具色值)
+- [8. Usage Guidelines](#八使用规范)
 
 ---
 
-## 二、文字颜色 Token
+<a id="一核心原则"></a>
 
-### 2.1 主要文字颜色（最常用）
+## 1. Core Principles
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+1. **Restrained color** - Use neutral grays for 90% of colors (HSL `0 0% *`); accents only for Active/Primary/Link, alert colors only for destructive/warning
+2. **Tokens first** - Prohibit `bg-red-500`, `text-blue-400` and similar hardcoded Tailwind palette colors
+3. **Semantics first** - Use `bg-destructive` rather than `bg-red-500`
+4. **Light/dark themes** - Maintain only `:root`(light) and `.dark`(dark)
+5. **Use pairs** - Colored backgrounds require matching foreground colors (`bg-primary` + `text-primary-foreground`)
+
+---
+
+<a id="二文字颜色-token"></a>
+
+## 2. Text Color Tokens
+
+<a id="21-主要文字颜色最常用"></a>
+
+### 2.1 Primary Text Colors (Most Common)
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| **主文字** | `text-foreground` | `0 0% 3.9%` | `#0a0a0a` | `0 0% 98%` | `#fafafa` | 正文、标题、标签文字 |
-| **次要文字** | `text-muted-foreground` | `0 0% 45.1%` | `#737373` | `0 0% 63.9%` | `#a3a3a3` | 描述、meta 信息、辅助说明 |
+| **Primary text** | `text-foreground` | `0 0% 3.9%` | `#0a0a0a` | `0 0% 98%` | `#fafafa` | Body, headings, labels |
+| **Secondary text** | `text-muted-foreground` | `0 0% 45.1%` | `#737373` | `0 0% 63.9%` | `#a3a3a3` | Descriptions, metadata, helper text |
 
-> **核心规则**：
-> - 正常文字 = `text-foreground`（近黑/近白）
-> - 次要文字 = `text-muted-foreground`（中等灰）
-> - **禁止斜体**：需要"轻强调"用 `text-muted-foreground` 或 `font-medium`，不用 `italic`
+> **Core rules**:
+> - Normal text = `text-foreground`(near-black/near-white)
+> - Secondary text = `text-muted-foreground`(medium gray)
+> - **No italics**: For subtle emphasis, use `text-muted-foreground` or `font-medium`, avoiding `italic`
 
-### 2.2 状态文字（单独使用，无背景）
+<a id="22-状态文字单独使用无背景"></a>
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+### 2.2 Status Text (Standalone, No Background)
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| 成功 | `text-success` | `142 71% 38%` | `#1c9d52` | `142 65% 45%` | `#28b560` | 通过、完成 |
-| 警告 | `text-warning` | `38 92% 50%` | `#f59e0b` | `38 92% 55%` | `#fbbf24` | 待审、注意 |
-| 错误 | `text-destructive` | `0 84.2% 60.2%` | `#ef4444` | `0 55% 45%` | `#b91c1c` | 失败、错误 |
-| 信息 | `text-info` | `217 91% 60%` | `#3b82f6` | `217 91% 65%` | `#60a5fa` | 提示、进行中 |
-| 主色 | `text-primary` | `0 0% 9%` | `#171717` | `0 0% 98%` | `#fafafa` | Link、Active |
+| Success | `text-success` | `142 71% 38%` | `#1c9d52` | `142 65% 45%` | `#28b560` | Passed, completed |
+| Warning | `text-warning` | `38 92% 50%` | `#f59e0b` | `38 92% 55%` | `#fbbf24` | Awaiting review, attention |
+| Error | `text-destructive` | `0 84.2% 60.2%` | `#ef4444` | `0 55% 45%` | `#b91c1c` | Failed, errors |
+| Info | `text-info` | `217 91% 60%` | `#3b82f6` | `217 91% 65%` | `#60a5fa` | Hints, in progress |
+| Primary | `text-primary` | `0 0% 9%` | `#171717` | `0 0% 98%` | `#fafafa` | Link, Active |
 
-### 2.3 配对前景色（在有色背景上的文字）
+<a id="23-配对前景色在有色背景上的文字"></a>
 
-| 背景 Token | 前景 Token | Light HSL | Light HEX | Dark HSL | Dark HEX |
+### 2.3 Paired Foregrounds (Text on Colored Backgrounds)
+
+| Background Token | Foreground Token | Light HSL | Light HEX | Dark HSL | Dark HEX |
 |-----------|-----------|-----------|-----------|----------|----------|
 | `bg-primary` | `text-primary-foreground` | `0 0% 98%` | `#fafafa` | `0 0% 9%` | `#171717` |
 | `bg-secondary` | `text-secondary-foreground` | `0 0% 9%` | `#171717` | `0 0% 98%` | `#fafafa` |
@@ -70,125 +84,155 @@
 | `bg-popover` | `text-popover-foreground` | `0 0% 3.9%` | `#0a0a0a` | `0 0% 98%` | `#fafafa` |
 | `bg-dialog` | `text-dialog-foreground` | `0 0% 3.9%` | `#0a0a0a` | `0 0% 98%` | `#fafafa` |
 
-### 2.4 特殊场景文字
+<a id="24-特殊场景文字"></a>
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+### 2.4 Special-Purpose Text
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| 代码容器主文字 | `text-code-container-fg` | `240 5% 96%` | `#f4f4f5` | `240 5% 96%` | `#f4f4f5` | Bash/Terminal 文字 |
-| 代码行号/计数 | `text-code-container-muted` | `240 5% 65%` | `#a1a1aa` | `240 5% 65%` | `#a1a1aa` | 行号、命令回显 |
-| Tooltip 副文字 | `text-tooltip-muted` | `0 0% 75%` | `#bfbfbf` | `0 0% 70%` | `#b3b3b3` | Tooltip 说明 |
+| Code container primary text | `text-code-container-fg` | `240 5% 96%` | `#f4f4f5` | `240 5% 96%` | `#f4f4f5` | Bash/Terminal text |
+| Code line numbers/counts | `text-code-container-muted` | `240 5% 65%` | `#a1a1aa` | `240 5% 65%` | `#a1a1aa` | Line numbers, command echoes |
+| Tooltip secondary text | `text-tooltip-muted` | `0 0% 75%` | `#bfbfbf` | `0 0% 70%` | `#b3b3b3` | Tooltip descriptions |
 
 ---
 
-## 三、背景颜色 Token
+<a id="三背景颜色-token"></a>
 
-### 3.1 基础背景
+## 3. Background Color Tokens
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+<a id="31-基础背景"></a>
+
+### 3.1 Base Backgrounds
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| 主背景 | `bg-background` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | 顶层窗口/侧边栏背景 |
-| 内容区 | `bg-content-area` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | 主内容区域 |
-| 卡片 | `bg-card` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | 卡片背景 |
-| 次要 | `bg-muted` | `0 0% 96.1%` | `#f5f5f5` | `0 0% 14.9%` | `#262626` | hover、禁用 |
-| 输入框 | `bg-input` | `0 0% 89.8%` | `#e5e5e5` | `0 0% 14.9%` | `#262626` | 输入框背景 |
+| Main background | `bg-background` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | Top-level window/sidebar background |
+| Content area | `bg-content-area` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | Main content area |
+| Card | `bg-card` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | Card background |
+| Muted | `bg-muted` | `0 0% 96.1%` | `#f5f5f5` | `0 0% 14.9%` | `#262626` | hover, disabled |
+| Input | `bg-input` | `0 0% 89.8%` | `#e5e5e5` | `0 0% 14.9%` | `#262626` | Input background |
 
-### 3.2 强调背景
+<a id="32-强调背景"></a>
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+### 3.2 Accent Backgrounds
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| 主色 | `bg-primary` | `0 0% 9%` | `#171717` | `0 0% 98%` | `#fafafa` | 主 CTA、Active 标签 |
-| 次级 | `bg-secondary` | `0 0% 96.1%` | `#f5f5f5` | `0 0% 14.9%` | `#262626` | 次级按钮 |
-| 强调 | `bg-accent` | `0 0% 96.1%` | `#f5f5f5` | `0 0% 40%` | `#666666` | hover/当前项 |
+| Primary | `bg-primary` | `0 0% 9%` | `#171717` | `0 0% 98%` | `#fafafa` | Primary CTA, active tabs |
+| Secondary | `bg-secondary` | `0 0% 96.1%` | `#f5f5f5` | `0 0% 14.9%` | `#262626` | Secondary buttons |
+| Accent | `bg-accent` | `0 0% 96.1%` | `#f5f5f5` | `0 0% 40%` | `#666666` | hover/current item |
 
-### 3.3 状态背景（Solid 按钮）
+<a id="33-状态背景solid-按钮"></a>
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+### 3.3 Status Backgrounds (Solid Buttons)
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| 成功 | `bg-success` | `142 71% 38%` | `#1c9d52` | `142 65% 45%` | `#28b560` | 运行通过、连接成功 |
-| 警告 | `bg-warning` | `38 92% 50%` | `#f59e0b` | `38 92% 55%` | `#fbbf24` | pending、待审 |
-| 错误 | `bg-destructive` | `0 84.2% 60.2%` | `#ef4444` | `0 55% 45%` | `#b91c1c` | 删除、Stop |
-| 信息 | `bg-info` | `217 91% 60%` | `#3b82f6` | `217 91% 65%` | `#60a5fa` | 引导 tag、连接提示 |
+| Success | `bg-success` | `142 71% 38%` | `#1c9d52` | `142 65% 45%` | `#28b560` | Run passed, connection successful |
+| Warning | `bg-warning` | `38 92% 50%` | `#f59e0b` | `38 92% 55%` | `#fbbf24` | Pending, awaiting review |
+| Error | `bg-destructive` | `0 84.2% 60.2%` | `#ef4444` | `0 55% 45%` | `#b91c1c` | Delete, Stop |
+| Info | `bg-info` | `217 91% 60%` | `#3b82f6` | `217 91% 65%` | `#60a5fa` | Guidance tags, connection hints |
 
-### 3.4 组件专用背景
+<a id="34-组件专用背景"></a>
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+### 3.4 Component Backgrounds
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| Popover | `bg-popover` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | 下拉菜单 |
-| Dialog | `bg-dialog` | `0 0% 100%` | `#ffffff` | `0 0% 12%` | `#1f1f1f` | 对话框（暗色略亮） |
-| Tooltip | `bg-tooltip` | `0 0% 15%` | `#262626` | `0 0% 20%` | `#333333` | 高对比 Tooltip（保留） |
-| 代码块 | `bg-code-bg` | `210 13% 12%` | `#1e2228` | `210 13% 12%` | `#1e2228` | Markdown 代码块 |
+| Popover | `bg-popover` | `0 0% 100%` | `#ffffff` | `0 0% 7%` | `#121212` | Dropdown menus |
+| Dialog | `bg-dialog` | `0 0% 100%` | `#ffffff` | `0 0% 12%` | `#1f1f1f` | Dialogs (slightly lighter in dark mode) |
+| Tooltip | `bg-tooltip` | `0 0% 15%` | `#262626` | `0 0% 20%` | `#333333` | High-contrast Tooltip (retained) |
+| Code block | `bg-code-bg` | `210 13% 12%` | `#1e2228` | `210 13% 12%` | `#1e2228` | Markdown Code block |
 
 ---
 
-## 四、边框颜色 Token
+<a id="四边框颜色-token"></a>
 
-| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | 用途 |
+## 4. Border Color Tokens
+
+| Token | className | Light HSL | Light HEX | Dark HSL | Dark HEX | Usage |
 |-------|-----------|-----------|-----------|----------|----------|------|
-| 边框 | `border-border` | `0 0% 89.8%` | `#e5e5e5` | `0 0% 14.9%` | `#262626` | 细边框 |
-| 输入框边框 | `border-input` | `0 0% 89.8%` | `#e5e5e5` | `0 0% 14.9%` | `#262626` | 输入框 |
-| 聚焦环 | `ring-ring` | `0 0% 3.9%` | `#0a0a0a` | `0 0% 83.1%` | `#d4d4d4` | focus ring（已全局禁用） |
-| 虚线边框 | `border-[hsl(var(--dashed-border))]` | `0 0% 9% / 0.35` | `#17171759` | `0 0% 98% / 0.25` | `#fafafa40` | 新会话、搜索按钮 |
-| 虚线 hover | `border-[hsl(var(--dashed-border-hover))]` | `0 0% 9% / 0.50` | `#17171780` | `0 0% 98% / 0.40` | `#fafafa66` | 虚线 hover |
+| Border | `border-border` | `0 0% 89.8%` | `#e5e5e5` | `0 0% 14.9%` | `#262626` | Thin borders |
+| Input border | `border-input` | `0 0% 89.8%` | `#e5e5e5` | `0 0% 14.9%` | `#262626` | Input |
+| Focus ring | `ring-ring` | `0 0% 3.9%` | `#0a0a0a` | `0 0% 83.1%` | `#d4d4d4` | focus ring(disabled globally) |
+| Dashed border | `border-[hsl(var(--dashed-border))]` | `0 0% 9% / 0.35` | `#17171759` | `0 0% 98% / 0.25` | `#fafafa40` | New conversation, search button |
+| Dashed hover | `border-[hsl(var(--dashed-border-hover))]` | `0 0% 9% / 0.50` | `#17171780` | `0 0% 98% / 0.40` | `#fafafa66` | Dashed hover |
 
 ---
 
-## 五、专用场景色值
+<a id="五专用场景色值"></a>
 
-### 5.1 Diff 高亮
+## 5. Specialized Colors
 
-| 用途 | Token | HSL (Light/Dark 同) | HEX | 说明 |
+<a id="51-diff-高亮"></a>
+
+### 5.1 Diff Highlighting
+
+| Usage | Token | HSL (Same Light/Dark) | HEX | Description |
 |------|-------|---------------------|-----|------|
-| 新增行背景 | `--diff-add-bg` | `142 71% 45% / 0.1` | `#22c55e1a` | edit/write-result 加行 |
-| 新增行前景 | `--diff-add-fg` | `142 76% 73% / 0.6` | `#86efac99` | 加行行号/标记 |
-| 新增行文字 | `--diff-add-text` | `142 77% 73%` | `#86efac` | 加行正文 |
-| 删除行背景 | `--diff-del-bg` | `0 84% 60% / 0.1` | `#ef44441a` | edit-result 删行 |
-| 删除行前景 | `--diff-del-fg` | `0 91% 71% / 0.6` | `#fca5a599` | 删行行号/标记 |
-| 删除行文字 | `--diff-del-text` | `0 94% 82%` | `#fecaca` | 删行正文 |
+| Added-line background | `--diff-add-bg` | `142 71% 45% / 0.1` | `#22c55e1a` | edit/write-result additions |
+| Added-line foreground | `--diff-add-fg` | `142 76% 73% / 0.6` | `#86efac99` | Added-line numbers/markers |
+| Added-line text | `--diff-add-text` | `142 77% 73%` | `#86efac` | Added-line body |
+| Deleted-line background | `--diff-del-bg` | `0 84% 60% / 0.1` | `#ef44441a` | edit-result deletions |
+| Deleted-line foreground | `--diff-del-fg` | `0 91% 71% / 0.6` | `#fca5a599` | Deleted-line numbers/markers |
+| Deleted-line text | `--diff-del-text` | `0 94% 82%` | `#fecaca` | Deleted-line body |
 
-### 5.2 搜索高亮
+<a id="52-搜索高亮"></a>
 
-| 用途 | Token | HSL | HEX | 说明 |
+### 5.2 Search Highlighting
+
+| Usage | Token | HSL | HEX | Description |
 |------|-------|-----|-----|------|
-| 搜索匹配背景 | `--search-hit-bg` | `53 98% 65% / 0.3` | `#fde0474d` | grep 命中高亮底 |
-| 搜索匹配文字 | `--search-hit-fg` | `54 97% 77%` | `#fef08a` | grep 命中字色 |
+| Search-match background | `--search-hit-bg` | `53 98% 65% / 0.3` | `#fde0474d` | grep match highlight background |
+| Search-match text | `--search-hit-fg` | `54 97% 77%` | `#fef08a` | grep match text color |
 
-### 5.3 代码容器（Bash/Terminal/Edit/Read/Write）
+<a id="53-代码容器bashterminaleditreadwrite"></a>
 
-| 用途 | Token | HSL | HEX | 说明 |
+### 5.3 Code Containers (Bash/Terminal/Edit/Read/Write)
+
+| Usage | Token | HSL | HEX | Description |
 |------|-------|-----|-----|------|
-| 容器背景 | `--code-container-bg` | `240 6% 10%` | `#18181b` | 亮 zinc-900 / 暗 zinc-950 |
-| 主要文字 | `--code-container-fg` | `240 5% 96%` | `#f4f4f5` | zinc-100 |
-| 行号/计数 | `--code-container-muted` | `240 5% 65%` | `#a1a1aa` | zinc-500 |
-| 文件名加亮 | `--code-container-emphasis` | `240 5% 84%` | `#d4d4d8` | zinc-300 |
-| 代码正文 | `--code-container-text` | `240 5% 91%` | `#e4e4e7` | zinc-200 |
-| grep 文件头 | `--code-container-subheader` | `240 4% 16% / 0.5` | `#27272a80` | zinc-800/50 |
-| grep 行 hover | `--code-container-row-hover` | `240 4% 16% / 0.3` | `#27272a4d` | zinc-800/30 |
+| Container background | `--code-container-bg` | `240 6% 10%` | `#18181b` | Light zinc-900 / dark zinc-950 |
+| Primary text | `--code-container-fg` | `240 5% 96%` | `#f4f4f5` | zinc-100 |
+| Line numbers/counts | `--code-container-muted` | `240 5% 65%` | `#a1a1aa` | zinc-500 |
+| Filename highlight | `--code-container-emphasis` | `240 5% 84%` | `#d4d4d8` | zinc-300 |
+| Code body | `--code-container-text` | `240 5% 91%` | `#e4e4e7` | zinc-200 |
+| grep file header | `--code-container-subheader` | `240 4% 16% / 0.5` | `#27272a80` | zinc-800/50 |
+| grep row hover | `--code-container-row-hover` | `240 4% 16% / 0.3` | `#27272a4d` | zinc-800/30 |
 
-### 5.4 ChoiceCard 危险等级
+<a id="54-choicecard-危险等级"></a>
 
-| 用途 | Token | HSL | HEX |
+### 5.4 ChoiceCard Risk Levels
+
+| Usage | Token | HSL | HEX |
 |------|-------|-----|-----|
-| 安全选项边框 | `--choice-safe-border` | `142 71% 45% / 0.4` | `#22c55e66` |
-| 危险选项边框 | `--choice-dangerous-border` | `38 92% 50% / 0.7` | `#f59e0bb3` |
-| 危险选项标题（亮） | `--choice-dangerous-fg` | `32 95% 44%` | `#dc2626` |
-| 危险选项标题（暗） | `--choice-dangerous-fg` | `43 96% 56%` | `#fbbf24` |
-| 焦点前缀竖条 | `--choice-dangerous-prefix` | `38 92% 50%` | `#f59e0b` |
+| Safe-option border | `--choice-safe-border` | `142 71% 45% / 0.4` | `#22c55e66` |
+| Dangerous-option border | `--choice-dangerous-border` | `38 92% 50% / 0.7` | `#f59e0bb3` |
+| Dangerous-option title (light) | `--choice-dangerous-fg` | `32 95% 44%` | `#dc2626` |
+| Dangerous-option title (dark) | `--choice-dangerous-fg` | `43 96% 56%` | `#fbbf24` |
+| Focus prefix bar | `--choice-dangerous-prefix` | `38 92% 50%` | `#f59e0b` |
 
-### 5.5 相关度梯度（5 档）
+<a id="55-相关度梯度5-档"></a>
 
-| 档位 | Token | HSL | HEX | 颜色名 | 用途 |
+### 5.5 Relevance Gradient (5 Levels)
+
+| Level | Token | HSL | HEX | Color name | Usage |
 |------|-------|-----|-----|--------|------|
-| 最低 | `--relevance-0` | `0 84% 60% / 0.6` | `#ef444499` | Red | 相关度 0-20% |
-| 偏低 | `--relevance-1` | `28 92% 56% / 0.6` | `#fb923c99` | Orange | 相关度 20-40% |
-| 中等 | `--relevance-2` | `38 92% 50% / 0.6` | `#f59e0b99` | Amber | 相关度 40-60% |
-| 偏高 | `--relevance-3` | `158 64% 52% / 0.6` | `#10b98199` | Emerald | 相关度 60-80% |
-| 最高 | `--relevance-4` | `142 71% 45% / 0.6` | `#22c55e99` | Green | 相关度 80-100% |
+| Lowest | `--relevance-0` | `0 84% 60% / 0.6` | `#ef444499` | Red | Relevance 0-20% |
+| Low | `--relevance-1` | `28 92% 56% / 0.6` | `#fb923c99` | Orange | Relevance 20-40% |
+| Medium | `--relevance-2` | `38 92% 50% / 0.6` | `#f59e0b99` | Amber | Relevance 40-60% |
+| High | `--relevance-3` | `158 64% 52% / 0.6` | `#10b98199` | Emerald | Relevance 60-80% |
+| Highest | `--relevance-4` | `142 71% 45% / 0.6` | `#22c55e99` | Green | Relevance 80-100% |
 
 ---
 
-## 六、快速复制代码块
+<a id="六快速复制代码块"></a>
 
-### 6.1 文字颜色（最常用）
+## 6. Copyable Code Examples
+
+<a id="61-文字颜色最常用"></a>
+
+### 6.1 Text Colors (Most Common)
 
 ```tsx
 // 主文字
@@ -209,7 +253,9 @@
 <a className="text-primary hover:underline">查看详情</a>
 ```
 
-### 6.2 按钮（背景+配对文字）
+<a id="62-按钮背景配对文字"></a>
+
+### 6.2 Buttons (Background + Paired Text)
 
 ```tsx
 // 主按钮
@@ -225,7 +271,9 @@
 <button className="bg-secondary text-secondary-foreground">取消</button>
 ```
 
-### 6.3 Badge 标签
+<a id="63-badge-标签"></a>
+
+### 6.3 Badge Labels
 
 ```tsx
 // Soft 变体（底色 /10）
@@ -241,7 +289,9 @@
 <Badge tone="info" variant="outline">信息</Badge>
 ```
 
-### 6.4 常见组合模式
+<a id="64-常见组合模式"></a>
+
+### 6.4 Common Patterns
 
 ```tsx
 // 模式 1：标题 + 描述
@@ -271,74 +321,86 @@
 
 ---
 
-## 七、Figma/设计工具色值
+<a id="七figma设计工具色值"></a>
 
-### 7.1 Light 主题核心色
+## 7. Figma/Design Tool Colors
 
-```
-主文字：     #0a0a0a (HSL: 0, 0%, 3.9%)
-次要文字：   #737373 (HSL: 0, 0%, 45.1%)
-主背景：     #ffffff (HSL: 0, 0%, 100%)
-卡片背景：   #ffffff (HSL: 0, 0%, 100%)
-次要背景：   #f5f5f5 (HSL: 0, 0%, 96.1%)
-边框：       #e5e5e5 (HSL: 0, 0%, 89.8%)
+<a id="71-light-主题核心色"></a>
 
-主色：       #171717 (HSL: 0, 0%, 9%)
-成功：       #1c9d52 (HSL: 142, 71%, 38%)
-警告：       #f59e0b (HSL: 38, 92%, 50%)
-错误：       #ef4444 (HSL: 0, 84.2%, 60.2%)
-信息：       #3b82f6 (HSL: 217, 91%, 60%)
-```
-
-### 7.2 Dark 主题核心色
+### 7.1 Light Theme Core Colors
 
 ```
-主文字：     #fafafa (HSL: 0, 0%, 98%)
-次要文字：   #a3a3a3 (HSL: 0, 0%, 63.9%)
-主背景：     #121212 (HSL: 0, 0%, 7%)
-卡片背景：   #121212 (HSL: 0, 0%, 7%)
-次要背景：   #262626 (HSL: 0, 0%, 14.9%)
-边框：       #262626 (HSL: 0, 0%, 14.9%)
+Primary text：     #0a0a0a (HSL: 0, 0%, 3.9%)
+Secondary text：   #737373 (HSL: 0, 0%, 45.1%)
+Main background：     #ffffff (HSL: 0, 0%, 100%)
+Card background：   #ffffff (HSL: 0, 0%, 100%)
+Muted background：   #f5f5f5 (HSL: 0, 0%, 96.1%)
+Border：       #e5e5e5 (HSL: 0, 0%, 89.8%)
 
-主色：       #fafafa (HSL: 0, 0%, 98%)
-成功：       #28b560 (HSL: 142, 65%, 45%)
-警告：       #fbbf24 (HSL: 38, 92%, 55%)
-错误：       #b91c1c (HSL: 0, 55%, 45%)
-信息：       #60a5fa (HSL: 217, 91%, 65%)
+Primary：       #171717 (HSL: 0, 0%, 9%)
+Success：       #1c9d52 (HSL: 142, 71%, 38%)
+Warning：       #f59e0b (HSL: 38, 92%, 50%)
+Error：       #ef4444 (HSL: 0, 84.2%, 60.2%)
+Info：       #3b82f6 (HSL: 217, 91%, 60%)
+```
+
+<a id="72-dark-主题核心色"></a>
+
+### 7.2 Dark Theme Core Colors
+
+```
+Primary text：     #fafafa (HSL: 0, 0%, 98%)
+Secondary text：   #a3a3a3 (HSL: 0, 0%, 63.9%)
+Main background：     #121212 (HSL: 0, 0%, 7%)
+Card background：   #121212 (HSL: 0, 0%, 7%)
+Muted background：   #262626 (HSL: 0, 0%, 14.9%)
+Border：       #262626 (HSL: 0, 0%, 14.9%)
+
+Primary：       #fafafa (HSL: 0, 0%, 98%)
+Success：       #28b560 (HSL: 142, 65%, 45%)
+Warning：       #fbbf24 (HSL: 38, 92%, 55%)
+Error：       #b91c1c (HSL: 0, 55%, 45%)
+Info：       #60a5fa (HSL: 217, 91%, 65%)
 ```
 
 ---
 
-## 八、使用规范
+<a id="八使用规范"></a>
 
-### 8.1 文字颜色决策树
+## 8. Usage Guidelines
+
+<a id="81-文字颜色决策树"></a>
+
+### 8.1 Text Color Decision Tree
 
 ```
-需要显示文字？
+Need to display text?
 │
-├─ 是主要内容/标题？
-│  └─ 用 text-foreground
+├─ Primary content/heading?
+│  └─ Use text-foreground
 │
-├─ 是次要说明/描述？
-│  └─ 用 text-muted-foreground
+├─ Secondary explanation/description?
+│  └─ Use text-muted-foreground
 │
-├─ 是状态/操作结果？
-│  ├─ 成功 → text-success
-│  ├─ 警告 → text-warning
-│  ├─ 错误 → text-destructive
-│  └─ 信息 → text-info
+├─ Status/action result?
+│  ├─ Success → text-success
+│  ├─ Warning → text-warning
+│  ├─ Error → text-destructive
+│  └─ Info → text-info
 │
-├─ 是链接/Active状态？
-│  └─ 用 text-primary
+├─ Link/active state?
+│  └─ Use text-primary
 │
-└─ 在有色背景上？
+└─ On a colored background?
    ├─ bg-primary → text-primary-foreground
    ├─ bg-destructive → text-destructive-foreground
    ├─ bg-success → text-success-foreground
-   └─ ...（配对规则）
+   └─ ...(pairing rule)
 ```
 
-### 8.2 禁止的用法
+<a id="82-禁止的用法"></a>
+
+### 8.2 Prohibited Usage
 
 ```tsx
 // ❌ 硬编码调色板颜色
@@ -368,7 +430,9 @@
 <span className="font-medium">次要信息</span>
 ```
 
-### 8.3 侧边栏专用不透明度
+<a id="83-侧边栏专用不透明度"></a>
+
+### 8.3 Sidebar Opacity
 
 ```tsx
 // 侧边栏菜单项
@@ -387,49 +451,53 @@
 </p>
 ```
 
-**不透明度约定**：
-- 默认状态 = `text-foreground/60`
-- Hover 状态 = `text-foreground`
-- Active 状态 = `text-foreground`（配 `bg-primary/10`）
-- 分组标签 = `text-foreground/40`
-- 空态提示 = `text-foreground/30`
+**Opacity conventions**:
+- Default state = `text-foreground/60`
+- Hover state = `text-foreground`
+- Active state = `text-foreground`(with `bg-primary/10`)
+- Group labels = `text-foreground/40`
+- Empty-state hints = `text-foreground/30`
 
-### 8.4 快速检查清单
+<a id="84-快速检查清单"></a>
 
-开发时自检：
-- [ ] 主文字用 `text-foreground`
-- [ ] 次要文字用 `text-muted-foreground`
-- [ ] 状态文字用状态 token（`text-success` 等）
-- [ ] 有色背景用配对前景色（`text-*-foreground`）
-- [ ] 无 `text-red-500` / `text-blue-400` 等调色板
-- [ ] 无 `text-zinc-*` / `text-gray-*` 等中性调色板
-- [ ] 无 inline `style={{ color: ... }}`
-- [ ] 无 `italic` / `<em>` 斜体
-- [ ] 滚动容器带 `scrollbar-thin`
-- [ ] 在亮/暗主题下都测试过对比度
+### 8.4 Quick Checklist
+
+Development self-check:
+- [ ] Primary text uses `text-foreground`
+- [ ] Secondary text uses `text-muted-foreground`
+- [ ] Status text uses status tokens (`text-success` etc.)
+- [ ] Colored backgrounds use paired foregrounds (`text-*-foreground`)
+- [ ] No `text-red-500` / `text-blue-400` or similar palette colors
+- [ ] No `text-zinc-*` / `text-gray-*` or similar neutral palette colors
+- [ ] No inline `style={{ color: ... }}`
+- [ ] No `italic` / `<em>` italics
+- [ ] Scroll containers include `scrollbar-thin`
+- [ ] Contrast tested in both light/dark themes
 
 ---
 
-## 九、相关文档
+<a id="九相关文档"></a>
 
-| 文档 | 关系 |
+## 9. Related Documentation
+
+| Document | Relationship |
 |------|------|
-| [`docs/design.md`](./design.md) | 完整设计规范（原则、组件层级、反模式清单） |
-| [`apps/electron/src/renderer/styles/tokens.css`](../apps/electron/src/renderer/styles/tokens.css) | Token 数值真相源（`:root` + `.dark`） |
-| [`apps/electron/tailwind.config.js`](../apps/electron/tailwind.config.js) | `theme.extend.colors` 暴露 token |
-| [`CLAUDE.md §2`](../CLAUDE.md) | UI 总则与硬约束 |
+| [`docs/design.md`](./design.md) | Full design specification (principles, component hierarchy, antipatterns) |
+| [`apps/electron/src/renderer/styles/tokens.css`](../apps/electron/src/renderer/styles/tokens.css) | Token-value source of truth (`:root` + `.dark`) |
+| [`apps/electron/tailwind.config.js`](../apps/electron/tailwind.config.js) | `theme.extend.colors` exposes tokens |
+| [`CLAUDE.md §2`](../CLAUDE.md) | UI principles and hard constraints |
 
 ---
 
-**记忆口诀**：
-1. 📖 **主文字** = `text-foreground`
-2. 💭 **次要文字** = `text-muted-foreground`
-3. 🎯 **状态文字** = `text-success` / `text-destructive` / `text-warning` / `text-info`
+**Memory aid**:
+1. 📖 **Primary text** = `text-foreground`
+2. 💭 **Secondary text** = `text-muted-foreground`
+3. 🎯 **Status text** = `text-success` / `text-destructive` / `text-warning` / `text-info`
 4. 🔗 **Link/Active** = `text-primary`
-5. 🎨 **有色背景** = 必用配对色 `text-*-foreground`
-6. 🚫 **禁止斜体** = 用颜色或字重表达轻强调
-7. 🚫 **禁止调色板** = 用语义 token
+5. 🎨 **Colored background** = Always use matching `text-*-foreground`
+6. 🚫 **No italics** = Use color or weight for subtle emphasis
+7. 🚫 **No palette colors** = Use semantic tokens
 
 ---
 
-_本文档随 tokens.css 同步更新。HSL/HEX 色值不一致即为缺陷。_
+_Keep this document synchronized with tokens.css. HSL/HEX mismatches are defects._

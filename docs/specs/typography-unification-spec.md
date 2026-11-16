@@ -1,64 +1,86 @@
-# 全站字体收敛 Spec（Typography Unification）
+<a id="全站字体收敛-spectypography-unification"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：（无）
-> **关联 PR**：#470
-> **关联文档**：[`docs/design.md §4 / §九`](../design.md)（字体规则真相源；本 spec 是其实施层）
-> **领域语言事实源**：`docs/design.md` 字体硬约束三条——禁衬线 · 禁等宽 · 禁斜体
+# Site-wide Typography Unification Spec (Typography Unification)
 
----
-
-## 1. 背景与目标
-
-### 1.1 现状
-- `docs/design.md` §4 已落地"全站统一无衬线"字体规则（commit `6ab84640`），同时 §九 反模式表添加了 `font-mono` / `italic` / `font-serif` 三条拦截条目
-- 实际 renderer 代码仍有大量违规：80 处 `font-mono` className（33 文件）、11 处 `italic` className（9 文件，已排除 `lib/citation-references.ts` 4 处 markdown 解析非 UI 引用，并跳过 untracked 文件 `SessionPapersStatsBar.tsx:125` 的 1 处——见 §2.2）、1 处 CSS 显式 monospace 栈（`components.css:18`）
-
-### 1.2 目标
-- 把 renderer 内所有违规清零，使运行时 UI 真正只用一种字体（系统无衬线栈）
-- 在 Tailwind config 层加防御性兜底，让未来手滑写的 `font-mono` / `font-serif` 也渲染成无衬线（视觉静默）
-- 不引入 web font；不改动主进程预览 iframe、default-skills 模板、测试夹具中的字体声明
-
-### 1.3 非目标
-- 不在本 PR 引入 ESLint 拦截规则（参照 design.md §十三对 palette 规则的处理：先迁完存量再上 lint，避免规则与存量同时落带来的滚雪球冲突）
-- 不调整 `tokens.css` 任何颜色 token
-- 不动主进程 `file-preview-service.ts`（plaintext / csv 预览 iframe 内部样式）
-- 不动 `default-skills/*` 内的 HTML 模板（skill 产物本身的排版策略由 skill 自决，不归 ASCI UI 规范管）
+> **Status**: Draft · Awaiting review
+> **Related issue**: (None)
+> **Related PR**: #470
+> **Related document**: [`docs/design.md §4 / §九`](../design.md) (typography source of truth; this spec implements it; section IX)
+> **Domain source of truth**: Three typography constraints in `docs/design.md`: no serif · no monospace · no italics
 
 ---
 
-## 2. 范围
+<a id="1-背景与目标"></a>
 
-### 2.1 In-scope（必动）
-| 路径 | 类别 |
+## 1. Background and Goals
+
+<a id="11-现状"></a>
+
+### 1.1 Current State
+- `docs/design.md` §4 established site-wide sans-serif typography (commit `6ab84640`), while §IX added anti-pattern guards for `font-mono` / `italic` / `font-serif`
+- Renderer code still has many violations: 80 `font-mono` classNames (33 files), 11 `italic` classNames (9 files, excluding 4 non-UI markdown-parser references in `lib/citation-references.ts` and 1 in untracked `SessionPapersStatsBar.tsx:125`; see §2.2), and 1 explicit CSS monospace stack (`components.css:18`)
+
+<a id="12-目标"></a>
+
+### 1.2 Goals
+- Remove all renderer violations so runtime UI truly uses one font family (system sans-serif stack)
+- Add defensive Tailwind config fallbacks so accidental future `font-mono` / `font-serif` still render sans-serif (visually silent)
+- No web fonts; no font-declaration changes in main-process preview iframes, default-skills templates, or fixtures
+
+<a id="13-非目标"></a>
+
+### 1.3 Non-goals
+- No ESLint enforcement in this PR (following design.md §XIII palette rules: migrate existing usage before lint, avoiding snowballing conflicts from introducing rules and migration together)
+- No color-token changes in `tokens.css`
+- No main-process `file-preview-service.ts` changes (internal plaintext / csv preview iframe styles)
+- No `default-skills/*` HTML template changes (Skills determine their artifact typography independently of ASCI UI rules)
+
+---
+
+<a id="2-范围"></a>
+
+## 2. Scope
+
+<a id="21-in-scope必动"></a>
+
+### 2.1 In Scope (Required Changes)
+| Path | Category |
 |---|---|
-| `apps/electron/src/renderer/**/*.{tsx,ts,css}` | 全部 className + CSS 字体声明清算 |
-| `apps/electron/tailwind.config.js` | 防御性 fontFamily 覆盖 |
-| `apps/electron/src/renderer/styles/components.css` | `.code-block-wrapper pre.shiki` 字体声明 |
+| `apps/electron/src/renderer/**/*.{tsx,ts,css}` | All classNames + CSS font declarations |
+| `apps/electron/tailwind.config.js` | Defensive fontFamily override |
+| `apps/electron/src/renderer/styles/components.css` | `.code-block-wrapper pre.shiki` font declaration |
 | `apps/electron/package.json` | patch +1 |
 
-### 2.2 Out-of-scope（不动）
-| 路径 | 不动原因 |
+<a id="22-out-of-scope不动"></a>
+
+### 2.2 Out of Scope (Unchanged)
+| Path | Reason |
 |---|---|
-| `apps/electron/src/main/lib/file-preview-service.ts` | 主进程为预览 iframe 注入的 inline CSS，属于"应用嵌入的内容渲染层"而非 React UI 体系，单独 PR 处理可选 |
-| `apps/electron/default-skills/**/*.html` | Skill 产物自治，含 'Lora' / 'Poppins' / 'SF Mono' 等是 skill 设计选择 |
-| `apps/electron/resources/ocr-mcp/*.test.ts` | 测试夹具中拼接 SVG 的 font-family，属于 fixture 不影响生产 UI |
-| `apps/electron/src/renderer/lib/citation-references.ts` | 代码内 `italic` 是 markdown 解析变量名 + 正则字面量 + 注释，非 UI className |
-| `apps/electron/src/renderer/components/agent/SessionPapersStatsBar.tsx` | 当前为 untracked 文件（属其它未完工作）；其 `italic` 违规由该文件后续 PR 一并处理，本 PR 不触碰 |
+| `apps/electron/src/main/lib/file-preview-service.ts` | Main-injected preview-iframe inline CSS belongs to embedded content rendering, not React UI; optional separate PR |
+| `apps/electron/default-skills/**/*.html` | Skill artifacts are autonomous; 'Lora' / 'Poppins' / 'SF Mono', etc. are Skill design choices |
+| `apps/electron/resources/ocr-mcp/*.test.ts` | SVG font-family assembled in test fixtures, no production-UI effect |
+| `apps/electron/src/renderer/lib/citation-references.ts` | `italic` occurs in markdown parser variables, regex literals, and comments, not UI classNames |
+| `apps/electron/src/renderer/components/agent/SessionPapersStatsBar.tsx` | Currently untracked, belonging to other unfinished work; its `italic` violation belongs to that file’s later PR; untouched here |
 
 ---
 
-## 3. 变更清单
+<a id="3-变更清单"></a>
 
-### 3.1 CSS（1 处）
+## 3. Change List
+
+<a id="31-css1-处"></a>
+
+### 3.1 CSS (1 Location)
 **`apps/electron/src/renderer/styles/components.css:18`**
 ```diff
 - font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
 ```
-该行直接删除。`pre.shiki code` 同块原本 `font-family: inherit` 保留——后者直接从 body 继承统一 sans 栈。
+Delete this line directly. Retain existing `font-family: inherit` in the same `pre.shiki code` block, inheriting the unified sans stack from body.
 
-### 3.2 Tailwind config（1 处防御兜底）
-**`apps/electron/tailwind.config.js`** 在 `theme.extend` 内新增：
+<a id="32-tailwind-config1-处防御兜底"></a>
+
+### 3.2 Tailwind Config (1 Defensive Fallback)
+**`apps/electron/tailwind.config.js`**: Add inside `theme.extend`:
 ```js
 fontFamily: {
   sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'system-ui', 'sans-serif'],
@@ -66,127 +88,153 @@ fontFamily: {
   mono: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'system-ui', 'sans-serif'],
 }
 ```
-三键全部指向同一栈：未来即使写出 `font-mono` 或 `font-serif`，渲染依然是 sans，视觉静默。
+All three keys use one stack: Accidental future `font-mono` or `font-serif` still renders sans-serif, visually silent.
 
-### 3.3 className 删除（92 处）
+<a id="33-classname-删除92-处"></a>
 
-#### 3.3.1 `font-mono` × 80（33 文件）
-按分布：
-- `components/agent/tool-result-renderers/*` — 9 文件（bash / edit / grep / read / write 的结果展示）
-- `components/settings/*` — 5 文件（API key / channel / 路径展示）
-- `components/preview/renderers/*` — 5 文件（文件预览各类渲染器）
-- `components/library/*` — 3 文件
-- `components/agent/choice/*` — 3 文件
-- `components/library/evidence-set-detail/*` — 2 文件
-- `components/agent/*` — 2 文件
-- `components/{config,app-shell,ai-elements,agent/permission}/*` — 各 1 文件
+### 3.3 className Removal (92 Locations)
 
-操作：每处 className 串中将 `font-mono` 删除（连同前/后多余空格），不替换。
+<a id="331-font-mono-&#45;8033-文件"></a>
 
-#### 3.3.2 `italic` × 11（9 文件，已排除 untracked 的 SessionPapersStatsBar）
-按用途：
+#### 3.3.1 `font-mono` × 80 (33 Files)
+Distribution:
+- `components/agent/tool-result-renderers/*` — 9 files (bash / edit / grep / read / write results)
+- `components/settings/*` — 5 files (API keys / channels / paths)
+- `components/preview/renderers/*` — 5 files (file preview renderers)
+- `components/library/*` — 3 files
+- `components/agent/choice/*` — 3 files
+- `components/library/evidence-set-detail/*` — 2 files
+- `components/agent/*` — 2 files
+- `components/{config,app-shell,ai-elements,agent/permission}/*` — 1 file each
 
-| 模式 | 文件 | 现 className 形态 | 删后保留 |
+Action: Remove `font-mono` and excess adjacent spaces from each className string, without replacement.
+
+<a id="332-italic-&#45;119-文件已排除-untracked-的-sessionpapersstatsbar"></a>
+
+#### 3.3.2 `italic` × 11 (9 Files, Excluding Untracked SessionPapersStatsBar)
+By use:
+
+| Pattern | Files | Current className | Retained after deletion |
 |---|---|---|---|
-| 引用块 `<blockquote>` ×7 | `EvidenceTraceCard` / `EvidenceCard` / `AddNoteDialog` / `AddReviewNoteDialog` / `PaperNotesPanel` / `NoteDetailDialog`(×2) | `border-l-2 ... italic text-foreground/8x` | `border-l-2` + `text-foreground/8x` 已承担"引用"语义 |
-| 空态占位 ×4 | `SDKMessageRenderer` / `SetNotesTab` / `MemberPapersNotesTab`(×2) | `text-xs italic text-muted-foreground/60` | `text-xs` + `text-muted-foreground/60` 已承担"次要"语义 |
+| Quotation `<blockquote>` ×7 | `EvidenceTraceCard` / `EvidenceCard` / `AddNoteDialog` / `AddReviewNoteDialog` / `PaperNotesPanel` / `NoteDetailDialog`(×2) | `border-l-2 ... italic text-foreground/8x` | `border-l-2` + `text-foreground/8x` already convey quotation |
+| Empty-state placeholders ×4 | `SDKMessageRenderer` / `SetNotesTab` / `MemberPapersNotesTab`(×2) | `text-xs italic text-muted-foreground/60` | `text-xs` + `text-muted-foreground/60` already convey secondary status |
 
-操作：每处删 `italic`，不补任何替代 className。每一处删后视觉变化都由保留的 token 充分覆盖。
+Action: Remove each `italic` without replacement classNames. Retained tokens fully cover the visual semantics.
 
-### 3.4 版本号
-`apps/electron/package.json` patch +1（清算后实际数值看落地时基线）。
+<a id="34-版本号"></a>
 
----
-
-## 4. PR 与分支策略
-
-- 分支：`refactor/typography-unification`，基于 local `main` HEAD（已含 design.md commit `6ab84640`）
-- 单 PR → `main`，title：`refactor(typography): 全站字体收敛——单一无衬线栈 + 删除 font-mono / italic`
-- Squash merge（PR 内若干 commit 合成 1 笔）
-- PR description 中必须包含本 spec 链接（`docs/specs/typography-unification-spec.md`）
+### 3.4 Version
+`apps/electron/package.json` patch +1 (actual value follows the implementation baseline).
 
 ---
 
-## 5. 验证
+<a id="4-pr-与分支策略"></a>
 
-### 5.1 强制
+## 4. PR and Branch Strategy
+
+- Branch: `refactor/typography-unification`, based on local `main` HEAD (already includes design.md commit `6ab84640`)
+- Single PR → `main`, historical title literal: `refactor(typography): 全站字体收敛——单一无衬线栈 + 删除 font-mono / italic` (English: unify typography with one sans-serif stack and remove font-mono / italic). Current PR titles/descriptions must use English under the 2026-11-16 documentation policy.
+- Squash merge (combine PR commits into one)
+- PR description must link this spec (`docs/specs/typography-unification-spec.md`)
+
+---
+
+<a id="5-验证"></a>
+
+## 5. Validation
+
+<a id="51-强制"></a>
+
+### 5.1 Required
 - `bun run typecheck` — 0 errors
-- `bun test` — 全部通过；key-parity / ChannelSettings 等 i18n 守门测试不破
+- `bun test` — All pass; i18n guards such as key-parity / ChannelSettings remain intact
 
-### 5.2 手动 smoke（`bun run dev`）
-关键面必须走过：
+<a id="52-手动-smokebun-run-dev"></a>
 
-| 面 | 内容 | 关键观察 |
+### 5.2 Manual Smoke (`bun run dev`)
+Required surfaces:
+
+| Surface | Content | Key observation |
 |---|---|---|
-| 聊天 Shiki 代码块 | Agent 输出三反引号 | 字体改为 sans，缩进保留，无字号塌缩 |
-| tool-result-renderers | bash/edit/grep/read/write 各拉一遍 | diff `+/-` 仍清晰；行号可读 |
-| 设置 → 渠道 | 渠道行 / API key 展示 | 路径 / Key redact 串可读 |
-| 文件预览（renderer 内） | 各 renderer 类型 | 文本不破版 |
-| ChoiceCard | choice 卡片各危险等级 | 文字依然清楚 |
+| Chat Shiki code blocks | Agent emits triple-backtick code | Sans font, indentation retained, no font-size collapse |
+| tool-result-renderers | Exercise bash/edit/grep/read/write | diff `+/-` clear; line numbers readable |
+| Settings → Channels | Channel rows / API keys | Paths / redacted keys readable |
+| Renderer file previews | Each renderer type | No broken text layout |
+| ChoiceCard | Each risk level | Text remains clear |
 
-### 5.3 我无法自验的部分
-33 个组件里有相当部分在边缘路径（如某些 tool-result-renderer 仅特定 IPC 触发显示），无法逐一进入。剩余面会在 PR description 列「未走过」清单交回 reviewer/用户。
+<a id="53-我无法自验的部分"></a>
+
+### 5.3 Surfaces I Cannot Self-verify
+Many of the 33 components are on edge paths (some tool-result renderers appear only through specific IPC), so each cannot be entered. List unvisited surfaces in the PR description for reviewer/user follow-up.
 
 ---
 
-## 6. 已知视觉后果（用户已 accept）
+<a id="6-已知视觉后果用户已-accept"></a>
 
-| 项 | 变化 | 功能影响 |
+## 6. Known Visual Consequences (Accepted by User)
+
+| Item | Change | Functional impact |
 |---|---|---|
-| 代码块字符宽度 | 由等宽变可变宽 | 缩进可见，列对齐松散 |
-| diff `+/-` 排版 | 标记仍清晰，代码列不对齐 | 加/删行识别不受影响 |
-| grep 命中 | 行号 / 列号 / 命中片段三段不对齐 | 文本搜索结果仍可读 |
-| bash 回显（ls / table 类） | 列对齐变形 | 文字内容完整 |
-| inline code（反引号文本） | 视觉密度变化 | 可读性不变 |
+| Code character width | Monospace becomes variable-width | Indentation visible, loose column alignment |
+| diff `+/-` layout | Markers clear, code columns misaligned | Added/deleted lines remain identifiable |
+| grep hits | Line/column/snippet sections misaligned | Text search results remain readable |
+| bash output (ls / tables) | Distorted column alignment | Complete text retained |
+| Inline code (backtick text) | Visual density changes | Readability unchanged |
 
-无功能性 breakage —— 只影响视觉密度与列对齐。
+No functional breakage; only visual density and column alignment change.
 
 ---
 
 ## 7. Done-when
 
-- [ ] `bun run typecheck` 通过
-- [ ] `bun test` 通过（>= 1870 pass）
-- [ ] `font-mono` className 在 renderer 内 grep = 0
-- [ ] `italic` className 在 renderer JSX 内 grep = 0（`lib/citation-references.ts` 4 处保留；untracked `SessionPapersStatsBar.tsx` 1 处见 §2.2）
-- [ ] `components.css` 内不再含 `'Fira Code'` / `'Cascadia Code'` / `'JetBrains Mono'` / `monospace`
-- [ ] `tailwind.config.js` `fontFamily.{sans,serif,mono}` 三键就位
+- [ ] `bun run typecheck` passes
+- [ ] `bun test` passes (>= 1870 pass)
+- [ ] Renderer grep for `font-mono` classNames = 0
+- [ ] Renderer JSX grep for `italic` classNames = 0 (retain 4 in `lib/citation-references.ts`; 1 untracked `SessionPapersStatsBar.tsx`, §2.2)
+- [ ] `components.css` no longer contains `'Fira Code'` / `'Cascadia Code'` / `'JetBrains Mono'` / `monospace`
+- [ ] `tailwind.config.js` has all three `fontFamily.{sans,serif,mono}` keys
 - [ ] `apps/electron/package.json` patch +1
-- [ ] §5.2 关键面已 dev smoke
-- [ ] PR description 列出未自验的面，由 reviewer 决定是否阻断
-- [ ] PR 链接回填 spec status 行
+- [ ] §5.2 key surfaces dev-smoked
+- [ ] PR description lists unverified surfaces; reviewer decides whether blocking
+- [ ] PR link entered into spec status line
 
 ---
 
-## 8. 风险与缓解
+<a id="8-风险与缓解"></a>
 
-| 风险 | 缓解 |
+## 8. Risks and Mitigation
+
+| Risk | Mitigation |
 |---|---|
-| 某处 `font-mono` 是排版前提（如 ASCII 艺术 / pre-formatted 表格） | smoke 阶段挂在 §5.2 关键面观察；如发现真的破版，单独 token 化处理（不放回 `font-mono`） |
-| 删除 `italic` 让某个 blockquote 失去与正文的区分 | §3.3.2 表格已逐处确认保留 token 充分承担语义；若 review 时仍觉弱，再补 `text-foreground/65` 之类轻调 |
-| `tokens.css` / `theme-overrides.css` 中暗含 monospace 引用未被本 spec 覆盖 | spec 写完后由 reviewer grep 全仓 `monospace|Fira|Cascadia|JetBrains|Consolas` 兜底 |
+| `font-mono` required for layout (ASCII art / preformatted tables) | Observe §5.2 surfaces during smoke; if broken, handle with dedicated tokens without restoring `font-mono` |
+| Removing `italic` weakens blockquote/body distinction | §3.3.2 confirms retained semantic tokens per location; if still weak at review, lightly adjust e.g. `text-foreground/65` |
+| Hidden monospace references in `tokens.css` / `theme-overrides.css` outside scope | Reviewer searches repository for `monospace|Fira|Cascadia|JetBrains|Consolas` after spec completion |
 
 ---
 
-## 9. 实施计划（Implementation Plan）
+<a id="9-实施计划implementation-plan"></a>
+
+## 9. Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Strip all `font-mono` / `italic` className from `apps/electron/src/renderer`, remove the explicit monospace stack in `components.css`, and add a defensive Tailwind `fontFamily` override — so ASCI's runtime UI renders with a single sans-serif font family in every surface.
 
-**Architecture:** 9 个 task，按"防御层 → 6 个域的 `font-mono` 清算 → italic 清算 → 验证 / 发布"线性推进。每个域一个 commit，方便 reviewer 按域定位变化；最后 squash merge 进 main。
+**Architecture:** 9 tasks proceed linearly: defensive layer → `font-mono` cleanup in 6 domains → italic cleanup → validation / publication. One commit per domain helps review; finally squash into main.
 
-**Tech Stack:** Tailwind 3 / React 18 / TypeScript / Bun test。
+**Tech Stack:** Tailwind 3 / React 18 / TypeScript / Bun test.
 
 ---
 
-### Task 1: 防御层（Tailwind + components.css）
+<a id="task-1-防御层tailwind-&#45;componentscss"></a>
+
+### Task 1: Defensive Layer (Tailwind + components.css)
 
 **Files:**
-- Modify: `apps/electron/tailwind.config.js:104` 之后插入 `fontFamily` 块
-- Modify: `apps/electron/src/renderer/styles/components.css:18` 删 1 行
+- Modify: Insert `fontFamily` after `apps/electron/tailwind.config.js:104`
+- Modify: Remove 1 line at `apps/electron/src/renderer/styles/components.css:18`
 
-- [ ] **Step 1: grep 当前 monospace 残留（locking baseline）**
+- [ ] **Step 1: grep Current Monospace Remnants (Locking Baseline)**
 
 ```bash
 grep -n "Fira Code\|Cascadia\|JetBrains\|Consolas\|monospace" apps/electron/src/renderer/styles/components.css
@@ -196,7 +244,7 @@ Expected output:
 18:    font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
 ```
 
-- [ ] **Step 2: 删 components.css 第 18 行**
+- [ ] **Step 2: Delete components.css Line 18**
 
 Use Edit tool on `apps/electron/src/renderer/styles/components.css`:
 ```diff
@@ -206,16 +254,16 @@ Use Edit tool on `apps/electron/src/renderer/styles/components.css`:
    }
 ```
 
-- [ ] **Step 3: 验证 components.css 已无 monospace 残留**
+- [ ] **Step 3: Verify No Monospace Remnants in components.css**
 
 ```bash
 grep -n "Fira Code\|Cascadia\|JetBrains\|Consolas\|monospace" apps/electron/src/renderer/styles/components.css
 ```
 Expected output: (empty)
 
-- [ ] **Step 4: 在 tailwind.config.js 添加 fontFamily 防御覆盖**
+- [ ] **Step 4: Add Defensive fontFamily Override to tailwind.config.js**
 
-Use Edit tool on `apps/electron/tailwind.config.js`，在 `theme.extend.colors` 块之后、`keyframes` 块之前插入：
+Use Edit tool on `apps/electron/tailwind.config.js`, inserting after `theme.extend.colors` and before `keyframes`:
 ```js
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'system-ui', 'sans-serif'],
@@ -240,7 +288,9 @@ git commit -m "refactor(typography): 防御层——Tailwind sans/serif/mono 同
 
 ---
 
-### Task 2: tool-result-renderers `font-mono` 清算（9 文件，22 处）
+<a id="task-2-tool-result-renderers-font-mono-清算9-文件22-处"></a>
+
+### Task 2: tool-result-renderers `font-mono` Cleanup (9 Files, 22 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/agent/tool-result-renderers/read-result.tsx:65,76,98`
@@ -260,31 +310,31 @@ grep -rEn "font-mono" apps/electron/src/renderer/components/agent/tool-result-re
 ```
 Expected output: `22`
 
-- [ ] **Step 2: 在每个文件中删除 `font-mono` token**
+- [ ] **Step 2: Remove Every `font-mono` Token**
 
-删除规则：在 className 字符串内（无论是 `"..."` / clsx 第一参数 `'...'` / template literal），把 `font-mono` 这个 token 连同其前导的一个空格一并删除。若 `font-mono` 在 className 串首位（无前导空格），则删它和后面的一个空格。
+Deletion rule: In className strings (`"..."` / clsx first argument `'...'` / template literals), delete `font-mono` plus one preceding space. If first in the string, delete it and one following space.
 
-**示例 1**（行内 className 字符串）— `read-result.tsx:65`：
+**Example 1** (inline className string) — `read-result.tsx:65`:
 ```diff
 -      <pre className="rounded-md p-3 text-[12px] font-mono text-destructive/80 bg-destructive/5 whitespace-pre-wrap break-all overflow-x-auto">
 +      <pre className="rounded-md p-3 text-[12px] text-destructive/80 bg-destructive/5 whitespace-pre-wrap break-all overflow-x-auto">
 ```
 
-**示例 2**（clsx 数组首位）— `bash-result.tsx:41`：
+**Example 2** (first clsx array entry) — `bash-result.tsx:41`:
 ```diff
 -        'rounded-md font-mono text-[12px] leading-relaxed overflow-x-auto',
 +        'rounded-md text-[12px] leading-relaxed overflow-x-auto',
 ```
 
-**示例 3**（仅含 font-mono 的 className）— `grep-result.tsx:127`：
+**Example 3** (font-mono-leading className) — `grep-result.tsx:127`:
 ```diff
 -            <div className="font-mono text-[12px]">
 +            <div className="text-[12px]">
 ```
 
-对本 Task Files 列表的每一行 file:line 重复同样操作。Edit tool 调用时 `old_string` 用包含 `font-mono` 的整行内容（带必要前后文）确保唯一匹配。
+Repeat for each file:line in this task’s Files list. Edit calls should use the full `font-mono` line as `old_string`, with necessary context, for unique matching.
 
-- [ ] **Step 3: 验证清零**
+- [ ] **Step 3: Verify Zero Remnants**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/components/agent/tool-result-renderers/ | wc -l
@@ -307,7 +357,9 @@ git commit -m "refactor(typography): tool-result-renderers 删 font-mono (22 处
 
 ---
 
-### Task 3: settings `font-mono` 清算（5 文件，7 处）
+<a id="task-3-settings-font-mono-清算5-文件7-处"></a>
+
+### Task 3: settings `font-mono` Cleanup (5 Files, 7 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/settings/AboutSettings.tsx:382`
@@ -323,11 +375,11 @@ grep -rEn "font-mono" apps/electron/src/renderer/components/settings/ | wc -l
 ```
 Expected output: `7`
 
-- [ ] **Step 2: 按 Task 2 §Step 2 同样规则编辑每处**
+- [ ] **Step 2: Edit Each Location Using Task 2 §Step 2**
 
-特殊提示：`McpServerForm.tsx:320/355` 是 Textarea 的 className 串（很长），`font-mono` 出现在串尾，删除前导空格即可。
+Special note: `McpServerForm.tsx:320/355` has long Textarea classNames with `font-mono` at the end; remove the preceding space.
 
-- [ ] **Step 3: 验证清零**
+- [ ] **Step 3: Verify Zero Remnants**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/components/settings/ | wc -l
@@ -350,7 +402,9 @@ git commit -m "refactor(typography): settings 删 font-mono (7 处 / 5 文件)"
 
 ---
 
-### Task 4: preview/renderers `font-mono` 清算（5 文件，18 处）
+<a id="task-4-previewrenderers-font-mono-清算5-文件18-处"></a>
+
+### Task 4: preview/renderers `font-mono` Cleanup (5 Files, 18 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/preview/renderers/NotebookRenderer.tsx:62,79,83`
@@ -366,11 +420,11 @@ grep -rEn "font-mono" apps/electron/src/renderer/components/preview/renderers/ |
 ```
 Expected output: `18`
 
-- [ ] **Step 2: 按 Task 2 §Step 2 同样规则编辑每处**
+- [ ] **Step 2: Edit Each Location Using Task 2 §Step 2**
 
-特殊提示：`PaperDetailRenderer.tsx` 含 8 处，多数是 `<dd className="font-mono text-[10.5px] text-foreground">` 形态，删除 `font-mono` 后保留其余 token。`CsvRenderer.tsx` 是表格容器，删后视觉会出现列宽不齐——已在 §6 接受。
+Special note: `PaperDetailRenderer.tsx` has 8 locations, mostly `<dd className="font-mono text-[10.5px] text-foreground">`; remove `font-mono`, retain other tokens. `CsvRenderer.tsx` is a table container; resulting uneven columns were accepted in §6.
 
-- [ ] **Step 3: 验证清零**
+- [ ] **Step 3: Verify Zero Remnants**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/components/preview/renderers/ | wc -l
@@ -393,7 +447,9 @@ git commit -m "refactor(typography): preview/renderers 删 font-mono (18 处 / 5
 
 ---
 
-### Task 5: library + evidence-set-detail `font-mono` 清算（5 文件，10 处）
+<a id="task-5-library-&#45;evidence-set-detail-font-mono-清算5-文件10-处"></a>
+
+### Task 5: library + evidence-set-detail `font-mono` Cleanup (5 Files, 10 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/library/ItemDetailPanel.tsx:200,215,229,243`
@@ -409,11 +465,11 @@ grep -rEn "font-mono" apps/electron/src/renderer/components/library/ | wc -l
 ```
 Expected output: `10`
 
-- [ ] **Step 2: 按 Task 2 §Step 2 同样规则编辑每处**
+- [ ] **Step 2: Edit Each Location Using Task 2 §Step 2**
 
-`NoteDetailDialog.tsx` 注意：仅删 font-mono；该文件还有 `italic` 留到 Task 8 处理。
+`NoteDetailDialog.tsx`: Remove only `font-mono`; leave its `italic` for Task 8.
 
-- [ ] **Step 3: 验证清零**
+- [ ] **Step 3: Verify Zero Remnants**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/components/library/ | wc -l
@@ -436,7 +492,9 @@ git commit -m "refactor(typography): library 删 font-mono (10 处 / 5 文件)"
 
 ---
 
-### Task 6: agent (choice / permission / messages) `font-mono` 清算（6 文件，12 处）
+<a id="task-6-agent-choice-&#45;permission-&#45;messages-font-mono-清算6-文件12-处"></a>
+
+### Task 6: agent (choice / permission / messages) `font-mono` Cleanup (6 Files, 12 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/agent/choice/ChoiceCard.tsx:156`
@@ -453,15 +511,15 @@ grep -rEn "font-mono" apps/electron/src/renderer/components/agent/ --include="*.
 ```
 Expected output: `12`
 
-- [ ] **Step 2: 按 Task 2 §Step 2 同样规则编辑每处**
+- [ ] **Step 2: Edit Each Location Using Task 2 §Step 2**
 
-注意：`choice-tokens.ts` 不是 .tsx，但 className 串性质相同。`PermissionBanner.tsx:194` 是模块顶层常量 `PRE_CLASS`：
+Note: `choice-tokens.ts` is not .tsx but its className strings are equivalent. `PermissionBanner.tsx:194` is module-level constant `PRE_CLASS`:
 ```diff
 -const PRE_CLASS = 'text-xs font-mono bg-background/50 rounded px-2 py-1.5 ...'
 +const PRE_CLASS = 'text-xs bg-background/50 rounded px-2 py-1.5 ...'
 ```
 
-- [ ] **Step 3: 验证清零**
+- [ ] **Step 3: Verify Zero Remnants**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/components/agent/ --include="*.tsx" --include="*.ts" | grep -v "tool-result-renderers" | wc -l
@@ -484,7 +542,9 @@ git commit -m "refactor(typography): agent choice/permission/messages 删 font-m
 
 ---
 
-### Task 7: config + app-shell + ai-elements `font-mono` 清算（3 文件，11 处）
+<a id="task-7-config-&#45;app-shell-&#45;ai-elements-font-mono-清算3-文件11-处"></a>
+
+### Task 7: config + app-shell + ai-elements `font-mono` Cleanup (3 Files, 11 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/config/CapabilityPackPanel.tsx:93,149,160,167,169,173`
@@ -498,11 +558,11 @@ grep -rEn "font-mono" apps/electron/src/renderer/components/{config,app-shell,ai
 ```
 Expected output: `11`
 
-- [ ] **Step 2: 按 Task 2 §Step 2 同样规则编辑每处**
+- [ ] **Step 2: Edit Each Location Using Task 2 §Step 2**
 
-`SearchDialog.tsx` 4 处都在 `<kbd>` 上，删后键位提示仍可读；视觉信号靠 `bg-foreground/[0.06]` 和 padding 维持。
+All 4 `SearchDialog.tsx` locations are on `<kbd>`; key hints remain readable, with `bg-foreground/[0.06]` and padding conveying visual meaning.
 
-- [ ] **Step 3: 验证全 renderer font-mono 清零**
+- [ ] **Step 3: Verify Zero font-mono Throughout Renderer**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/ --include="*.tsx" --include="*.ts" --include="*.css" | wc -l
@@ -525,7 +585,9 @@ git commit -m "refactor(typography): config/app-shell/ai-elements 删 font-mono 
 
 ---
 
-### Task 8: `italic` className 清算（9 文件，11 处）
+<a id="task-8-italic-classname-清算9-文件11-处"></a>
+
+### Task 8: `italic` className Cleanup (9 Files, 11 Locations)
 
 **Files (modify):**
 - `apps/electron/src/renderer/components/review-demo/EvidenceTraceCard.tsx:87`
@@ -538,43 +600,43 @@ git commit -m "refactor(typography): config/app-shell/ai-elements 删 font-mono 
 - `.../library/evidence-set-detail/SetNotesTab.tsx:130`
 - `.../library/evidence-set-detail/MemberPapersNotesTab.tsx:84,88`
 
-**Skip（不动）：**
-- `apps/electron/src/renderer/lib/citation-references.ts:104,111,112,113` — markdown 解析非 className 引用
-- `apps/electron/src/renderer/components/agent/SessionPapersStatsBar.tsx:125` — untracked 文件，归该文件后续 PR
+**Skip (Unchanged):**
+- `apps/electron/src/renderer/lib/citation-references.ts:104,111,112,113` — Markdown parsing, not className references
+- `apps/electron/src/renderer/components/agent/SessionPapersStatsBar.tsx:125` — Untracked; belongs to a later PR for that file
 
-- [ ] **Step 1: baseline grep（JSX 内）**
+- [ ] **Step 1: Baseline grep (JSX)**
 
 ```bash
 grep -rEn "\bitalic\b" apps/electron/src/renderer/components/ --include="*.tsx" | wc -l
 ```
 Expected output: `11`
 
-- [ ] **Step 2: 删除每处 `italic` token**
+- [ ] **Step 2: Remove Every `italic` Token**
 
-规则同 Task 2 §Step 2，但目标 token 是 `italic`。
+Same rules as Task 2 §Step 2, targeting `italic`.
 
-**示例 1**（引用块 `<blockquote>`）— `EvidenceCard.tsx:70`：
+**Example 1** (quotation `<blockquote>`) — `EvidenceCard.tsx:70`:
 ```diff
 -        <blockquote className="border-l-2 border-border pl-3 py-1 italic text-sm text-foreground/80 leading-relaxed">
 +        <blockquote className="border-l-2 border-border pl-3 py-1 text-sm text-foreground/80 leading-relaxed">
 ```
 
-**示例 2**（空态占位）— `SDKMessageRenderer.tsx:946`：
+**Example 2** (empty-state placeholder) — `SDKMessageRenderer.tsx:946`:
 ```diff
 -          <div className="px-2 py-3 text-xs italic text-muted-foreground/60">
 +          <div className="px-2 py-3 text-xs text-muted-foreground/60">
 ```
 
-对本 Task Files 列表的每一行 file:line 重复同样操作。
+Repeat for every file:line in this task’s Files list.
 
-- [ ] **Step 3: 验证清零（含正则边界，避免误命中 `italic` 在变量名等场景）**
+- [ ] **Step 3: Verify Zero Remnants (Regex Boundaries Avoid Matching `italic` in Variable Names)**
 
 ```bash
 grep -rEn "\bitalic\b" apps/electron/src/renderer/components/ --include="*.tsx" | wc -l
 ```
 Expected output: `0`
 
-- [ ] **Step 4: 确认 citation-references.ts 4 处与 SessionPapersStatsBar.tsx 1 处仍在（按设计保留 / 排除）**
+- [ ] **Step 4: Confirm 4 citation-references.ts and 1 SessionPapersStatsBar.tsx References Remain (Retained / Excluded by Design)**
 
 ```bash
 grep -En "\bitalic\b" apps/electron/src/renderer/lib/citation-references.ts | wc -l
@@ -584,7 +646,7 @@ Expected output: `4`
 ```bash
 grep -En "\bitalic\b" apps/electron/src/renderer/components/agent/SessionPapersStatsBar.tsx 2>/dev/null | wc -l
 ```
-Expected output: `1`（若文件已被 user 提交则仍是 1；若仍 untracked 也是 1）
+Expected output: `1` (whether already committed by user or still untracked)
 
 - [ ] **Step 5: typecheck**
 
@@ -602,37 +664,39 @@ git commit -m "refactor(typography): 删 11 处 italic className (review-demo / 
 
 ---
 
-### Task 9: 版本号 + 全量验证 + push + PR
+<a id="task-9-版本号-&#45;全量验证-&#45;push-&#45;pr"></a>
+
+### Task 9: Version + Full Validation + Push + PR
 
 **Files (modify):**
 - `apps/electron/package.json`（patch +1）
 
-- [ ] **Step 1: 读取当前版本号**
+- [ ] **Step 1: Read Current Version**
 
 ```bash
 grep -E '"version"' apps/electron/package.json
 ```
-基线版本由读取结果决定（基线时 `0.1.401` 或更新；记为 X.Y.Z，本步骤目标 X.Y.(Z+1)）。
+Read the baseline version (`0.1.401` or newer at baseline; call it X.Y.Z, targeting X.Y.(Z+1)).
 
 - [ ] **Step 2: bump patch**
 
-Use Edit tool on `apps/electron/package.json`：把 `"version": "X.Y.Z"` 改为 `"version": "X.Y.(Z+1)"`。
+Use Edit tool on `apps/electron/package.json`: Change `"version": "X.Y.Z"` to `"version": "X.Y.(Z+1)"`.
 
-- [ ] **Step 3: typecheck（全监测）**
+- [ ] **Step 3: typecheck (Full Coverage)**
 
 ```bash
 bun run typecheck
 ```
 Expected: 4 packages all `Exited with code 0`.
 
-- [ ] **Step 4: 全量 bun test（必含 key-parity）**
+- [ ] **Step 4: Full bun test (Including key-parity)**
 
 ```bash
 bun test
 ```
 Expected: ≥ 1870 pass / 0 fail。
 
-- [ ] **Step 5: 全 renderer 兜底 grep（最后一道 self-check）**
+- [ ] **Step 5: Renderer-wide Fallback grep (Final Self-check)**
 
 ```bash
 grep -rEn "font-mono" apps/electron/src/renderer/ --include="*.tsx" --include="*.ts" --include="*.css" | wc -l
@@ -649,19 +713,19 @@ grep -rEn "(Fira Code|Cascadia|JetBrains|Consolas|monospace)" apps/electron/src/
 ```
 Expected: `0`
 
-- [ ] **Step 6: dev smoke（人工，无法自动化）**
+- [ ] **Step 6: Dev Smoke (Manual, Cannot Automate)**
 
 ```bash
 bun run dev
 ```
-打开应用后过：
-1. 触发 Agent 让其输出三反引号代码块 → 验证 Shiki 渲染字符不再等宽，但缩进保留
-2. 让 Agent 触发 bash / read / grep / edit / write 工具 → 验证 tool-result-renderers 文本可读
-3. 设置页 → 关于 / 渠道 / Skill 分类 / Shortcut → 文字不破版
-4. 文件预览：Code / Notebook / Csv / Paper detail → 表格列对齐可接受
-5. ChoiceCard：触发任一带选项的工具 → 选项文字可识别
+After opening the app:
+1. Have Agent emit triple-backtick code → verify Shiki is no longer monospace but retains indentation
+2. Trigger bash / read / grep / edit / write → verify readable tool-result-renderer text
+3. Settings → About / Channels / Skill Categories / Shortcuts → no broken text layout
+4. File previews: Code / Notebook / Csv / Paper details → acceptable table-column alignment
+5. ChoiceCard: Trigger any option-bearing tool → recognizable option text
 
-将走过的项 ✅ 记录在 PR description；未走过的项明列。
+Record visited items ✅ in PR description; explicitly list unvisited ones.
 
 - [ ] **Step 7: bump commit**
 
@@ -676,7 +740,7 @@ git commit -m "chore(version): apps/electron patch +1 (typography refactor)"
 git push -u origin refactor/typography-unification
 ```
 
-- [ ] **Step 9: 开 PR**
+- [ ] **Step 9: Open PR**
 
 ```bash
 gh pr create --base main --title "refactor(typography): 全站字体收敛——单一无衬线栈 + 删除 font-mono / italic" --body "$(cat <<'EOF'
@@ -709,9 +773,9 @@ EOF
 )"
 ```
 
-- [ ] **Step 10: 回填 spec status**
+- [ ] **Step 10: Fill Spec Status**
 
-PR 创建后拿到 PR 编号 N，用 Edit tool 把 spec 顶部 `> **关联 PR**：TBD（refactor/typography-unification）` 改为 `> **关联 PR**：#N`。然后：
+After PR creation yields N, use Edit to replace historical header literal `> **关联 PR**：TBD（refactor/typography-unification）` with `> **关联 PR**：#N` (Related PR). Then:
 
 ```bash
 git add docs/specs/typography-unification-spec.md
@@ -723,8 +787,10 @@ git push
 
 ## 10. Self-Review Notes
 
-实施人按下列三项 fresh-eyes 自检 plan：
+Implementer performs three fresh-eyes checks:
 
-1. **Spec 覆盖**：plan §1–§8 每个变更类别都有对应 task（防御层 T1 / font-mono T2–T7 / italic T8 / 版本 + 验证 + PR T9）
-2. **Placeholder 扫**：plan 内未含 "TBD" / "TODO" / 模糊措辞；T9 Step 1 的版本号 X.Y.Z 是实施时按实读基线，不是 placeholder
-3. **类型 / 命名一致性**：本 plan 不引入新函数 / 新类型，全部基于 string-level 编辑，无跨 task 命名漂移风险
+1. **Spec coverage**: Every §1–§8 category maps to a task (defense T1 / font-mono T2–T7 / italic T8 / version + validation + PR T9)
+2. **Placeholder scan**: No "TBD" / "TODO" / vague wording in the plan; X.Y.Z in T9 Step 1 is read at implementation, not an unresolved placeholder
+3. **Type / naming consistency**: No new functions/types, only string-level edits; no cross-task naming-drift risk
+
+The fenced historical commit/PR commands retain their original Chinese literals as evidence. Their descriptions cover the defensive font stack and Shiki removal; per-domain font-mono/italic cleanup with the counts above; patch bump; and linked spec/status updates. The historical PR body records the three font constraints, 80 mono/11 italic/1 CSS removals, defensive fallback, unchanged iframe/Skill templates/untracked component, typecheck/tests/zero-remnant grep, manual-smoke checklist, verified/unverified surfaces, and Claude Code attribution. Current PR publication must use English; these preserved commands are archival examples, not instructions to execute.

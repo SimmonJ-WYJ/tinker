@@ -1,24 +1,30 @@
-# 聊天输入框占位与光标对齐
+<a id="聊天输入框占位与光标对齐"></a>
 
-状态：已查看截图，完成浏览器红绿回归、边界验收、聚合检查与独立复审。基线 main `3787f34`。
+# Chat Composer Placeholder and Caret Alignment
 
-目标：以真实编辑文本起点为准对齐轮播提示，聊天输入字号由 16px 调为 14px，不改外框、配色、工具栏或发送逻辑。
+Status: Screenshots reviewed; browser red/green regression, boundary acceptance, aggregate checks, and independent review complete. Baseline main `3787f34`.
 
-## 原因与方案
+Goal: Align rotating hints with the actual start of edited text and change the chat input font size from 16px to 14px, preserving the outer frame, colors, toolbar, and send logic.
 
-- `conversation-flow.css` 将聊天编辑器 padding 设为 0、字号设为 16px。
-- `rich-text-input.tsx` 的轮播提示仍绝对定位在 15px/9px，并有独立的 14px/normal 排版。
-- 将编辑器和轮播提示的 padding、字号、行高统一为组件 CSS 变量。
-- `workspace-home.css` 和 `conversation-flow.css` 只设变量，保留各场景的外部布局与最小高度。
-- 轮播后缀保持现有切换动效，前缀和后缀共享行框，取消会引入额外基线的 inline-block 排版。
+<a id="原因与方案"></a>
 
-## 执行与验收
+## Cause and Approach
 
-- [x] 用独立浏览器夹具挂载真实 RichTextInput 和正式 CSS，记录改前提示与真实文本范围的坐标差。
-- [x] 最小修改上述三处文件，以真实 DOM Range 和提示文本范围断言相同起点及基线。
-- [x] 复验空白、聚焦、失焦、输入和清空、单行/多行、中英文、IME 事件、缩放、附件、滚动与发送/停止状态。
-- [x] 检查首页静态提示和普通富文本输入不因共用组件退化。
-- [x] 运行相关输入/转换/提及测试、全仓 typecheck、lint、Bun 测试及 Electron build。
-- [x] 独立复审并保存本地提交与验收记录，不改 Rust、README/CLAUDE 或用户数据。
+- `conversation-flow.css` sets chat editor padding to 0 and font size to 16px.
+- Rotating hints in `rich-text-input.tsx` still use absolute positioning at 15px/9px and separate 14px/normal typography.
+- Unify padding, font size, and line height for the editor and rotating hints through component CSS variables.
+- `workspace-home.css` and `conversation-flow.css` only set variables, preserving each context's external layout and minimum height.
+- Preserve existing suffix transitions; the prefix and suffix share a line box, removing inline-block layout that introduces an extra baseline.
 
-浏览器夹具、合成附件和本机运行截图只用于验收，不能成为正式产品入口或上传截图附件。本轮不替换安装包、不安装、不发布或自动合并。
+<a id="执行与验收"></a>
+
+## Implementation and Acceptance
+
+- [x] Mount the real RichTextInput and production CSS in an independent browser fixture; record coordinate differences between hints and actual text ranges before the fix.
+- [x] Make minimal changes to the three files above; assert identical starting positions and baselines using actual DOM Ranges and hint text ranges.
+- [x] Recheck empty, focused, blurred, typing and clearing, single/multiline, Chinese/English, IME events, zoom, attachments, scrolling, and send/stop states.
+- [x] Check that homepage static hints and ordinary rich text inputs do not regress through the shared component.
+- [x] Run relevant input/conversion/mention tests, repository-wide typecheck, lint, Bun tests, and Electron build.
+- [x] Independently review and save local commits and acceptance records; leave Rust, README/CLAUDE, and user data unchanged.
+
+Browser fixtures, synthetic attachments, and local screenshots are acceptance evidence only; they must not become production entry points or uploaded screenshot attachments. This round does not replace an installation package, install, publish, or automatically merge.

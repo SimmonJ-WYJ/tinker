@@ -1,53 +1,65 @@
-# 0.1 北极星目标（Alpha 深化）
+<a id="01-北极星目标alpha-深化"></a>
 
-**定位**：把"检索 → 综述"闭环从"能跑通"做到"科研人员敢信、敢用"。
-**截止日期**：2026-05-15
-**审计原则**：每条目标必须可被"是/否"或具体数值验证，不依赖主观判断。
+# 0.1 North Star Goals (Alpha Deepening)
 
----
-
-## A. 检索可信度 — 结果"不敢不信"
-
-| # | 审计标准 | 验证方式 |
-|---|---------|---------|
-| A0 | 检索开始前，系统根据用户自然语言自动生成检索计划草案（关键词、检索源、时间范围、学科范围），用户可编辑后确认再执行 | 输入任一研究问题 → 系统生成检索计划草案 → 用户可编辑各字段 → 确认后开始检索 |
-| A1 | 作者/标题/DOI 零错配 | 取用户反馈中已知的错配案例，重建后确认不再复现 |
-| A2 | 缺失字段标注"未找到"，零默认值伪造 | 遍历检索结果卡片，所有空字段显示为"未找到/待补全"，不存在 1970/Zhang 1982 等硬编码回退 |
-| A3 | 每条检索结果标注数据源 | 卡片上可见具体来源名称（OpenAlex / Semantic Scholar / PubMed 等） |
-| A4 | 0 结果时如实告知，不禁用相似结果填充 | 搜不存在的论文，系统返回"未找到"，不返回同名异著替代 |
-
-## B. 综述可追溯 — 结论"可查可验"
-
-| # | 审计标准 | 验证方式 |
-|---|---------|---------|
-| B1 | 综述中每条观点至少绑定 1 个上标引用 | 打开任意综述 HTML，逐条观点检查是否有引用标记 |
-| B2 | 引用可点击跳转 → 对应论文条目 | 点击综述中任一引用标记，右侧或弹窗定位到对应论文 |
-| B3 | Claim 悬停展示来源段落预览 | 鼠标悬停引用标记，弹出源论文标题 + 相关摘要/段落 |
-| B4 | 思考链展示"结论 → 证据"因果路径 | 展开思考过程，可见逐条结论及其依赖的论文列表 |
-
-## C. 基础体验可靠 — 产品"装得上、跑得稳"
-
-| # | 审计标准 | 验证方式 |
-|---|---------|---------|
-| C1 | Windows 免手动装 Python/Node.js/Git | 全新 Win10/Win11 安装→启动，不弹"请先安装 XXX" |
-| C2 | Mac 首次安装 → 进入主界面 ≤ 1 分钟 | 计时验证 |
-| C3 | 无文献库时可直接检索 + 综述 | 不连 Zotero、不建文献库，直接搜关键词 → 生成综述 |
-| C4 | 会话回退后可继续对话，会话 ID 不丢失 | 回退到节点 N → 发送新消息 → 不报错 |
-| C5 | 支持多语言，默认英文 | 切换语言后全局 UI 生效，重启后保持 |
-
-## D. 透明度 — 过程"看得见、可干预"
-
-| # | 审计标准 | 验证方式 |
-|---|---------|---------|
-| D1 | 模糊词自动追问时间/学科范围 | 输入"最新进展"→ 系统追问"时间范围？学科？" |
-| D2 | 中英文查询自动路由到对应检索源 | 英文 query 走英文源为主，中文 query 走中文源为主 |
-| D3 | 检索详情页展示统计概览 | 检索结果列表可查看：总数量、年份分布图、检索源分布、相关度分布 |
+**Positioning**: Take the "search → review" loop from "it runs" to "researchers can trust and use it."
+**Deadline**: 2026-05-15
+**Audit principle**: Every goal must be verifiable with "yes/no" or a specific number, without subjective judgment.
 
 ---
 
-## 审计关系
+<a id="a-检索可信度-&#45;结果不敢不信"></a>
 
-- **C（基础体验）**：门槛，装不上一切免谈
-- **A（检索可信度）**：信任底座，数据不准没人用
-- **B（综述可追溯）**：核心差异，不可追溯就退化为普通 AI 聊天
-- **D（透明度）**：体验放大器，让可信度"看得见"
+## A. Search Credibility — Results Users "Cannot Distrust"
+
+| # | Audit criterion | Verification method |
+|---|---------|---------|
+| A0 | Before searching, the system automatically drafts a search plan from the user's natural language (keywords, sources, time range, disciplines); users can edit and confirm it before execution | Enter any research question → system drafts a search plan → user can edit each field → search starts after confirmation |
+| A1 | Zero author/title/DOI mismatches | Reconstruct known mismatch cases from user feedback and confirm they no longer reproduce |
+| A2 | Mark missing fields "Not found"; zero fabricated defaults | Inspect search result cards: all empty fields show "Not found/To be completed," with no hardcoded fallbacks such as 1970/Zhang 1982 |
+| A3 | Label every search result with its data source | Cards visibly name the specific source (OpenAlex / Semantic Scholar / PubMed, etc.) |
+| A4 | Honestly report 0 results; do not disable filling with similar results | Search for a nonexistent paper: the system returns "Not found" rather than a substitute with the same title and different authors |
+
+<a id="b-综述可追溯-&#45;结论可查可验"></a>
+
+## B. Traceable Reviews — Conclusions That Can Be Checked
+
+| # | Audit criterion | Verification method |
+|---|---------|---------|
+| B1 | Every claim in a review has at least 1 superscript citation | Open any review HTML and check each claim for citation markers |
+| B2 | Clickable citations navigate → corresponding paper entry | Click any review citation marker; the right panel or popup locates the corresponding paper |
+| B3 | Hovering a claim previews its source passage | Hover a citation marker to show the source paper title + relevant abstract/passage |
+| B4 | The reasoning chain shows the causal path "conclusion → evidence" | Expand the reasoning process to see each conclusion and the papers it depends on |
+
+<a id="c-基础体验可靠-&#45;产品装得上跑得稳"></a>
+
+## C. Reliable Basic Experience — A Product That Installs and Runs Reliably
+
+| # | Audit criterion | Verification method |
+|---|---------|---------|
+| C1 | Windows requires no manual Python/Node.js/Git installation | Fresh Win10/Win11 install → launch, without "Please install XXX first" prompts |
+| C2 | First Mac installation → main interface ≤ 1 minute | Verify with a timer |
+| C3 | Search + review work without a literature library | Without connecting Zotero or creating a library, search keywords directly → generate a review |
+| C4 | Conversation continues after session rollback without losing the session ID | Roll back to node N → send a new message → no error |
+| C5 | Multilingual support, English by default | Switching languages applies throughout the UI and persists after restart |
+
+<a id="d-透明度-&#45;过程看得见可干预"></a>
+
+## D. Transparency — A Visible Process Users Can Intervene In
+
+| # | Audit criterion | Verification method |
+|---|---------|---------|
+| D1 | Ambiguous terms automatically trigger time/discipline clarification | Enter "latest advances" → system asks "Time range? Discipline?" |
+| D2 | Chinese and English queries automatically route to corresponding sources | English queries primarily use English sources; Chinese queries primarily use Chinese sources |
+| D3 | Search details show a statistical overview | The result list exposes total count, year distribution chart, source distribution, and relevance distribution |
+
+---
+
+<a id="审计关系"></a>
+
+## Audit Relationships
+
+- **C (basic experience)**: The entry threshold; nothing else matters if it cannot be installed.
+- **A (search credibility)**: The foundation of trust; inaccurate data drives users away.
+- **B (traceable reviews)**: The core distinction; without traceability, this becomes ordinary AI chat.
+- **D (transparency)**: Amplifies the experience by making credibility visible.

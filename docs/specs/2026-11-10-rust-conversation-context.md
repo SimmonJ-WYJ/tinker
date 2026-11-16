@@ -1,145 +1,175 @@
-# Rust Lab：持久化父执行链与真实 HTTP 多轮上下文
+<a id="rust-lab持久化父执行链与真实-http-多轮上下文"></a>
 
-状态：核心实现及本机自动验证完成，2026-11-10。基线 main `4ca339592668581c1dc36abc9097fc9bf0aa1650`，隔离分支 `feat/rust-conversation-context-audit`。按用户继续下一阶段迁移要求实施，正式 UI、功能和数据不变，只使用合成回环服务，不读取真实凭据或调用线上模型。采用同一 RunStore 锁与 context-v2 子目录，降级混写的排序限制见下文。精确 Started/fsync 故障注入与专用多轮 panic 等未测项见阶段报告，不把设计验收清单全部写成已实测。
+# Rust Lab: Persistent Parent Execution Chains and Real HTTP Multi-Turn Context
 
-## 推荐的一个完整批次
+Status: Core implementation and local automated validation complete, 2026-11-10. Baseline main `4ca339592668581c1dc36abc9097fc9bf0aa1650`, isolated branch `feat/rust-conversation-context-audit`. Implemented at the user's request to continue migration; production UI, features, and data unchanged. Synthetic loopback services only, without real credentials or online models. Uses the same RunStore lock and context-v2 subdirectory; downgrade mixed-write ordering limits below. See stage report for untested exact Started/fsync fault injection, dedicated multi-turn panic, and other gaps; the entire design checklist is not claimed as tested.
 
-增加一个真实 Tauri 命令 `continue_lab_run(requestId, parentRunId, input, scenario)`，复用现有 `RunController`、`RunStore` 和 `ChatHttpProvider`，将一个已成功完成的执行作为不可变父节点。控制器从父链 JSONL 重建经过验证的 `user/assistant` 消息，追加当前 user，传入现有 HTTP/SSE 生命周期；结果仍由既有 JSONL、分页 read、cancel 和重启恢复管理。默认桌面仍是离线 fixture，HTTP 只通过可信宿主注入，自动化验收只用合成数据及 numeric loopback。
+<a id="推荐的一个完整批次"></a>
 
-首轮仍使用原 `start_lab_run`；继续和分支必须显式指定 parentRunId，绝不使用“当前/latest run”推断上下文。现有三个命令的参数、公开 RunSnapshot/RunRecord/RunEventPage 形状、旧 v1 日志内容与读写路径均保留。此次新增 command 在真实 `main.rs` generate_handler 注册，通过真实 InvokeRequest + MockRuntime + loopback HTTP 串通；不制作只被单测调用的旁路库，也不改造实验 UI，更不接生产 Electron。
+## Recommended Complete Batch
 
-推荐布局经父任务补充约束修正：旧 v1 仍在 runs-v1/<id>.jsonl；新 continuation放 runs-v1/context-v2/<id>.jsonl，使用同一个 RunStore与根 writer.lock。旧 reader仅扫描根直接 *.jsonl，所以旧日志继续可用，新continuation在降级版本暂不可见，不删除数据。新版在两个layout中统一ID查找/去重/createdOrder分配；不引入第二会话库或第二controller。
+Add a real Tauri command `continue_lab_run(requestId, parentRunId, input, scenario)`, reusing `RunController`, `RunStore`, and `ChatHttpProvider`, treating a successfully completed execution as an immutable parent. Reconstruct validated `user/assistant` messages from parent-chain JSONL, append current user, and enter the existing HTTP/SSE lifecycle. Existing JSONL, paginated reads, cancellation, and restart recovery continue managing results. Desktop defaults to offline fixtures; HTTP is injected only by trusted hosts. Automated acceptance uses synthetic data and numeric loopback only.
 
-## 已核验的代码事实
+First turns retain `start_lab_run`; continuation/branching explicitly require parentRunId, never inferred from current/latest run. Preserve the three existing commands' parameters, public RunSnapshot/RunRecord/RunEventPage shapes, old v1 log contents, and read/write paths. Register the new command in real `main.rs` generate_handler and connect actual InvokeRequest + MockRuntime + loopback HTTP; no unit-test-only bypass library, experimental UI redesign, or production Electron connection.
 
-- `run_commands.rs`：可信宿主 `RunHostState::with_chat_http` 已接 HTTP；renderer 只能选 requestId/input/scenario。`main.rs` 默认 `RunHostState::new` 离线。
-- `run_controller.rs`：单活动执行；worker 锁串行化 start；inner 锁保护 store/current；创建 header 和 Started 成功持久化后才 spawn provider。runId=requestId，重复请求比较 input/scenario。drop 取消并 join；open 把未终态写成 interrupted，不重放 provider。
-- `run_store.rs`：唯一事实源 `runs-v1/<id>.jsonl`；`<id>.json` 只是可丢弃缓存。私有 RunHeader 与公开 DTO 都 deny_unknown_fields；header 和事件现用 protocolVersion=1。header 限512KiB，日志4MiB；目录单 writer 文件锁。直接 symlink/hardlink、损坏中段和未来版本被拒绝；截断尾部 recoveryRequired。
-- `chat_http.rs`：`RunProvider::execute(&str, ...)` 当前固定构造一个 user message；HTTP 防重试/代理/重定向、超时、取消、SSE 解析、输出预算和 key 反射拦截已经独立验证，不应重新实现。
-- `tests/run_invoke.rs` 已有真实 handler、HTTP 进程退出/重启、取消/去重、敏感信息不落 JSONL 证据；`tests/support/http.rs` 请求读取目前上限16KiB，新增大上下文测试需独立有界 helper 或参数化上限，不能无界读取。
+Parent-task constraints refine the layout: old v1 remains runs-v1/<id>.jsonl; new continuations use runs-v1/context-v2/<id>.jsonl, under the same RunStore and root writer.lock. Old readers scan direct root *.jsonl only, preserving old logs while new continuations are temporarily invisible after downgrade without data deletion. New versions unify ID lookup/deduplication/createdOrder allocation across both layouts; no second conversation store/controller.
 
-## 三种设计及结论
+<a id="已核验的代码事实"></a>
 
-| 方案 | 好处 | 代价/问题 | 结论 |
+## Verified Code Facts
+
+- `run_commands.rs`: Trusted host `RunHostState::with_chat_http` already connects HTTP; renderer chooses only requestId/input/scenario. `main.rs` defaults to offline `RunHostState::new`.
+- `run_controller.rs`: One active execution; worker lock serializes start; inner lock protects store/current; provider spawns only after header and Started persistence succeed. runId=requestId; duplicates compare input/scenario. Drop cancels/joins; open marks nonterminal runs interrupted without provider replay.
+- `run_store.rs`: Sole source of truth `runs-v1/<id>.jsonl`; `<id>.json` is disposable cache. Private RunHeader and public DTOs deny_unknown_fields; header/events currently protocolVersion=1. Header limit 512KiB, log 4MiB; single-writer directory lock. Direct symlink/hardlink, corrupt middle records, and future versions rejected; truncated tails require recoveryRequired.
+- `chat_http.rs`: `RunProvider::execute(&str, ...)` currently builds one user message; HTTP no-retry/proxy/redirect protections, timeout, cancellation, SSE parsing, output budgets, and key-reflection blocking already independently verified; do not reimplement.
+- `tests/run_invoke.rs` has real handler, HTTP process exit/restart, cancellation/deduplication, and sensitive-data-free JSONL evidence; `tests/support/http.rs` currently limits request reads to 16KiB. Large-context tests need a separate bounded helper or parameterized limit, never unbounded reads.
+
+<a id="三种设计及结论"></a>
+
+## Three Designs and Conclusion
+
+| Approach | Benefits | Costs/Problems | Conclusion |
 |---|---|---|---|
-| 同一 RunStore/原 writer.lock 管理根目录旧 v1 与 context-v2 子目录的新 v2 私有 header，持久化 parentRunId/parentSequence/contextPolicyVersion，正文来自已有记录 | 同一事实源及锁，一次 header 创建包含完整启动意图；复用现有崩溃恢复/去重；旧 reader忽略子目录且仍可打开旧日志；无需复制历史正文或新库 | 要将 header版本、layout定位与事件/IPC版本分开；旧二进制看不到新continuation；跨版本混写须明确ID碰撞和order平局行为 | **推荐**，最小且有完整不变量的一批 |
-| v1 header 完全不变，加 `<id>.context.json` sidecar | 旧程序通常忽略 sidecar、能读 JSONL；父正文可从现有记录重建 | 两文件无原子事务；必须处理 context-only / log-only / fsync 不确定。更根本：sidecar 缺失后 context run 与真正旧 standalone run 不可区分，静默失去祖先上下文。若不复制 input，孤立 intent 还不能完整确定同 requestId 请求 | 不推荐以“零 schema 变更且完全安全”为名实施 |
-| 新 conversation store/manifest 存完整消息快照，独立管理 run 引用或复制历史 | 上下文快照自足、容易展示会话 | 两套去重/锁/恢复/额度/生命周期；跨库事务和复制数据；超出一批最小接线 | 后续完整会话/迁移阶段再考虑 |
+| Same RunStore/original writer.lock manages root old v1 and context-v2 new private v2 headers, persisting parentRunId/parentSequence/contextPolicyVersion with bodies from existing records | Same truth/lock; one header creation includes full start intent; reuses recovery/deduplication; old readers ignore subdirectory and open old logs; no copied history/new store | Separate header version/layout from event/IPC versions; old binaries cannot see continuations; mixed-version ID collisions/order ties need explicit behavior | **Recommended**, smallest batch with complete invariants |
+| Preserve v1 header, add `<id>.context.json` sidecar | Old programs generally ignore sidecars and read JSONL; reconstruct parents from existing records | No two-file atomic transaction; context-only/log-only/fsync uncertainty. Fundamentally, missing sidecar makes context runs indistinguishable from legacy standalone runs, silently losing ancestors. Without copied input, orphan intent cannot fully identify same-requestId requests | Do not implement under claims of zero schema change and complete safety |
+| New conversation store/manifest with full message snapshots and independent references/copied history | Self-contained context, easy conversation display | Duplicate deduplication/locks/recovery/budgets/lifecycle, cross-store transactions and copied data; beyond minimal batch | Consider in later full-conversation/migration stages |
 
-sidecar 可以设计成严格 fail-closed，但前提是有不会被缺失 sidecar 抹掉的 durable discriminator：例如改变 header、增加旧 reader 不认识的记录，或保留新的 runId 命名空间并让所有旧/新写者共同拒绝该空间。前两项仍改变 schema；第三项改变旧 ID 接受语义、要解决既有碰撞及降级旧写者。不能靠“先写 sidecar，再写 JSONL”本身证明安全；它只解决一个提交窗口，不能证明缺失 metadata 的检测。禁止把 lineage 塞入 input、scenario、createdOrder 的隐式编码。
+A sidecar can fail closed only with a durable discriminator surviving sidecar loss: change headers, add records unknown to old readers, or reserve a new runId namespace rejected by all old/new writers. The first two still change schema; the third changes old ID acceptance and requires collision/downgrade handling. Writing sidecar before JSONL alone proves only one commit window, not missing-metadata detection. Never encode lineage implicitly in input, scenario, or createdOrder.
 
-## 语义与精确数据形状
+<a id="语义与精确数据形状"></a>
 
-新增 `run_context.rs`：
+## Semantics and Exact Data Shapes
 
-- `ParentRunRef { run_id: String, sequence: u64 }`，serde camelCase + deny_unknown_fields。
-- `RunLineage`：内部 `Standalone` 或 `Continuation { parent: ParentRunRef, policy_version: u32 }`；StoredRun 增加 lineage 与 created_order 两个内部字段，不加入公开 RunSnapshot。
-- `ChatRole { User, Assistant }`，wire 小写，仅序列化这两个角色。
-- `ChatMessage { role: ChatRole, content: String }`。
-- `RunContext { messages: Vec<ChatMessage> }`：私有字段及受控构造/只读访问；单条根请求 `[user(input)]`；延续为 `[ancestor user, ancestor assistant, ..., parent user, parent assistant, current user]`。不接受 renderer 提供 messages/role/system prompt。
-- 固定 `CONTEXT_POLICY_VERSION=1`，`MAX_CONTEXT_ANCESTORS=16`，`MAX_CONTEXT_BYTES=512*1024`（所有 content 的 UTF-8 字节总和，含当前 input），`MAX_HTTP_REQUEST_BYTES=4*1024*1024`（序列化完整 JSON 请求字节数）。这些是实验策略，不是 tokenizer/model token limit，不宣称适合任意模型。最坏 JSON 控制字符六倍膨胀也在请求上限内；序列化后仍显式检查。
+Add `run_context.rs`:
 
-本批**不做自动裁剪/摘要**。整个父链超过16个已完成轮次或512KiB就返回 `contextLimitExceeded`，不创建新日志、不发网络、不改变父节点；不能保留 assistant 而丢 user、切 UTF-8、静默跳过旧祖先。精确达界允许，多1字节/多1祖先拒绝。当前 input 的65536字节原边界保持。该有限但明确策略使一批可验证，不需持久化裁剪算法或 token 计费估算。后续可定义 policyVersion2 的完整轮次后缀裁剪，而非修改既有 policy1 语义。
+- `ParentRunRef { run_id: String, sequence: u64 }`, serde camelCase + deny_unknown_fields.
+- `RunLineage`: Internal `Standalone` or `Continuation { parent: ParentRunRef, policy_version: u32 }`; StoredRun adds internal lineage and created_order, outside public RunSnapshot.
+- `ChatRole { User, Assistant }`, lowercase wire representation, these roles only.
+- `ChatMessage { role: ChatRole, content: String }`.
+- `RunContext { messages: Vec<ChatMessage> }`: Private fields, controlled construction/read-only access; root `[user(input)]`; continuation `[ancestor user, ancestor assistant, ..., parent user, parent assistant, current user]`. No renderer-supplied messages/role/system prompt.
+- Fixed `CONTEXT_POLICY_VERSION=1`, `MAX_CONTEXT_ANCESTORS=16`, `MAX_CONTEXT_BYTES=512*1024` (total content UTF-8 bytes including current input), `MAX_HTTP_REQUEST_BYTES=4*1024*1024` (entire serialized JSON request bytes). Experimental policy, not tokenizer/model token limits or universal model compatibility. Even worst-case sixfold JSON control-character expansion fits; explicitly check after serialization too.
 
-`RunError` 增加固定码 `ContextParentNotCompleted`→`contextParentNotCompleted`、`ContextLimitExceeded`→`contextLimitExceeded`、`ContextUnsupported`→`contextUnsupported`。缺父节点复用 `runNotFound`；非法 ID 复用原映射 `runInvalidOptions`；corrupt/future/symlink/io 原码不包含路径或内容。
+**No automatic trimming/summarization**. Parent chains exceeding 16 completed turns or 512KiB return `contextLimitExceeded`, without new logs, networking, or parent changes. Never keep assistant while dropping user, split UTF-8, or silently omit ancestors. Exact limits accepted; +1 byte/ancestor rejected. Preserve current input's 65536-byte limit. This finite explicit policy makes one batch verifiable without persisted trimming algorithms/token cost estimates. Future policyVersion2 may define complete-turn suffix trimming without changing policy1 semantics.
 
-继续命令 parent 必填。parent==requestId 拒绝 `requestConflict`（未存在时也禁止自环）；加载父记录必须 Completed、!recoveryRequired、终态 sequence 正确。Running/Queued、Failed、Cancelled、Interrupted 一律拒绝作为父，不只是丢弃它们的 assistant。未成功的 user 也不进入新请求。要在失败/取消后重试，客户端创建新 requestId，指向原先成功的父；原失败 run 和部分输出照常可读。同 requestId 是查询/去重，绝不表示重试。
+Add fixed `RunError` codes `ContextParentNotCompleted`→`contextParentNotCompleted`, `ContextLimitExceeded`→`contextLimitExceeded`, `ContextUnsupported`→`contextUnsupported`. Missing parents reuse `runNotFound`; invalid IDs reuse `runInvalidOptions`; existing corrupt/future/symlink/io codes contain no paths/content.
 
-两个不同 requestId 可先后指向同一父形成分支。继承只沿显式父链，绝不混入兄弟、latest run、相同 input 的其他 run。父节点 completed 后现有生命周期禁止追加，已存 parentSequence 是明确终态锚；装载时核验 sequence 精确相等与 createdOrder 严格递减，再加 visited ID 检测循环。无新增 hash 依赖；不宣称防御同用户恶意原地改写内容但保持 sequence 的攻击，此边界与现有 store 的 symlink 检查一致。
+Continuation requires parent. parent==requestId yields `requestConflict` even before existence, preventing self-loops. Parent must be Completed, !recoveryRequired, with correct terminal sequence. Reject Running/Queued, Failed, Cancelled, Interrupted parents entirely, not just their assistant output; unsuccessful user input also stays out. Retrying after failure/cancellation requires a new requestId pointing to the original successful parent; failed runs/partials remain readable. Same requestId means lookup/deduplication, never retry.
 
-## 持久化与原子性
+Two requestIds may sequentially branch from the same parent. Inherit only explicit ancestors, never siblings/latest/same-input runs. Existing lifecycle forbids appends after parent completion; stored parentSequence anchors its terminal state. Load validates exact sequence and strictly decreasing createdOrder, plus visited IDs for cycles. No new hash dependency; no claim to prevent same-user malicious in-place edits preserving sequence, consistent with existing symlink-check boundaries.
 
-保留现有 `RunHeaderV1` 原字段与序列化值。新增严格 `RunHeaderV2`，共同字段相同但 header `protocolVersion=2`，并有 required `parent: ParentRunRef`、required `contextPolicyVersion=1`。本批 v2 只用于 continuation；root 均 v1。事件依然 protocolVersion=1，公开 snapshot/page 依然1。禁止把全局 PROTOCOL_VERSION 改为2导致旧事件/DTO改变。
+<a id="持久化与原子性"></a>
 
-把 `check_version` 拆为 header dispatch（只接受1/2）和原事件检查（只接受1）。`entries` 与 `load` 在各自layout使用同一 header decoder，避免目录扫描接受而 load 拒绝的分叉；`snapshot_from_header` 使用归一化私有 header，而不是传播存储版本到 IPC。v2 缺 parent/坏父引用/未知字段为 corruptLog；未来 header版本或 contextPolicyVersion 为 unsupportedVersion。旧 v1 的 lineage=Standalone。
+## Persistence and Atomicity
 
-`RunStore::create_continuation(id,input,scenario,parent_ref)` 与原 create 共用 header写入、createdOrder、预算、路径检查；不能另建 writer lock 或第二存储引擎。
+Preserve `RunHeaderV1` fields and serialization. Add strict `RunHeaderV2` with shared fields but header `protocolVersion=2`, required `parent: ParentRunRef`, required `contextPolicyVersion=1`. Only continuations use v2; roots remain v1. Events remain protocolVersion=1; public snapshots/pages remain 1. Do not globally change PROTOCOL_VERSION to 2 and alter old events/DTOs.
 
-**精确布局实现：** RunStore继续在 `parent/runs-v1/writer.lock` 取得唯一锁（旧程序也锁它），增加 `context_root = root.join("context-v2")`。新版目录扫描只检查根v1和该固定子目录v2；禁止递归遍历其他内容。context_root经ensure_dir/canonicalize及直接symlink检查。v1 path只能header1，context-v2 path只能header2，错layout为corruptLog。`find_location(id)`对两处safe_file，均存在为corruptLog，均无为runNotFound；不能任选一个。StoredRun持有内部layout字段，append/cache_snapshot始终在自身layout目录，cache名字仍<id>.json；目录fsync针对实际父目录。两个layout同ID时open及查重均fail-closed，不覆盖或自动修复。新写者分配两个layout最大createdOrder+1，原start仍落根v1，新continue落context-v2。
+Split `check_version` into header dispatch (1/2 only) and existing event checks (1 only). `entries` and `load` share header decoder in each layout, avoiding scan/load disagreement; `snapshot_from_header` uses normalized private headers without exposing storage version through IPC. Missing parent/bad reference/unknown fields in v2 → corruptLog; future header/contextPolicyVersion → unsupportedVersion. Old v1 lineage=Standalone.
 
-**降级混写边界：** 旧程序忽略context-v2，仍能读写根v1，但它无法承诺对不可见continuation ID去重。若旧版复用了隐藏ID，重新升级时明确corruptLog，不删除任何一份。旧版写新v1还可能与隐藏v2出现相同createdOrder。因此新版保留各layout内部order唯一校验，跨layout同order允许，按 `(createdOrder, layoutRank)` 排序（v1=0，v2=1）；这是确定性的读取顺序，不能称降级混写场景严格实际启动时间。新版正常运行下全局order仍严格递增。父链新写入时必然 parent.createdOrder < child.createdOrder；v2校验保持该约束。避免为了隐藏平局而扫描mtime、改写旧header或新建global manifest。测试要显式覆盖旧版样式写入后的平局与两个layout重ID。该限定不影响新版本内的多轮上下文/重启去重，且满足旧日志降级仍可用。实际开始顺序：
+`RunStore::create_continuation(id,input,scenario,parent_ref)` shares header writing, createdOrder, budgets, and path checks with original create; no second writer lock/storage engine.
 
-1. 验证 ID/input/scenario；获取已有 worker/inner 锁。
-2. **先查 requestId 并判去重/冲突**。旧 start 与已存在 continuation 冲突，即使 input/scenario 相同；continue 与已存在 standalone 冲突。继续请求比较 input、scenario、parentRunId；parentSequence 是第一次创建时宿主冻结的值，重发不重新解析父来改变意图。
-3. 已存在且匹配：返回该 run 当前/持久化 snapshot，不重新调用 provider；包括 completed/failed/cancelled/interrupted，重启后同样如此。即使宿主换了 provider/model也不重新执行；provider身份不在本批请求身份中，沿用旧行为。
-4. 不存在：确认未 blocked、无活动 run。join 旧 worker 后在既有锁下从**磁盘事实源**验证并重建父链，不用可能标记 storage failure 的 current 缓存；校验累计预算，形成不可变 RunContext。
-5. 在单个 v2 header 中持久化 input/scenario/parent/policy/createdOrder；write_all + sync_all + 目录sync，沿用原 create_new 不覆盖语义。然后 Started append + sync_data。
-6. 只有以上成功才 spawn provider；worker 捕获本次冻结的 RunContext，发送过程不再查询 latest/磁盘祖先。
+**Exact layout:** RunStore retains the sole lock at `parent/runs-v1/writer.lock` (also used by old versions), adding `context_root = root.join("context-v2")`. Scan only root v1 and this fixed v2 subdirectory, without recursive traversal. ensure_dir/canonicalize/direct-symlink checks apply to context_root. v1 paths require header1; context-v2 requires header2; mismatches → corruptLog. `find_location(id)` safe_file-checks both: both exist → corruptLog, neither → runNotFound; never choose arbitrarily. StoredRun carries internal layout; append/cache_snapshot stay in its directory with <id>.json cache names; directory fsync targets the actual parent. Duplicate IDs fail closed at open/deduplication without overwrites/automatic repair. Allocate max createdOrder across layouts +1; original start writes root v1, continue writes context-v2.
 
-不是声称 header 写入在任意断电下天然 atomic：沿用当前单文件可检测不完整写入语义。完整 header-only 崩溃恢复为 Interrupted；Started之后崩溃恢复为 Interrupted；部分/坏 header fail-closed；任何 io/fsync 不确定在该控制器设 blocked，不自动重试 provider。重要保证是 lineage 与 input 在**同一事实记录**中，没出现“确认启动但 parent intent 尚未持久化”的跨文件窗口。已恢复 interrupted 的同 requestId只返回既有状态，不能重发付费副作用。
+**Downgraded mixed-write boundaries:** Old programs ignore context-v2 while reading/writing root v1, so cannot deduplicate invisible continuation IDs. If an old version reuses a hidden ID, upgrading explicitly returns corruptLog without deleting either. New old-version v1 writes may also tie hidden v2 createdOrder. Preserve per-layout unique order, allow cross-layout ties, sort by `(createdOrder, layoutRank)` (v1=0, v2=1). This is deterministic read order, not actual strict start chronology after downgrade. Normal new-version global order remains strictly increasing. Newly written parent chains require parent.createdOrder < child.createdOrder, retained in v2 validation. Do not hide ties with mtime scans, old-header rewrites, or global manifests. Explicitly test old-style order ties and duplicate IDs across layouts. This limit preserves new-version multi-turn context/restart deduplication and usable downgraded old logs. Actual start order:
 
-父历史缺失/损坏/未来版本/路径异常时，不把该节点当root或空上下文。`open` 应先验证所有日志（原本逐个恢复可能在后续损坏被发现前写了前项），对于本批 lineage 至少确保 v2 静态字段/父引用图有效再允许执行新请求；可用两遍校验+恢复，不引入索引库。非终态 v2 自身可正常恢复 interrupted；它的父必须原本成功。链验证使用有界逐项 load，最多17个祖先检查，逐项释放 events，不一次保留每个4MiB事件集合；超深本身返回 contextLimitExceeded。启动全库扫描现有无全局 run数预算的局限不借此宣称已解决。
+1. Validate ID/input/scenario; acquire existing worker/inner locks.
+2. **Check requestId for duplicates/conflicts first**. Old start conflicts with existing continuation even for matching input/scenario; continue conflicts with standalone. Compare input/scenario/parentRunId for continuation; host freezes parentSequence on first creation, without re-resolving parent on resend to change intent.
+3. Existing match returns current/persisted snapshot without provider calls, including completed/failed/cancelled/interrupted after restart. Host provider/model changes still do not rerun; provider identity remains outside request identity, preserving existing behavior.
+4. If absent, confirm unblocked/no active run. Join old worker; under existing locks reconstruct/validate parents from **disk truth**, not current cache potentially marked storage failure; validate budgets and freeze immutable RunContext.
+5. Persist input/scenario/parent/policy/createdOrder in one v2 header; write_all + sync_all + directory sync using existing non-overwriting create_new. Then append Started + sync_data.
+6. Only then spawn provider; worker captures frozen RunContext, never querying latest/disk ancestors during sending.
 
-## Provider 和 HTTP 接入
+This does not claim atomic header writes under arbitrary power loss: preserve detectable incomplete single-file writes. Complete header-only or post-Started crashes recover as Interrupted; partial/bad headers fail closed; io/fsync uncertainty blocks the controller without automatic provider retries. The crucial guarantee is lineage and input in **one fact record**, avoiding a cross-file window where start is confirmed before parent intent is durable. Recovered interrupted requestIds return existing state without repeated paid effects.
 
-最小兼容扩展：保留 `RunProvider::execute(&str,...)`，新增对象安全 `execute_context(&RunContext, token, emit)` 默认实现。默认只接受单一 user 然后委托 execute；多条返回 ContextUnsupported，禁止默认取最后一个 user 静默丢历史。控制器执行统一走 execute_context；旧 provider 注入测试无需批量改签名。
+Missing/corrupt/future/path-invalid parents never become roots or empty context. `open` should validate all logs before recovery (old sequential recovery could rewrite early items before detecting later corruption); at least validate v2 static fields/parent graph before new requests. Two-pass validation+recovery is sufficient without an index store. Nonterminal v2 recovers interrupted normally; parents must already have succeeded. Bounded sequential loads check at most 17 ancestors, releasing events individually rather than retaining each 4MiB collection; excessive depth yields contextLimitExceeded. Do not claim this solves the existing absence of a global startup run-count budget.
 
-`ChatHttpProvider` override execute_context，旧 execute 用单条构造复用同一路 stream。stream 将已验证 messages 序列化为 model/messages/stream:true，检查完整请求字节预算再发起 request，保留所有现有网络安全/SSE/取消/SecretGuard/分片逻辑。不能把 role/content 用字符串拼接成一条 user 来模拟多轮。
+<a id="provider-和-http-接入"></a>
 
-`OfflineFixture` 不新增多轮支持，沿用 trait 默认安全拒绝。默认离线宿主的 continue 持久化失败 `contextUnsupported`，绝不以固定输出伪装理解了历史。真正上下文能力由可信 HTTP 宿主和支持 context 的测试 provider 验证。仅实现旧 execute 的 provider 对多轮明确拒绝，不能隐式丢弃历史。
+## Provider and HTTP Integration
 
-在新 `continue_lab_run` handler 重用原 scenario解析、空输入判断、可信provider选择、spawn_blocking与固定码映射；共享小 helper 可减少重复，但不重构三个旧命令行为。`main.rs` 只增加 handler 注册。现有 read/cancel 对 v2 同样返回严格旧 DTO。暂不新增历史编辑、会话列表、自动选择父或新 UI；如需展示 lineage，后续加单独查询 DTO，不能把新字段混入旧严格 RunSnapshot。
+Minimal compatible extension: Keep `RunProvider::execute(&str,...)`, add object-safe `execute_context(&RunContext, token, emit)` with default implementation accepting only one user then delegating to execute. Multiple messages return ContextUnsupported; never silently use the last user. Controller uniformly calls execute_context; old provider-injection tests need no bulk signature changes.
 
-## 明确文件边界和实施顺序
+`ChatHttpProvider` overrides execute_context; old execute constructs one message and reuses the same stream. Stream serializes validated messages as model/messages/stream:true, checks full request-byte budget before requesting, and retains all network security/SSE/cancellation/SecretGuard/chunk logic. Never concatenate role/content into one user string to simulate multiple turns.
 
-1. tracked spec：由主任务写 `docs/specs/2026-11-10-rust-conversation-context.md`，说明 schema兼容和默认离线边界；遵守仓库 specs 位置，不修改 README/CLAUDE。
-2. `src/run_context.rs`：types、形状与字节预算验证；`lib.rs` 导出；`run_types.rs` 仅新增错误码。
-3. `src/run_store.rs`：v1/v2 header解析归一化、StoredRun内部lineage/order、create_continuation、父链读取；如体积增长明显将 header codec/上下文组装拆同级模块，由同一 RunStore调用，禁止复制存储实现。
-4. `src/run_controller.rs`：旧 start委托共同内部start，新增 continue_with_provider，mode+parent去重，创建前冻结 context；取消/finish逻辑原样复用。
-5. `src/run_provider.rs`、`src/chat_http.rs`：context trait默认安全拒绝、fixture明确override、HTTP messages及出站字节预算。
-6. `src/run_commands.rs`、`src/main.rs`：新真实 handler注册。前端源码/契约/样式、生产源码和依赖不变。
-7. `src/run_context_tests.rs`（模块单测）、`src/run_store_tests.rs`、`src/run_provider_tests.rs`：边界/持久化/生命周期。新 `tests/context_invoke.rs` 做真实IPC+HTTP，两轮/三轮/分支/重启。尽量不要继续把已有650行 run_invoke塞大；可从 support抽现有fixture/Invoke helper，保持改动聚焦。
-8. 状态报告记录真实执行检查、源码范围、仍未完成项目和回退约束。正常项目全套验证由主任务执行；本设计任务不运行。
+`OfflineFixture` adds no multi-turn support, using trait-default safe rejection. Default offline-host continuation persists failure `contextUnsupported`, never pretending fixed output understands history. Trusted HTTP hosts and context-capable test providers verify actual context. Legacy execute-only providers explicitly reject multi-turn rather than dropping history.
 
-## 必须通过的验收（行为先行）
+Reuse original scenario parsing, empty-input checks, trusted-provider selection, spawn_blocking, and fixed-code mapping in `continue_lab_run`; small shared helpers may reduce repetition without refactoring old command behavior. `main.rs` adds registration only. Existing read/cancel return strict old DTOs for v2 too. No history editing, conversation lists, automatic parent choice, or new UI; future lineage display needs a separate query DTO, not new fields in strict RunSnapshot.
 
-### 真实竖切面
+<a id="明确文件边界和实施顺序"></a>
 
-- 旧 start首轮 A，loopback server收到精确 `[user:u1]`，返回分片Unicode `a1`；continue B(parent=A) 收到精确 `[user:u1, assistant:a1, user:u2]`，完成输出进入原分页JSONL。不是仅capture trait测试。
-- 销毁/重开同fixture根与可信HTTP host后继续 C(parent=B)，body精确5条、顺序/UTF8完全相同；读A/B/C old DTO通过原严格解码，cancel已终态幂等。
-- A另分支D；D只有A+新user，不含B/C。随后以B继续不受D是latest影响。
-- active时并发重复B两次只产生一个HTTP socket；相同requestId/input/scenario/parent重启重发也0新socket。更改input、scenario或parent分别requestConflict；旧start冒用continuation ID、continue冒用legacy ID均冲突，原日志字节不变。
+## File Boundaries and Implementation Sequence
 
-### 故障与恢复
+1. Tracked spec: Parent task writes `docs/specs/2026-11-10-rust-conversation-context.md`, documenting schema compatibility/default offline boundaries; follow repository specs placement, leave README/CLAUDE unchanged.
+2. `src/run_context.rs`: Types/shapes/byte-budget validation; export in `lib.rs`; only new error codes in `run_types.rs`.
+3. `src/run_store.rs`: v1/v2 normalization, internal StoredRun lineage/order, create_continuation, parent-chain reads. If large, extract sibling header codec/context assembly modules called by the same RunStore; never duplicate storage.
+4. `src/run_controller.rs`: Old start delegates to shared internal start; add continue_with_provider, mode+parent deduplication, freeze context before creation; reuse cancellation/finish unchanged.
+5. `src/run_provider.rs`, `src/chat_http.rs`: Safe default context rejection, explicit fixture override, HTTP messages/outbound budget.
+6. `src/run_commands.rs`, `src/main.rs`: Register real handler. Frontend source/contracts/styles, production source/dependencies unchanged.
+7. `src/run_context_tests.rs` (module tests), `src/run_store_tests.rs`, `src/run_provider_tests.rs`: Boundaries/persistence/lifecycle. New `tests/context_invoke.rs` for real IPC+HTTP, two/three turns, branching/restart. Avoid expanding existing 650-line run_invoke; extract existing support fixture/Invoke helpers if useful, keeping scope focused.
+8. Stage report records executed checks, source scope, incomplete work, rollback boundaries. Parent task runs full project validation; this design task does not.
 
-- B流出部分后cancel，晚到片段/finish不变更终态；B部分输出可读但不能作为父。新C指向A并重发相同user可以执行，body排除B user及partial。failed/timeout/transport failure各至少一个同样验证，panicked使用已有capture/provider路径。
-- 子进程在B Started且部分delta后非正常退出；重启B interrupted，不调用provider；重复B返回interrupted；C从A继续，历史不包含B。header-only v2同样恢复，parent仍保留。
-- 存储故障在创建header/Started及delta阶段：没有持久化确认前没有socket；后续失败保留已确认partial，recoveryRequired/block状态沿用；不自动重试。父加载失败发生在任何新子日志写入前。
-- 合成日志未来header3、contextPolicyVersion99、缺parent、坏parent ID/self/cycle、非递减order、父sequence错、父缺失、父Cancelled、Completed但截断尾/recoveryRequired都fail-closed；无更改原件/无HTTP。完整中段损坏不跳过。symlink/hardlink只用隔离fixture，检查外部目标原字节未变。
-- 新版统一两个layout查重；旧版样式的仅根目录扫描忽略context-v2并可读取v1；模拟降级v1写入的跨layout order平局按规定排序；两个layout同ID即corruptLog且双方字节不变。
-- 所有既有v1 fixtures仍可open/read/start/cancel；旧header原字段集合不变，事件协议1不变；新v2不会被当作事件协议2发给前端。副缓存损坏依然可重建；本批不引入缓存为事实源。
+<a id="必须通过的验收行为先行"></a>
 
-### 有界性与安全
+## Required Acceptance (Behavior First)
 
-- ancestors16可接受、17拒绝；512KiB content总量精确达界可接受，+1拒绝；当前input65536边界旧测试保持。历史预算含当前user及完整assistant，UTF8按字节而非字符。
-- 控制字符、引号、中文导致JSON转义膨胀时完整请求预算有效，服务器helper自身也有明确上限；role数组正确而不是字符串prompt。预算拒绝在HTTP之前且新子日志不创建（完整出站序列化预算若只在HTTP层检查，会已有failed子run；推荐context预算在控制器保证最坏情况，HTTP层做防御性上限检查并写明两层差别）。
-- 以第二轮消息为输入的key反射仍被旧SecretGuard阻止，整个fixture JSONL不出现伪key；HTTP错误body/URL/header不出现在固定错误或日志中。不会保存HTTP请求正文副本。
-- 不支持context的旧自定义provider显式contextUnsupported失败，绝不执行最后user掩盖丢历史。root旧execute注入测试保持。
+<a id="真实竖切面"></a>
 
-本批自动化完成标准：真实Tauri handler注册与loopback两轮/重启/分支全部通过；原Rust/TS回归、fmt/clippy、既有构建门槛均按根任务流程通过；生产目录/依赖/前端零差异。MockRuntime并非原生WebView验收，loopback并非外部TLS/真实模型/账户/费用验收，不作这些声称。
+### Real Vertical Slice
 
-## 回退与明确不做的内容
+- Original start A: loopback receives exact `[user:u1]`, returns chunked Unicode `a1`; continue B(parent=A) receives exact `[user:u1, assistant:a1, user:u2]`, output enters existing paginated JSONL. Trait capture alone is insufficient.
+- Destroy/reopen same fixture root and trusted HTTP host, continue C(parent=B): exact 5 messages, same order/UTF8. A/B/C old DTOs pass original strict decoding; terminal cancel remains idempotent.
+- Branch D from A contains only A+new user, excluding B/C. Continuing from B later ignores D being latest.
+- Concurrent duplicate B while active produces one HTTP socket; matching requestId/input/scenario/parent resent after restart creates 0 sockets. Changing input/scenario/parent separately yields requestConflict; old start using continuation ID and continue using legacy ID conflict with unchanged log bytes.
 
-不读写 Electron/.asci/另一路QA数据、不引入真实凭据/外部网络/模型调用、不自动迁移/清理数据、不加依赖、不改变生产入口、无工具/图片/项目/权限/完整会话UI。基于祖先run的文本continuation是下一可测执行能力，不是完整产品替换。
+<a id="故障与恢复"></a>
 
-功能回退可以撤掉新增command/调用入口；整批revert到旧binary时，它只扫描根v1、仍能打开旧日志，context-v2保持原位但不可见。再次使用新版即可读回。降级混写发生ID碰撞时新版fail-closed，不擅自删除/迁移任何一份；跨layout order平局按上述确定性排序。生产Electron原本未改，继续使用无需动这些Lab数据。
+### Failures and Recovery
 
-本批选择固定子目录兼容，不需要专用context宿主或额外read/cancel API；同一个RunHostState中的原read/cancel可访问两个layout，真实main接线保持清晰。若实现时间受限，削减可选fixture展示/查询API，不能删去持久parent绑定、请求冲突、实际HTTP body断言或重启测试。
+- Cancel B after partial output; late chunks/finish cannot change terminal state. B partial stays readable but cannot parent. New C from A resending user executes without B user/partial in body. At least one each of failure/timeout/transport failure; panic uses existing capture/provider path.
+- Subprocess exits abnormally after B Started + partial delta; restart marks B interrupted without provider call; duplicate B returns interrupted; C from A excludes B. Header-only v2 likewise recovers, retaining parent.
+- Header/Started/delta storage failures: No socket before durable confirmation; later failures retain confirmed partials and existing recoveryRequired/block state, without automatic retry. Parent-load failures precede any child-log write.
+- Synthetic header3, contextPolicyVersion99, missing/bad parent ID/self/cycle, nondecreasing order, wrong parent sequence, missing/Cancelled parent, Completed parent with truncated tail/recoveryRequired all fail closed without source changes/HTTP. Do not skip middle corruption. Symlink/hardlink use isolated fixtures; verify external target bytes unchanged.
+- Unify cross-layout deduplication; old-style root-only scan ignores context-v2 and reads v1. Simulated downgraded cross-layout order ties sort as specified; duplicate IDs yield corruptLog with both files unchanged.
+- All existing v1 fixtures open/read/start/cancel; original header fields and event protocol1 unchanged; never send v2 as event protocol2 to frontend. Corrupt caches remain rebuildable; cache is never truth.
 
-## 自审结论
+<a id="有界性与安全"></a>
 
-推荐方案无需并行会话库：同一RunStore/锁下新增固定context-v2 layout与私有header2。明确parent选择、失败排除、分支、重复请求、预算失败与崩溃恢复；跨线程冻结context，跨重启按持久父链重建。旧binary依然读根v1，新continuation暂不可见；降级混写的ID碰撞/排序限制已明确。其他未覆盖的全产品能力不扩入本批。
+### Bounds and Safety
 
-## 实施计划与检查点
+- 16 ancestors accepted, 17 rejected; exactly 512KiB content accepted, +1 rejected; retain current input 65536 boundary tests. Budget includes current user and complete assistant output, UTF8 bytes rather than characters.
+- Full request budget handles escaping expansion from control characters/quotes/Chinese; server helper has explicit bounds. Correct role array, not string prompt. Reject budgets before HTTP and without child logs (HTTP-only serialized budget checks would already create failed children; prefer controller worst-case context guarantee plus defensive HTTP limit, documenting the distinction).
+- Existing SecretGuard still blocks key reflection in second-turn messages; no fake keys in fixture JSONL. HTTP error bodies/URLs/headers never enter fixed errors/logs; no persisted request-body copies.
+- Old custom providers without context fail explicitly contextUnsupported, never execute last user while hiding history loss. Existing root execute-injection tests remain.
 
-本规格为一个完整纵向实现任务，由同一实施者处理 Rust 文件，审计任务只新增独立报告，不并行编辑源码。
+Automated completion: Real Tauri registration and loopback two-turn/restart/branching all pass; original Rust/TS regression, fmt/clippy, existing build gates pass through parent workflow; zero production-directory/dependency/frontend differences. MockRuntime is not native WebView acceptance; loopback is not external TLS/real model/account/cost acceptance, and makes no such claims.
 
-- [x] 在 `tests/context_invoke.rs` 写真实 handler 多轮 HTTP 行为红测并确认失败，再实现新命令。
-- [x] 实现 `run_context.rs`，扩展同一 RunStore 的严格私有 header、布局与父链校验，保留原 v1 序列化。
-- [x] 将 controller、typed provider、HTTP messages 及 Tauri 注册连成真实链路，不增加生产入口或依赖。
-- [x] 覆盖主要边界、分支、重复、取消、失败、重启、损坏、路径、实际权限/delta 存储故障和兼容形状，未注入窗口单独披露。
-- [x] 运行 `cargo fmt --check`、`cargo test --offline --locked`、`cargo clippy --offline --locked --all-targets -- -D warnings` 与原生 binary build，统一使用 `apps/tinker-rust/src-tauri/Cargo.toml`。
-- [x] 全仓 `bun run typecheck`、`bun run lint`、`bun test`、Rust Lab Vite 与 Electron build，隔离测试配置及合成数据。
-- [x] 独立规格/质量审查和 simplify，修复确认的重要问题，重跑受影响检查。
-- [ ] 最终报告区分本机模拟、原生 UI 与线上未验范围，核验生产源码零差异及用户改动保护。
-- [ ] 按既有授权正常钩子提交和推送安全分支，只开 Draft PR，核验 SHA/CI 后收尾，不合并、安装或部署。
+<a id="回退与明确不做的内容"></a>
+
+## Rollback and Explicit Non-Goals
+
+No Electron/.asci/other-QA data reads/writes, real credentials/external networking/model calls, automatic migration/cleanup, dependencies, production-entry changes, or tools/images/projects/permissions/full conversation UI. Ancestor-run text continuation is the next testable execution capability, not full product replacement.
+
+Feature rollback removes the new command/call entry. A full revert to old binaries scans root v1 only, preserving old logs; context-v2 stays in place but invisible, readable again after upgrading. Downgraded mixed-write ID collisions fail closed on upgrade without deleting/migrating either file; cross-layout order ties use the specified deterministic order. Production Electron was unchanged and requires no Lab-data changes to continue use.
+
+Fixed-subdirectory compatibility needs no dedicated context host or extra read/cancel APIs; existing read/cancel in one RunHostState accesses both layouts, keeping real main wiring clear. If time is constrained, cut optional fixture displays/query APIs, never persistent parent binding, request conflicts, actual HTTP body assertions, or restart tests.
+
+<a id="自审结论"></a>
+
+## Self-Review Conclusion
+
+No parallel conversation store needed: one RunStore/lock, fixed context-v2 layout, private header2. Explicit parent choice, failed-turn exclusion, branching, duplicates, budget failures, and crash recovery; freeze context across threads and rebuild from persistent chains across restarts. Old binaries read root v1 with continuations temporarily invisible; downgrade ID/order limits are explicit. Other whole-product capabilities stay outside this batch.
+
+<a id="实施计划与检查点"></a>
+
+## Implementation Plan and Checkpoints
+
+One complete vertical implementation task, with one implementer handling Rust files; audit tasks add independent reports only, without concurrent source edits.
+
+- [x] Write real-handler multi-turn HTTP red tests in `tests/context_invoke.rs`, confirm failures, then implement command.
+- [x] Implement `run_context.rs`; extend the same RunStore's strict private headers/layout/parent validation, preserving v1 serialization.
+- [x] Connect controller, typed provider, HTTP messages, and Tauri registration, without production entries/dependencies.
+- [x] Cover major boundaries, branches, duplicates, cancellation, failures, restart, corruption, paths, real permission/delta storage failures, compatibility shapes; disclose uninjected windows separately.
+- [x] Run `cargo fmt --check`, `cargo test --offline --locked`, `cargo clippy --offline --locked --all-targets -- -D warnings`, and native binary build, all using `apps/tinker-rust/src-tauri/Cargo.toml`.
+- [x] Repository-wide `bun run typecheck`, `bun run lint`, `bun test`, Rust Lab Vite and Electron build with isolated test configuration/synthetic data.
+- [x] Independent specification/quality review and simplify; fix confirmed important issues and rerun affected checks.
+- [ ] Final report separates local mocks, native UI, and unaccepted online scope; verifies zero production-source differences and protection of user changes.
+- [ ] Use existing authorization and normal hooks to commit/push a safe branch, create Draft PR only, verify SHA/CI, then finish without merge/install/deploy.

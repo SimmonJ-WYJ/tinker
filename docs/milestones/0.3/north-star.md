@@ -1,504 +1,608 @@
-# 0.3 北极星目标（公开发布：用户体系 + 能力包范式 + 发布就绪）
+<a id="03-北极星目标公开发布用户体系-&#45;能力包范式-&#45;发布就绪"></a>
 
-> ⚠️ **已被 0.3.0 PRD 大幅修订（2026-06-01）**：0.3 启动前的产研复盘（grill-with-docs 会话）推翻/收敛了本文档多处核心假设——最关键的有【账户体系从"自建"改为委托 **OPENSCI SSO** 唯一登录入口，见 [ADR-005](../../adr/ADR-005-opensci-identity-provider.md)】【**Proposal 机制整体移出 0.3**】【**§七 用户激活路径删除**（是度量框架非功能）】【本地研究数据从"账户隔离"改为"**设备级单一库**"】【DO1 数据卡片 / DO4 叙事文案降级 0.4】【能力包**默认启用不可禁用**（Codex 风）】。
+# 0.3 North Star Goals (Public Release: User System + Capability Package Paradigm + Release Readiness)
+
+> ⚠️ **Substantially revised by 0.3.0 PRD (2026-06-01)**: The pre-0.3 product/engineering retrospective (grill-with-docs) overturned/narrowed core assumptions: accounts changed from self-built to **OPENSCI SSO** as sole login ([ADR-005](../../adr/ADR-005-opensci-identity-provider.md)); **Proposal mechanism removed entirely from 0.3**; **§VII user activation removed** (measurement framework, not functionality); local research data changed from account-isolated to **one device-level library**; DO1 data card / DO4 narrative deferred to 0.4; packages **enabled by default and cannot be disabled** (Codex style).
 >
-> **实施以 [`docs/specs/0.3.0/0.3.0-prd.md`](../../specs/0.3.0/0.3.0-prd.md)（§3 差异对照表列全 14 处修订）为准。** 本文档保留为历史规划上下文，不再逐条更新；凡与 PRD 冲突处以 PRD 为准。
+> **Implement according to [`docs/specs/0.3.0/0.3.0-prd.md`](../../specs/0.3.0/0.3.0-prd.md), whose §3 lists all 14 revisions.** This document remains historical planning context and is no longer updated item by item; PRD prevails in conflicts.
 
-**定位**：建立 ASCI 独立账户体系，落地能力包范式（2 个首发场景包 + 独立"配置"页 + Settings 结构调整），完成安全合规与数据基础设施，实现公开发布。
-**截止日期**：2026-06-19（0.2 交付后立即启动，约 2 周）
-**发布形态**：公开发布（macOS 首发，Windows 视 §五-A EV 签名 lead-time 决定）
-**前置依赖**：0.2 对象底座交付、0.2 §三-4 Agent 拓展性重构（A0/A1/A2/A3）签字、0.2 §三-5 能力包概念层（X1-X4）签字、自建服务器就绪、ADR-001 / ADR-002 已签字
-**设计哲学**：继承 [0.2 §零「ASCI Agent 主导原则」](../0.2/north-star.md#section-zero)——能用 Agent 解决的观察 / 归纳 / 标注 / 整理由 Agent 触发式产出 Proposal，用户只做下达目标、审查、决策。本版本 §三-C 首发能力包必须实现 `capabilities.proposals[]` 产出契约（见 §三-C.1 / CP1），Proposal 决策信号回流 §三-A 自进化埋点"用户反馈"通道（见 §三-A.2）。
-**审计原则**：每条目标必须可被"是/否"或具体数值验证，不依赖主观判断；每条审计标准必须标注优先级。
-**单一权威源**：本文档是 0.3 milestone 的唯一权威定义。GitHub milestone description 仅做精简引导（≤200 字 + 链向本文档），不复制内容；任何 scope 调整以本文档为准。
+**Positioning**: Establish ASCI accounts, implement capability packages (2 launch scenario packages + separate Configuration page + Settings restructuring), complete security/compliance/data infrastructure, and release publicly.
+**Deadline**: 2026-06-19 (immediately after 0.2 delivery, about 2 weeks)
+**Release form**: Public release (macOS first; Windows depends on §V-A EV signing lead time)
+**Prerequisites**: 0.2 object foundation delivered, 0.2 §III-4 Agent extensibility refactor (A0/A1/A2/A3) signed off, 0.2 §III-5 capability concepts (X1-X4) signed off, self-hosted server ready, ADR-001 / ADR-002 signed
+**Design philosophy**: Inherit [0.2 §0 ASCI Agent-led Principle](../0.2/north-star.md#section-zero): Agent-triggered Proposals handle observation / induction / annotation / organization where possible; users set goals, review, and decide. §III-C launch packages must implement `capabilities.proposals[]` output contracts (§III-C.1 / CP1); decision signals feed §III-A self-evolution "user feedback" (§III-A.2).
+**Audit principle**: Every goal verifiable by yes/no or specific numbers, without subjective judgment; each criterion marks priority.
+**Sole authority**: This document solely defines 0.3 milestone. GitHub milestone descriptions provide only brief guidance (≤200 characters + link), never duplicate content; scope changes defer here.
 
-> **Scope 重排（2026-05-12）**：经产研复盘 2 周窗口偏紧，已主动收敛范围（完整决策表见 §十.1）：默认页改造（§三-D）整体推迟 0.4 / 服务器单节点首发 / GitHub OAuth 砍 / 自进化埋点 UI 仅保留 Settings 单 toggle / Windows 首发视 EV 签名 lead-time。
+> **Scope reordering (2026-05-12)**: Retrospective found the 2-week window tight and proactively narrowed scope (full decisions §X.1): default-page redesign (§III-D) deferred wholesale to 0.4 / single-node server launch / GitHub OAuth dropped / self-evolution UI only one Settings toggle / Windows contingent on EV lead time.
 
-| 标签 | 含义 |
+| Label | Meaning |
 |------|------|
-| 必做 | 6.19 前必须通过，否则不能公开发布 |
-| 观察 | 跟踪指标但不阻塞 |
-| 可降级 | Week 2 末若进度不及可推 0.4 |
-| 0.4 二发 | 已正式划入下一里程碑 |
+| Required | Must pass before 6.19 or public release is blocked |
+| Observe | Track, nonblocking |
+| Downgradable | May defer to 0.4 if behind at Week 2 end |
+| 0.4 second release | Formally assigned to next milestone |
 
-> **版本号约定**：0.3.0 即公开发布版本；0.3.x 仅作研发期内部迭代版本号（如 0.3.5 hotfix），不构成对用户的"追平增量"——超出 0.3.0 范围的项一律进 0.4。
+> **Version convention**: 0.3.0 is the public release; 0.3.x are internal development versions (e.g. 0.3.5 hotfix), not user-facing catch-up increments. Everything beyond 0.3.0 scope enters 0.4.
 
 ---
 
-## 一、ASCI 独立账户体系
+<a id="一asci-独立账户体系"></a>
 
-### 1.1 认证方式
+## I. ASCI Independent Accounts
 
-| 方式 | 说明 |
+<a id="11-认证方式"></a>
+
+### 1.1 Authentication Methods
+
+| Method | Description |
 |------|------|
-| **Email + 密码** | 注册、登录、密码重置（邮件服务） |
-| **Google OAuth** | 国际用户最常用 |
-| **ORCID OAuth** | 科研用户标配，优先接入 |
+| **Email + password** | Registration, login, password reset (email service) |
+| **Google OAuth** | Most common for international users |
+| **ORCID OAuth** | Standard for researchers, priority integration |
 
-> **GitHub OAuth 已砍出 0.3.0 范围**：原计划包含 GitHub OAuth（开发者友好），0.3.0 不做——目标用户以科研学者为主，GitHub 不是首发刚需；ORCID + Google 已覆盖核心场景。0.4 视用户反馈再评估是否补回。
+> **GitHub OAuth removed from 0.3.0**: Originally included for developers, but researchers are the primary audience and it is not essential at launch; ORCID + Google cover core scenarios. Reconsider in 0.4 from feedback.
 
-### 1.2 账户数据模型
+<a id="12-账户数据模型"></a>
 
-| 字段 | 说明 |
+### 1.2 Account Data Model
+
+| Field | Description |
 |------|------|
-| UID、邮箱、密码哈希 | 基础认证 |
-| 昵称、头像 | 基础画像 |
-| 机构、学科领域 | 科研画像（注册时选填） |
-| 注册时间、最后登录 | 审计 |
-| 语言偏好 | C5 多语言联动 |
-| linkedOpenSciId | OPENSCI 绑定位（预留，0.3 不实现绑定流程） |
+| UID, email, password hash | Basic authentication |
+| Nickname, avatar | Basic profile |
+| Institution, discipline | Research profile, optional on registration |
+| Registration time, last login | Audit |
+| Language preference | C5 multilingual integration |
+| linkedOpenSciId | Reserved OPENSCI linking field; no linking flow in 0.3 |
 
-### 1.3 审计标准
+<a id="13-审计标准"></a>
 
-| # | 审计标准 | 验证方式 | 优先级 |
+### 1.3 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| U1 | 两家 OAuth Provider（Google / ORCID）均可完成注册+登录 | 用测试账号分别走完两家 OAuth 流程，任一家失败即 U1 失败（与 §五-A lead-time 风险表口径一致） | 必做 |
-| U2 | Email 注册 → 邮箱验证 → 登录 → 密码重置 | 走完整邮件验证链路 | 必做 |
-| U3 | 同一邮箱绑定多个 OAuth 后，用任一方式可登录同一账户 | Google 登录后绑定 ORCID，再用 ORCID 登录进入同一账户 | 必做 |
-| U4 | 客户端 Token 本地加密存储，退出后不可恢复 | 检查 ~/.asci/ 下 Token 文件加密状态 | 必做 |
-| U5 | Refresh Token 轮转，旧 Token 一次性失效 | 抓包验证 Token 刷新后旧 Access Token 返回 401 | 必做 |
+| U1 | Both Google / ORCID complete registration+login | Run both OAuth flows with test accounts; either failure fails U1, aligned with §V-A lead-time risks | Required |
+| U2 | Email registration → verification → login → password reset | Complete email verification chain | Required |
+| U3 | Multiple OAuth methods linked to one email access the same account | Google login, link ORCID, then ORCID login reaches same account | Required |
+| U4 | Client tokens encrypted locally, unrecoverable after logout | Inspect encryption of Token files under ~/.asci/ | Required |
+| U5 | Refresh-token rotation, old token invalidated once | Capture requests; old Access Token returns 401 after refresh | Required |
 
 ---
 
-## 二、服务器
+<a id="二服务器"></a>
 
-### 2.1 服务清单
+## II. Servers
 
-| 服务 | 用途 | 优先级 |
+<a id="21-服务清单"></a>
+
+### 2.1 Service List
+
+| Service | Purpose | Priority |
 |------|------|--------|
-| 认证服务 | 注册、登录、OAuth 回调、Token 签发/刷新/吊销 | P0 |
-| 用户数据服务 | 画像 CRUD、偏好同步 | P0 |
-| 埋点接收端点 | PostHog 代理 / Sentry relay | P1 |
-| 版本更新服务 | electron-updater 更新 feed | P1 |
-| 数据同步服务 | 桌面 ↔ Web 数据互通 | 仅预留接口，0.3 不实现 |
-| MCP / A2A 服务 | 论文检索 MCP、PDF 解析缓存、对象 A2A 协议 | V1 路线图，0.3 在设计层预留 API 扩展性 |
+| Authentication | Registration/login/OAuth callbacks/token issuance, refresh, revocation | P0 |
+| User data | Profile CRUD, preference sync | P0 |
+| Telemetry endpoint | PostHog proxy / Sentry relay | P1 |
+| Version updates | electron-updater feed | P1 |
+| Data sync | Desktop ↔ Web | Interface reserved only, not implemented in 0.3 |
+| MCP / A2A | Paper-search MCP, PDF parse cache, object A2A protocol | V1 roadmap; reserve API extensibility in 0.3 design |
 
-### 2.2 技术约束
+<a id="22-技术约束"></a>
 
-- 后端栈通过 0.2 期间的 F1 ADR-002 决策选定，覆盖部署平台 / 数据库 / 认证策略 / 应用层框架 4 个粒度（产出：`docs/adr/ADR-002-server-stack.md`，含调研 + 评审 + 拍板人 + 决策记录，非纯调研文档）
-- 数据库：PostgreSQL（用户 + 认证数据）
-- **部署：单节点首发**，节点位置由 ADR-002 拍板（倾向欧盟节点——合规一致性强、避免对欧盟用户的 SCC 依赖、所有用户数据天然落在欧盟）；欧美双节点路由进 0.4
-- 服务器代码闭源，独立仓库，CI/CD 独立（与 0.2 §二 O1 要求开放的"对象 JSON Schema"是不同范畴：前者是后端实现，后者是数据格式契约）
-- **新仓建立走 OPS 流程**：创建前 ping sciops 走权限 / 分支保护 / secrets policy / CODEOWNERS 配置，不直接在个人账号下开仓
-- API 协议：REST + JSON
+### 2.2 Technical Constraints
 
-### 2.3 审计标准
+- Backend stack selected through 0.2 F1 ADR-002: Deployment platform / database / auth strategy / application framework (output `docs/adr/ADR-002-server-stack.md`, including research + review + decision maker + decision record, not research alone)
+- Database: PostgreSQL (users + auth)
+- **Single-node launch**; ADR-002 selects region (EU preferred for compliance consistency, avoiding SCC dependency for EU users, all data inherently EU-hosted); EU/US routing deferred to 0.4
+- Closed-source server code in separate repository/CI/CD (distinct from 0.2 §II O1 open object JSON Schema: implementation vs data contract)
+- **New repositories follow OPS process**: Contact sciops before creation for permissions / branch protection / secrets policy / CODEOWNERS, never create directly under personal accounts
+- Protocol: REST + JSON
 
-| # | 审计标准 | 验证方式 | 优先级 |
+<a id="23-审计标准"></a>
+
+### 2.3 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| S1 | 单节点正常注册+登录，全用户路由到同一节点 | 从欧盟 IP 和美国 IP 均可访问；请求落到节点所在地区 | 必做 |
-| S2 | 认证服务 99.5% 可用 | 压测工具跑 1000 并发登录请求 | 必做 |
-| S3 | 节点位置合规口径：若 ADR-002 选欧盟节点，所有用户数据存储在欧盟，自动满足 GDPR 数据主权；若选美国节点，欧盟用户跨境传输 SCC 文本在 Privacy Policy 中可查 | 检查数据库实例位置 + Privacy Policy 中 SCC 文本 | 必做 |
-| S4 | 邮件验证 / 密码重置邮件 30 秒内送达，送达率 ≥ 99% | 批量触发 100 次注册邮件，统计抵达时间与失败率 | 必做 |
-| S5 | 欧美双节点路由（原 S1 双节点能力） | — | 0.4 二发 |
+| S1 | Single-node registration/login, all users routed there | Accessible from EU and US IPs; requests reach selected region | Required |
+| S2 | Authentication 99.5% available | Load-test 1000 concurrent login requests | Required |
+| S3 | Region compliance: EU node under ADR-002 stores all data in EU, automatically satisfying GDPR sovereignty; US node requires EU cross-border SCC in Privacy Policy | Inspect DB region + SCC text | Required |
+| S4 | Verification/reset emails within 30 seconds, delivery ≥ 99% | Trigger 100 registration emails, measure arrival/failures | Required |
+| S5 | EU/US dual-node routing (old S1) | — | 0.4 second release |
 
 ---
 
-## 三、数据埋点 & 采集
+<a id="三数据埋点-&#45;采集"></a>
 
-### 3.1 分层
+## III. Telemetry and Collection
 
-| 层级 | 内容 | 方案 |
+<a id="31-分层"></a>
+
+### 3.1 Layers
+
+| Layer | Content | Solution |
 |------|------|------|
-| 崩溃/错误 | 未捕获异常、主进程崩溃堆栈 | Sentry |
-| 产品分析 | 功能使用率、用户路径、留存 | PostHog |
+| Crashes/errors | Uncaught exceptions, main-process stacks | Sentry |
+| Product analytics | Feature usage, user journeys, retention | PostHog |
 
-### 3.2 审计标准
+<a id="32-审计标准"></a>
 
-| # | 审计标准 | 验证方式 | 优先级 |
+### 3.2 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| T1 | 未捕获异常自动上报 Sentry，包含堆栈信息 | 手动触发崩溃，Sentry Dashboard 可见 | 必做 |
-| T2 | 关键功能使用事件上报 PostHog（检索、综述生成、登录） | 走一遍完整流程，PostHog 可见事件流 | 必做 |
-| T3 | 欧盟 IP 用户默认关闭非必要 PostHog 采集，需显式 opt-in；非欧盟用户保持 opt-out（默认开启可关闭） | 模拟欧盟 IP 注册 → 默认未上报，启用后才上报；模拟非欧盟 IP → 默认上报，关闭后停止 | 必做 |
-| T4 | 崩溃上报不包含用户个人信息（邮箱、IP 脱敏） | 检查 Sentry 事件 payload | 必做 |
-| T4a | 崩溃堆栈中本地文件路径的用户名段替换为占位符（如 `/Users/<USER>/...`、`C:\Users\<USER>\...`） | 触发含本地路径的崩溃 → 检查 Sentry payload 中所有路径的用户名段已脱敏 | 必做 |
+| T1 | Uncaught exceptions auto-reported to Sentry with stack | Trigger crash; visible in Sentry Dashboard | Required |
+| T2 | Search/review/login events reported to PostHog | Complete flow; event stream visible | Required |
+| T3 | EU IP users default off for nonessential PostHog, explicit opt-in; non-EU opt-out (on, can disable) | Simulate EU registration: no reports until enabled; non-EU: reports until disabled | Required |
+| T4 | Crash reports exclude personal data (redact email/IP) | Inspect Sentry payload | Required |
+| T4a | Replace usernames in stack paths with placeholders (`/Users/<USER>/...`, `C:\Users\<USER>\...`) | Trigger crash containing local paths; inspect every username segment redacted | Required |
 
-> **T3 设计依据**：GDPR 要求欧盟用户默认关闭非必要采集 + 显式 opt-in（opt-out 模型对欧盟用户不合规）。T3 与 §三-A 自进化埋点共用同一套地域分支 opt-in / opt-out 框架。
+> **T3 basis**: GDPR requires nonessential EU collection off by default + explicit opt-in (opt-out is noncompliant for EU users). T3 and §III-A share regional opt-in/out framework.
 
 ---
 
-## 三-A、Agent 自进化埋点
+<a id="三-aagent-自进化埋点"></a>
 
-> **目的**：建立"让 Agent 越用越强"的数据基础。0.3.0 完成 6 类信号采集逻辑（schema + 端点 + 客户端埋点），开始攒数据；自动微调链路推迟到 0.4 / V1。
-> **范围决策（2026-05-12）**：6 类信号采集逻辑**全部完成**；用户可见 UI 仅保留 Settings 单 toggle（合规底线，承载欧盟 opt-in 与非欧盟 opt-out 同意路径）；本周事件查看视图 / 一键清空 / 首次任务流 opt-in 引导弹窗推迟到 0.4。
-> 设计与 §三 数据埋点共用同一套地域分支 opt-in / opt-out 框架，但走**独立上传通道**（不混入 PostHog 行为埋点），便于审计与未来微调链路解耦。
+## III-A. Agent Self-evolution Signals
 
-> **0.3.0 阶段数据消费链路（重要）**：
+> **Purpose**: Build data foundations for an Agent that improves with use. 0.3.0 completes 6 signal types (schema + endpoint + client instrumentation), accumulating data; automatic tuning deferred to 0.4 / V1.
+> **Scope decision (2026-05-12)**: **All 6 collection types complete**; visible UI only one Settings toggle (compliance floor for EU opt-in/non-EU opt-out). Weekly-event viewer / clear-all / first-task opt-in guidance deferred to 0.4.
+> Shares regional consent framework with §III but uses an **independent upload channel**, separate from PostHog, for auditability and future tuning independence.
+
+> **0.3.0 Data Consumption (Important)**:
 >
-> | 阶段 | 数据动作 | 用户可见价值 |
+> | Phase | Data action | User-visible value |
 > |------|---------|------------|
-> | 0.3.0 | **只采集，不消费** —— 6 类信号落库到自进化端点，schema + endpoint + client 埋点全链路完整，但不进入任何模型 / 推荐 / RAG 链路 | 无用户侧产品价值，仅奠定 0.4 数据基础 |
-> | 0.4 | 开始消费 —— Proposal 采纳率驱动能力包默认推荐 / Agent 风格微调 / 个性化路由（具体范围由 0.4 north-star 定义）| 用户首次感受到"Agent 越用越合手"|
-> | V1 | 完整链路 —— 自动微调 / 联邦学习 / 本地小模型（具体范围由 V1 路线图定义）| 形成真正的数据飞轮 |
+> | 0.3.0 | **Collect only, no consumption**: All 6 types persist at self-evolution endpoint, complete schema/endpoint/client chain, but enter no model/recommendation/RAG | No user-facing product value; foundations for 0.4 only |
+> | 0.4 | Begin consumption: Proposal adoption drives package defaults / Agent style tuning / personalized routing (scope in 0.4 north-star) | First sense of an Agent adapting to the user |
+> | V1 | Full chain: Automatic tuning / federated learning / local small models (V1 roadmap scope) | Actual data flywheel |
 >
-> 这意味着 0.3.0 的 §三-A 是"基础设施投资"而非"用户价值交付"——不向 0.3.0 用户承诺由本节带来的产品体验提升。
+> §III-A is infrastructure investment, not 0.3.0 user-value delivery; promise no experience improvement from it in 0.3.0.
 
-### 三-A.1 采集原则
+<a id="三-a1-采集原则"></a>
 
-| 原则 | 0.3.0 落地 |
+### III-A.1 Collection Principles
+
+| Principle | 0.3.0 implementation |
 |------|------|
-| 地域分支 | 欧盟用户：Settings toggle 默认关闭，用户主动开启即视为显式 opt-in；非欧盟：toggle 默认开启可关闭（与 T3 一致） |
-| 用户可见（0.3.0）| Settings 新增"数据采集" tab，含 T3 PostHog 开关 + AE2 自进化 toggle 两条独立项，每条附简要说明（含独立通道、绝不采集内容、可随时关闭） |
-| 用户可见（0.4）| 升级为完整透明度面板：本周已上传事件查看 + 一键清空 + 首次任务流引导弹窗 |
-| 独立通道 | 自进化埋点走独立后端端点，与 PostHog 行为埋点物理隔离 |
-| 数据最小化 | 只采集 §三-A.2 列举的 6 类结构化信号，绝不采集 §三-A.3 列举的内容数据 |
+| Regional branching | EU Settings toggle off, deliberate enabling = explicit opt-in; non-EU on with opt-out, aligned with T3 |
+| User visibility (0.3.0) | New Data Collection tab: independent T3 PostHog + AE2 self-evolution switches, each briefly explaining separate channel, no content collection, disable anytime |
+| User visibility (0.4) | Full transparency panel: Weekly uploaded events + clear-all + first-task guidance |
+| Separate channel | Physically separate self-evolution backend endpoint from PostHog |
+| Minimization | Collect only §III-A.2 six structured signals, never §III-A.3 content |
 
-### 三-A.2 6 类合规可采集信号（0.3.0 全部完成）
+<a id="三-a2-6-类合规可采集信号030-全部完成"></a>
 
-| 类别 | 信号示例 | 对 Agent 进化的价值 |
+### III-A.2 Six Compliant Signal Types (All Complete in 0.3.0)
+
+| Category | Examples | Evolution value |
 |------|---------|----------------------|
-| 任务结构 | 指令长度、领域分类（检索/综述/写作/实验）、轮次数、结束方式（完成/中断/超时） | 识别 Agent 擅长 vs 短板的任务类型 |
-| 工具使用 | 哪些 MCP / Skill / 能力包被调用、调用顺序、成功率、能力包共现安装 | 优化默认推荐 + 发现工具组合模式 |
-| 用户反馈（最关键） | 显式赞踩、隐式信号（复制 / 保存 / 引用 / 丢弃）、下一轮指令性质（修正 / 继续 / 换话题）、重试频次；**特别包括 Proposal 决策信号（五档动作比率 `采纳 / 修改 / 拒绝 / scoped / silence-this-kind`，按 `sourceCapability × kind` 分组，命名与 [0.2 §一-A](../0.2/north-star.md#section-1a) 严格一致）** | RLHF 式微调的核心信号源；Proposal 采纳率直接驱动 [0.2 §零 Agent 主导哲学](../0.2/north-star.md#section-zero)的迭代 |
-| 模型选型 | Provider / 模型分布、会话内模型切换、token 消耗 vs 满意度 | 指导默认模型推荐 + 能力包-模型绑定 |
-| 错误 / 异常 | 卡死 / 超时 / 报错场景、用户中断时机、权限拒绝模式 | 暴露鲁棒性短板，反哺能力包修订 |
-| 工作区结构（非内容） | 论文库规模、EvidenceRef / Note 创建编辑频率、CitationRelation 类型分布 | 理解科研对象使用强度，指导默认 UX |
+| Task structure | Instruction length, domain (search/review/writing/experiments), turns, ending (complete/interrupted/timeout) | Identify strengths/weak task types |
+| Tool use | MCPs/Skills/packages invoked, ordering, success rate, package co-installation | Default recommendations + tool combinations |
+| User feedback (most critical) | Explicit votes, implicit copy/save/cite/discard, next-instruction nature (correct/continue/change topic), retries; **Proposal decisions, five action ratios `采纳 / 修改 / 拒绝 / scoped / silence-this-kind` (accept / modify / reject / scoped / silence-this-kind), grouped by `sourceCapability × kind`, naming strictly matching [0.2 §I-A](../0.2/north-star.md#section-1a)** | Core RLHF-style signal; adoption directly drives [0.2 §0 Agent-led philosophy](../0.2/north-star.md#section-zero) iteration |
+| Model choice | Provider/model distribution, in-session switching, token use vs satisfaction | Defaults + package/model binding |
+| Errors/exceptions | Hangs/timeouts/errors, interruption timing, permission denials | Robustness weaknesses inform revisions |
+| Workspace structure (not content) | Library size, EvidenceRef/Note creation-edit frequency, CitationRelation distribution | Research-object usage intensity informs default UX |
 
-### 三-A.3 绝不采集（红线）
+<a id="三-a3-绝不采集红线"></a>
 
-文献全文 / PDF 内容 / 笔记原文 / 对话原文 / API Key / 邮箱 / 用户名 / 含用户名的文件路径（沿用 T4a 脱敏规则）。
+### III-A.3 Never Collect (Red Lines)
 
-### 三-A.4 审计标准
+Full literature / PDF contents / original notes / conversations / API Keys / emails / usernames / paths containing usernames (T4a redaction).
 
-| # | 审计标准 | 验证方式 | 优先级 |
+<a id="三-a4-审计标准"></a>
+
+### III-A.4 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| AE1 | 6 类信号的事件 schema 在仓库 `schema/agent-evolution-events/` 下可查，每类独立 JSON Schema | 任意外部审计员可在不读源码的前提下，根据 schema 还原可被采集的字段范围 | 必做 |
-| AE1a | 6 类信号的客户端埋点全部上线，事件实际上报到自进化端点 | 走 6 类场景各 1 次，端点日志可见对应事件落库 | 必做 |
-| AE2 | Settings"数据采集" tab 含"自进化数据采集" toggle；状态与 T3 PostHog 解耦（独立开关）；关闭后自进化端点不再收到该用户事件 | 关闭 toggle 后自进化端点不再收到事件，T3 PostHog 状态不受影响 | 必做 |
-| AE2a | 欧盟用户首次进入应用时 toggle 初始态 = 关闭；非欧盟用户 = 开启 | 模拟欧盟 / 非欧盟 IP 各创建账号，检查 Settings toggle 初始态 | 必做 |
-| AE5 | 自进化端点与 §二 服务器同节点部署；节点合规口径与 S3 一致 | 检查事件落库节点 | 必做 |
-| AE3 | 「本周已上传事件」视图 + 一键清空（触发服务端 30 天内删除）| — | 0.4 二发 |
-| AE4 | 欧盟用户首次进入 Agent 任务流时弹出 opt-in 引导（可拒绝、不阻断使用）| — | 0.4 二发（0.3.0 由 AE2a 默认关闭 + Settings 主动开启代偿合规路径）|
+| AE1 | Six independent event JSON Schemas in `schema/agent-evolution-events/` | External auditor reconstructs collectible fields without source code | Required |
+| AE1a | All six client instrumentation types shipped and actually reported | Run one scenario per type; endpoint logs show persistence | Required |
+| AE2 | Data Collection tab has Self-evolution Collection toggle, independent of T3; disable stops events | Endpoint receives none after disabling, T3 unaffected | Required |
+| AE2a | First app entry: EU off, non-EU on | Create accounts with simulated EU/non-EU IPs, inspect initial state | Required |
+| AE5 | Endpoint colocated with §II servers, S3 compliance | Inspect persistence region | Required |
+| AE3 | Weekly uploaded events + clear-all (server deletion within 30 days) | — | 0.4 second release |
+| AE4 | First EU Agent-task entry opt-in guidance, dismissible/nonblocking | — | 0.4 second release (0.3.0 compliance via AE2a off default + deliberate Settings enabling) |
 
-### 三-A.5 0.3 不做（推迟 0.4 / V1）
+<a id="三-a5-03-不做推迟-04-&#45;v1"></a>
 
-- 自动微调链路（数据 → 模型 weights / RAG）
-- 联邦学习
-- 本地小模型（如蒸馏 / LoRA 微调）
-- 个性化能力包推荐算法
-- 完整透明度 UI（AE3 / AE4）
+### III-A.5 Not in 0.3 (Deferred 0.4 / V1)
+
+- Automatic tuning (data → model weights / RAG)
+- Federated learning
+- Local small models (distillation / LoRA)
+- Personalized package recommendations
+- Full transparency UI (AE3 / AE4)
 
 ---
 
-## 三-C、能力包实现层（0.2 §三-5 概念层的落地）
+<a id="三-c能力包实现层02-三-5-概念层的落地"></a>
 
-> **依赖**：0.2 §三-4 Agent 拓展性重构（A0/A1/A2/A3）完成、§三-5 概念层产物（X1-X4）签字。
-> **目的**：把 0.2 概念层的能力包范式正式落到产品体验——明确"系统底座 vs Agent 上层生态"二分；用户不再面对零散的 MCP / Skill / Provider 配置，而是面对"科研场景能力包"。
-> **设计哲学**：ASCI 是科研 Agent 的底座，上层应用以"场景能力包"形态拓展。能力包的核心契约是 **场景 Agent 设定 + Skill 引用 + MCP 引用 + UI 框架（选择 + 渲染配置）** 四要素。**主程序提供 UI 框架库**（0.3 内置「对话主 + 右侧产物」1 个，0.4+ 可扩展为多种），能力包通过契约声明使用哪个框架并配置渲染细节；当前 2 个首发包均使用内置的「对话主 + 右侧产物」框架。
-> **工作量备注（2026-05-12）**：综述包能力本体由 **0.1 综述链路（B 组：综述生成 + 引用追溯）+ 0.2 V1 证据链查看器** 共同构成（归属详见 [0.2 §三-2 综述包能力本体归属注](../0.2/north-star.md#section-3-2)）。0.3.0 §三-C 对综述包的工作量**降为"通过 A3 契约重接入 + 配置页注册 + UI 框架渲染配置适配"**，不重新实现引用追溯 / 段落溯源等核心功能。
+## III-C. Capability Package Implementation (0.2 §III-5 Concepts)
 
-### 三-C.0 配置分层（系统底座 vs Agent 生态）
+> **Dependencies**: 0.2 §III-4 extensibility (A0/A1/A2/A3) complete, §III-5 concepts (X1-X4) signed.
+> **Purpose**: Bring package paradigm into product experience, separating system foundation vs Agent ecosystem; users face research scenario packages rather than scattered MCP/Skill/provider configuration.
+> **Philosophy**: ASCI is a research-Agent foundation, expanded by scenario packages. Four core contents: **scenario Agent settings + Skill references + MCP references + UI framework (selection + render configuration)**. **Host supplies framework library** (one conversation-first/right-product framework in 0.3, expandable 0.4+); packages declare framework/details. Both launch packages use it.
+> **Workload note (2026-05-12)**: Review capability comes from **0.1 review pipeline (group B: generation + citation tracing) + 0.2 V1 evidence-chain viewer** ([ownership note, 0.2 §III-2](../0.2/north-star.md#section-3-2)). §III-C work **reduces to A3 reconnection + Configuration registration + render adaptation**, without rebuilding citation/passage tracing.
 
-| 层 | 承载位置 | 职责 | 例子 |
+<a id="三-c0-配置分层系统底座-vs-agent-生态"></a>
+
+### III-C.0 Configuration Layers (System Foundation vs Agent Ecosystem)
+
+| Layer | Location | Responsibility | Examples |
 |----|---------|------|------|
-| **系统底座** | Settings 弹窗 | 跨场景共享的资源与凭据；多个能力包消费这些资源 | Provider API Key、Zotero 凭据、ASR 模型、MCP 服务器列表、代理、UI 偏好 |
-| **Agent 上层生态** | 独立"配置"页（左侧 sidebar，与"文献库"平级） | Skill 与能力包的管理；安装 / 卸载 / 启用 / 包内偏好 | Skill 板块 + 能力包板块 |
+| **System foundation** | Settings dialog | Shared resources/credentials consumed by packages | Provider keys, Zotero credentials, ASR models, MCP list, proxy, UI preferences |
+| **Agent ecosystem** | Separate sidebar Configuration page, peer of Library | Skill/package install, uninstall, enable, preferences | Skills + packages sections |
 
-二分原则：**系统层是"调系统参数"的心智，Agent 生态层是"管 Agent 能力"的心智**——两者完全独立的入口、独立的页面。
+Principle: **System layer adjusts system parameters; Agent ecosystem manages capabilities**, with completely independent entry points/pages.
 
-> **用户心智验证依据**：本二分原则的用户接受度由 [0.2 §三-4 X1.2「Skill / 能力包二分心智识别度」验证项](../0.2/north-star.md#section-3-4)承担——若 X1.2 访谈正确率 < 60%，本节 CP5 强制约束（"UI 不存在两套配置入口分裂"）降级为弱约束："新版（左侧'配置'页 + 新 Settings 结构）为默认入口，旧版 Settings'配置'tab 在 0.3.0 保留只读 deprecated 标记，仅作过渡指引，0.4 删除"。具体降档由 X1.2 结果驱动，不在 0.3 编码硬约束中。
+> **User mental-model validation**: [0.2 §III-4 X1.2](../0.2/north-star.md#section-3-4) tests this separation. If interview accuracy < 60%, CP5's no-split-entry hard rule becomes weaker: New Configuration + Settings default; old Settings Configuration tab remains read-only/deprecated in 0.3.0 as transition guidance, removed 0.4. X1.2 drives downgrade, not hardcoded 0.3 assumptions.
 
-### 三-C.1 首发场景能力包（2 个）
+<a id="三-c1-首发场景能力包2-个"></a>
 
-| 能力包 | 场景 Agent 设定 | Skill 引用 | MCP 引用 | UI 框架 + 渲染配置 | 0.1 / 0.2 对应能力 | 0.3.0 工作量 |
+### III-C.1 Two Launch Scenario Packages
+
+| Package | Scenario Agent settings | Skills | MCPs | UI framework/rendering | 0.1 / 0.2 capability | 0.3.0 workload |
 |--------|----------------|-----------|----------|--------------------|--------------------|--------------|
-| **文献检索包** | 科研检索任务的对话行为：意图澄清（关键词 / 时间 / 学科）、检索计划生成、结果归纳 | 检索计划 Skill、结果排序 Skill、Zotero 入库 Skill（消费系统层 Zotero）| arXiv / Semantic Scholar / IACR / OpenReview 检索 MCP | 选择「对话主 + 右侧产物」框架；右侧产物：检索结果列表（含字段标注、来源、引用计数、排序筛选） | 0.1 检索链路 | A3 契约接入 + 配置页注册 + 渲染配置适配 |
-| **文献综述包** | 科研综述任务的对话行为：综述目标澄清、引用追溯解释、修改反馈 | 综述编排 Skill、引用追溯 Skill | （消费系统层 MCP + Zotero）| 选择「对话主 + 右侧产物」框架；右侧产物：综述正文 + 段落溯源面板（含可点击引用）| 0.1 B 组（综述可追溯）+ 0.2 V1 证据链查看器（[归属详见 0.2 §三-2 注](../0.2/north-star.md#section-3-2)）| **能力本体已完成**，仅 A3 契约接入 + 配置页注册 + 渲染配置适配 |
+| **Literature Search** | Clarify keywords/time/discipline, generate plan, summarize results | Search planning, ranking, Zotero import (system Zotero) | arXiv / Semantic Scholar / IACR / OpenReview search MCPs | Conversation-first/right-product; results with field labels, sources, citation counts, sorting/filtering | 0.1 search pipeline | A3 integration + page registration + render adaptation |
+| **Literature Review** | Clarify goals, explain tracing, revision feedback | Review orchestration, citation tracing | System MCPs + Zotero | Same framework; review body + provenance panel with clickable citations | 0.1 B traceable reviews + 0.2 V1 evidence viewer ([ownership](../0.2/north-star.md#section-3-2)) | **Capability already complete**; only A3 integration + registration + rendering |
 
-> **Zotero 不是能力包**：Zotero 是系统底座的基础配置之一，配置后让多个场景获得相应能力（检索结果可入库、综述可从 Zotero 选论文等）。Zotero 凭据 + 可选 ASR 模型下载保留在 Settings → Zotero tab。
+> **Zotero is not a package**: System configuration enabling multiple scenarios (import search results, select review papers). Credentials + optional ASR download stay in Settings → Zotero.
 
-#### 提议产出（Proposal 副产品）
+<a id="提议产出proposal-副产品"></a>
 
-每个能力包除了响应用户任务，还通过 0.2 §三-3 A3 的 `capabilities.proposals[]` 契约声明 Proposal 产出，落地 [0.2 §零 Agent 主导哲学](../0.2/north-star.md#section-zero)：
+#### Proposal Outputs (Byproducts)
 
-| 能力包 | 产出 Proposal kind | 触发点 | 落地详情页 |
+Beyond task responses, each package declares `capabilities.proposals[]` per 0.2 §III-3 A3, implementing [0.2 §0 philosophy](../0.2/north-star.md#section-zero):
+
+| Package | Proposal kind | Trigger | Details destination |
 |--------|-------------------|--------|----------|
-| 文献检索包 | `evidence-set`（检索结果与已有 EvidenceSet 主题匹配候选）| 检索结果入库 | 相关 EvidenceSet 详情页"待审提议"区 |
-| 文献检索包 | `citation-relation`（结果论文之间的引用关系候选）| 检索结果入库 | 涉及 Paper 详情页"待审提议"区 |
-| 文献综述包 | `citation-relation`（综述段落间引用关系候选）| 综述生成完成 | 涉及 Paper 详情页"待审提议"区 |
-| 文献综述包 | `hypothesis-promote`（综述中识别的可证伪断言候选）| 综述生成完成 / 用户写 Note 含断言 | Note 详情页"待审提议"区 |
-| 文献综述包 | `hypothesis-review`（EvidenceSet 新增 Paper 后对挂载 hypothesis 的支持 / 反驳判断）| EvidenceSet 新增 Paper | hypothesis Note 详情页"待审提议"区 |
+| Search | `evidence-set` (results matching existing set topic) | Results enter library | Related EvidenceSet Pending Proposals |
+| Search | `citation-relation` (relations between result papers) | Results enter library | Affected Paper Pending Proposals |
+| Review | `citation-relation` (relations between review passages) | Review completes | Affected Paper Pending Proposals |
+| Review | `hypothesis-promote` (falsifiable assertions found in review) | Review completes / user Note contains assertion | Note Pending Proposals |
+| Review | `hypothesis-review` (support/refutation of attached hypothesis after new Paper) | Paper added to EvidenceSet | Hypothesis Note Pending Proposals |
 
-### 三-C.2 独立"配置"页（左侧 sidebar）
+<a id="三-c2-独立配置页左侧-sidebar"></a>
 
-新建左侧 sidebar 入口"配置"（与"文献库"平级，独立路由），内含两个板块：
+### III-C.2 Separate Sidebar Configuration Page
 
-#### Skill 板块
-- 展示**所有可用 Skill 的总览**（系统内置 / 来自能力包 / 用户自装），每条标注来源
-- 单条 Skill 提供：启用 / 禁用开关、元信息（名称、版本、能力声明、来源）、"被哪些能力包使用"反向链接
-- 支持按来源 / 启用状态过滤
+Add Configuration sidebar entry, peer of Library, independently routed, with two sections:
 
-#### 能力包板块
-- 展示已安装能力包列表（含 2 个首发包）
-- 单包详情：场景 Agent 设定预览、引用的 Skill 列表（链向 Skill 板块）、引用的 MCP 列表、UI 框架选择 + 渲染配置说明、**"产出 Proposal" 段**（列出该包通过 `capabilities.proposals[]` 声明的 Proposal kind 与触发点，让用户直观理解该包除任务响应外还会主动产出哪些待审建议）、包内偏好（如该场景默认模型）
-- 支持安装 / 卸载（0.3 仅支持本地手动安装，第三方上传不开放，详见 §三-C.5）
+<a id="skill-板块"></a>
 
-### 三-C.3 Settings 弹窗结构调整
+#### Skills Section
+- Overview of **all available Skills** (built-in / from packages / user-installed), each labeled by source
+- Per Skill: Enable/disable, metadata (name/version/capability/source), reverse package-use links
+- Filter by source / enabled status
 
-| Tab | 内容 | 0.3 状态 |
+<a id="能力包板块"></a>
+
+#### Capability Packages Section
+- Installed list including 2 launch packages
+- Details: Scenario Agent preview, referenced Skills linked to Skills section, MCP list, framework/rendering explanation, **Proposal Outputs** listing `capabilities.proposals[]` kinds/triggers so proactive pending suggestions are clear, preferences such as default model
+- Install/uninstall (0.3 local manual only, no third-party uploads; §III-C.5)
+
+<a id="三-c3-settings-弹窗结构调整"></a>
+
+### III-C.3 Settings Dialog Restructuring
+
+| Tab | Content | 0.3 status |
 |-----|------|---------|
-| 通用 | UI 偏好、语言 | 保留 |
-| 模型 | Provider API Key（系统层凭据，跨场景共享）| 保留 |
-| Zotero | Zotero 凭据 + 可选 ASR 模型下载 | 保留 |
-| 代理 | 网络配置 | 保留 |
-| **MCP** | MCP 服务器列表（系统层基础设施，跨场景消费）| **新增**（替代旧"配置"tab）|
-| **数据采集** | T3 PostHog opt-in / opt-out + AE2 自进化埋点 toggle（合规底线，UI 极简）| **新增** |
-| 快捷键 | — | 保留 |
-| 已归档 | — | 保留 |
-| 关于 | — | 保留 |
+| General | UI preferences, language | Retain |
+| Models | Provider API keys, cross-scenario system credentials | Retain |
+| Zotero | Credentials + optional ASR model download | Retain |
+| Proxy | Network settings | Retain |
+| **MCP** | Shared MCP server infrastructure | **New**, replaces old Configuration tab |
+| **Data Collection** | T3 PostHog consent + AE2 self-evolution, minimal compliance UI | **New** |
+| Shortcuts | — | Retain |
+| Archived | — | Retain |
+| About | — | Retain |
 
-**变化**：删除旧"配置"tab——其中 MCP 服务器迁移至新独立"MCP"tab；Skill 与能力包内容下沉到左侧"配置"页；新增"数据采集"tab 承载 T3 + AE2 合规开关。
+**Changes**: Remove old Configuration tab, move MCPs to separate MCP tab, Skills/packages to sidebar Configuration, and add Data Collection for T3 + AE2 consent.
 
-### 三-C.4 审计标准
+<a id="三-c4-审计标准"></a>
 
-| # | 审计标准 | 验证方式 | 优先级 |
+### III-C.4 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| CP1 | 2 个首发场景能力包均通过 0.2 §三-4 A3 定义的注册契约接入，无 hardcode；**两个首发包各自通过 `capabilities.proposals[]` 契约产出 §三-C.1 列出的 Proposal kind 并落地到对应详情页"待审提议"区**（检索包 → `evidence-set` + `citation-relation`；综述包 → `citation-relation` + `hypothesis-promote` + `hypothesis-review`）| 阅读源码确认调用走注册中心；移除任一包后，对应场景 Agent 能力消失但不崩溃；**端到端跑一次检索 + 综述，确认 Proposal 写入对应详情页"待审提议"区且每条含 `reasoning` 文本与决策按钮** | 必做 |
-| CP2 | 左侧"配置"页存在且含 Skill / 能力包两板块；Skill 板块展示所有 Skill 含来源；能力包板块支持安装 / 卸载 / 包内偏好编辑 | 走 happy path：进入"配置"页 → Skill 板块按来源过滤 → 能力包板块打开文献综述包详情查看 Skill 引用与 UI 框架渲染配置 → 卸载综述包 → 对应 Skill 在 Skill 板块中"被使用"反向链接更新 | 必做 |
-| CP3 | Settings 弹窗 9 个 tab 按 §三-C.3 表格落地（通用 / 模型 / Zotero / 代理 / MCP / 数据采集 / 快捷键 / 已归档 / 关于）；Zotero tab 含凭据 + 可选 ASR 模型下载，ASR 模型下载流程可用 | 实际下载一次 ASR 模型（来源与大小在 Spec 中冻结）+ 跑一段 ≤ 1min 音频转写；UI 走查确认 9 个 tab 完整 | 必做 |
-| CP4 | 0.1 / 0.2 老用户升级到 0.3 后：Settings"配置"tab 自动迁移（MCP 服务器进新 MCP tab，能力包相关内容进左侧"配置"页）；Zotero / Provider / 代理等系统层配置不动 | 用 0.1 已有完整配置的测试账号升级 → 检索 / 综述 / Zotero 立即可用，无需重填；旧"配置"tab 路由 404 | 必做 |
-| CP5 | UI 不存在"两套配置入口"分裂：Skill / 能力包只在左侧"配置"页可见，Settings 中不存在 Skill / 能力包相关入口 | grep 源码无残留 Settings 中 Skill / 能力包路由 + UI 走查 | 必做 |
+| CP1 | Both packages integrate through 0.2 §III-4 A3 registry, no hardcoding; **each emits §III-C.1 kinds via `capabilities.proposals[]` into relevant Pending Proposals** (search: `evidence-set` + `citation-relation`; review: `citation-relation` + `hypothesis-promote` + `hypothesis-review`) | Inspect registry use; removing either package removes scenario capability without crash; **end-to-end search + review show correctly placed Proposals with `reasoning` and decision buttons** | Required |
+| CP2 | Sidebar Configuration includes all Skills with sources, and package install/uninstall/preferences | Open → source filter → review-package details with Skills/framework → uninstall → reverse usage links update | Required |
+| CP3 | 9 Settings tabs per §III-C.3; Zotero credentials + working optional ASR download | Download ASR model (source/size frozen in spec), transcribe ≤ 1min audio, inspect all tabs | Required |
+| CP4 | Upgrade 0.1/0.2 auto-migrates old Configuration: MCPs to MCP tab, packages to sidebar; system Zotero/provider/proxy unchanged | Upgrade fully configured 0.1 test account; search/review/Zotero immediately usable without reentry; old tab route 404 | Required |
+| CP5 | No split configuration entries: Skills/packages only in sidebar Configuration, absent from Settings | grep no old Settings routes + UI walkthrough | Required |
 
-### 三-C.5 0.3 不做（推迟 0.4 / V1）
+<a id="三-c5-03-不做推迟-04-&#45;v1"></a>
 
-- **第三方能力包对外扩展点**：0.3 只做内置 2 包，扩展点不对外开放。后续路线先从 **团队内自研工具上架** 开始（即新增能力包仍走 ASCI 仓库 PR 流程），第三方能力包打包 / 加载 / 审核全部推迟到至少 0.5 / V1
-- 能力包市场 / 远程发现（0.3 只支持内置 2 包，无市场入口）
-- 能力包版本管理 / 自动升级（随主程序版本走）
-- 能力包间依赖解析（首发 2 包无相互依赖）
-- Skill 用户自装 / 第三方 Skill 来源（0.3 Skill 来源仅"系统内置"和"来自能力包"两类）
-- **UI 框架库扩展**：0.3 主程序仅内置「对话主 + 右侧产物」1 个 UI 框架，2 个首发包均使用该框架；多 UI 框架的注册 + 切换机制推迟 0.4+（届时支持写作 / 实验日志 / 数据分析等不同 UI 形态的能力包）
+### III-C.5 Not in 0.3 (Deferred 0.4 / V1)
+
+- **Public third-party package extension points**: Only 2 built-ins in 0.3, no public extension. Start later with **internally built team tools** through ASCI PRs; third-party packaging/loading/review defer at least 0.5 / V1
+- Package marketplace / remote discovery (2 built-ins only, no market entry)
+- Package versioning / automatic upgrades (follow host version)
+- Inter-package dependency resolution (2 launch packages independent)
+- User-installed / third-party Skills (0.3 sources only built-in/from packages)
+- **Framework-library extension**: One conversation-first/right-product framework for both packages; registration/switching deferred 0.4+ for writing/logs/analysis layouts
 
 ---
 
 <a id="section-3-d"></a>
 
-## 三-D、默认页改造（中心对话框 + 总控 Agent）—— **整体推迟 0.4**
+<a id="三-d默认页改造中心对话框-&#45;总控-agent-整体推迟-04"></a>
 
-> ⚠️ **2026-05-12 决策**：默认页改造**整体推迟到 0.4**。0.3.0 保留 0.1 / 0.2 现有入口范式——用户从已安装的能力包（左侧"配置"页 → 能力包板块）或现有快捷入口进入场景任务，**不交付** DH1-DH4 任一项。
+## III-D. Default-page Redesign (Central Conversation + Supervisor Agent) — **Entirely Deferred to 0.4**
 
-**完整设计内容（新页面结构、总控 Agent 行为、原 DH1-DH4 审计标准、不做项）已抽出到独立文件**：
+> ⚠️ **2026-05-12 decision**: Entire redesign deferred. 0.3.0 retains 0.1/0.2 entries through installed packages (sidebar Configuration → packages) or shortcuts; **none of DH1-DH4 delivered**.
+
+**Complete design (page structure, supervisor behavior, DH1-DH4 criteria, exclusions) extracted separately**:
 
 📄 [`ya-docs/milestones/0.4/design-inputs/default-page.md`](../0.4/design-inputs/default-page.md)
 
-**抽出理由**：保持 0.3 文档聚焦"已交付项"；推迟内容不混入 0.3 进度风险与审计清单。
+**Reason**: Keep 0.3 focused on deliverables, excluding deferred work from progress risks/audits.
 
-**0.3 闭环说明**：
+**0.3 closure**:
 
-- §十 "推迟到 0.4" 表保留 §三-D（DH1-DH4 全部）条目
-- §九 "与 0.2 关系" 不引用 §三-D 任何内容
-- §七 用户激活路径 L3 引导通过 Proposal 决策动作触发，**不依赖 §三-D**
+- §X deferred-to-0.4 table retains all §III-D (DH1-DH4)
+- §IX relationship to 0.2 references no §III-D content
+- §VII L3 guidance triggers through Proposal decisions, **independent of §III-D**
 
-**产品风险**：默认页改造推迟意味着 0.3.0 公开发布时"从配置驱动到能力包驱动"的叙事在主使用路径上几乎看不到（用户进入 ASCI 时仍是 0.1/0.2 旧入口）。已在 [0.4 design-input 文档 §一](../0.4/design-inputs/default-page.md#一背景为何把默认页改造从-03-抽出到-04) 评估并接受该权衡，0.4 启动时间紧随 0.3.0 公开发布，无大窗口空档。
+**Product risk**: At public launch the configuration→package narrative is nearly invisible in primary usage because entry remains 0.1/0.2. Tradeoff assessed/accepted in [0.4 design input §I](../0.4/design-inputs/default-page.md#一背景为何把默认页改造从-03-抽出到-04); 0.4 starts immediately after launch without a large gap.
 
 ---
 
-## 四、版本更新
+<a id="四版本更新"></a>
 
-### 4.1 方案
+## IV. Version Updates
 
-- 使用 `electron-updater`
-- 更新服务器托管在自建服务器
-- 启动时自动检查更新 + 手动检查入口
-- **平台范围**：macOS 必做；Windows 视 §五-A EV 签名 lead-time 决定（Week 1 末决策）
+<a id="41-方案"></a>
 
-### 4.2 审计标准
+### 4.1 Approach
 
-| # | 审计标准 | 验证方式 | 优先级 |
+- Use `electron-updater`
+- Feed hosted on self-hosted servers
+- Startup automatic checks + manual entry
+- **Platforms**: macOS required; Windows contingent on §V-A EV lead time, decision at Week 1 end
+
+<a id="42-审计标准"></a>
+
+### 4.2 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| UP1 | macOS 新版本发布后，客户端启动时收到更新提示 | 发布新版本 → 启动旧版本 → 检查提示出现 | 必做 |
-| UP1w | Windows 新版本发布后，客户端启动时收到更新提示 | 同 UP1，Windows 平台 | 可降级（依 §五-A EV 签名）|
-| UP2 | macOS 完整更新流程：下载 → 安装 → 重启 → 新版本生效 | 走完整更新流程，确认版本号变更 | 必做 |
-| UP2w | Windows 完整更新流程 | 同 UP2，Windows 平台 | 可降级（依 §五-A EV 签名）|
-| UP3 | 更新失败时不影响当前版本正常使用 | 断网条件下触发更新，现有版本不崩溃 | 必做 |
+| UP1 | macOS startup shows update after new release | Publish → start old version → prompt | Required |
+| UP1w | Windows startup update prompt | As UP1, Windows | Downgradable, §V-A EV |
+| UP2 | Full macOS download → install → restart → new version | Complete flow, confirm version | Required |
+| UP2w | Full Windows update | As UP2, Windows | Downgradable, §V-A EV |
+| UP3 | Failed update leaves current app usable | Update offline, no crash | Required |
 
 ---
 
-## 五、安全机制
+<a id="五安全机制"></a>
 
-| 层面 | 措施 | 审计标准 | 优先级 |
+## V. Security
+
+| Area | Measure | Criterion | Priority |
 |------|------|---------|--------|
-| 传输 | TLS 1.3（API 流量不做 Certificate Pinning；update channel 可选 pinning） | 抓包确认无明文传输 | 必做 |
-| 认证 | JWT + Refresh Token 轮转 | 见 U5 | 必做 |
-| API | Rate Limiting、CORS 白名单 | 压测触发 Rate Limit，返回 429 | 必做 |
-| 本地存储 | Token safeStorage 加密（继承 0.1） | 见 U4 | 必做 |
-| 运维 | 依赖漏洞扫描（Dependabot） | CI 中集成，PR 阻断高危漏洞 | 必做 |
-| 合规 | **GDPR MVP 合规**：Privacy Policy / ToS、DPA 签约、EU Representative 外包、欧盟用户 opt-in（见 T3 / AE2a）、数据导出 / 删除（见 DO2 / DO3）、跨境传输 SCC 披露（如适用，见 S3）| 隐私政策可查、用户可请求删除数据、SCC 文本在隐私政策中可查 | 必做 |
+| Transport | TLS 1.3, no API Certificate Pinning, optional update pinning | Network capture shows no plaintext | Required |
+| Auth | JWT + Refresh Token rotation | U5 | Required |
+| API | Rate Limiting, CORS allowlist | Load triggers 429 | Required |
+| Local storage | Token safeStorage encryption inherited from 0.1 | U4 | Required |
+| Operations | Dependabot vulnerability scans | CI blocks high-risk vulnerabilities | Required |
+| Compliance | **GDPR MVP**: Privacy Policy/ToS, signed DPA, outsourced EU Representative, EU opt-in (T3/AE2a), export/delete (DO2/DO3), SCC where applicable (S3) | Policy accessible, data deletion requestable, SCC visible | Required |
 
-> **API 流量不做 Cert Pinning 的设计依据**：桌面 Electron 应用上 cert pinning 是反模式——证书轮换或 CDN 切换会让所有客户端断连，且修复需推新版本（update channel 自身走 HTTPS 可能死锁）。`electron-updater` 已有 code signing 保证更新包完整性，API 流量加 cert pinning 收益边际。仅对 update channel 保留 pinning 选项。
+> **No API cert pinning rationale**: In Electron desktop apps, certificate rotation/CDN changes disconnect all clients; fixes require new releases, potentially deadlocking HTTPS updates. `electron-updater` signing already ensures package integrity; API pinning adds marginal value. Retain optional update-channel pinning only.
 >
-> **GDPR MVP scope 边界**：DPO 选定、正式 DPIA、律师起草级合规文档**推迟到 0.4 / V1 规模化触发**（1k+ EU 用户或开始收费）。当前 ASCI 不属于 GDPR Art. 37 强制 DPO 条件（非公共机关 / 非大规模监控 / 非特殊数据）。
+> **GDPR MVP boundary**: DPO selection, formal DPIA, lawyer-drafted documents **defer to 0.4/V1 scale triggers** (1k+ EU users or charging). ASCI currently does not meet Art.37 mandatory-DPO conditions (not public authority/large-scale monitoring/special-category data).
 
 ---
 
-## 五-A、发布前置事务（lead-time checklist）
+<a id="五-a发布前置事务lead-time-checklist"></a>
 
-> **设计依据**：以下事项**不是工程量问题，而是审核 / 物流 / 合同周期问题**。不前置启动，2 周代码窗口完不成。本周由产研 Lead（@pantsbang-yannik / @lesterli）盘点状态 + 启动。
+## V-A. Release Prerequisites (Lead-time Checklist)
 
-### 五-A.1 lead-time 事项清单
+> **Basis**: These are review/logistics/contract durations, not engineering effort. Without early starts the 2-week coding window is insufficient. Product/engineering Leads (@pantsbang-yannik / @lesterli) inventory/start this week.
 
-| 事项 | 周期 | 当前状态 | 责任人 | 0.3 卡点说明 |
+<a id="五-a1-lead-time-事项清单"></a>
+
+### V-A.1 Lead-time Items
+
+| Item | Duration | Current state | Owner | 0.3 blocker |
 |------|------|---------|--------|-------------|
-| Apple Developer + macOS Notarization 准备 | 3-7 天 | ❓待盘点 | Dev D | 不通过则 macOS 安装包被 Gatekeeper 拦截 |
-| Windows EV Code Signing（USB hardware token） | **2-4 周** | ❓待盘点 | Dev D | electron-updater 必需，不通过则 Windows 平台无法发布 — **本项 lead time 最长，是 0.3 是否双平台首发的决定性变量；若 Week 1 末未到位，Windows 整体进 0.4，仅 macOS 首发** |
-| ORCID OAuth client_id（机构认证流程） | 1-2 周 | ❓待盘点 | Dev D | 不通过则 ORCID 登录不可用（U1 失败） |
-| Google OAuth verification（含邮箱 scope 时） | 2-4 周 | ❓待盘点 | Dev D | 不通过则 Google 登录显示"未验证"警告 |
-| 邮件发件域 SPF / DKIM / DMARC + 邮件商认证 | 1-2 周 | ❓待盘点 | Dev D | 不通过则邮件验证 / 密码重置邮件被标垃圾（S4 失败） |
+| Apple Developer + macOS Notarization readiness | 3-7 days | ❓ Inventory pending | Dev D | Gatekeeper blocks package without approval |
+| Windows EV Code Signing (USB hardware token) | **2-4 weeks** | ❓ Inventory pending | Dev D | Required by electron-updater; Windows cannot release without it. **Longest lead time, decisive for dual-platform launch; absent by Week 1 end → all Windows to 0.4, macOS only** |
+| ORCID OAuth client_id (institution verification) | 1-2 weeks | ❓ Inventory pending | Dev D | ORCID unavailable, U1 fails |
+| Google OAuth verification (email scope) | 2-4 weeks | ❓ Inventory pending | Dev D | Google shows unverified warning |
+| Sender-domain SPF / DKIM / DMARC + email-provider verification | 1-2 weeks | ❓ Inventory pending | Dev D | Verification/reset lands in spam, S4 fails |
 
-### 五-A.2 盘点硬截止与审计
+<a id="五-a2-盘点硬截止与审计"></a>
 
-| # | 审计标准 | 验证方式 | 优先级 |
+### V-A.2 Hard Inventory Deadline and Audit
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| LT0 | **2026-06-08（0.2 Week 3 周中）前 5 项 lead-time 状态全部从"❓待盘点"转为明确结论**（已启动 / 已完成 / 不可达需降级）；任一项延误必须在同日触发降级评估（Windows → 0.4 / ORCID 暂用 placeholder 等） | 5 项状态在 0.2 Week 3 周中的 sync 会上逐项过；状态结论与决策记录写入 `docs/ops/release-readiness.md`（位置由 Dev D 拍板创建）| 必做 |
-| LT1 | macOS Notarization 在 0.3 Week 1 末（2026-06-12）可签出可用安装包 | 跑一次完整 sign + notarize 流程产出可双击运行的 .dmg | 必做 |
-| LT2 | Windows EV Code Signing 状态在 0.3 Week 1 末决策：到位 → 双平台首发；未到位 → 触发 §十.1 Windows → 0.4 降级 | Dev D 在 sync 会上汇报 EV token 物理到货 + 测试签名成功 | 必做 |
-| LT3 | ORCID / Google OAuth verification + 邮件域认证在 0.3 Week 2 中（2026-06-17）前全部到位，否则触发 U1 / U2 / S4 降级评估 | 三项各跑一次端到端流程：ORCID 登录回调成功 / Google 不显示"未验证"警告 / 测试邮件发到 Gmail 收件箱（非垃圾箱）| 必做 |
+| LT0 | **By 2026-06-08 (mid 0.2 Week 3), all 5 states move from pending to started/complete/unreachable-needs-downgrade**; delays trigger same-day downgrade assessment (Windows→0.4 / ORCID placeholder, etc.) | Review all 5 at mid-Week3 sync, record decisions in `docs/ops/release-readiness.md`, location created by Dev D | Required |
+| LT1 | macOS Notarization yields usable package by 0.3 Week1 end, 2026-06-12 | Full sign+notarize creates double-clickable .dmg | Required |
+| LT2 | Week1-end Windows EV decision: Ready→dual platform; otherwise §X.1 downgrade | Dev D reports physical token arrival + successful signing at sync | Required |
+| LT3 | ORCID/Google verification + email-domain auth ready by mid-Week2, 2026-06-17, otherwise U1/U2/S4 downgrade assessment | Actual ORCID callback / no Google unverified warning / Gmail inbox rather than spam | Required |
 
-> **已决策项（无需再评估，参考用）**：
-> - GitHub OAuth 已砍出 0.3.0 范围，无对应 lead-time 项
-> - 服务器双节点路由已推迟 0.4，0.3.0 单节点首发；节点位置由 ADR-002 拍板（倾向欧盟）
-> - 默认页改造（§三-D）已整体推迟 0.4
-> - 自进化埋点 AE3 / AE4 透明度 UI 已推迟 0.4，0.3.0 仅保留 Settings 单 toggle
+> **Already decided, reference only**:
+> - GitHub OAuth dropped, no lead-time item
+> - Dual-node deferred 0.4; single node, ADR-002 region, EU preferred
+> - Default-page §III-D deferred entirely
+> - AE3/AE4 transparency deferred; 0.3.0 only Settings toggle
 >
-> **Week 1 末决策点**：Windows EV 签名进度是否支持双平台首发；如不及，正式触发 Windows → 0.4 降级。
+> **Week1-end decision**: Does EV progress permit dual-platform launch? Otherwise formally defer Windows to 0.4.
 
 ---
 
-## 五-B、公开发布运维 SOP —— **整章推迟 0.4 / V1**
+<a id="五-b公开发布运维-sop-&#45;整章推迟-04-&#45;v1"></a>
 
-> ⚠️ **2026-05-14 决策**：本章原计划在 0.3.0 落地 Status page / on-call 轮值 / Incident response SOP / P0 演练等 SaaS 级运维项（OPS1-OPS5）。**整章推迟到 0.4 或更晚**。
+## V-B. Public-release Operations SOP — **Entire Chapter Deferred to 0.4 / V1**
+
+> ⚠️ **2026-05-14 decision**: Originally planned SaaS-level Status page / on-call / incident SOP / P0 drills (OPS1-OPS5) in 0.3.0. **Entire chapter deferred to 0.4 or later**.
 >
-> **推迟理由**：ASCI 0.3.0 发布的是**桌面客户端产品**，不是 SaaS 服务；且**非开源**，无需公开仓 issue triage / 社区 maintainer SOP。客户端产品对 SaaS 级运维（Status page、on-call 轮值、P0 演练）的强需求要等到服务端依赖加深（如桌面 ↔ Web 同步、A2A 协议、共享 MCP 服务）或用户规模化触发后再建。
+> **Reason**: ASCI ships a **desktop client**, not SaaS, and is **not open source**, so no public issue triage/community-maintainer SOP. Build SaaS-grade operations when server dependencies deepen (desktop↔Web sync, A2A, shared MCP) or user scale warrants it.
 >
-> **0.3.0 仍保留的最小运维基础**（已在他处覆盖，本章不重复）：
+> **Minimum operations retained in 0.3.0**, already covered elsewhere:
 >
-> - **崩溃自动上报**：§三 数据埋点（T1 / T4 / T4a）Sentry，无需手动响应
-> - **发布前置盘点**：§五-A 发布前置事务（LT0 / LT1 / LT2 / LT3）锁定 Apple / Windows / OAuth / 邮件域到位时点
-> - **依赖漏洞扫描**：§五 安全机制表 Dependabot 行
+> - **Automatic crashes**: §III T1/T4/T4a Sentry, no manual response needed
+> - **Prerequisite inventory**: §V-A LT0–LT3 fixes readiness dates for Apple/Windows/OAuth/email
+> - **Dependency scans**: §V Dependabot
 >
-> **0.4 / V1 重新评估的项**：Status page、on-call 轮值、Incident response SOP、P0 演练、Customer support 渠道；Bug 反馈通道的最小形态（in-app 邮箱反馈 / 私域社群 / 闭源 issue tracker 三选一）由产品决策驱动，不在 0.3.0 范围。
+> **Reevaluate 0.4/V1**: Status page, on-call, incident SOP, P0 drills, support channels. Minimal bug feedback (in-app email/private community/closed-source tracker) remains a product decision outside 0.3.0.
 
 ---
 
-## 六、数据所有权叙事（护城河 P2）
+<a id="六数据所有权叙事护城河-p2"></a>
 
-> 战略来源：[moat-analysis.md](../0.2/moat-analysis.md) §4.3 🥉 P2 —— 把"本地存储 + 开放格式 = 你的数据永远是你的"从技术事实转化为用户可感知的价值主张。
+## VI. Data Ownership Narrative (Moat P2)
 
-### 6.1 审计标准
+> Strategy: [moat-analysis.md](../0.2/moat-analysis.md) §4.3 🥉 P2: Turn local storage + open formats = your data stays yours from technical fact into user-visible value.
 
-| # | 审计标准 | 验证方式 | 优先级 |
+<a id="61-审计标准"></a>
+
+### 6.1 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| DO1 | 设置页有"你的数据存在哪里"可视化卡片，标注本地路径与各对象数量 | 打开设置 → 数据所有权 → 可见 `~/.asci/` 路径与本地对象计数 | 必做 |
-| DO2 | 一键导出全部用户数据为符合 [0.2 开放标准 O1](../0.2/north-star.md#section-open-standard) 的 JSON 包 | 点击"导出我的数据"→ 得到 zip 包 → 用 `ajv` 校验通过 | 必做 |
-| DO3 | 一键删除账户 + 清除服务端数据（GDPR Article 17 知情权 / 被遗忘权） | 触发删除 → 服务端用户记录清空 → 本地保留对象库（用户可继续离线使用） | 必做 |
-| DO4 | 欢迎页 / 落地页文案明确表述"本地优先 + 数据可携带"，不出现"云端独家"等反向叙事 | 文案审查 | 必做 |
+| DO1 | Settings visualization of data location, paths/counts | Settings → Data Ownership shows `~/.asci/` and object counts | Required |
+| DO2 | One-click full export to JSON conforming to [0.2 O1](../0.2/north-star.md#section-open-standard) | Export My Data → zip → `ajv` passes | Required |
+| DO3 | One-click account deletion + server-data clearing (GDPR Art.17 right to information / erasure) | Delete → server user records cleared → local library retained for offline use | Required |
+| DO4 | Welcome/landing copy states local-first + portability, no cloud-exclusive counter-narrative | Copy review | Required |
 
-### 6.2 与护城河的关系
+<a id="62-与护城河的关系"></a>
 
-DO2 的导出格式 = 0.2 的 O1 开放 JSON Schema。这条链路把"开放标准"和"数据所有权"绑死：用户带走的数据是行业可解析的标准格式，不是私有 dump。
+### 6.2 Relationship to the Moat
+
+DO2 export = 0.2 O1 open JSON Schema, binding standards and ownership: Users take an industry-readable format, not a proprietary dump.
 
 ---
 
-## 七、用户激活路径（护城河 P1）
+<a id="七用户激活路径护城河-p1"></a>
 
-> 战略来源：[moat-analysis.md](../0.2/moat-analysis.md) §4.3 🥈 P1 —— 跨过 L0 冷启动谷，引导用户走到 L3 才形成数据重力。
+## VII. User Activation (Moat P1)
 
-### 7.1 激活路径定义
+> Strategy: [moat-analysis.md](../0.2/moat-analysis.md) §4.3 🥈 P1: Cross L0 cold start, guide toward L3 data gravity.
 
-| 层级 | 用户行为 | 0.3 对应 UI 引导 |
+<a id="71-激活路径定义"></a>
+
+### 7.1 Activation Definition
+
+| Level | User behavior | 0.3 guidance |
 |------|---------|----------------|
-| L0 | 完成首次检索+综述 | 继承 0.1，无需新增 |
-| L1 | 点击综述引用 → 查看 Paper | 继承 0.2 证据链查看器 |
-| L2 | 在 Paper 上写第一条 Note | 引导气泡："对这段有想法？写下来" |
-| L3 | **决策第一条 Agent 提议**（对 Proposal 卡片执行 `采纳` / `修改` / `拒绝` / `仅本对象不再提示（scoped）` / `不再提示这类（silence-this-kind）` 五个动作之一，命名与 [0.2 §一-A UI 约定](../0.2/north-star.md#section-1a) 一致）| 完成 L2 后用户首次进入有待审 Proposal 的对象详情页时，引导气泡："Agent 帮你识别了一些候选，看看哪些值得保留" |
+| L0 | First search+review | Inherit 0.1, no new UI |
+| L1 | Click review citation → Paper | Inherit 0.2 evidence viewer |
+| L2 | First Paper Note | Bubble: "Thoughts on this passage? Write them down" |
+| L3 | **First Agent Proposal decision**, one of `采纳` / `修改` / `拒绝` / `仅本对象不再提示（scoped）` / `不再提示这类（silence-this-kind）` (accept / modify / reject / silence for this object / silence this kind), naming aligned with [0.2 §I-A](../0.2/north-star.md#section-1a) | After L2, first details page with pending Proposals: "Agent identified candidates; see which are worth keeping" |
 
-### 7.2 审计标准
+<a id="72-审计标准"></a>
 
-| # | 审计标准 | 验证方式 | 优先级 |
+### 7.2 Audit Criteria
+
+| # | Criterion | Verification | Priority |
 |---|---------|---------|--------|
-| AC1 | 新用户首次进入产品后，存在显式的引导路径覆盖 L0→L3 的四个动作点，**其中 L3 对应"对第一条 Agent 提议执行任一决策动作"的引导**（落地 [0.2 §零 Agent 主导哲学](../0.2/north-star.md#section-zero)）；决策动作命名与 [0.2 §一-A](../0.2/north-star.md#section-1a) 严格一致：`采纳 / 修改 / 拒绝 / 仅本对象不再提示 / 不再提示这类` | 用全新账户登录，UI 在每个层级触发引导提示；L3 引导出现时机为首次进入含待审 Proposal 的对象详情页；按钮文案 grep 通过 | 必做 |
-| AC2 | 埋点（继承 §三 PostHog）追踪用户实际抵达的最高层级 | PostHog 中可查询每个用户的 `max_level` 维度 | 必做 |
-| AC3 | 公开发布两周内，注册用户中达到 L3 的比例 ≥ 15% | 取发布后 14 天的 PostHog 数据；目标值仅作观察基线，不阻塞发布 | 观察 |
+| AC1 | Explicit first-use guidance for L0→L3, **L3 teaches any first Proposal decision**, implementing [0.2 §0](../0.2/north-star.md#section-zero); action names exactly match [§I-A](../0.2/north-star.md#section-1a): `采纳 / 修改 / 拒绝 / 仅本对象不再提示 / 不再提示这类` (accept/modify/reject/silence this object/silence this kind) | Fresh account sees each level's guidance; L3 on first details with pending Proposals; button-copy grep passes | Required |
+| AC2 | PostHog (§III) tracks highest reached level | Query per-user `max_level` | Required |
+| AC3 | ≥ 15% of registered users reach L3 within 2 weeks of public launch | PostHog first 14 days; observation baseline, nonblocking | Observe |
 
-> **AC3 基线说明**：15% 为 0.3.0 启动观察目标，参考桌面 ToC 应用首周激活率行业经验值（10-20% 区间）；ASCI 0.1 / 0.2 阶段仅 dogfood 与小范围内测，无公开发布数据可作内部基线。0.3.0 公开发布后 2 周数据作为 0.4 阶段正式基线建立的输入。**AC3 是观察指标而非发布门槛**——若实测远低于 15%，意味着激活路径需要在 0.4 中迭代（如 L3 引导触发时机 / 决策动作可见性 / Proposal reasoning 文案），而不是阻止 0.3 上线。
+> **AC3 baseline**: 15% starting observation target reflects desktop ToC first-week activation experience (10-20%). 0.1/0.2 had only dogfood/small private testing, no public baseline. Two weeks post-launch feed formal 0.4 baseline. **Observation, not release gate**: Much lower results imply 0.4 iteration (L3 timing/action visibility/reasoning copy), not blocking 0.3.
 
 ---
 
-## 八、法律文本 & 国际化
+<a id="八法律文本-&#45;国际化"></a>
 
-| 交付物 | 说明 |
+## VIII. Legal Texts and Internationalization
+
+| Deliverable | Description |
 |------|------|
-| Privacy Policy | 英文为主，覆盖 GDPR 要求的数据处理说明 |
-| Terms of Service | 英文为主 |
-| i18n | 继承 0.1 C5 多语言框架，补齐账户相关 UI 翻译 |
+| Privacy Policy | Primarily English, GDPR data-processing explanations |
+| Terms of Service | Primarily English |
+| i18n | Inherit 0.1 C5, complete account UI translations |
 
-> **法人主体说明**：法人主体确定**不阻塞 0.3 发布**——ToS 可写 placeholder 主体先行上线。但**0.3 发后 30-90 天内必须完成主体确认**并更新 ToS / Privacy Policy 中的主体字段，否则进入 0.4 即为合规风险敞口。该项归 Neo 个人事务范畴，由其本人跟进。
-
----
-
-## 九、与 0.2 的关系
-
-```
-0.2 产出                          0.3 消费
-──────────                      ──────────
-对象模型 + 存储协议      →     用户可对自有对象进行 CRUD（需认证）
-两个验证应用             →     用户登录后可访问自己的证据链/札记（含假设类 Note）
-服务器原型（Dev D）      →     正式部署为认证+用户数据+更新服务（单节点首发）
-本地无账户状态           →     引入账户隔离，每个用户独立数据空间
-Agent 拓展性重构 + 能力包契约（A0/A3）→ 2 个首发场景能力包正式落地（§三-C）；综述包能力本体已完成，仅走契约接入
-能力包概念 Spec + UI 概念稿（X1-X4）→ 独立配置页 + Settings 旧入口移除
-旧配置→能力包 迁移方案（X4）→ 0.1 / 0.2 老用户升级自动迁移（CP4）
-```
-
-0.2 的对象底座是 0.3 的数据层基础，0.3 在其上加账户隔离和服务端能力。0.2 的 D1-D3 设计约束在 0.3 服务端 API 设计中首次兑现——API 的请求 / 响应格式直接复用对象 JSON Schema。0.2 的 §三-4 Agent 重构与 §三-5 能力包概念层是 0.3 §三-C 的直接前置。
-
-### V1 路线图预留
-
-```
-0.2 / 0.3 设计约束                  V1 消费
-─────────────────                  ──────────
-对象 JSON Schema (D1)       →     MCP Server 输出格式
-ID 引用 + 参数化查询 (D2/D3) →     A2A 协议的数据交换层
-PDF 解析缓存                 →     论文检索 MCP 的加速层
-用户账户 + 数据隔离          →     A2A 服务的鉴权基础
-```
+> **Legal entity**: Final entity **does not block 0.3**; ToS may launch with placeholder. **Confirm within 30-90 days after release**, updating entity fields in ToS/Privacy Policy, or 0.4 has compliance exposure. Neo follows up personally.
 
 ---
 
-## 十、0.3 不做的事
+<a id="九与-02-的关系"></a>
 
-> 三张表分层呈现：**§十.1** 是 2026-05-12 决策记录（含已收敛 + 并行调整）；**§十.2** 是 V1 / V2 远期路线图；**§十.3** 是确定推迟到 0.4 的项。三表互不重叠。
+## IX. Relationship to 0.2
 
-### 十.1 0.3.0 范围决策表（2026-05-12）
+```
+0.2 outputs                       0.3 consumption
+──────────                        ──────────
+Object model + storage protocol → Authenticated CRUD on users' own objects
+Two validation applications     → Own evidence chains/notes (including hypothesis Notes) after login
+Server prototype (Dev D)        → Production auth+user data+updates (single-node launch)
+Local accountless state         → Account isolation, independent per-user data spaces
+Agent extensibility + package contracts (A0/A3) → 2 launch packages (§III-C); review core complete, contract reconnection only
+Package concept Spec + UI concepts (X1-X4) → Separate Configuration page + old Settings entry removed
+Old configuration→package migration (X4) → Automatic 0.1 / 0.2 upgrade migration (CP4)
+```
 
-> 这些项不是"未来不做"，而是"已正式划出 0.3.0 范围"——0.3.0 公开发布以此范围为准，不再作为 0.3.0 进度风险讨论。
+English rendering: 0.2 objects/storage → authenticated own-object CRUD; two validation apps → own evidence/notes including hypothesis Notes after login; Dev D prototype → production auth/user/update single node; local accountless state → isolated per-user spaces; A0/A3 extensibility/contracts → launch packages (§III-C), review core already complete and only reconnected; X1-X4 concepts/UI → independent Configuration/removal of old Settings; X4 migration → automatic old-user upgrade CP4.
 
-| 项 | 原计划 | 决策后 | 类型 | 去向 |
+0.2 object foundation underpins 0.3 data; 0.3 adds account isolation/server capabilities. D1-D3 first materialize in APIs reusing object JSON Schemas for requests/responses. §III-4 refactor/§III-5 concepts directly precede §III-C.
+
+<a id="v1-路线图预留"></a>
+
+### V1 Roadmap Reservations
+
+```
+0.2 / 0.3 design constraints       V1 consumption
+─────────────────                 ──────────
+Object JSON Schema (D1)          → MCP Server output format
+ID references + parameterized queries (D2/D3) → A2A data exchange layer
+PDF parsing cache               → Paper-search MCP acceleration
+User accounts + data isolation  → A2A authentication foundation
+```
+
+English rendering: D1 object JSON Schema → MCP Server output; D2/D3 ID references + parameterized queries → A2A exchange; PDF cache → search MCP acceleration; accounts/isolation → A2A authentication.
+
+---
+
+<a id="十03-不做的事"></a>
+
+## X. Exclusions from 0.3
+
+> Three nonoverlapping tables/lists: **§X.1** 2026-05-12 decisions (scope reductions + parallel adjustments); **§X.2** V1/V2 roadmap; **§X.3** confirmed 0.4 deferrals.
+
+<a id="十1-030-范围决策表2026-05-12"></a>
+
+### X.1 0.3.0 Scope Decisions (2026-05-12)
+
+> Formally removed from 0.3.0 scope, not vague future exclusions; public release follows this scope and no longer treats these as delivery risks.
+
+| Item | Original plan | Decision | Type | Destination |
 |---|--------|--------|-----|------|
-| 默认页改造（§三-D，DH1-DH4 全部）| 0.3.0 必做 | 整体推迟，0.3.0 保留 0.1 / 0.2 现有入口范式 | 范围收敛 | [0.4 design-input](../0.4/design-inputs/default-page.md) |
-| 服务器双节点路由（S5）| 0.3.0 必做（S1 双节点）| 单节点首发，节点位置由 ADR-002 拍板（倾向欧盟）| 范围收敛 | 0.4 |
-| GitHub OAuth | 0.3.0 必做 | 砍，仅保留 Email + Google + ORCID；无对应 lead-time 项 | 范围收敛 | 看 0.4 用户反馈 |
-| 自进化埋点透明度 UI（AE3 本周事件查看 / 一键清空、AE4 首次任务流引导弹窗）| 0.3.0 必做 | 仅保留 Settings 单 toggle（AE2 / AE2a）；6 类信号采集（AE1 / AE1a）全做 | 范围收敛 | 0.4 |
-| Windows 首发 | 0.3.0 必做 | 视 §五-A EV 签名 lead-time，Week 1 末决策 | 条件收敛 | 0.4（若 EV 不及）|
-| 公开发布运维 SOP（§五-B 整章，OPS1-OPS5）| 0.3.0 必做 | **整章推迟**：ASCI 是客户端产品 + 非开源，Status page / on-call 轮值 / Incident response SOP / P0 演练等 SaaS 级运维项不在 0.3.0 范围 | 范围收敛 | 0.4 / V1（按服务端依赖加深或用户规模化触发再建）|
-| 0.2 / 0.3 Week 重叠 | — | 0.2 Week 3 启动 0.3 服务器骨架 + 账户 spike，让 §五-A 串行 lead-time 在 0.2 期间真正消化 | 并行调整 | 0.2 Week 3 起 |
-| 综述包工作量降级 | 0.3.0 重新实现 | 能力本体在 0.1 / 0.2 已完成（[归属详见 0.2 §三-2 注](../0.2/north-star.md#section-3-2)），0.3.0 工作量降为契约接入 + 配置页注册 | 并行调整 | §三-C.1 |
+| Default-page §III-D, all DH1-DH4 | Required | Entirely defer; retain old entries | Scope reduction | [0.4 input](../0.4/design-inputs/default-page.md) |
+| Dual-node S5 | Required, old S1 | Single node; ADR-002 region, EU preferred | Scope reduction | 0.4 |
+| GitHub OAuth | Required | Drop; only Email/Google/ORCID, no lead-time item | Scope reduction | 0.4 feedback |
+| Self-evolution transparency AE3 weekly/clear, AE4 first-task popup | Required | Settings toggle AE2/AE2a only; all 6 signals AE1/AE1a | Scope reduction | 0.4 |
+| Windows launch | Required | EV-contingent §V-A, Week1-end decision | Conditional reduction | 0.4 if EV late |
+| Operations §V-B, OPS1-OPS5 | Required | **Entire chapter deferred**: Desktop, closed-source, no SaaS Status/on-call/incident/P0 drills in 0.3.0 | Scope reduction | 0.4/V1 server-dependency/scale triggers |
+| 0.2/0.3 overlapping weeks | — | Start 0.3 server skeleton/account spike in 0.2 Week3, consuming serial lead times early | Parallel adjustment | 0.2 Week3 onward |
+| Review-package effort | Rebuild in 0.3.0 | Core complete 0.1/0.2 ([ownership](../0.2/north-star.md#section-3-2)); only contracts + registration | Parallel adjustment | §III-C.1 |
 
-### 十.2 一直不做（V1 / V2 路线图）
+<a id="十2-一直不做v1-&#45;v2-路线图"></a>
 
-- 不做 OPENSCI OAuth 绑定（仅预留字段）
-- 不做桌面 ↔ Web 数据同步（仅预留接口）
-- 不做 Web 版本
-- 不做完整的多 Agent 协同编排（V1）
-- 不做插件市场 / 开发者文档（V2）
+### X.2 Always Excluded Here (V1 / V2 Roadmap)
 
-### 十.3 0.3 不做、推迟到 0.4
+- No OPENSCI OAuth linking (reserved field only)
+- No desktop↔Web sync (reserved API only)
+- No Web version
+- No full multi-Agent collaborative orchestration (V1)
+- No plugin marketplace / developer docs (V2)
 
-- **GDPR 深化合规**：DPO 选定、正式 DPIA、律师起草级合规文档（推迟到 0.4 / V1 规模化触发：1k+ EU 用户或开始收费）
-- **Agent 自动微调链路**：0.3 只采集数据（见 §三-A 头部"0.3.0 阶段数据消费链路"表），自动微调 / RAG 注入 / 模型权重更新推迟到 0.4
-- **联邦学习 / 本地小模型**：与微调链路一同推迟
-- **个性化能力包推荐算法**：能力包在 0.3 §三-C 完成实现层与配置页，0.3 提供安装入口，但智能推荐 / 远程发现 / 第三方审核推迟
-- **能力包市场 / 第三方上传**：见 §三-C.5
+<a id="十3-03-不做推迟到-04"></a>
 
-> **0.4 milestone 的具体范围**待 0.3 进入 Week 2 时由产研 Lead 与战略评估确认后单独建文档（位置：`ya-docs/milestones/0.4/north-star.md`）。当前已有的 0.4 候选条目：[§三-D 默认页改造](../0.4/design-inputs/default-page.md)、双节点路由（S5）、自进化透明度 UI（AE3 / AE4）、Windows 自动更新（若延期）、GitHub OAuth（视用户反馈）、**UI 框架库扩展**（多 UI 框架注册 + 能力包选择机制，支撑写作 / 实验日志 / 数据分析等不同 UI 形态的新能力包）。
+### X.3 Not in 0.3, Deferred to 0.4
+
+- **Deeper GDPR**: DPO/formal DPIA/lawyer documents, 0.4/V1 scale triggers (1k+ EU users or charging)
+- **Automatic tuning**: Collect-only in 0.3 (§III-A consumption table); tuning/RAG injection/weights deferred 0.4
+- **Federated/local small models**: Deferred with tuning
+- **Personalized package recommendations**: Implementation/configuration/install entry in §III-C; smart defaults/remote discovery/third-party review deferred
+- **Marketplace/third-party uploads**: §III-C.5
+
+> **Specific 0.4 scope**: Product/engineering Lead and strategy assessment confirm during 0.3 Week2, then separate `ya-docs/milestones/0.4/north-star.md`. Current candidates: [default page §III-D](../0.4/design-inputs/default-page.md), dual-node S5, AE3/AE4 transparency, Windows updates if delayed, GitHub OAuth per feedback, **framework-library extension** (multi-framework registry/package selection supporting writing/experiment logs/data analysis layouts).
 
 ---

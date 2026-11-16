@@ -1,67 +1,81 @@
-# Tinker 界面比例与细节校准
+<a id="tinker-界面比例与细节校准"></a>
 
-状态：已实现并验证，最终审查修复已完成。基线：main 77d52dc，保留已合并的等距 Logo。参考为用户提供的 Tinker 会话截图与 Perplexity 首页截图，不宣称取得 Perplexity 内部设计参数。
+# Tinker Interface Proportion and Detail Refinement
 
-## 设计判断
+Status: implemented and validated, with final review fixes complete. Baseline: main 77d52dc, retaining the merged isometric Logo. References are the user-provided Tinker conversation screenshot and Perplexity homepage screenshot; no claim of obtaining Perplexity's internal design parameters.
 
-保留现有信息架构、品牌、业务功能与中英文文案。采用安静、精确的桌面阅读界面。视觉变化幅度 3/10，动效 2/10，密度 4/10。沿用 React、Tailwind、Radix、现有 Lucide 图标，无新依赖。
+<a id="设计判断"></a>
 
-当前问题：workspace-home.css 多次覆写同一尺寸，主面板描边过重且圆角偏小，控件高度与字号无统一层级，标签栏宽度固定限制，多组生成图片元数据与正文争夺注意力。
+## Design Decisions
 
-## 测量约定与目标
+Retain existing information architecture, branding, business features, and English/Chinese copy. Use a quiet, precise desktop reading interface. Visual change 3/10, motion 2/10, density 4/10. Reuse React, Tailwind, Radix, and existing Lucide icons without new dependencies.
 
-截图像素不直接当作 CSS 像素。浏览器验证固定视口，并记录 DPR、缩放和实际 DOM 尺寸。参考截图用于比例判断，以下为 Tinker 的实现数值。
+Current problems: workspace-home.css repeatedly overrides the same dimensions, the main panel has an overly heavy border and small radius, control heights and font sizes lack unified hierarchy, the tab bar has fixed width limits, and multiple image-generation metadata groups compete with body content.
 
-| 元素 | CSS 目标 |
+<a id="测量约定与目标"></a>
+
+## Measurement Conventions and Targets
+
+Screenshot pixels do not directly equal CSS pixels. Browser validation uses fixed viewports and records DPR, zoom, and actual DOM dimensions. Reference screenshots inform proportions; the following are Tinker's implementation values.
+
+| Element | CSS target |
 | --- | --- |
-| 侧栏 | 256px，窄于 1100px 使用现有抽屉 |
-| 顶栏 | 52px，窗口按钮 28px，图标 16px |
-| 主面板 | 24px 圆角，右/底留白 8px，无明显描边 |
-| 一级导航 | 36px 行高，14px/20px，图标 18px，文字与图标间距 10px |
-| 项目与最近会话 | 32px 行高，13px/20px，统一左侧文字基线 |
-| 阅读和输入表面 | 最宽 680px，随窗口收缩，两侧至少 20px |
-| 首页标题 | 36px/44px，常规字重，窄窗降至 28px/36px |
-| 首页输入框 | 20px 圆角，10px 外层柔和底色，编辑区 72px，底栏 40px |
-| 会话输入框 | 同一半径与工具栏尺寸，编辑区最小 48px |
-| 控件图标 | 16/18px，统一 1.5 线宽，点击区至少 28px |
-| 图片结果 | 图片优先，紧凑摘要，详情用原生 details 展开，保留计费和尺寸提示 |
+| Sidebar | 256px; existing drawer below 1100px |
+| Top bar | 52px; window buttons 28px; icons 16px |
+| Main panel | 24px radius; right/bottom space 8px; no prominent border |
+| Primary navigation | 36px row height; 14px/20px; icons 18px; icon/text gap 10px |
+| Projects and recent sessions | 32px row height; 13px/20px; unified left text baseline |
+| Reading and input surfaces | Maximum 680px, shrink with window, at least 20px each side |
+| Home heading | 36px/44px, regular weight; 28px/36px in narrow windows |
+| Home input | 20px radius; 10px soft outer background; editor 72px; bottom bar 40px |
+| Conversation input | Same radius and toolbar dimensions; editor minimum 48px |
+| Control icons | 16/18px, uniform 1.5 stroke; hit area at least 28px |
+| Image results | Images first, compact summaries, native details expansion, retain billing and size notices |
 
-浅色使用轻微冷调的窗口底色、近白阅读面板、蓝灰正文与中性弱分割。深色独立配对。保持焦点环、禁用状态、键盘操作与 reduced-motion。
+Light mode uses a slightly cool window background, near-white reading panels, blue-gray body text, and subtle neutral separators. Dark mode has independently paired colors. Preserve focus rings, disabled states, keyboard operations, and reduced-motion.
 
-## 实现计划
+<a id="实现计划"></a>
 
-- [x] 1. 在 tokens.css 定义工作台颜色与几何变量，更新 design.md 数值与原则。
-- [x] 2. 整理 workspace-home.css 为单一定义，校准侧栏、顶部工具栏、主面板、首页和输入框，保留项目/抽屉/代码模式的现有行为。
-- [x] 3. 标签栏从固定 240px 限制改为弹性容器，单个标签紧凑显示且保持现有导航功能。
-- [x] 4. 图片卡增加真实可展开详情，先添加行为测试，再实现布局，保持保存、编辑与版本对比功能以及所有原有提示。
-- [x] 5. 用隔离的实际 React 组件预览核对首页、会话、图片结果、窄窗、侧栏折叠、浅深主题与中英长文本，记录实际尺寸。
-- [x] 6. 跑专项测试、全量类型检查、全量测试和 renderer 构建，复核差异并交付截图与设计指南。
+## Implementation Plan
 
-## 范围
+- [x] 1. Define workbench color and geometry variables in tokens.css; update design.md values and principles.
+- [x] 2. Consolidate workspace-home.css definitions and refine sidebar, top toolbar, main panel, homepage, and input, preserving existing project/drawer/code-mode behavior.
+- [x] 3. Replace the tab bar's fixed 240px limit with a flexible container; compact individual tabs while preserving navigation.
+- [x] 4. Add genuinely expandable image-card details; write behavioral tests before layout implementation, retaining save, edit, version comparison, and all existing notices.
+- [x] 5. Check homepage, conversation, image results, narrow windows, sidebar collapse, light/dark themes, and long English/Chinese text in an isolated real React-component preview, recording actual dimensions.
+- [x] 6. Run targeted tests, full typechecking, full tests, and renderer build; review diffs and deliver screenshots and a design guide.
 
-不修改用户现有桌面实例或数据目录，不修改后端/渠道/权限逻辑，不更新 README/CLAUDE，不更改 Logo 几何，不将视觉验证假定为安装包更新。
+<a id="范围"></a>
 
-## 验证记录
+## Scope
 
-- 实际 React 组件预览，使用模拟会话和品牌图标，不读取用户数据、不调用模型。外壳在预览中按生产布局组合，非已安装 Electron 应用截图。
-- 首页/会话前后截图均为 1536×960 CSS px，DPR=1；窄窗为 980×800。真实 DOM 数值记录于 [metrics.json](../ui-refinement-review/metrics.json)。
-- 侧栏256px，顶栏52px，当前标签34px，主面板24px圆角，输入表面680px，首页标题36px/44px，编辑区72px。窄窗下侧栏从内容流移除、保留展开入口，输入表面680px且无横向溢出。桌面收起后侧栏实际宽度0。
-- 浅色辅助文字与窗口底色对比度约4.6:1，正文面板上更高；深色约6.7:1。中文“通用 Agent”标签按内容自然定宽，scrollWidth与clientWidth一致，没有截断。
-- 图片详情实际展开可见原有版本、模型、参考图、尺寸与计费说明，收起后保留清楚入口；专项审查通过。
-- `bun test`：3168 pass、0 fail。外壳专项25 pass，图片相关专项25 pass。未重打安装包。
-- 前后对比：[首页](../ui-refinement-review/home-comparison.png)、[图片结果](../ui-refinement-review/conversation-comparison.png)；[深色中文](../ui-refinement-review/home-dark-zh.jpg)、[窄窗](../ui-refinement-review/narrow.jpg)。
+Do not modify the user's current desktop instance/data directory, backend/channel/permission logic, README/CLAUDE, or Logo geometry; do not assume visual validation updates an installer.
 
-- 最终复核修复了拖拽状态被普通外观覆盖的问题。真实 AgentView 通过 data-drag-over/data-disabled 驱动状态，浏览器确认普通/禁用/拖拽/聚焦拖拽表面不同且高亮保持。附件和发送点击区实测30×30px，模式按钮高度28px，见 [controls.json](../ui-refinement-review/controls.json) 和 [状态截图](../ui-refinement-review/composer-states.jpg)。
+<a id="验证记录"></a>
+
+## Validation Record
+
+- Actual React-component preview using mock sessions and brand icons without reading user data or calling models. The preview shell combines the production layout; screenshots are not from the installed Electron app.
+- Before/after homepage/conversation screenshots use 1536×960 CSS px, DPR=1; narrow window 980×800. Actual DOM values are in [metrics.json](../ui-refinement-review/metrics.json).
+- Sidebar 256px, top bar 52px, current tab 34px, main panel radius 24px, input surface 680px, home heading 36px/44px, editor 72px. In narrow windows the sidebar leaves content flow but keeps its toggle; input remains 680px without horizontal overflow. Desktop collapse measures sidebar width 0.
+- Light-mode secondary text contrasts about 4.6:1 against the window background, higher on body panels; dark mode about 6.7:1. The Chinese “General Agent” label sizes naturally to content, with matching scrollWidth/clientWidth and no truncation.
+- Expanded image details show original version, model, reference images, size, and billing information; collapse retains a clear entry point. Targeted review passed.
+- `bun test`: 3168 pass, 0 fail. Shell tests 25 pass, image-related tests 25 pass. No installer rebuild.
+- Before/after comparisons: [homepage](../ui-refinement-review/home-comparison.png), [image results](../ui-refinement-review/conversation-comparison.png); [dark Chinese](../ui-refinement-review/home-dark-zh.jpg), [narrow window](../ui-refinement-review/narrow.jpg).
+
+- Final review fixed normal appearance overriding drag state. Real AgentView drives state through data-drag-over/data-disabled; the browser confirmed distinct normal/disabled/drag/focused-drag surfaces and persistent highlighting. Attachment/send hit areas measure 30×30px, mode button height 28px; see [controls.json](../ui-refinement-review/controls.json) and [state screenshot](../ui-refinement-review/composer-states.jpg).
 
 
-## 2026-11-08：用户手调侧栏同步
+<a id="2026-11-08用户手调侧栏同步"></a>
 
-- 状态：已实现并完成实际 Electron 验收，供分支审阅。
-- 新基线：main 2006607。侧栏和工具栏的当前值以本节及 docs/design.md §10.4 为准，前文为历史验收记录。
-- 来源：Figma 115:599 / 115:645，规范 Guide 119:187。
-- 256px 侧栏，左右 12px，行内 6px。导航 36px，项目/Recent 30px，图标盒 14px，图文间距 6px，文字 14/22px。顶栏 56px，macOS 红绿灯安全区保留。
-- Given 一个非当前项目，When 点击行内加号，Then 仅创建一次属于该项目的草稿并切换会话，保持原项目展开状态。
-- Given Recent 的键盘焦点，When Enter / Space，Then 打开会话；内部操作与输入不再触发行导航。
-- Given 英文/中文和浅/深色，When 切换视图或窗口宽度，Then 侧栏维持层级与焦点可达，窄窗沿用现有抽屉。
-- 真实 Electron 测量、截图与独立复审见 [验收记录](../qa/2026-11-08-sidebar/README.md)。
-- 仅提交分支供人工合并，不替换运行中的用户应用，不混入 Rust 迁移和其他业务更改。
+## 2026-11-08: Sync User-Adjusted Sidebar
+
+- Status: implemented with actual Electron acceptance complete, ready for branch review.
+- New baseline: main 2006607. Current sidebar/toolbar values follow this section and docs/design.md §10.4; earlier content is historical acceptance evidence.
+- Sources: Figma 115:599 / 115:645, specification Guide 119:187.
+- Sidebar 256px, horizontal margins 12px, inline spacing 6px. Navigation 36px, projects/Recent 30px, icon box 14px, icon/text gap 6px, text 14/22px. Top bar 56px, preserving macOS traffic-light safe space.
+- Given a noncurrent project, When its inline plus is clicked, Then create exactly one draft in that project and switch sessions, retaining the project's expansion state.
+- Given keyboard focus on Recent, When Enter / Space is pressed, Then open the session; internal actions and inputs no longer trigger row navigation.
+- Given English/Chinese and light/dark themes, When views or window widths change, Then preserve sidebar hierarchy and keyboard reachability, using the existing drawer in narrow windows.
+- Actual Electron measurements, screenshots, and independent review: [acceptance record](../qa/2026-11-08-sidebar/README.md).
+- Submit only a branch for manual merge; do not replace the user's running app or mix in Rust migration/other business changes.

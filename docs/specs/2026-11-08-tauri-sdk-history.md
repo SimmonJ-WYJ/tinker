@@ -1,31 +1,41 @@
-# Tauri SDK历史只读接线实施计划
+<a id="tauri-sdk历史只读接线实施计划"></a>
 
-状态：用户在合并PR #7后授权下一阶段。基线main fdf92f3bb758d04c6f469fe8915d62e41a15f36b。领域事实源：Electron appendSDKMessages/getAgentSessionSDKMessages、共享SDKMessage类型及上一阶段只读分页器。
+# Tauri SDK History Read-Only Wiring Implementation Plan
 
-## 范围和契约
+Status: the user authorized the next phase after merging PR #7. Baseline main fdf92f3bb758d04c6f469fe8915d62e41a15f36b. Domain sources of truth: Electron appendSDKMessages/getAgentSessionSDKMessages, shared SDKMessage types, and the previous phase's read-only paginator.
 
-保留旧read_history接口与全部草稿命令，复用行/页预算扩展新read_sdk_history。原始SDK与legacy可混排，原始JSON字段完整保留，不丢工具块、图片引用、父run、uuid或未知未来消息。只提取text块作安全文本展示，不执行工具或渲染原始HTML。
+<a id="范围和契约"></a>
 
-返回SDKHistoryPage：camelCase JSON `{protocolVersion:1,entries:[{lineNumber,kind,text,uuid,raw}],nextBeforeLine,incompleteTail}`。uuid为string或null，raw为完整JSON对象。源行游标、单行1MiB、页最多256条及8MiB源行预算沿用。默认64条。SDK user/assistant校验message与content基本形状，未来类型保留opaque。旧AgentMessage继续严格验证。
+## Scope and Contract
 
-新增真实Tauri命令read_session_history(sessionId,beforeLine?,limit?)，固定读取Rust Lab app_local_data_dir()/history-v1/<id>.jsonl，前端不能传路径。ID受限ASCII 1..64，拒绝符号链接/目录/越界路径，不创建或写入历史目录/文件。只读工作在spawn_blocking，独立非等待门控，避免阻塞UI或多重解码。错误返回固定码，不含原日志/绝对路径。
+Retain the old read_history interface and all draft commands, reusing line/page budgets to add read_sdk_history. Raw SDK and legacy records may be interleaved; preserve every original JSON field without losing tool blocks, image references, parent runs, uuids, or unknown future messages. Extract only text blocks for safe text display; do not execute tools or render raw HTML.
 
-实验React界面提供独立的折叠历史阅读区、会话ID、读取/较早/最新页和尾行提示，中英文走现有useT字典。一次只保留一页，失败保留当前页，选择变化或竞态不串会话。所有展示均安全文本，不接图片文件读取或模型执行。
+Return SDKHistoryPage: camelCase JSON `{protocolVersion:1,entries:[{lineNumber,kind,text,uuid,raw}],nextBeforeLine,incompleteTail}`. uuid is string or null; raw is the full JSON object. Retain source-line cursors, the 1MiB per-line limit, at most 256 entries per page, and the 8MiB source-line budget. Default to 64 entries. SDK user/assistant records validate basic message/content shapes; future types remain opaque. Old AgentMessage validation stays strict.
 
-生产不会自动扫描或导入Electron数据。验收只用源代码结构构造的合成SDK夹具和独立QA目录，真实历史需要后续用户授权导出副本。当前API接线可用不代表原应用历史已迁移。
+Add a real Tauri command read_session_history(sessionId,beforeLine?,limit?), reading only Rust Lab app_local_data_dir()/history-v1/<id>.jsonl; the frontend cannot supply paths. IDs use restricted ASCII 1..64; reject symbolic links/directories/out-of-bounds paths, without creating or writing history directories/files. Read-only work runs in spawn_blocking with a separate nonwaiting gate to avoid blocking UI or multiple decoding. Errors return fixed codes without raw logs/absolute paths.
 
-## 用户补充的生产不变约束
+The experimental React UI provides a separate collapsible history reader, session ID, read/older/latest-page controls, and tail-line notices, with English/Chinese using the existing useT dictionary. Retain only one page at a time; failures preserve the current page, and selection changes or races must not mix sessions. All display is safe text, with no image-file reading or model execution.
 
-用户要求“你这次改完确保界面和功能还有UI没有任何变化吧？”本阶段生产Electron、shared/core/ui及现有依赖锁文件必须与基线完全一致。新增阅读区仅属于隔离Rust Lab/QA，不能带入生产入口、布局、样式或交互。安装版不更新；以源码范围核验、既有功能回归和实机证据区分，不能保证未测全流程。
+Production does not automatically scan or import Electron data. Acceptance uses only synthetic SDK fixtures built from source-code structures and a separate QA directory; real history requires later user authorization to export a copy. Working API wiring does not mean the original app's history has migrated.
 
-## 任务
+<a id="用户补充的生产不变约束"></a>
 
-1. SDK解析：新增先失败测试和TS共享fixture，重用有界扫描器，保留原简化读取器与基准工具兼容。
-2. Tauri接线：只读历史服务、固定错误码、独立命令模块与注册，隔离临时文件测试，Tauri真实Invoke处理链通过mock runtime测试。
-3. 前端阅读：严格响应解码、分页和错误/竞态测试，双语只读界面，不改草稿行为。
-4. 验收与回滚：fmt/test/clippy、前端typecheck/build、全仓test/Electron build。尽量在独立identifier的本地QA应用验证原生bridge，只放合成文件，不启动或写入现行Tinker。北京时间02:00（UTC18:00）停止启动新增实现/长操作。
-5. 审查与Draft PR：保护原89个未提交文件的当前指纹，不包含真实日志、密钥或构建产物。验证无冲突后正常钩子提交和推送独立分支，Draft、不合并、不安装，核验远端SHA与CI。
+## Additional User Constraint: Production Must Remain Unchanged
 
-## 回滚
+The user's request, translated into English: “After these changes, make sure the interface, features, and UI have no changes, right?” Production Electron, shared/core/ui, and existing dependency lockfiles must remain byte-identical to baseline in this phase. The new reader belongs only to isolated Rust Lab/QA and must not enter production entry points, layouts, styles, or interactions. Do not update the installed app; distinguish source-scope checks, existing-feature regressions, and real-device evidence, without guaranteeing untested full flows.
 
-现行安装和Electron不变。移除新增历史command注册、独立state与前端panel可回到原草稿Rust Lab；恢复旧read_history接口无需改数据。历史仅读，文件无回写/修复/迁移。回退本PR不会删除独立历史副本。源码只读边界不是防御同一系统用户主动并发替换文件的完整沙箱。
+<a id="任务"></a>
+
+## Tasks
+
+1. SDK parsing: add failing-first tests and TS shared fixtures, reuse the bounded scanner, and preserve compatibility with the old simplified reader and benchmark tools.
+2. Tauri wiring: read-only history service, fixed error codes, separate command module and registration, isolated temporary-file tests, and mock-runtime tests of the real Tauri Invoke handler chain.
+3. Frontend reader: strict response decoding, pagination and error/race tests, bilingual read-only UI, with draft behavior unchanged.
+4. Acceptance and rollback: fmt/test/clippy, frontend typecheck/build, repository-wide test/Electron build. Where possible, validate the native bridge in a local QA app with a separate identifier, using synthetic files only, without launching or writing to current Tinker. Stop starting new implementation/long operations at Beijing time 02:00 (UTC18:00).
+5. Review and Draft PR: protect current fingerprints of the original 89 uncommitted files; include no real logs, keys, or build artifacts. After verifying no conflicts, commit and push a separate branch through normal hooks; Draft only, no merge or installation, and verify remote SHA and CI.
+
+<a id="回滚"></a>
+
+## Rollback
+
+The current installation and Electron remain unchanged. Removing the new history command registration, separate state, and frontend panel restores the original draft Rust Lab; restoring the old read_history interface requires no data changes. History is read-only, with no file writeback/repair/migration. Reverting this PR does not delete independent history copies. The source-level read-only boundary is not a complete sandbox against active concurrent file replacement by the same OS user.

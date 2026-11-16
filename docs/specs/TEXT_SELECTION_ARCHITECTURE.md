@@ -1,30 +1,34 @@
-# 划词功能架构图
+<a id="划词功能架构图"></a>
 
-## 数据流向图
+# Text Selection Feature Architecture
+
+<a id="数据流向图"></a>
+
+## Data Flow Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         用户交互层                                 │
+│                         User interaction layer                    │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
         ┌───────────────────────────────────────┐
-        │   用户在 AI 消息中选中文本              │
+        │   User selects text in an AI message   │
         └───────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     SelectableMessageResponse                    │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │  MessageResponse (原组件，渲染 Markdown 内容)           │    │
+│  │  MessageResponse (original, renders Markdown)          │    │
 │  └────────────────────────────────────────────────────────┘    │
 │                                │                                 │
 │                                ▼                                 │
 │  ┌────────────────────────────────────────────────────────┐    │
 │  │  useTextSelection Hook                                  │    │
-│  │  - 监听 mouseup/mousedown 事件                          │    │
-│  │  - 获取选中文本                                          │    │
-│  │  - 计算工具栏位置                                        │    │
+│  │  - Listen for mouseup/mousedown                         │    │
+│  │  - Read selected text                                   │    │
+│  │  - Calculate toolbar position                           │    │
 │  └────────────────────────────────────────────────────────┘    │
 │                                │                                 │
 │                                ▼                                 │
@@ -49,64 +53,70 @@
         │                                              │
         ▼                                              ▼
 ┌───────────────────┐                    ┌───────────────────┐
-│  侧边栏组件         │                    │  输入框组件        │
-│  - 监听 atom       │                    │  - 监听 atom      │
-│  - 打开侧边栏       │                    │  - 插入引用       │
-│  - 显示引用内容     │                    │  - 聚焦编辑器      │
+│  Sidebar component │                    │  Input component │
+│  - Observe atom    │                    │  - Observe atom   │
+│  - Open sidebar    │                    │  - Insert quote   │
+│  - Display quote   │                    │  - Focus editor   │
 └───────────────────┘                    └───────────────────┘
 ```
 
-## 组件层次结构
+<a id="组件层次结构"></a>
+
+## Component Hierarchy
 
 ```
 App
 └── ConversationView
     ├── MessageList
     │   └── Message (role="assistant")
-    │       └── SelectableMessageResponse ← 在这里启用文本选择
-    │           ├── MessageResponse (原组件)
-    │           └── TextSelectionToolbar (条件渲染)
+    │       └── SelectableMessageResponse ← enable selection here
+    │           ├── MessageResponse (original)
+    │           └── TextSelectionToolbar (conditional)
     │
     ├── InputBox
-    │   └── RichTextInput ← 监听 pendingQuoteAtom
+    │   └── RichTextInput ← observe pendingQuoteAtom
     │
-    └── Sidebar ← 监听 sidebarQuoteAtom
+    └── Sidebar ← observe sidebarQuoteAtom
 ```
 
-## 状态管理流程
+<a id="状态管理流程"></a>
+
+## State Management Flow
 
 ```
-1. 用户操作
-   └─> 选中文本
-       └─> useTextSelection 捕获
-           └─> 显示 TextSelectionToolbar
+1. User action
+   └─> Select text
+       └─> useTextSelection captures
+           └─> Show TextSelectionToolbar
 
-2. 点击 "Add to chat"
+2. Click "Add to chat"
    └─> setPendingQuote({ text, timestamp })
-       └─> pendingQuoteAtom 更新
-           └─> RichTextInput 的 useEffect 触发
-               └─> editor.commands.insertContent(引用)
-                   └─> setPendingQuote(null) 清除
+       └─> pendingQuoteAtom updates
+           └─> RichTextInput useEffect triggers
+               └─> editor.commands.insertContent(quote)
+                   └─> setPendingQuote(null) clears
 
-3. 点击 "Ask in sidebar"  
+3. Click "Ask in sidebar"
    └─> setSidebarQuote({ text, timestamp })
-       └─> sidebarQuoteAtom 更新
-           └─> Sidebar 的 useEffect 触发
-               └─> setIsOpen(true) + setInput(引用)
-                   └─> setSidebarQuote(null) 清除
+       └─> sidebarQuoteAtom updates
+           └─> Sidebar useEffect triggers
+               └─> setIsOpen(true) + setInput(quote)
+                   └─> setSidebarQuote(null) clears
 ```
 
-## 文件关系图
+<a id="文件关系图"></a>
+
+## File Relationships
 
 ```
 atoms/
 └── text-selection-atoms.ts ─────┐
                                  │
-                                 │ 被导入
+                                 │ Imported
                                  │
 components/ai-elements/          │
-├── message.tsx ─────────────────┼─ 导出 SelectableMessageResponse
-├── selectable-message-response.tsx ← 使用 atoms
+├── message.tsx ─────────────────┼─ exports SelectableMessageResponse
+├── selectable-message-response.tsx ← uses atoms
 ├── text-selection-toolbar.tsx   │
 └── text-selection-examples.tsx  │
                                  │
@@ -116,43 +126,47 @@ hooks/                           │
                         ┌────────┴────────┐
                         │                 │
                         ▼                 ▼
-          输入框组件 (待集成)    侧边栏组件 (待集成)
-          - 监听 pendingQuoteAtom  - 监听 sidebarQuoteAtom
-          - 插入引用到编辑器        - 打开并显示引用
+          Input (pending integration)  Sidebar (pending integration)
+          - Observe pendingQuoteAtom   - Observe sidebarQuoteAtom
+          - Insert quote into editor   - Open/display quote
 ```
 
-## 事件时序图
+<a id="事件时序图"></a>
+
+## Event Sequence Diagram
 
 ```
-时间轴 ─────────────────────────────────────────────────────>
+Timeline ────────────────────────────────────────────────────>
 
-用户      [选中文本]          [点击按钮]
+User      [Select text]          [Click button]
            │                    │
            ▼                    │
-Hook    捕获选择                │
+Hook    Captures selection      │
            │                    │
-           ├─ 计算位置            │
+           ├─ Calculate position │
            │                    │
            ▼                    │
-工具栏   显示                   │
+Toolbar   Displays             │
                                │
                                ▼
-                          设置 atom
+                          Set atom
                                │
-                               ├─ pendingQuote 或
+                               ├─ pendingQuote or
                                │  sidebarQuote
                                │
                                ▼
-目标组件                    监听到变化
+Target component             Observes change
                                │
-                               ├─ 执行操作
-                               │  (插入/打开)
+                               ├─ Perform action
+                               │  (insert/open)
                                │
                                ▼
-                          清除 atom
+                          Clear atom
 ```
 
-## 关键接口定义
+<a id="关键接口定义"></a>
+
+## Key Interface Definitions
 
 ```typescript
 // 选中的文本引用
@@ -174,54 +188,60 @@ interface UseTextSelectionReturn extends TextSelectionState {
 }
 ```
 
-## 样式层次
+<a id="样式层次"></a>
+
+## Style Hierarchy
 
 ```
 TextSelectionToolbar
-├── 容器层
+├── Container layer
 │   ├── fixed positioning (z-50)
 │   ├── backdrop-blur
 │   └── border + shadow
 │
-├── 内容层
-│   ├── 选择指示器 (1 selection)
-│   ├── 分隔线
-│   └── 操作按钮区
-│       ├── Ask in sidebar 按钮
-│       └── Add to chat 按钮
+├── Content layer
+│   ├── Selection indicator (1 selection)
+│   ├── Separator
+│   └── Action buttons
+│       ├── Ask in sidebar button
+│       └── Add to chat button
 │
-└── 动画层
-    ├── fade-in (透明度)
-    ├── zoom-in (缩放)
-    └── transform (位置)
+└── Animation layer
+    ├── fade-in (opacity)
+    ├── zoom-in (scale)
+    └── transform (position)
 ```
 
-## 性能优化点
+<a id="性能优化点"></a>
 
-1. **事件监听**：只在 SelectableMessageResponse 容器内监听
-2. **位置计算**：使用 setTimeout 延迟计算，避免频繁触发
-3. **状态更新**：使用 Jotai atom 避免不必要的重渲染
-4. **组件记忆化**：关键组件使用 React.memo
-5. **外部点击检测**：使用 ref 而不是全局监听
+## Performance Optimizations
 
-## 可扩展性
+1. **Event listeners**: listen only within the SelectableMessageResponse container
+2. **Position calculation**: defer calculation with setTimeout to avoid frequent triggers
+3. **State updates**: use Jotai atoms to avoid unnecessary rerenders
+4. **Component memoization**: use React.memo for key components
+5. **Outside-click detection**: use refs instead of global listeners
 
-未来可以扩展的功能：
+<a id="可扩展性"></a>
 
-1. **更多操作**：
-   - 复制文本
-   - 翻译选中内容
-   - 搜索相关内容
-   - 高亮标记
+## Extensibility
 
-2. **键盘快捷键**：
-   - Cmd/Ctrl + K: 快速提问
-   - Cmd/Ctrl + Shift + C: 复制引用格式
+Possible future extensions:
 
-3. **选择历史**：
-   - 记录最近的选择
-   - 快速访问历史引用
+1. **More actions**:
+   - Copy text
+   - Translate selected content
+   - Search related content
+   - Highlight annotations
 
-4. **智能建议**：
-   - 根据选中内容推荐问题
-   - 相关知识推荐
+2. **Keyboard shortcuts**:
+   - Cmd/Ctrl + K: quick question
+   - Cmd/Ctrl + Shift + C: copy citation format
+
+3. **Selection history**:
+   - Record recent selections
+   - Quickly access past quotations
+
+4. **Smart suggestions**:
+   - Suggest questions based on the selection
+   - Recommend related knowledge

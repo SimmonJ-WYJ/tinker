@@ -1,73 +1,91 @@
-> 历史科研规格：保存旧设计和数据语义，不作为当前新增功能或恢复运行接线的要求。科研主动功能正按[退役规格](./2026-11-10-research-retirement.md)分批收口，实际完成与未验收范围以对应执行记录为准。
+> Historical research specification: preserves old designs and data semantics, not requirements for current new features or restored runtime wiring. Active research capabilities are retiring in batches under the [retirement specification](./2026-11-10-research-retirement.md); execution records determine actual completion and unaccepted scope.
 
-# lit-review 源可用性预检 + 全-abstract 快路径 Spec
+<a id="lit-review-源可用性预检-&#45;全-abstract-快路径-spec"></a>
 
-> **状态**：草稿 · 待 review
-> **关联里程碑**：0.3.x
-> **领域语言事实源**：
-> - 阅读预算分配器：`apps/electron/default-capability-packs/lit-review/sub-agents/evidence-triager.md`
-> - 编排（Turn-2 PLAN）：`apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md`
-> - 终产物（abstract-only fallback）：`apps/electron/default-skills/literature-review-result/SKILL.md`（§Input Contract / §Error Handling）
-> - wiki 解析状态源：`apps/electron/resources/zotero-mcp/tools/wiki-lookup.ts`（`inIndex` / `parseStatus` / `mdPath` / `articlePath` / `txtPath` / `abstract`）+ `~/.asci/zotero/wiki/index.json`
-> **前序**：`lit-review-pipeline-decomposition-spec.md`（reader 唯一阅读者）、`lit-review-turn2-orchestration-robustness-spec.md`（L1/L2/L3 压缩防御）、`lit-review-finalize-fast-path-spec.md`（收尾段确定性闸）
+# lit-review Source Availability Precheck + All-Abstract Fast Path Spec
+
+> **Status**: draft · awaiting review
+> **Related milestone**: 0.3.x
+> **Domain language sources of truth**:
+> - Reading-budget allocator: `apps/electron/default-capability-packs/lit-review/sub-agents/evidence-triager.md`
+> - Orchestration (Turn-2 PLAN): `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md`
+> - Final artifact (abstract-only fallback): `apps/electron/default-skills/literature-review-result/SKILL.md` (§Input Contract / §Error Handling)
+> - Wiki parse-state source: `apps/electron/resources/zotero-mcp/tools/wiki-lookup.ts` (`inIndex` / `parseStatus` / `mdPath` / `articlePath` / `txtPath` / `abstract`) + `~/.asci/zotero/wiki/index.json`
+> **Preceding specs**: `lit-review-pipeline-decomposition-spec.md` (reader as sole reader), `lit-review-turn2-orchestration-robustness-spec.md` (L1/L2/L3 compaction defenses), `lit-review-finalize-fast-path-spec.md` (deterministic finalization gate)
 
 ---
 
-## 1. 背景：问题不在"写"，在"没先看有没有源"
+<a id="1-背景问题不在写在没先看有没有源"></a>
 
-综述 Turn-2 在用户选完方向后**直接规划 reader fan-out**，全程**没有任何前置的"这些论文有没有可读全文（Zotero PDF 已解析的 wiki 源）"判断**。"有没有源"是**每个 reader 在内部、晚到读取时**用 `zotero_wiki_lookup` 各自发现的——发生 N 次、且在已经决定派 N 个 reader 之后。
+## 1. Background: Missing Source Checks Before Writing
 
-### 1.1 真实失败（2026-06-30 trace）
-一次对 **lit-search 检索结果集**（`openalex` 来源，有 `doi`、无 `zoteroKey`、不在 Zotero、无 wiki 源）写综述的 run：
+After users select a direction, review Turn-2 **directly plans reader fan-out**, with **no upfront check for readable full text (parsed Zotero PDF wiki sources)**. Each reader independently discovers source availability late through `zotero_wiki_lookup`, N times, after deciding to dispatch N readers.
 
-| 现象 | 根因 |
+<a id="11-真实失败2026-06-30-trace"></a>
+
+### 1.1 Actual Failure (2026-06-30 Trace)
+A review run over **lit-search results** (`openalex` source, `doi` but no `zoteroKey`, absent from Zotero, no wiki source):
+
+| Symptom | Root cause |
 |------|------|
-| 22+ 篇全部 `abstract-only`，reader fan-out 退化成"把 abstract 重排成 evidence JSON" | 输入整集无源，但管线仍强制 reader fan-out |
-| 主 Agent 手搓 10 个内联塞满 abstract 的 reader prompt → 主循环膨胀 → **触发压缩** | **没有"全无源 → 直接用 abstract 写"的分支**，模型只能绕/手搓 |
-| 压缩后丢失编排状态 → **停住不产综述** | 同上：管线没给这个场景留路径 |
+| All 22+ papers `abstract-only`; reader fan-out becomes abstract rearrangement into evidence JSON | Entire input has no sources but pipeline still forces fan-out |
+| Main Agent manually builds 10 abstract-filled reader prompts → main-loop growth → **compaction** | **No all-unsourced → write directly from abstracts branch**, forcing improvisation |
+| Compaction loses orchestration state → **stops without review** | Same: pipeline lacks a path for this scenario |
 
-### 1.2 两条根因，本 spec 只解其一
-- **(A) 路由 / DIY**：master 根本没走 lit-review scenario（把检索结果当 EvidenceSet 自己手搓）。**属路由兜底问题，本 spec 非目标**（另开 routing-guard）。
-- **(B) 管线内缺"源预检 + 全-abstract 快路径"**：即使正确走管线，整集无源也没有干净路径。**本 spec 解决 (B)。**
+<a id="12-两条根因本-spec-只解其一"></a>
 
-### 1.3 已确认的产品决策
-**纯检索、未进 Zotero 的论文（只有检索 abstract）依然要能产出综述**——即 "基于摘要的概览级综述" 是**一等模式**，不是单纯降级兜底。
+### 1.2 Two Causes; This Spec Addresses One
+- **(A) Routing / DIY**: master never enters lit-review scenario (treats search results as an EvidenceSet and improvises). **Routing fallback issue, outside this spec** (separate routing-guard).
+- **(B) Missing source precheck + all-abstract fast path**: even correctly routed, all-unsourced sets lack a clean path. **This spec addresses (B).**
 
----
+<a id="13-已确认的产品决策"></a>
 
-## 2. 目标 / 非目标
-
-**目标**
-1. 用户选完方向后、规划 reader 之前，**一次性确定性预检** papersInScope 的源可用性（readable / abstract / none）。
-2. **整集无可读源（allUnreadable）→ 跳过整个 reader fan-out**，直接派 body-writer 用 `papers[].abstract` 走 skill 已有的 abstract-only 路径产综述。**零 reader、零主循环膨胀。**
-3. **部分可读** → reader 只对 readable 子集派；unreadable 论文走 abstract 路径，不为它们起 reader。
-4. 纯检索论文的 abstract 能正确灌进 `papers[].abstract`。
-
-**非目标**
-- 不修路由 / DIY（根因 A，另开）。
-- 不改 reader / skimmer / fact-checker 的内部逻辑。
-- 不改 skill 的 abstract-only fallback 实现（它已具备，只是当前到不了）。
-- 不在 Turn-2 引入任何外部检索（"不扩库"铁律不变）。
+### 1.3 Confirmed Product Decision
+**Search-only papers not in Zotero (search abstracts only) must still produce reviews**; an abstract-based overview review is a **first-class mode**, not merely a fallback.
 
 ---
 
-## 3. 设计
+<a id="2-目标-&#45;非目标"></a>
 
-### 3.1 把预检并进 `evidence-triager`，并提升为"永远先跑"的 Turn-2 入口步
+## 2. Goals / Non-Goals
 
-理由：triager 本就是"reader 之前、决定每篇怎么读"的步骤——"有没有源"和"deepRead 还是 light"是同一类决策；scenario 规划轮不能调工具（`system-prompt.md` L14），故预检必须由被派的子 Agent 承担；不新增 agent，与精简方向一致。
+**Goals**
+1. After direction selection and before reader planning, **one deterministic precheck** of papersInScope source availability (readable / abstract / none).
+2. **No readable sources (allUnreadable) → skip all reader fan-out**; dispatch body-writer directly using `papers[].abstract` through the skill's existing abstract-only path. **Zero readers, zero main-loop growth.**
+3. **Partially readable** → readers only for readable subset; unreadable papers use abstracts without readers.
+4. Correctly populate `papers[].abstract` for search-only papers.
 
-改动：
-- **解除门控**：现 `when: "papersInScope.length > 10"` → **永远运行**。源预检对任意规模都要做；语义阅读预算分配那部分仍只在 readable 子集较大时才做（小集合 readable 全 deepRead）。
-- **职责重定义**：triager = **源可用性预检 + 阅读预算分配**（先预检，后对 readable 子集分配）。
+**Non-goals**
+- No routing / DIY fix (cause A, separate work).
+- No reader / skimmer / fact-checker internal changes.
+- No abstract-only fallback implementation changes (already exists but unreachable).
+- No Turn-2 external retrieval (the no-corpus-expansion rule remains).
 
-### 3.2 确定性 parse-status：`zotero_wiki_lookup_batch`（✅ 已实现，PR-1）
+---
 
-triager 现有工具只有 `papers_semantic_search`——**语义检索判不了"有没有 PDF 源"**（未进索引的论文一律 zeroHit，与"有源但没命中"混淆，正是当前盲点）。
+<a id="3-设计"></a>
 
-新增一个 **batch 版 wiki 查询工具**（确定性、读同一份 `~/.asci/zotero/wiki/index.json`，**索引只加载一次**）。
+## 3. Design
 
-**关键：复用 `zotero_wiki_lookup` 的核心，不是 `zotero_get_collection_items`。** 后者走 Zotero Web API、返回元数据摘要、不碰 wiki 索引、且是 collection 维度（无法表达任意论文子集、看不到"不在 Zotero 的纯检索结果"）——三点都不匹配。`wiki-lookup.ts` 已抽出共享核心 `resolveOne(idx, input)`，单篇 `handleWikiLookup` 与批量 `handleWikiLookupBatch` 共用 → **`results[i]` 与单篇返回逐字段一致**。
+<a id="31-把预检并进-evidence-triager并提升为永远先跑的-turn-2-入口步"></a>
+
+### 3.1 Merge Precheck into `evidence-triager` as the Always-First Turn-2 Entry
+
+Rationale: triager already decides how each paper is read before readers; source availability and deepRead versus light are the same kind of decision. Scenario planning cannot call tools (`system-prompt.md` L14), so dispatched sub-Agents must precheck. Add no agents, consistent with simplification.
+
+Changes:
+- **Remove gate**: current `when: "papersInScope.length > 10"` → **always run**. Every size needs precheck; semantic reading budgets still apply only to large readable subsets (small sets all deepRead).
+- **Redefine responsibility**: triager = **source availability precheck + reading-budget allocation**, checking first, allocating only among readable papers.
+
+<a id="32-确定性-parse-statuszotero_wiki_lookup_batch-已实现pr-1"></a>
+
+### 3.2 Deterministic Parse Status: `zotero_wiki_lookup_batch` (✅ Implemented, PR-1)
+
+Current triager has only `papers_semantic_search`: **semantic retrieval cannot determine PDF-source availability** (unindexed papers all zeroHit, confused with sources that have no matching hits; the current blind spot).
+
+Add a **batch wiki lookup tool** (deterministic, reads the same `~/.asci/zotero/wiki/index.json`, **loads index only once**).
+
+**Reuse `zotero_wiki_lookup` core, not `zotero_get_collection_items`.** The latter uses Zotero Web API, returns metadata abstracts, never reads the wiki index, and is collection-based (cannot express arbitrary subsets or non-Zotero search results): three mismatches. `wiki-lookup.ts` extracts shared `resolveOne(idx, input)` for both single `handleWikiLookup` and batch `handleWikiLookupBatch` → **`results[i]` matches single lookup field for field**.
 
 ```
 mcp__zotero__zotero_wiki_lookup_batch({
@@ -79,14 +97,16 @@ mcp__zotero__zotero_wiki_lookup_batch({
       page, pageSize, total, hasMore, indexAvailable }
 ```
 
-- **通用性（按用户要求）**：单篇查询 = `items` 长度 1；批量 = 多条；`page`/`pageSize` 分页 + `total`/`hasMore` 供循环。`WikiLookupResult` 即单篇返回结构（`found` / `inIndex` / `parseStatus` / `mdPath` / `articlePath` / `txtPath` / `abstract` / `reason` …）。
-- **readable 判定**：直接用 `result.found`（`found:true ⇔ parseStatus==='completed' 且有可读路径`）。triager 据此分 readable / abstract（`!found && abstract` 可用）/ none。
-- **注册**：纯 MCP server 工具，注册在 `resources/zotero-mcp/server.ts`（tools 列表 + dispatch switch），**不走 IPC 四联**（它是 SDK 拉起的 stdio MCP server，不是 renderer IPC 通道）。triager 用时把工具名加进 `evidence-triager` 的 `tools`。
-- **后续迁移（用户提出，非本 PR）**：稳定一段时间后，可把其他 `zotero_wiki_lookup` 单篇调用点逐步换成 `..._batch`（`items:[one]`）以省重复索引加载；因结果逐字段一致，迁移是机械替换。
+- **Generality (user request)**: single lookup = `items` length 1; batch = multiple; `page`/`pageSize` pagination + `total`/`hasMore` for loops. `WikiLookupResult` is the single-result structure (`found` / `inIndex` / `parseStatus` / `mdPath` / `articlePath` / `txtPath` / `abstract` / `reason` …).
+- **Readable decision**: use `result.found` directly (`found:true ⇔ parseStatus==='completed' 且有可读路径`, meaning completed with a readable path). Triager classifies readable / abstract (`!found && abstract` available) / none.
+- **Registration**: pure MCP server tool in `resources/zotero-mcp/server.ts` (tools list + dispatch switch), **no four-layer IPC** (SDK-launched stdio MCP server, not renderer IPC). Add tool name to `evidence-triager`'s `tools`.
+- **Later migration (user proposal, outside this PR)**: after stabilization, gradually replace other single `zotero_wiki_lookup` calls with `..._batch` (`items:[one]`) to reduce repeated index loading; field-identical results make this mechanical.
 
-### 3.3 triager 输出 schema 增量
+<a id="33-triager-输出-schema-增量"></a>
 
-在现有 `{ scopeNote, deepRead, light, zeroHit, perChapterTopHits }` 基础上新增：
+### 3.3 Incremental Triager Output Schema
+
+Extend existing `{ scopeNote, deepRead, light, zeroHit, perChapterTopHits }` with:
 
 ```jsonc
 {
@@ -100,77 +120,91 @@ mcp__zotero__zotero_wiki_lookup_batch({
 }
 ```
 
-- `deepRead` / `light` **只在 `readable` 子集内**分配；`unreadable` 不进 reader。
-- `allUnreadable === (readable.length === 0)`；为 true 时 triager **不做任何语义搜**。
-- `readable` = batch lookup 的 `found:true`（确定性，与语义无关）。
-- `unreadable` 的 **abstract-only vs metadata-only 细分留给 skill**（其 §8 Per-Paper Decisions 已按 `papers[].abstract` 有无分档），triager 不需要拿到 abstract，保持输入精简。
-- 语义工具不可用（keyword-only）或全 degraded → 预检仍照常（parse-status 与语义无关），仅 `deepRead/light` 退回"readable 全 deepRead"。
+- Allocate `deepRead` / `light` **only within `readable`**; no readers for `unreadable`.
+- `allUnreadable === (readable.length === 0)`; when true, triager **does no semantic search**.
+- `readable` = batch lookup `found:true` (deterministic, independent of semantics).
+- Leave **abstract-only vs metadata-only** subdivision of `unreadable` to the skill (§8 Per-Paper Decisions already checks `papers[].abstract`); triager does not need abstracts, keeping input compact.
+- If semantic tools are unavailable (keyword-only) or all degraded, precheck still runs (parse status is independent); only `deepRead/light` falls back to all readable deepRead.
 
-### 3.4 scenario Turn-2 分叉（核心）
+<a id="34-scenario-turn-2-分叉核心"></a>
 
-scenario 在 Turn-2 把 triager 提到**第一步、永远跑**，然后据其输出二选一规划：
+### 3.4 Scenario Turn-2 Branching (Core)
 
-**分支 1 — `allUnreadable: true`（你强调的纯检索场景）**
-PLAN **不含任何 reader / skimmer step**；`terminal_subagent = body-writer`，input 的 `papers[]` **必须带 `abstract`**。body-writer 调 skill，skill 走**已有** abstract-only fallback（`SKILL.md`：no rows + 有 abstract → 用 `papers[].abstract` 写，§8 全标 abstract-only / metadata-only）。收尾的 evidence-depth notice（包 2 已接）顶到最显眼。
+Move triager to **always-run first step** of Turn-2, then choose one plan from its output:
 
-**分支 2 — 有 readable**
-- reader fan-out **只对 `readable`**（triager.deepRead）；skimmer 处理 readable 的 light 尾部（沿用现状）。
-- `abstract` / `none` 论文**不派 reader**，作为 abstract-only 直接带进 body-writer 的 `papers[]`（带 abstract）。
-- 其余编排（escalation reader、body-writer、fact-checker）不变。
+**Branch 1 — `allUnreadable: true` (the emphasized search-only scenario)**
+PLAN **contains no reader / skimmer steps**; `terminal_subagent = body-writer`, and input `papers[]` **must include `abstract`**. Body-writer invokes the skill's **existing** abstract-only fallback (`SKILL.md`: no rows + abstracts → write from `papers[].abstract`, §8 all abstract-only / metadata-only). Make the final evidence-depth notice (already wired in package 2) maximally prominent.
 
-> 两分支都**保留 triager 这一步**，故 `lit-review-terminal-skill-guard` 的 arm 信号（reader/triager/skimmer 派发）在两分支都成立——快路径不会让"综述待生成"失去武装。
+**Branch 2 — readable papers exist**
+- Reader fan-out **only for `readable`** (triager.deepRead); skimmer handles the readable light tail as before.
+- **No readers** for `abstract` / `none`; pass them directly to body-writer `papers[]` as abstract-only (with abstracts).
+- Other orchestration (escalation reader, body-writer, fact-checker) remains unchanged.
 
-### 3.5 纯检索 abstract 的灌入点（确定性：**线程透传，禁止 re-fetch**）
+> Both branches **retain triager**, so `lit-review-terminal-skill-guard` arm signals (reader/triager/skimmer dispatch) remain valid in both; the fast path does not disarm pending review generation.
 
-`none`/`abstract` 论文的 abstract 必须进 `papers[].abstract`，来源**只用手上已有的**、绝不重新抓：
-- **owned / Zotero-found 论文**：直接用 triager 的 `zotero_wiki_lookup_batch` 返回里的 `abstract` 字段(batch 结果已带)。
-- **纯检索论文（不在 workspace）**：`workspace_papers_list` 查不到 → **scenario 在 Turn-1→Turn-2 把检索结果（EvidenceSet / `search_papers` 命中 / `report-data.json` 每篇的 `abstract`）的摘要 verbatim 挂到 `papersInScope.{abstract?}` 一路带到 body-writer 的 `papers[].abstract`**。这是分支 1 的唯一证据来源。
-- **硬禁令：不得用 `get_paper_meta` 批量补 abstract**。`paper-meta-cap-hook` 把 `get_paper_meta` 钉在 **3 次/turn**（只留给单篇跨包 gap-fill），N>3 篇批量补会**静默只补 3 篇、其余全空**。
-  > **实测坐实（2026-07-01 allUnreadable run）**：8 篇纯检索集,主 Agent 即兴连打 8 次 `get_paper_meta` → 被 cap 夹到只成 3 篇 → 最终仅 1 篇有可用摘要,综述建立在 1 真摘要 + 7 metadata-only 上。主 Agent 归因 "openalex 503" 是误判,**确定性根因是 3/turn cap**。修法即本节：线程透传、不 re-fetch。
-- 缺 abstract 的论文 → 直接 metadata-only（§8 列出），**不循环去抓**。
+<a id="35-纯检索-abstract-的灌入点确定性线程透传禁止-re-fetch"></a>
 
-### 3.6 与现有组件的衔接（不改它们）
-- **skill**：abstract-only fallback 已存在（`SKILL.md` §Input Contract "empty or absent AND .context 无缓存 → 用 papers[].abstract" + §Error Handling 行）。本 spec 只是**让它真的被走到**。
-- **三个 guard**：structure-lint / factcheck / terminal-skill 均不变；快路径仍产 `reviews/*.html`、仍派 fact-checker、triager 仍 arm terminal-skill-guard。
-- **reader**：分支 1 完全不派；分支 2 只派 readable，reader 自身降级逻辑作为冗余兜底仍在。
+### 3.5 Search-Only Abstract Injection (Deterministic: **Thread Passthrough, Never Refetch**)
+
+Abstracts for `none`/`abstract` papers must reach `papers[].abstract` **only from already-held data**, never fetched again:
+- **Owned / Zotero-found papers**: use the `abstract` field already returned by triager's `zotero_wiki_lookup_batch`.
+- **Search-only papers (outside workspace)**: absent from `workspace_papers_list` → **scenario passes abstracts verbatim from search results (EvidenceSet / `search_papers` hits / each `report-data.json` paper's `abstract`) at Turn-1→Turn-2 into `papersInScope.{abstract?}`, through to body-writer `papers[].abstract`**. This is branch 1's sole evidence source.
+- **Hard ban: no bulk abstract filling through `get_paper_meta`**. `paper-meta-cap-hook` caps `get_paper_meta` at **3 calls/turn** (single-paper cross-pack gap-fill only); N>3 silently fills just 3 papers, leaving others empty.
+  > **Confirmed in an actual 2026-07-01 allUnreadable run**: for 8 search-only papers, the main Agent improvised 8 `get_paper_meta` calls → cap allowed only 3 → just 1 usable abstract, producing a review from 1 real abstract + 7 metadata-only papers. The Agent's “openalex 503” explanation was wrong; **the deterministic cause was the 3/turn cap**. This section's fix is thread passthrough without refetching.
+- Papers without abstracts → metadata-only (§8 listing), **no fetch loop**.
+
+<a id="36-与现有组件的衔接不改它们"></a>
+
+### 3.6 Existing Component Integration (Unchanged)
+- **Skill**: abstract-only fallback exists (`SKILL.md` §Input Contract: empty/absent AND no .context cache → use papers[].abstract; plus §Error Handling). This spec **makes it reachable**.
+- **Three guards**: structure-lint / factcheck / terminal-skill unchanged; fast path still creates `reviews/*.html`, dispatches fact-checker, and arms terminal-skill-guard via triager.
+- **Reader**: none in branch 1; readable only in branch 2; internal reader fallback remains redundant protection.
 
 ---
 
-## 4. 影响面与改动清单
+<a id="4-影响面与改动清单"></a>
 
-| 文件 | 改动 | 归属 |
+## 4. Impact and Change Inventory
+
+| File | Change | Priority |
 |------|------|------|
-| ✅ `apps/electron/resources/zotero-mcp/tools/wiki-lookup.ts`（抽出 `resolveOne` + 加 `handleWikiLookupBatch` / `wikiLookupBatchToolDefinition`）+ `server.ts` 注册 + `wiki-lookup-batch.test.ts` | §3.2 batch 工具（**PR-1 已完成**） | P0 |
-| ✅ `apps/electron/default-capability-packs/lit-review/sub-agents/evidence-triager.md` | §3.1 永远跑 + §3.2 parse-status(batch) + §3.3 新 schema(readable/unreadable + allUnreadable)（**PR-2 已完成**） | P0 |
-| ✅ `apps/electron/default-capability-packs/lit-review/manifest.json` | evidence-triager 的 `tools` 加 `zotero_wiki_lookup_batch` + 描述重写；pack `version` → 0.2.16（**PR-2**） | P0 |
-| ✅ `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md` | §3.4 Turn-2 分叉（allUnreadable 快路径）+ triager 去门控 + §3.5 abstract 灌入 + comprehensive 段同步 + 新 hard-rule（**PR-2**） | P0 |
+| ✅ `apps/electron/resources/zotero-mcp/tools/wiki-lookup.ts` (extract `resolveOne` + add `handleWikiLookupBatch` / `wikiLookupBatchToolDefinition`) + `server.ts` registration + `wiki-lookup-batch.test.ts` | §3.2 batch tool (**PR-1 complete**) | P0 |
+| ✅ `apps/electron/default-capability-packs/lit-review/sub-agents/evidence-triager.md` | §3.1 always run + §3.2 batch parse status + §3.3 readable/unreadable + allUnreadable schema (**PR-2 complete**) | P0 |
+| ✅ `apps/electron/default-capability-packs/lit-review/manifest.json` | Add `zotero_wiki_lookup_batch` to evidence-triager `tools`, rewrite description; pack `version` → 0.2.16 (**PR-2**) | P0 |
+| ✅ `apps/electron/default-capability-packs/lit-review/scenario/system-prompt.md` | §3.4 Turn-2 allUnreadable branch + ungate triager + §3.5 abstracts + comprehensive-section alignment + new hard rule (**PR-2**) | P0 |
 
-i18n：均为内置英文 prompt / 工具描述，无 i18n key；triager / scenario prompt 改动须**保持英文**（CLAUDE.md §2，CJK 会被 loader 红线闸打回——见 prompt-slim 教训）。
-
----
-
-## 5. 验证
-
-- **单测**：`zotero_wiki_lookup_batch` 对 completed / pending / not-in-index / doi-only 各档返回正确 `hasReadableSource`；triager schema 含 `sourceAvailability` + `allUnreadable`。
-- **加载**：`default-capability-packs-load` 通过（triager tools / schema 变更）。
-- **真实 run（人工，无法 headless 自验）**：
-  1. **整集无源**（纯检索结果集）→ 确认 **0 个 reader 被派**、body-writer 直接产 abstract-only 综述、§8 全标、evidence-depth notice 出现、**无压缩、不卡死**。
-  2. **混合**（部分 owned 已解析 + 部分检索）→ reader 只对 readable 篇；abstract 篇进 §1–§6（abstract `<q>`）或 §8；引用结构合规。
-  3. **全 readable** → 行为与现状一致（回归不退化）。
-- `bun run typecheck` / `bun test` 通过。
+i18n: builtin English prompts / tool descriptions only, no i18n keys; triager/scenario prompt changes **must remain English** (CLAUDE.md §2; CJK fails the loader hard gate, see prompt-slim lessons).
 
 ---
 
-## 6. 排期 / 拆 PR
+<a id="5-验证"></a>
 
-1. ✅ **PR-1（工具）**：`zotero_wiki_lookup_batch` + 单测。**已完成**（复用 `resolveOne` 核心、单篇+批量+分页、29 测试通过、typecheck 通过）。独立、可先合。
-2. ✅ **PR-2（编排）**：triager 去门控 + parse-status（用 `..._batch`，readable = `found`）+ 新 schema；scenario Turn-2 分叉 + abstract 灌入。**已完成**（46 包加载/契约测试 + typecheck 通过）。依赖 PR-1。**真实 run 回归仍需人工**（见 §5）。
+## 5. Validation
+
+- **Unit tests**: `zotero_wiki_lookup_batch` returns correct `hasReadableSource` for completed / pending / not-in-index / doi-only; triager schema contains `sourceAvailability` + `allUnreadable`.
+- **Loading**: `default-capability-packs-load` passes (triager tools / schema changes).
+- **Actual runs (manual, not self-verifiable headlessly)**:
+  1. **All unsourced** (search-only set) → **0 readers**, direct body-writer abstract-only review, §8 labels all papers, evidence-depth notice, **no compaction or hang**.
+  2. **Mixed** (parsed owned + search papers) → readers only for readable; abstract papers appear in §1–§6 (abstract `<q>`) or §8, with compliant citation structure.
+  3. **All readable** → same existing behavior, no regression.
+- `bun run typecheck` / `bun test` pass.
 
 ---
 
-## 7. 风险与回退
+<a id="6-排期-&#45;拆-pr"></a>
 
-- **abstract 缺失**：分支 1 下若 `papers[].abstract` 没灌进来 → 整集 `none` → skill 报 "lack readable material" 停。**缓解**：§3.5 把"灌 abstract"列为硬要求 + 真实 run case 1 专门验。
-- **误判 readable**：`hasReadableSource` 判定过松 → 派了 reader 却读不到 → reader 自身降级兜底（不致命，仅浪费一次 reader）。判定以 `parseStatus==='completed' && 有路径` 为准，从严。
-- **回退**：batch 工具缺失 / 报错 → triager 跳过预检、`allUnreadable=false`，回退当前"全量 reader fan-out"行为（即今天的现状），不破坏既有路径。
-- **不在本 spec 范围的 routing/DIY**：若 master 仍绕过管线手搓，本 spec 不拦——需另开 routing-guard（检测"无 lit-review PLAN 却连续手派 reader"→ 强制路由）。
+## 6. Scheduling / PR Split
+
+1. ✅ **PR-1 (tool)**: `zotero_wiki_lookup_batch` + unit tests. **Complete** (shared `resolveOne`, single/batch/pagination, 29 tests and typecheck pass). Independent, mergeable first.
+2. ✅ **PR-2 (orchestration)**: ungate triager + parse status (`..._batch`, readable = `found`) + new schema; Turn-2 branch + abstract injection. **Complete** (46 pack loading/contract tests + typecheck pass). Depends on PR-1. **Actual-run regression still manual** (§5).
+
+---
+
+<a id="7-风险与回退"></a>
+
+## 7. Risks and Rollback
+
+- **Missing abstracts**: branch 1 without `papers[].abstract` → all `none` → skill stops with “lack readable material.” **Mitigation**: hard injection requirement in §3.5 + actual-run case 1.
+- **False readable**: permissive `hasReadableSource` dispatches readers without sources → their own fallback prevents fatal failure but wastes a reader. Strictly use `parseStatus==='completed' && 有路径` (completed and path exists).
+- **Fallback**: missing/erroring batch tool → triager skips precheck, `allUnreadable=false`, reverting to current all-paper reader fan-out without breaking existing paths.
+- **Out-of-scope routing/DIY**: master improvisation bypassing the pipeline is not blocked; needs separate routing-guard (detect consecutive manual readers without lit-review PLAN → force routing).

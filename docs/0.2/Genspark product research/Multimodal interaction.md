@@ -1,355 +1,355 @@
-Genspark Super Agent 输出模态与编辑功能调研
+Genspark Super Agent Output Modalities and Editing Research
 
-多模态输出能力的完整拆解
+Complete Breakdown of Multimodal Output
 
-Super Agent 的 10 种输出模态总览
+Overview of Super Agent's 10 Output Modalities
 
-根据 Genspark 官方介绍 + 实际产品测试 + 多个第三方评测,Super Agent 当前支持的输出模态可以归纳为 10 类。
+Based on official Genspark introductions, actual product tests, and multiple third-party reviews, current Super Agent output falls into 10 categories.
 
-模态  产出物形态  典型用户场景
-1  AI Slides  PPT 幻灯片  商业演示、路演、汇报、培训
-2  AI Sheets  电子表格  数据分析、信息抓取、研究分析师工作
-3  AI Docs  富文本文档  报告、文章、邮件、模板化文档
-4  AI Image  单图 / 图组  插图、封面、社交配图
-5  AI Video  视频  Instagram 短片、宣传片、教程
-6  AI Developer  代码 / 网站 / 原生 App / 游戏  一句话建网站、做小游戏、原型开发
-7  AI Designer  海报 / 传单 / Logo / T恤 / 社交贴  品牌设计、营销素材、印刷可用文件
-8  AI Pods  音频 / 播客  播客生成、有声内容、TTS
-9  Deep Research  Sparkpage 研究报告  深度调研、综述、文献综合
-10  Call For Me  真实电话动作  订餐厅、约预约、客服跟进
+Modality  Artifact form  Typical use
+1  AI Slides  PPT slides  Business presentations, pitches, reports, training
+2  AI Sheets  Spreadsheets  Data analysis, information collection, research-analyst work
+3  AI Docs  Rich-text documents  Reports, articles, emails, templated documents
+4  AI Image  Single images / image sets  Illustrations, covers, social graphics
+5  AI Video  Video  Instagram shorts, promotional videos, tutorials
+6  AI Developer  Code / websites / native Apps / games  One-sentence websites, small games, prototypes
+7  AI Designer  Posters / flyers / Logos / T-shirts / social posts  Branding, marketing assets, print-ready files
+8  AI Pods  Audio / podcasts  Podcast generation, audio content, TTS
+9  Deep Research  Sparkpage research reports  Deep research, reviews, literature synthesis
+10  Call For Me  Real phone actions  Restaurant bookings, appointments, customer-service follow-up
 
-模态分类:三大类别
+Modality Classification: Three Categories
 
-按照产出物的本质属性,这 10 种模态可以分为三大类:
+By their fundamental artifact properties, these 10 modalities fall into three categories:
 
-类别  模态成员  共同特征
-文档型产出物  Slides / Sheets / Docs / Sparkpage  结构化的、可编辑的、有标准格式的产出物;每个都内建编辑器
-媒体型产出物  Image / Video / Audio / Design  视听类的、相对一次性的产物;编辑功能较弱,主打"再生成"
-行动 + 代码  Developer / Call For Me  Developer 产物是"可运行的代码";Call For Me 是"真实世界动作"。两者都更接近"做事"而非"做文档"
+Category  Members  Shared traits
+Document artifacts  Slides / Sheets / Docs / Sparkpage  Structured, editable, standard formats, each with built-in editor
+Media artifacts  Image / Video / Audio / Design  Audiovisual, relatively one-off; weaker editing, focused on regeneration
+Actions + code  Developer / Call For Me  Developer outputs runnable code; Call For Me performs real-world actions. Both focus on doing rather than documenting
 
-各模态的输出能力与编辑功能详解
+Detailed Output and Editing Capabilities by Modality
 
-3.1 AI Slides(幻灯片)
+3.1 AI Slides
 
-输出能力
+Output Capabilities
 
- 自动生成 boardroomquality 演示文稿,带标题、要点、图表、配图
- 自动联网调研,内容带引用源
- 先生成大纲(Outline),用户批准后再逐页填充内容
- 支持中、英、日、韩、西、法、德、葡等 19 种语言
- 可上传 PDF/Word/Excel/PPT 作为输入,或者上传 .pptx 作为模板
+ Automatically generate boardroomquality presentations with titles, bullets, charts, and images
+ Automatically research online with cited sources
+ Generate Outline first, then fill slides after user approval
+ Support 19 languages, including Chinese, English, Japanese, Korean, Spanish, French, German, Portuguese
+ Accept PDF/Word/Excel/PPT inputs or .pptx templates
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-AI Edit(对话改)  用自然语言描述修改:"把第 3 页换种语气"、"加一页竞品对比"、"全部改成深色主题"。AI 直接在原页上操作
-Advanced Edit(手动改)  打开一个独立编辑窗口,提供拖拽式操作:调字体、改颜色、移动元素、调版式,类似简化版的 PowerPoint。手动编辑不消耗 credits
-Fact Check  一键校验:逐页生成 fact check prompt,标记哪些观点有强引用支持、哪些缺乏证据、哪些数据需要更新
-整稿重写  用一句话指令重写整份 PPT:"重做一份,更适合给投资人看"、"压缩到 10 页内"
-模板系统  可把当前 PPT 保存为模板;也可上传自有 .pptx 作为新模板源
-导出 / 分享  导出为 PDF / PPTX / Google Slides;或生成公开链接;或在浏览器内直接演示
+Editing mode  Capability
+AI Edit (conversational)  Natural-language changes: "change slide 3's tone," "add competitor comparison," "make everything dark-themed"; AI operates on original slides
+Advanced Edit (manual)  Separate editor with drag-and-drop font/color/position/layout controls, like simplified PowerPoint; manual edits consume no credits
+Fact Check  One-click validation: per-slide fact-check prompts flag strong citations, unsupported claims, and outdated data
+Full rewrite  Rewrite the whole PPT in one instruction: "redo for investors," "keep within 10 slides"
+Templates  Save current PPT as template or upload own .pptx as new template source
+Export / share  PDF / PPTX / Google Slides, public link, or direct browser presentation
 
-用户实测反馈:在创作内容上 AI Slides 是同类最强的,但精细化设计调整仍需"在 PPT 里 polish 最后 1020%"。
+User test feedback: AI Slides leads peers in content creation, but fine design still needs "the last 1020% polished in PPT."
 
-3.2 AI Sheets(电子表格)
+3.2 AI Sheets
 
-输出能力
+Output Capabilities
 
- "Excel 跑在自动驾驶模式":自动收集信息、自动构建公式、自动生成模板
- 作为"研究分析师":用户说"top 20 YouTube videos on AI automation",AI 自动搜索并拉取观看数、点赞、评论、时长、标签到一张活表
- 支持导入用户的现有数据集(CSV / Excel),AI 接管分析
- 自动生成图表来可视化数据
+ "Excel on autopilot": automatically collect information, build formulas, and create templates
+ Acts as research analyst: "top 20 YouTube videos on AI automation" automatically gathers views, likes, comments, duration, and tags into a live sheet
+ Import existing CSV / Excel datasets for AI analysis
+ Generate charts automatically to visualize data
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-对话式分析  "分析这份数据"、"找出价格和件数的关系"、"按主题统计";AI 直接生成结果 + 图表
-加列 / 删列 / 改列  "加一列计算溢价率"、"删掉前 3 列"、"把日期列改成年月日格式"
-筛选 / 排序 / 透视  "只看价格 > 100 的"、"按销量排序"、"按主题做透视表"
-公式生成  自动构建 SUM / VLOOKUP / IF 等公式;支持自然语言描述"求 B 列在 C 列大于 10 时的平均值"
-生成图表  "做一张柱状图显示每年发售数量"、"按主题做饼图";图表内嵌在 Sheet 中
-手动单元格编辑  直接点击单元格编辑数值/文字;支持复制粘贴、拖拽填充
-导出  导出为 .xlsx / .csv;可同步到 Google Sheets
+Editing mode  Capability
+Conversational analysis  "Analyze this data," "find price–quantity relationships," "count by topic"; AI produces results + charts
+Add / delete / modify columns  "Add premium-rate column," "delete first 3 columns," "format dates as year-month-day"
+Filter / sort / pivot  "Prices > 100 only," "sort by sales," "pivot by topic"
+Formula generation  Automatically build SUM / VLOOKUP / IF, etc.; natural-language requests such as average column B where C > 10
+Chart generation  "Bar chart of annual releases," "pie chart by topic"; charts embedded in Sheet
+Manual cell editing  Click cells to edit values/text; copy/paste and drag-fill
+Export  .xlsx / .csv; sync to Google Sheets
 
-3.3 AI Docs(文档)
+3.3 AI Docs
 
-输出能力
+Output Capabilities
 
- 自动起草专业文档:报告、备忘录、文章、合同、邮件
- 数百个智能模板可选,模板会根据用户场景自适应,而非僵化套用
- 支持 HTML 格式输出,可承载复合元素:富文本 + 数据卡片 + 交互式图表(ECharts) + 表格
- 生成时 Agent 会主动声明输出格式和理由(如"用 HTML 因为支持交互式图表")
- 每个文档自动生成独立可分享的 URL(短码形式)
+ Draft professional reports, memos, articles, contracts, emails
+ Hundreds of adaptive smart templates, rather than rigid application
+ HTML output supports rich text + data cards + interactive ECharts + tables
+ Agent proactively states output format and rationale (e.g. HTML supports interactive charts)
+ Each document gets an independent shareable short-code URL
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-内建富文本编辑器  对标 Notion / Google Docs:文字样式(标题/正文)、字体、字号、加粗/斜体/下划线/删除线、对齐(左/中/右)、列表、缩进、行距、文字颜色、背景色、插入图片、插入链接、插入表格、插入图表
-对话式改写  "把语气改正式一点"、"压缩到 500 字"、"加一段反驳的观点"、"翻译成英文"
-Rich Text / Standard 模式  底部输入框带切换:Rich Text 模式产出富格式文档,Standard 模式产出纯文本
-内嵌副表单元素  数据指标卡片(Metric Cards)、章节标题(H1/H2/H3)、交互式图表(ECharts)、Summary Tables、引用与方法说明
-上下文感知输入框  进入文档编辑场景后,底部输入框 placeholder 变成 "Enter your doc request here...",提示语随场景变化
-分享 / 导出  画布顶部独立的 [Share] 按钮(基于独立 URL);[View & Export] 下拉提供多格式导出(PDF / Word / HTML)
+Editing mode  Capability
+Built-in rich-text editor  Comparable to Notion / Google Docs: heading/body styles, fonts/sizes, bold/italic/underline/strikethrough, left/center/right alignment, lists, indents, line spacing, text/background colors, images, links, tables, charts
+Conversational rewriting  "More formal," "shorten to 500 characters," "add a counterargument," "translate to English"
+Rich Text / Standard modes  Bottom-input toggle: formatted documents vs plain text
+Embedded supplemental elements  Metric Cards, H1/H2/H3 headings, interactive ECharts, Summary Tables, citations, methodology
+Context-aware input  Document editing changes bottom placeholder to "Enter your doc request here..."; hints follow context
+Share / export  Independent [Share] button above canvas uses unique URL; [View & Export] dropdown offers PDF / Word / HTML
 
-3.4 AI Image(图像)
+3.4 AI Image
 
-输出能力
+Output Capabilities
 
- 免费使用顶级图像模型:Nano Banana Pro、GPT Image、FLUX、Seedream("always uptodate")
- 单图或 2x2 网格批量生成
- 支持指定风格(vaporwave、写实、动漫等)、比例、画面元素
- 可作为 PPT / Docs 的内嵌素材自动使用
+ Free access to top models: Nano Banana Pro, GPT Image, FLUX, Seedream ("always uptodate")
+ Single-image or 2x2-grid batch generation
+ Specify style (vaporwave, realistic, anime, etc.), aspect ratio, elements
+ Automatically embed as PPT / Docs assets
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-Photo Genius(批量编辑)  一键专业级编辑:背景去除、色调校正、主体修饰、图像放大;支持批量处理(如 500 张商品图一次性处理)
-Regenerate(重生成)  对单张图说"换个风格"、"改成竖版"、"换光线";AI 重新生成
-局部修改(Inpainting)  用户框选区域,描述修改内容("把背景换成海边"、"加一只猫")
-扩图(Outpainting)  把原图向外扩展,AI 补全周围画面
-风格迁移  基于参考图改风格、改色调
-下载 / 嵌入  PNG / JPG 下载;直接"用到 PPT"或"用到 Docs"一键内嵌
+Editing mode  Capability
+Photo Genius (batch)  One-click professional background removal, color correction, subject retouching, upscaling; batch processing, e.g. 500 product images at once
+Regenerate  "Different style," "portrait orientation," "different lighting" regenerates one image
+Inpainting  Select a region and describe changes ("beach background," "add a cat")
+Outpainting  Expand the original outward, with AI filling surroundings
+Style transfer  Change style/color from reference images
+Download / embed  PNG / JPG; one-click use in PPT or Docs
 
-特点:相比文档型产出物,图像的"传统编辑"(像素级修改)能力较弱,Genspark 的主导思路是"再生成"而非"细调"。如果需要像素级精修,需要导出后用 Photoshop / Figma。
+Characteristics: traditional pixel-level editing is weaker than document editing; Genspark prioritizes regeneration over fine adjustment. Pixel-precise retouching needs export to Photoshop / Figma.
 
-3.5 AI Video(视频)
+3.5 AI Video
 
-输出能力
+Output Capabilities
 
- 免费使用顶级视频模型:Gemini Veo、Sora、Kling、Seedance("always uptodate")
- Scenebyscene 生成:Agent 先写脚本 → 逐场景生成图像 → 拼接为视频
- 可生成 Instagramready 的短片
- 一句话"做个产品介绍视频"即可触发完整流程
+ Free top video models: Gemini Veo, Sora, Kling, Seedance ("always uptodate")
+ Scenebyscene generation: script → scene images → assembled video
+ Instagramready shorts
+ One sentence, "make a product introduction video," triggers the full process
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-Clip Genius(剪辑)  AI 自动剪辑:基于素材自动选片段、加转场、配音乐
-Scene 重生成  对单个场景说"换种镜头"、"加更多动作";只重生成那一段
-脚本修改  修改 scenebyscene 脚本,AI 重新生成对应场景
-加字幕 / 加配音  自动加字幕,可选 TTS 配音(多种音色)
-音乐 / 配乐  AI 推荐合适的背景音乐,可一键替换
-导出  MP4 导出;支持 Instagram / TikTok 标准比例
+Editing mode  Capability
+Clip Genius  Automatic clip selection, transitions, and music from source assets
+Scene regeneration  "Different camera shot," "more action" regenerates just that scene
+Script changes  Edit scenebyscene script; AI regenerates corresponding scenes
+Subtitles / voiceover  Automatic subtitles, optional TTS with multiple voices
+Music / score  AI recommends background music, replaceable in one click
+Export  MP4; Instagram / TikTok aspect ratios
 
-注意:视频的传统精细剪辑(逐帧调整、时间线编辑)能力比专业软件(Premiere / DaVinci)弱;Genspark 主打"快速从 0 到能用"。
+Note: frame-level/timeline editing is weaker than Premiere / DaVinci; Genspark emphasizes rapid zero-to-usable creation.
 
-3.6 AI Developer(代码 / 网站 / App)
+3.6 AI Developer (Code / Websites / Apps)
 
-输出能力
+Output Capabilities
 
- 一句话构建:网站、原生 App、游戏
- 完整的 GitHub 集成:支持 code editing + pull requests
- 可生成代码、修 bug、重构、写文档
- 可集成 GitHub Copilot / Cursor / Windsurf 等工具
+ Build websites, native Apps, games from one sentence
+ Full GitHub integration: code editing + pull requests
+ Generate code, fix bugs, refactor, document
+ Integrate tools such as GitHub Copilot / Cursor / Windsurf
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-内嵌代码编辑器  类 VS Code Web 的代码编辑能力:语法高亮、文件树、多标签
-对话式修改  "把这个按钮改成蓝色"、"加一个登录页"、"修复这个 bug"
-实时预览  画布右侧实时呈现 Web 应用 / 游戏的运行效果
-沙盒运行  代码在云端沙盒中运行,无需本地环境
-GitHub 同步  生成的代码可直接推送到 GitHub 仓库,作为 PR 提交
-部署  生成的 Web 应用一键部署,获得公开访问 URL
+Editing mode  Capability
+Embedded code editor  VS Code Web-like syntax highlighting, file tree, multiple tabs
+Conversational changes  "Make this button blue," "add sign-in page," "fix this bug"
+Live preview  Running Web apps/games on canvas right
+Sandbox execution  Cloud sandbox, no local setup
+GitHub sync  Push generated code to a repository as a PR
+Deployment  One-click public deployment of generated Web apps
 
-3.7 AI Designer(平面设计)
+3.7 AI Designer (Graphic Design)
 
-输出能力
+Output Capabilities
 
- 一句话生成:海报、传单、Logo、T恤设计、社交媒体贴图
- 产出印刷可用的高分辨率文件(printready)
- 可基于品牌信息生成完整 VI 套件(在日本案例中替代了 50 万日元的设计公司服务)
+ One-sentence posters, flyers, Logos, T-shirt designs, social graphics
+ High-resolution printready files
+ Complete brand visual-identity kits from brand information (a Japanese example replaced a 500,000-yen design-agency service)
 
-编辑功能(核心)
+Editing (Core)
 
-编辑方式  具体能力
-对话式调整  "改成更复古的风格"、"换个主色"、"加一个标语"
-重生成  一键再生成多个变体
-输出格式  主要是 PNG / JPG 图片;无原生可编辑矢量文件(SVG/AI/PSD)
-局限:精细化控制弱  "想调单个字母的字距" → 做不到。整体重生成可以,像素级精修不行
-外部工作流接力  常用做法:导出 PDF → 导入 Canva / Figma → 人工精修
+Editing mode  Capability
+Conversational adjustments  "More retro," "change primary color," "add slogan"
+Regeneration  One-click multiple variants
+Formats  Mainly PNG / JPG; no native editable vectors (SVG/AI/PSD)
+Limit: weak fine control; adjusting one letter's spacing is impossible. Whole-image regeneration works, pixel-level retouching does not
+External workflow  Commonly export PDF → Canva / Figma → manual refinement
 
-3.8 AI Pods(音频 / 播客)
+3.8 AI Pods (Audio / Podcasts)
 
-输出能力
+Output Capabilities
 
- 自动生成播客形态的音频内容(类似 Google NotebookLM 的 Audio Overviews)
- 基于用户输入的话题或文档,生成多人对话式播客
- 支持 TTS 多音色
+ Generate podcast-style audio, similar to Google NotebookLM Audio Overviews
+ Multi-speaker conversational podcasts from topics/documents
+ Multi-voice TTS
 
-编辑功能
+Editing
 
- 对话式调整:"改成更专业的语气"、"换个开场"
- 重新生成单段
- 导出 MP3 / WAV 音频文件
- 可作为视频的配音素材使用
+ Conversational adjustments: "more professional," "different opening"
+ Regenerate individual segments
+ Export MP3 / WAV
+ Use as video voiceover
 
-注:AI Pods 是 Genspark 较新的能力,编辑深度尚不如 Slides / Docs / Sheets 等成熟模态。
+Note: AI Pods is newer and less deeply editable than mature Slides / Docs / Sheets.
 
-3.9 Deep Research(深度研究 / Sparkpage)
+3.9 Deep Research (Sparkpage)
 
-输出能力
+Output Capabilities
 
- 分析"数千个来源"产出深度研究报告
- 产出物形式:Sparkpage(类维基百科条目的结构化页面)
- Sparkpage 包含:目录导航、章节折叠、引用角标、关键证据、调研路径回放
- 每个 Sparkpage 都自动生成独立 URL,可对外公开分享
+ Analyze thousands of sources for deep research reports
+ Artifact: Sparkpage, a structured Wikipedia-like page
+ Includes contents navigation, collapsible sections, citation markers, key evidence, research-path replay
+ Each Sparkpage gets an independent publicly shareable URL
 
-编辑功能
+Editing
 
-编辑方式  具体能力
-对话式深挖  "深入讲一下第 3 章"、"补充对 X 公司的分析"、"换个角度"
-章节级编辑  可对单个章节做改写/扩展/删除,而不影响其他章节
-跨场景转换  Quick Action 一键:"把这份研究做成 PPT"、"导出为 Word"、"做成视频"
-引用源管理  每条事实都有引用角标,鼠标 hover 显示来源,可点击跳转
-公开分享  生成公开 URL,无需登录 Genspark 即可访问
+Editing mode  Capability
+Conversational deepening  "Explore chapter 3," "add company X analysis," "another angle"
+Section editing  Rewrite/expand/delete one section without affecting others
+Cross-context conversion  One-click Quick Actions: "make this research a PPT," "export Word," "make video"
+Source management  Every fact has a citation marker; hover shows source, click opens it
+Public sharing  Public URLs accessible without Genspark sign-in
 
-3.10 Call For Me(电话动作)
+3.10 Call For Me (Phone Actions)
 
-输出能力
+Output Capabilities
 
- 使用 OpenAI Realtime API 进行真实人声电话
- 双层架构:Realtime API 负责实时对话,Shadow Model 负责目标对齐
- 能处理 hold music、含糊回应等复杂场景
- 典型场景:订餐厅、约预约、客服跟进;在日本甚至有用户用它打"离职电话"
+ Real human-voice calls using OpenAI Realtime API
+ Two layers: Realtime API handles conversation, Shadow Model maintains goal alignment
+ Handles hold music, vague responses, and other complex situations
+ Typical restaurant bookings, appointments, customer-service follow-up; Japanese users even use it for resignation calls
 
-编辑/控制功能
+Editing / Control
 
-控制方式  具体能力
-拨号前确认  Agent 提供拨号意图、对方电话、关键要点;用户点[确认拨号]才执行
-通话中实时转写  画布中实时显示双方对话(波形动画 + 转写流);用户能"看着 Agent 打电话"
-中途插话  通话过程中用户可输入指令调整 Agent 行为(如"再问下能否换日期")
-挂断 / 终止  用户可一键挂断
-通话产物  通话结束后产出:录音 + 完整转写 + 摘要 + 完成状态(订到了/没订到等)
-二次行动  Quick Action:"再打一次"、"发邮件确认"、"加入日历"
+Control mode  Capability
+Pre-dial confirmation  Agent shows intent, number, key points; executes only after [Confirm call]
+Live transcription  Canvas shows both parties in real time (waveforms + transcript stream), letting users watch Agent calls
+Mid-call intervention  User text redirects behavior (e.g. "ask about another date")
+Hang up / terminate  One-click hangup
+Call outputs  Recording + full transcript + summary + completion status (booked/not booked, etc.)
+Follow-up action  Quick Actions: call again, email confirmation, add to calendar
 
-特别说明:Call For Me 是"动作型"模态,不是"文档型",所以它的"编辑功能"实际上是"过程控制"。
+Note: Call For Me is action-oriented rather than document-oriented; editing means process control.
 
 
 
-各模态的触发机制 —— 关键词与触发条件
+Modality Triggers — Keywords and Conditions
 
-用户输入什么样的内容,Super Agent 会触发哪种模态?这背后是一套混合判断系统。本章基于产品实测 + 开源复刻项目(ComposioHQ/opengenspark on GitHub)证实的代码逻辑,梳理出 Super Agent 的完整触发机制。
+Which inputs trigger which modality? A hybrid decision system underlies routing. This chapter combines product testing with code confirmed by the open-source recreation ComposioHQ/opengenspark on GitHub to describe the full trigger mechanism.
 
-4.1 触发机制的核心实现:LLM 输出特殊标签
+4.1 Core Implementation: LLM Emits Special Tags
 
-根据开源复刻项目的工程师亲测代码,Super Agent 的触发机制本质上是:
+Engineers' tested recreation code describes Super Agent's triggers as:
 
-"Super Agent 识别到 presentation 请求时,会以 `[SLIDES]` 标签回复。这个标签会触发 generate slides 端点,Super Agent 把主题、内容、页数、风格传过去。" —— Composio 工程师对 Genspark 触发机制的复刻验证
+English translation: "When Super Agent recognizes a presentation request, it responds with `[SLIDES]`, triggering the generate slides endpoint and passing topic, content, page count, and style." — Composio engineer's recreation validation
 
-也就是说:Super Agent 不是直接调工具,而是先在内部回复时输出一个"路由标签"(如 `[SLIDES]` / `[SHEETS]` / `[DOCS]`),前端检测到这些标签后,再触发对应模态的生成端点。这个设计的好处是:
+Super Agent first emits an internal routing tag, e.g. `[SLIDES]` / `[SHEETS]` / `[DOCS]`, rather than directly invoking tools; frontend detection triggers the matching generation endpoint. Benefits:
 
- LLM 的决策(走哪种模态)和具体生成解耦,LLM 不需要懂如何生成 PPT,只需要知道"这是个 PPT 请求"
- 加新模态时只需要注册一个新标签 + 对应端点,Super Agent 本身不用改
- 可以让 Super Agent 在同一回合里输出多个标签,实现"先做 PPT 再做 Sheet"的多步任务
+ Decouples modality decisions from generation; LLM only needs to recognize a PPT request, not know how to build it
+ Add modalities through one tag + endpoint, without changing Super Agent itself
+ Multiple tags in one turn enable tasks such as PPT then Sheet
 
-触发的三种判断方式
+Three Trigger Decision Methods
 
-Super Agent 实际是用三种触发方式叠加判断,优先级从高到低:
+Super Agent combines three triggers in descending priority:
 
-触发方式  判断依据
-① 显式关键词触发  用户输入包含明确的形式词("PPT"、"幻灯片"、"表格"、"画一张图"...),Super Agent 直接路由到对应 Agent。这是最高优先级的判断
-② 隐式意图推断  用户没说形式词,只说目的("对比 X"、"演示 Y"、"统计 Z"),Super Agent 通过 LLM 推断最适合的模态
-③ 中间检查点反问  意图完全模糊("帮我整理一下"、"做个东西"),Super Agent 反问用户选择,以快速选项按钮的形式呈现
-④ 主动选择(快捷入口)  用户在 dashboard 左侧栏直接点击 AI Slides / AI Sheets / AI Docs,跳过 Super Agent 的判断,直接进入指定模态
+Trigger  Basis
+① Explicit keywords  Clear format words (PPT, slides, spreadsheet, draw an image…) route directly; highest priority
+② Implicit intent  Goals without format words (compare X, demonstrate Y, count Z); LLM infers suitable modality
+③ Checkpoint question  Completely vague intent (organize this, make something); ask user through quick-choice buttons
+④ Explicit shortcut  User clicks AI Slides / AI Sheets / AI Docs in dashboard sidebar, bypassing routing
 
-4.3 显式关键词触发:完整关键词字典
+4.3 Explicit Keywords: Complete Dictionary
 
-这是最高优先级的触发方式。下面是各模态的关键词触发字典(中英文双语):
+Highest-priority trigger. Dictionary below covers Chinese and English (Chinese entries translated for documentation):
 
-触发的模态  中文触发词  英文触发词
-AI Slides  PPT / 幻灯片 / 演示文稿 / 做个 deck / 报告幻灯片 / 投影片  slide / slides / deck / presentation / PowerPoint / pitch deck
-AI Sheets  表格 / 电子表格 / Excel / 数据表 / 整理成表  sheet / spreadsheet / excel / table / data table / xlsx
-AI Docs  文档 / 报告 / 文章 / 写一份 / Word / 备忘录 / 公文  doc / document / report / article / write / memo / Word file
-AI Image  画一张 / 图片 / 配图 / 插画 / 头像 / 封面图  image / picture / draw / paint / illustration / cover / generate image
-AI Video  视频 / 短片 / 动画 / 拍一段 / Reel / 抖音视频  video / clip / animation / film / Instagram reel / TikTok video
-AI Developer  代码 / 网站 / App / 小游戏 / 写函数 / 部署 / debug  code / website / app / game / function / build / deploy / debug
-AI Designer  海报 / 传单 / Logo / T恤 / 设计 / 名片 / 包装  poster / flyer / logo / Tshirt / design / business card / packaging
-AI Pods  播客 / 音频 / 朗读 / 配音 / TTS  podcast / audio / TTS / voice / narration
-Deep Research  深度研究 / 调研 / 综述 / 深入分析 / 盘点 / 详细研究  research / deep research / comprehensive / indepth / survey
-Call For Me  打电话 / 帮我打 / 预订 / 预约 / 订餐厅 / 询价 / 客服  call / phone / book / make a reservation / appointment / call for me
-Download For Me  下载 / 抓取 / 帮我下 / 收集这些文件 / 保存到 Drive  download / fetch / scrape / save to drive / collect files
+Modality  Chinese trigger meanings  English triggers
+AI Slides  PPT / slides / presentation / make a deck / report slides / projection slides  slide / slides / deck / presentation / PowerPoint / pitch deck
+AI Sheets  table / spreadsheet / Excel / data table / organize as table  sheet / spreadsheet / excel / table / data table / xlsx
+AI Docs  document / report / article / write one / Word / memo / official document  doc / document / report / article / write / memo / Word file
+AI Image  draw one / image / supporting graphic / illustration / avatar / cover image  image / picture / draw / paint / illustration / cover / generate image
+AI Video  video / short / animation / shoot one / Reel / Douyin video  video / clip / animation / film / Instagram reel / TikTok video
+AI Developer  code / website / App / small game / write function / deploy / debug  code / website / app / game / function / build / deploy / debug
+AI Designer  poster / flyer / Logo / T-shirt / design / business card / packaging  poster / flyer / logo / Tshirt / design / business card / packaging
+AI Pods  podcast / audio / read aloud / voiceover / TTS  podcast / audio / TTS / voice / narration
+Deep Research  deep research / investigation / review / deep analysis / roundup / detailed research  research / deep research / comprehensive / indepth / survey
+Call For Me  make a call / call for me / booking / appointment / restaurant reservation / quote request / customer service  call / phone / book / make a reservation / appointment / call for me
+Download For Me  download / fetch / download for me / collect these files / save to Drive  download / fetch / scrape / save to drive / collect files
 
-隐式意图触发:目的词如何映射到模态
+Implicit Intent: Mapping Goals to Modalities
 
-当用户没说形式词,只说目的,Super Agent 会用 LLM 推断最适合的输出形式。这里有一套相对稳定的映射模式:
+Without format words, Super Agent infers the best output through LLM, following relatively stable mappings:
 
-用户意图模式  映射的模态  判断逻辑
-"对比 / 比较 / 列 N 个"  内联表格(对话流中)  结构是多维度多对象,适合表格表达
-"给老板讲 / 给客户演示 / 路演 / 培训"  AI Slides(PPT)  "演示/讲"暗示需要分页可视化
-"统计 / 算一下 / 求和 / 趋势 / 整理数据"  AI Sheets(电子表)  "统计/算"暗示需要单元格计算
-"详细写一下 / 起草 / 综述 / 撰写"  AI Docs(长文档)  "写/起草"暗示长形式文档
-"看下 X 长什么样 / 生成一个画面"  AI Image  "看/画面"暗示视觉表达
-"拍一段介绍 / 做个宣传"  AI Video  "拍/宣传"暗示动态内容
-"做一个 X 工具 / 实现一个 X"  AI Developer  "做/实现"在技术语境下暗示代码
-"调研 / 盘点 / 深入了解"  Deep Research → Sparkpage  调研类需要长内容 + 引用 + 结构化
-"帮我和 X 联系 / 沟通 / 跟进"  Call For Me / 邮件  "联系/沟通"暗示外部行动
-"解释 / 是什么 / 为什么"  纯对话答复(结构化文字)  解释类不需要文档型产出
+Intent pattern  Modality  Reasoning
+"Compare / contrast / list N"  Inline conversational table  Multiple objects/dimensions suit a table
+"Explain to boss / present to client / pitch / train"  AI Slides (PPT)  Presenting/explaining implies paged visuals
+"Count / calculate / sum / trends / organize data"  AI Sheets  Calculations imply spreadsheet cells
+"Write in detail / draft / review / author"  AI Docs (long document)  Writing/drafting implies long form
+"What does X look like / generate a scene"  AI Image  Seeing/scenes imply visuals
+"Film an introduction / make promotion"  AI Video  Filming/promotion implies motion
+"Build an X tool / implement X"  AI Developer  Technical building/implementation implies code
+"Investigate / survey / understand deeply"  Deep Research → Sparkpage  Research needs long content + citations + structure
+"Contact / communicate / follow up with X"  Call For Me / email  Contact/communication implies external action
+"Explain / what is / why"  Plain conversation (structured text)  Explanations need no document artifact
 
-4.5 中间检查点触发:模糊意图的反问机制
+4.5 Checkpoint Triggers: Questions for Vague Intent
 
-当用户的输入完全模糊(只说要做某事,没说形式也没说目的),Super Agent 会主动反问用户。这是一个非常关键的设计 —— 与其赌一个错的模态,不如把选择交给用户。
+If input is completely vague (an action without format or purpose), Super Agent asks proactively. This key design lets users choose rather than risking the wrong modality.
 
-典型反问场景
+Typical Clarification Scenarios
 
-用户的模糊输入  Super Agent 的反问选项
-"帮我整理一下竞品分析"  [📊 PPT,适合演示] [📑 Word 报告,适合存档] [📈 对比表格,适合查看] [💬 直接列在这里]
-"做个东西给客户"  [📊 演示 PPT] [📑 提案文档] [🎨 海报] [📹 介绍视频] 
-"帮我看看明天的会议"  [📑 准备议程文档] [📊 准备开场 PPT] [💬 列要点] [📞 帮我打电话确认]
+Vague input  Super Agent choices
+"Organize the competitor analysis"  [📊 PPT for presentation] [📑 Word report for archiving] [📈 Comparison table for inspection] [💬 List it here]
+"Make something for the client"  [📊 Presentation PPT] [📑 Proposal document] [🎨 Poster] [📹 Introduction video]
+"Help with tomorrow's meeting"  [📑 Agenda document] [📊 Opening PPT] [💬 Key points] [📞 Call to confirm]
 
-Super Agent 在反问时遵循三条规则:
+Three clarification rules:
 
- 通常 35 个选项,不超过 5 个,避免选择困难
- 每个选项一个 emoji + 短文案 + 一行解释("适合演示"/"适合存档"),让用户秒懂区别
- 保留"告诉我更多"或"直接列在这里"作为兜底选项,避免用户被迫做选择
+ Usually 35 options, no more than 5, to avoid choice overload
+ Each option has emoji + short label + one-line purpose (presentation/archiving), clarifying differences instantly
+ Keep Tell me more or List it here fallback so users are not forced to choose
 
-4.6 主动选择:跳过路由的快捷入口
+4.6 Explicit Selection: Routing-Bypass Shortcuts
 
-用户也可以完全跳过 Super Agent 的判断,直接选择想用的模态。这是一种"显式选择"的入口,适合用户明确知道自己要做什么的情况。
+Users can bypass Super Agent's decision and directly choose a modality, suitable when they already know what they want.
 
-两种主动选择方式:
+Two Explicit Selection Methods:
 
- 从左侧导航栏点击:Dashboard 左栏列出所有 Agent(AI Slides / AI Sheets / AI Docs / AI Developer / AI Designer 等),点击直接进入该模态的专属界面
- 用直接的 URL 访问:每个 Agent 都有独立 URL(如 `genspark.ai/agents?type=slides_agent`),用户可直接跳转
+ Sidebar: Dashboard lists all Agents (AI Slides / AI Sheets / AI Docs / AI Developer / AI Designer, etc.); clicking opens the dedicated modality UI
+ Direct URL: each Agent has its own address (e.g. `genspark.ai/agents?type=slides_agent`) for direct navigation
 
-从产品视角看,这两种入口的存在意义是:Super Agent 的智能路由解决"我不知道用什么"的小白场景,而主动选择入口解决"我明确知道我要什么"的熟手场景。两者并存覆盖了不同用户阶段。
+Product rationale: smart routing serves novices unsure what to use; explicit shortcuts serve experienced users who know their goal. Both cover different stages.
 
-4.7 一句话内触发多个模态(多标签触发)
+4.7 Multiple Modalities in One Sentence (Multiple Tags)
 
-Super Agent 的一个高级能力是:一次输入可以触发多个模态,串联成 pipeline。这是它和单一 Agent 工具的根本区别。
+One advanced Super Agent capability chains multiple modalities into a pipeline from one input, distinguishing it from single-Agent tools.
 
-典型多标签触发的例子
+Typical Multi-Tag Examples
 
-用户输入  触发的模态序列
-"调研 SaaS 赛道,做成 PPT 给老板看"  `[RESEARCH]` → `[SLIDES]`
-"对比 3 家酒店,然后打电话给最好那家确认有家庭房"  `[RESEARCH]` → `[SHEETS]`(对比表)→ `[CALL]`
-"找 20 个 YouTube AI 视频,做成表格,然后写一篇分析"  `[RESEARCH]` → `[SHEETS]` → `[DOCS]`
-"做个产品介绍视频,先写脚本,然后画封面,最后剪视频"  `[DOCS]`(脚本)→ `[IMAGE]`(封面)→ `[VIDEO]`
+Input  Modality sequence
+"Research SaaS and make a PPT for my boss"  `[RESEARCH]` → `[SLIDES]`
+"Compare 3 hotels, then call the best to confirm family rooms"  `[RESEARCH]` → `[SHEETS]` (comparison) → `[CALL]`
+"Find 20 YouTube AI videos, make a table, then write analysis"  `[RESEARCH]` → `[SHEETS]` → `[DOCS]`
+"Make a product introduction video: script, cover, then edit video"  `[DOCS]` (script) → `[IMAGE]` (cover) → `[VIDEO]`
 
-Super Agent 会在 Plan 阶段把整个 pipeline 显式呈现给用户,标出每一步用哪个模态,让用户在执行前看到完整路径。
+During Plan, Super Agent explicitly presents the full pipeline and modality per step so users see the complete path before execution.
 
 ```
 
-4.9 触发机制的几个关键观察
+4.9 Key Observations on Triggers
 
-1. 关键词触发是"快速路径",意图触发是"智能路径":用户精准说出形式词时走快速路径(直接关键词匹配,LLM 不用做语义判断);用户只说目的时才走智能路径(LLM 推断)。两层叠加既保证了响应速度,又保证了智能度。
-2. 标签触发让 LLM 决策和具体生成解耦:LLM 不需要懂如何画 PPT,只需要知道"这是个 PPT 请求"。这个解耦设计让加新模态变得非常简单 —— 只需要注册一个新标签 + 一个新端点,不用动 LLM 本身。
-3. 反问机制比赌一个模态更尊重用户:意图模糊时不要赌,而是把选择权抛给用户。35 个按钮 + 每个一行说明 = 用户秒选。这避免了"AI 替我做错了选择"的挫败感,也避免了反复改格式带来的 credit 浪费。
-4. 主动选择入口是熟手用户的快捷通道:Super Agent 的智能路由是为小白设计的;熟手用户已经知道自己要什么,直接从左栏点 AI Slides 进入更快。两种入口并存覆盖了用户成熟度光谱。
-5. 一句话内可触发多个模态,串联成 pipeline:这是 Super Agent 和单一 Agent 工具的本质区别。用户输入"调研后做成 PPT 给老板看",触发 `[RESEARCH]` → `[SLIDES]` 的链式调用,中间无需用户介入。
-6. 触发关键词覆盖中英文双语 + 同义词扩展:Genspark 的关键词字典是经过精心设计的,覆盖了形式词、同义词、行业术语、口语表达。这让用户无论用什么习惯说法都能正确触发模态。
-
-
-
-## 八、关键洞察与启示
-
-1. Super Agent 的核心价值是"多模态产出物 = 真实交付物":用户付费不是为了"和 AI 聊天",而是为了"拿到一份能直接用的 PPT / 文档 / 视频"。Genspark 用 10 种模态把"AI 输出"升级为"AI 工作交付物",每个模态都自带可分享、可导出、可二次编辑的属性。
-2. 文档型模态做深编辑,媒体型模态做再生成:Slides / Sheets / Docs 这类"会反复改"的产物,Genspark 投入做了 Office 级别的内建编辑器;Image / Video / Designer 这类"看一眼定生死"的产物,主打"换种风格再生成一遍",编辑深度故意做浅。这是一个非常清晰的差异化产品策略。
-3. AI Edit + Advanced Edit 的双范式是行业标杆设计:对话式改写解决"门槛低、改大动作",手动编辑器解决"精细控制、改细节";两者分层互补,适配从小白用户到专业用户的不同需求。手动编辑不消耗 credits 还激励用户用更经济的方式完成最后 polish。
-4. 每个模态都自带独立 URL,把产物变成资产:文档型产物自动分配 shortcode 形式的独立 URL,意味着每个 AI 生成物都可以独立存在、独立分享、独立索引。这一个机制就把"用完即弃的 AI 输出"变成了"用户的作品集",大幅提升留存和粘性。
-5. Quick Action 是跨模态接力的关键:每个产出物结束后,Genspark 会在下方推送跨模态的 Quick Action("做成 PPT"、"导出为 Word"、"做成视频"),让用户能用同一份内容在不同模态之间无缝跳转。这是 Super Agent 形成"工作空间网络效应"的设计基础。
-6. Genspark 的能力边界仍是"做到 80%90%":几乎所有第三方评测都指出:Genspark 的产出物质量"很扎实但不顶级",用户最后仍要用原生工具(PowerPoint / Photoshop / Premiere)做 10%20% 的精修。这是当前 AI 工作空间产品的共同瓶颈,也是未来产品迭代的最大空间。
+1. Keywords provide a fast path and intent provides a smart path: exact format words use direct keyword matching without LLM semantics; goals alone invoke LLM inference. Together they ensure speed and intelligence.
+2. Tags decouple LLM decisions from generation: recognizing a PPT request needs no knowledge of slide construction. New modalities require only a tag + endpoint, without changing the LLM.
+3. Clarification respects users more than guessing: for vague intent, offer choice. 35 buttons with one-line explanations enable quick selection, avoiding wrong AI choices and wasted credits from repeated format changes.
+4. Explicit selection is the expert shortcut: smart routing serves novices; experts reach AI Slides faster from the sidebar. Both cover the user-maturity spectrum.
+5. One sentence can chain modalities, distinguishing Super Agent from single-Agent tools: "research then make a PPT for my boss" triggers `[RESEARCH]` → `[SLIDES]` without user intervention.
+6. Trigger dictionaries cover Chinese/English, synonyms, industry terms, and colloquial expressions, enabling correct routing regardless of users' habitual wording.
 
 
 
-> 调研基于:Genspark 官方介绍、OpenAI 案例研究、Lindy/Cybernews/HIX AI/Skywork 等第三方评测整理
+## 8. Key Insights and Implications
+
+1. Core value is multimodal artifacts as real deliverables: users pay for usable PPTs/documents/videos rather than chatting. Ten modalities turn AI output into work deliverables, each shareable, exportable, and reeditable.
+2. Documents get deep editing; media get regeneration. Repeatedly edited Slides/Sheets/Docs have Office-level editors; instantly judged Image/Video/Designer outputs prioritize style regeneration with intentionally shallow editing. A clear differentiated strategy.
+3. AI Edit + Advanced Edit is an industry-reference dual model: conversation handles accessible broad changes, manual editors precise details, serving novices through experts. Free manual editing encourages economical final polish.
+4. Independent short-code URLs turn artifacts into assets: each document exists, shares, and indexes independently, transforming disposable output into user portfolios and improving retention/stickiness.
+5. Quick Actions connect modalities: after artifacts, actions such as make PPT/export Word/make video reuse the same content seamlessly, underpinning workspace network effects.
+6. Genspark still reaches only "80%90%": nearly all third-party reviews find solid but nonleading quality, requiring "10%20%" final refinement in PowerPoint/Photoshop/Premiere. This shared AI-workspace bottleneck is the largest iteration opportunity.
+
+
+
+> Research compiled from official Genspark introductions, OpenAI case studies, and Lindy/Cybernews/HIX AI/Skywork third-party reviews

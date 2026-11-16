@@ -1,28 +1,36 @@
-# 聊天思考与生成文字流光
+<a id="聊天思考与生成文字流光"></a>
 
-状态：实现、红绿回归、最终自动检查、真实浏览器验收与独立复审完成。基线 main `842c89e`。
+# Chat Thinking and Generation Text Shimmer
 
-## 已确认设计
+Status: Implementation, red/green regression, final automated checks, real-browser acceptance, and independent review complete. Baseline main `842c89e`.
 
-去掉聊天里的独立球体，等待行复用静态 ConversationSymbol，动态只放在 Logo 右侧的真实主状态文字。生成图片副文案、展开控件、历史回复与真实工具状态保留。CSS 文本渐变扫光约 2.6s 一轮，不位移、不脉冲、不展示虚构进度。采用共享 RunningStatusText，不复制可访问文本，不引入计时器或新依赖。
+<a id="已确认设计"></a>
 
-方案比较：单一文字 CSS 渐变可复用且保留原生文本，作为本轮方案。双层复制文本会增加排版与读屏重复风险。Canvas 不适合这项文字级状态调整。
+## Confirmed Design
 
-## 范围与约束
+Remove the standalone sphere in chat; waiting rows reuse the static ConversationSymbol, with motion limited to actual primary status text to the right of the Logo. Preserve image generation secondary text, expansion controls, historical responses, and real tool statuses. A CSS text gradient sweeps approximately once every 2.6s without movement, pulsing, or invented progress. Use shared RunningStatusText without duplicating accessible text or introducing timers or dependencies.
 
-- AgentMessages 等待/运行行使用既有静态 Logo。
-- SDK 过程主标题、生图主标题与当前思考/执行标题共用运行态文字，高光只在真实 active 状态存在。
-- 聊天滚动导航去掉球体，使用原有上下箭头，保留到最新位置/返回阅读点和按钮文案。
-- 上下文用量徽章不是本次聊天思考行，不改其压缩提示功能。
-- 支持中英文、亮暗主题、减少动态效果和强制颜色。渐变不支持时显示普通文字。
-- 不改 Rust、SDK/工具授权、数据模型、真实会话或安装包。本轮不发布或合并 main。
+Options compared: A single CSS text gradient is reusable and preserves native text, so it is selected for this round. Duplicated text layers increase layout and screen-reader duplication risks. Canvas is unsuitable for this text-level status adjustment.
 
-## 实施与验证
+<a id="范围与约束"></a>
 
-- [x] 为既有 AgentMessages / SDKMessageRenderer / ImageGenerationStatus / 当前思考标题及滚动导航增加行为红测。
-- [x] 实现共享文字组件与 scoped CSS，替换现有运行行球体和脉冲，保留静态文本及控件语义。
-- [x] 回归开始、思考到生成、完成、取消和失败，确保没有重复主状态或残留高光。
-- [x] 真实浏览器检查中英文、亮暗、窄窗、文字不位移、实际高光流动及 reduced-motion/forced-colors。
-- [x] 跑相关测试、全量 Bun、typecheck、lint、Electron build，独立复审并保存本地提交与验收报告。
+## Scope and Constraints
 
-运行态边界：只读既有 queuedMessageUuidsAtom，乐观排队不当作消费；按已接手用户输入与 compact_boundary/compacting 限制当前尾回合，旧回合静态。纯正文保留原尾部状态、不重复 Logo。首 token 空文本/空白、宿主停止/失败先于 streaming 更新均有回归。
+- AgentMessages waiting/running rows use the existing static Logo.
+- SDK process titles, image generation titles, and current thinking/execution titles share running text; highlights appear only in actual active states.
+- Chat scroll navigation removes the sphere and uses existing up/down arrows, preserving navigation to latest position/reading position and button text.
+- The context usage badge is outside this chat thinking row change; preserve its compaction hint functionality.
+- Support Chinese/English, light/dark themes, reduced motion, and forced colors. Fall back to ordinary text when gradients are unsupported.
+- Leave Rust, SDK/tool authorization, data models, real conversations, and installation packages unchanged. No publication or main merge this round.
+
+<a id="实施与验证"></a>
+
+## Implementation and Validation
+
+- [x] Add failing behavior tests for existing AgentMessages / SDKMessageRenderer / ImageGenerationStatus / current thinking titles and scroll navigation.
+- [x] Implement a shared text component and scoped CSS, replacing spheres and pulses in running rows while preserving static text and control semantics.
+- [x] Regress start, thinking-to-generation, completion, cancellation, and failure; ensure no duplicate primary statuses or lingering highlights.
+- [x] Check Chinese/English, light/dark themes, narrow windows, stationary text, actual highlight motion, and reduced-motion/forced-colors in a real browser.
+- [x] Run relevant tests, full Bun suite, typecheck, lint, and Electron build; independently review and save local commits and acceptance reports.
+
+Running-state boundaries: Read only the existing queuedMessageUuidsAtom; optimistic queuing does not count as consumption. Limit the current tail turn using accepted user input and compact_boundary/compacting; older turns remain static. Body-only output preserves the original trailing status without duplicating the Logo. Regressions cover empty/whitespace first-token text and host stop/failure arriving before streaming updates.

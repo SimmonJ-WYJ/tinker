@@ -1,136 +1,166 @@
-# ADR-014：无 API 源接入 + 需求驱动语料填充 ——（GS 类源 user-local 抓取 + OA 解析按需懒填，扩展 ADR-013）
+<a id="adr-014无-api-源接入-&#45;需求驱动语料填充-gs-类源-user-local-抓取-&#45;oa-解析按需懒填扩展-adr-013"></a>
 
-| 字段 | 内容 |
+# ADR-014: Non-API Sources + Demand-Driven Corpus Fill (GS-Style User-Local Fetching + On-Demand OA Parsing; Extends ADR-013)
+
+| Field | Content |
 |------|------|
-| **状态** | Proposed（待决策；grill-with-docs 会话裁决 2026-06-03，待产研 Lead 签字）|
-| **决策日期** | 2026-06-03 |
-| **拍板人** | （待填，建议产研 Lead）|
-| **作者** | （待填）|
-| **决策时点硬约束** | 0.5 文献数据服务实现 issue 开出前；**本 ADR 扩展 [ADR-013](./ADR-013-literature-relevance-service.md)**（在其「部分自建分层」之上叠加两条新维度），并继承 ADR-013 对 [ADR-002](./ADR-002-server-stack.md) 的扩展约束 |
-| **关联** | [ADR-013 文献检索数据服务](./ADR-013-literature-relevance-service.md)（被本 ADR 扩展）· [0.5 north-star](../milestones/0.5/north-star.md) · [ADR-001 本地优先](./ADR-001-local-storage.md) · [ADR-002 服务端栈](./ADR-002-server-stack.md) · [0.3 数据三分红线](../specs/0.3.0/0.3.0-prd.md) · [失败触发扩源 spec](../specs/lit-search-failure-source-expansion-spec.md)（§4.2 GS 黑名单）· [CONTEXT.md 文献检索数据服务领域](../../CONTEXT.md) |
+| **Status** | Proposed (decision pending; grill-with-docs session adjudicated 2026-06-03, awaiting product/engineering Lead signature) |
+| **Decision date** | 2026-06-03 |
+| **Decision maker** | (TBD; product/engineering Lead recommended) |
+| **Author** | (TBD) |
+| **Hard decision deadline** | Before creating 0.5 literature-data-service implementation issues; **extends [ADR-013](./ADR-013-literature-relevance-service.md)** (adds two dimensions atop its partially self-built layers), inheriting ADR-013's extension constraints on [ADR-002](./ADR-002-server-stack.md) |
+| **Related** | [ADR-013 Literature Search Data Service](./ADR-013-literature-relevance-service.md) (extended here) · [0.5 north-star](../milestones/0.5/north-star.md) · [ADR-001 Local First](./ADR-001-local-storage.md) · [ADR-002 Server Stack](./ADR-002-server-stack.md) · [0.3 Three Data Boundaries](../specs/0.3.0/0.3.0-prd.md) · [Failure-Triggered Source Expansion Spec](../specs/lit-search-failure-source-expansion-spec.md) (§4.2 GS blacklist) · [CONTEXT.md Literature Search Data Service Domain](../../CONTEXT.md) |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-[ADR-013](./ADR-013-literature-relevance-service.md) 已裁决文献检索数据服务取「**部分自建分层**」（自建 OpenAlex 元数据 index + 复用可合法再分发 OA 全文 + agentic 检索/重排跑 BYOK + 不做全量向量）。本 ADR **不动 ADR-013 的方向**，只在其之上回答会议新提出、ADR-013 未覆盖的两个维度：
+## 1. Background
 
-1. **无 API 源接入**：目前文献检索覆盖的 8 个归一化源（arxiv/pubmed/openalex/semanticscholar/crossref/dblp/biorxiv/europepmc/core/ieee…，见 `packages/shared/src/utils/paper-source.ts`）**全是 API 源**。论文源远不止这些——**不提供 API 的平台**（Google Scholar 为标杆，及 ResearchGate / CNKI / 万方 / 出版商页）覆盖了 OpenAlex 缺的长尾（灰文献、引文发现、非英文、学位论文、部分非 OA）。若能接入，对检索覆盖是极大提升。
-2. **需求驱动语料填充**：ADR-013 的 OA 全文语料是**批量摄取**（peS2o/S2ORC/PMC，eager）。会议提出——用户实际下载/精读的论文解析数据，应能**通过服务端沉淀、供平台其他用户二次调用**，提高综述/精读效率。
+[ADR-013](./ADR-013-literature-relevance-service.md) selected **partially self-built layers** for literature search data services (self-built OpenAlex metadata index + reusable legally redistributable OA full text + BYOK agentic search/reranking + no full-corpus vectors). This ADR **preserves that direction**, addressing two newly raised dimensions absent from ADR-013:
 
-**触发的两条事实张力**（须在本 ADR 内化解）：
+1. **Non-API sources**: The 8 normalized sources currently covered by literature search (arxiv/pubmed/openalex/semanticscholar/crossref/dblp/biorxiv/europepmc/core/ieee…; see `packages/shared/src/utils/paper-source.ts`) **all provide APIs**. Paper sources extend far beyond these: platforms **without APIs** (Google Scholar as benchmark, plus ResearchGate / CNKI / Wanfang / publisher pages) cover long-tail material missing from OpenAlex (gray literature, citation discovery, non-English work, dissertations, some non-OA). Access could greatly improve search coverage.
+2. **Demand-driven corpus fill**: ADR-013 ingests OA full text **in batches** (peS2o/S2ORC/PMC, eager). The meeting proposed that parsed data from papers users download/read closely should **accumulate server-side for reuse by other platform users**, improving review/close-reading efficiency.
 
-- GS 在 [失败触发扩源 spec](../specs/lit-search-failure-source-expansion-spec.md) §4.2 是**黑名单死源**（实测抓取慢/脆/封 IP）。"极大提升"的雄心与"实测是死源"的现实必须对齐——靠**抓取跑在哪 + 先量化可用率**化解，**不是**盲目复活服务端 fan-out。
-- 把用户碰过的论文解析回流服务端，正面撞 ADR-013 两条红线：① **许可红线**（非 OA 全文转给他人 = 再分发）；② **隐私红线**（"读了哪些论文"=研究方向，撞 0.3"行为遥测绝不含研究内容"，ADR-013 已据此把查询飞轮推 0.6）。
+**Two factual tensions triggered** (to resolve here):
 
-**为何须 ADR（三标准全中）**：① **难逆**——无 API 抓取的法律姿态、语料回流管道、隐私红线一旦上线难收回；② **反直觉**——本 ADR 既"复活"了被拉黑的 GS，又让"用户行为驱动服务端补语料"，未来读者会问"为什么"；③ **真权衡**——抓取跑哪/共享到哪/贡献模型/节奏均有多个真实候选，逐项取舍。
+- GS is a **blacklisted dead source** in [Failure-Triggered Source Expansion Spec](../specs/lit-search-failure-source-expansion-spec.md) §4.2 (measured slow/fragile fetching and IP blocking). Ambition for major improvement must align with that reality through **where fetching runs + measuring availability first**, rather than blindly restoring server fan-out.
+- Returning user-touched paper parses to the server directly conflicts with ADR-013's two boundaries: ① **Licensing** (sharing non-OA full text with others is redistribution); ② **Privacy** (papers read reveal research direction, conflicting with 0.3's prohibition on research content in behavioral telemetry; ADR-013 deferred the query flywheel to 0.6 for this reason).
+
+**Why an ADR (all three criteria met)**: ① **Hard to reverse**: Legal posture for non-API fetching, contribution pipelines, and privacy boundaries become difficult to retract after launch. ② **Counterintuitive**: This both revives blacklisted GS and lets user activity drive server corpus growth; future readers will ask why. ③ **Real tradeoffs**: Fetch location, sharing scope, contribution model, and timing each have multiple viable alternatives.
 
 ---
 
-## 二、决策维度
+<a id="二决策维度"></a>
 
-| # | 维度 | 化解的张力 |
+## 2. Decision Dimensions
+
+| # | Dimension | Tension Resolved |
 |---|------|-----------|
-| D1 | 无 API 源**接入到哪一层**（实时现抓+外链 vs 入 Corpus）| 许可红线 |
-| D2 | 无 API 源**抓取跑在哪**（用户本地 / 第三方 SERP API / ASCI 服务端）| BYOK·本地优先身份、成本、法律 |
-| D3 | 无 API 源**范围与节奏**（GS 单源观察 vs 一整类 vs 全推后）| 4 人团队范围风险、反爬脆弱、证据优先 |
-| D4 | 语料回流**跨用户共享什么**（按 license 分层 / 全部 / 仅非版权资产）| 许可红线 |
-| D5 | 回流**贡献模型**（信号驱动服务端自取 vs 客户端上传副本）| 投毒、版权转分发、隐私 |
-| D6 | 回流**隐私姿态与节奏**（opt-in 进 0.5 / 推 0.6 / 默认开）| 0.3 隐私红线 |
+| D1 | Non-API source **integration layer** (live fetching + external links vs. Corpus ingestion) | Licensing boundary |
+| D2 | Non-API source **fetch location** (user-local / third-party SERP API / ASCI server) | BYOK/local-first identity, cost, law |
+| D3 | Non-API source **scope and timing** (GS-only observation vs. entire class vs. full deferral) | Four-person scope risk, anti-bot fragility, evidence first |
+| D4 | **What to share across users** from contributions (license tiers / everything / only noncopyright assets) | Licensing boundary |
+| D5 | **Contribution model** (signal-driven server retrieval vs. client copy upload) | Poisoning, copyright redistribution, privacy |
+| D6 | **Privacy posture and timing** (opt-in in 0.5 / defer to 0.6 / default on) | 0.3 privacy boundary |
 
 ---
 
-## 三、决策
+<a id="三决策"></a>
 
-> 本 ADR 的决策均经 grill-with-docs 会话逐维裁决（2026-06-03），落「待签字」。
+## 3. Decisions
 
-### D1 — 无 API 源 = 实时现抓 + 外链，**永不落 Corpus**
+> Decisions below were adjudicated dimension by dimension in the grill-with-docs session (2026-06-03), awaiting signature.
 
-GS 类源数据 ToS 禁抓、且全文多为非 OA / 不可缓存再分发。故定位为 ADR-013「按需现抓 + 外链不落库」的**扩展**：结果实时取、带回链、**不进语料缓存**。与 ADR-013 许可红线一致，无新增合规面。
+<a id="d1-&#45;无-api-源-&#45;实时现抓-&#45;外链永不落-corpus"></a>
 
-### D2 — 抓取**默认跑用户本地 + 用户自配第三方 SERP API key（BYOK）兑底；ASCI 服务端永不自抓**
+### D1 — Non-API Sources = Live Fetching + External Links, **Never Stored in Corpus**
 
-| 候选 | 取舍 | 理由 |
+GS-style source ToS prohibit scraping, and much full text is non-OA / cannot be cached and redistributed. Position this as an **extension** of ADR-013's on-demand fetch + external-link-without-storage layer: fetch results live, return source links, **never add to corpus cache**. This aligns with ADR-013's licensing boundary without a new compliance surface.
+
+<a id="d2-&#45;抓取默认跑用户本地-&#45;用户自配第三方-serp-api-keybyok兑底asci-服务端永不自抓"></a>
+
+### D2 — Fetching **Defaults to User-Local + User-Configured Third-Party SERP API Key (BYOK) Fallback; ASCI Servers Never Scrape Directly**
+
+| Alternative | Choice | Reason |
 |---|---|---|
-| **用户本地抓**（headless / 用户 IP/会话）| ✅ 默认 | IP 封禁风险分散到用户；ASCI 零成本零法律风险；完美套 ADR-001 本地优先 + BYOK 身份 |
-| **第三方 SERP API（SerpApi 等）** | ✅ 兑底（**用户自配 key**）| 可靠兜底，仍是 BYOK——用户付费、ASCI 不代付，零每查询成本 |
-| **ASCI 服务端自抓** | ❌ 排除 | ASCI IP 快速被封 + 独担全部法律/成本/维护；反转 ADR-013 的 BYOK 零成本模型，与本地优先身份最冲突 |
+| **User-local fetching** (headless / user's IP/session) | ✅ Default | Distributes IP-block risk to users; zero ASCI cost/legal risk; fits ADR-001 local-first + BYOK identity |
+| **Third-party SERP API (SerpApi, etc.)** | ✅ Fallback (**user-provided key**) | Reliable fallback, still BYOK: users pay, ASCI does not subsidize; zero per-query cost |
+| **ASCI server scraping** | ❌ Rejected | ASCI IPs quickly blocked; concentrates legal/cost/maintenance burden; reverses ADR-013's zero-cost BYOK model and conflicts most with local-first identity |
 
-### D3 — 0.5 只做「**本地抓取机制 + GS 单标杆源**」，定位**观察档**；先 spike 量化可用率，过阈再扩
+<a id="d3-&#45;05-只做本地抓取机制-&#45;gs-单标杆源定位观察档先-spike-量化可用率过阈再扩"></a>
 
-- 0.5：实现 user-local 抓取机制 + 接入 **GS 一个标杆源**；先用小 **spike** 量化 user-local 抓取在反爬下的真实**可用率 / 延迟 / CAPTCHA 命中率 / 封锁率**。
-- 扩源（ResearchGate / CNKI / 万方 / 出版商页）→ **0.6/V1**，**以 0.5 spike 结果为门**（过阈才扩）。
-- 理由：GS 现为黑名单死源（抓取脆），4 人团队紧跟 0.4 超大版本，范围风险最高；先拿真实可用率证据再承诺扩源，合「证据优先于承诺」纪律。
+### D3 — 0.5 Implements Only **Local Fetching Mechanism + GS Benchmark Source**, in **Observation Mode**; Measure Availability in a Spike Before Expansion
 
-### D4 — 回流**按 license 分层共享**：仅可再分发 OA 解析进服务端共享；非 OA 永不跨用户共享
+- 0.5: Implement user-local fetching + **GS as the single benchmark source**; first run a small **spike** measuring actual **availability / latency / CAPTCHA rate / block rate** under anti-bot defenses.
+- Expand to ResearchGate / CNKI / Wanfang / publisher pages in **0.6/V1**, **gated by 0.5 spike results** (expand only above threshold).
+- Reason: GS is currently a fragile blacklisted dead source; a four-person team immediately following the large 0.4 release faces high scope risk. Gather actual availability evidence before promising expansion, consistent with evidence-before-commitment discipline.
 
-| 类别 | 跨用户共享 | 说明 |
+<a id="d4-&#45;回流按-license-分层共享仅可再分发-oa-解析进服务端共享非-oa-永不跨用户共享"></a>
+
+### D4 — **License-Tiered Sharing**: Only Redistributable OA Parses Enter Shared Server Storage; Non-OA Is Never Shared Across Users
+
+| Category | Cross-user Sharing | Explanation |
 |---|---|---|
-| 可再分发 OA（peS2o/S2ORC ODC-By、PMC oa_comm CC0/CC-BY）| ✅ 进服务端共享缓存 | = 需求驱动的 OA 语料增长，本质是 ADR-013 P1/R3 的服务端化 |
-| 非 OA / arXiv / NC-ND | ❌ 永不跨用户共享 | 至多设备本地缓存（ADR-013 R3 已涵盖）；转给他人 = 再分发，撞红线 |
+| Redistributable OA (peS2o/S2ORC ODC-By, PMC oa_comm CC0/CC-BY) | ✅ Shared server cache | Demand-driven OA corpus growth; essentially server-side ADR-013 P1/R3 |
+| Non-OA / arXiv / NC-ND | ❌ Never shared across users | At most device-local cache (already covered by ADR-013 R3); transfer to others is redistribution and violates the boundary |
 
-### D5 — 贡献模型 = **信号驱动 + 服务端自取自解析 OA**（非"用户上传解析副本"）
+<a id="d5-&#45;贡献模型-&#45;信号驱动-&#45;服务端自取自解析-oa非用户上传解析副本"></a>
 
-客户端只发**去关联的"需 DOI Y 精读"信号**；**ASCI 服务端自己去取这篇 OA + 自己解析**入共享缓存。一次性拆掉三个炸弹：
+### D5 — Contribution Model = **Signal-Driven + Server Retrieval and Parsing of OA**, Rather Than User-Uploaded Parsed Copies
 
-- **投毒** → ASCI 控制解析质量，不信任客户端产物；
-- **版权转分发** → ASCI 直取 OA，不转分发用户的副本（即便 OA，"转用户副本"法律姿态也更重）；
-- **重隐私** → 回流收敛为纯需求信号（无用户副本字节）。
-- **非 OA 自然出局** → 服务端取不到非 OA → 永不进共享（与 D4 自洽）。
+Clients send only a **delinked signal requesting close reading of DOI Y**; **ASCI's server fetches the OA paper and parses it itself** into the shared cache. This removes three hazards together:
 
-> 由此，「用户下载/解析数据供二次调用」的实现 = **需求驱动语料填充**（demand-driven lazy-fill）：给 ADR-013 P1 的批量摄取叠加一条按需懒填管道；二次调用 = 一篇 OA 被解析过（批量或按需）后，所有用户复用。
+- **Poisoning** → ASCI controls parse quality rather than trusting client artifacts.
+- **Copyright redistribution** → ASCI retrieves OA directly without redistributing user copies (even for OA, forwarding a user copy creates a heavier legal posture).
+- **Heavy privacy exposure** → Contributions narrow to demand signals only (no user-copy bytes).
+- **Non-OA naturally excluded** → Servers cannot retrieve non-OA → it never enters shared storage (consistent with D4).
 
-### D6 — 回流**默认关 · opt-in · 去关联**，**0.5 即做**；与 0.6 查询飞轮分离
+> Thus “reuse users' download/parse data” becomes **demand-driven lazy-fill**: add an on-demand pipeline alongside ADR-013 P1 batch ingestion. Reuse means that once an OA paper is parsed (batch or on demand), all users can reuse it.
 
-- 默认关，opt-in 开启；上传体为**按 DOI keyed 的公共 OA 需求信号**，服务端**不落 who↔DOI 映射**（去关联）。
-- 因模型 D5 已把隐私面削到"去关联的公共 OA 需求信号"（远轻于查询飞轮的 per-user 行为数据），且直接兑现会议核心诉求，故**进 0.5**（需轻量红线澄清 + 披露）。
-- **查询飞轮**（查询/点击/采纳信号驱动相关性复利）含 per-user 研究行为、撞 0.3 红线更重，**仍 0.6**，与本条正交、勿混（见 [CONTEXT.md](../../CONTEXT.md) §Flagged ambiguities）。
+<a id="d6-&#45;回流默认关-&#45;opt-in-&#45;去关联05-即做与-06-查询飞轮分离"></a>
+
+### D6 — Contributions **Default Off · Opt-In · Delinked**, Implemented in **0.5**; Separate from the 0.6 Query Flywheel
+
+- Default off, enabled by opt-in; upload **public OA demand signals keyed by DOI**; servers **do not store who↔DOI mappings** (delinked).
+- Since D5 reduces privacy exposure to delinked public OA demand signals (far lighter than per-user behavioral query-flywheel data) and directly fulfills the meeting's central request, include it in **0.5** (with lightweight boundary clarification + disclosure).
+- The **query flywheel** (relevance compounding from queries/clicks/adoptions) includes per-user research behavior and conflicts more strongly with 0.3 boundaries; **still 0.6**, orthogonal to this decision and not to be conflated (see [CONTEXT.md](../../CONTEXT.md) §Flagged ambiguities).
 
 ---
 
-## 四、0.5 ⇄ 0.6 节奏（在 ADR-013 P1/P2/P3 之上叠加）
+<a id="四05-&#45;06-节奏在-adr-013-p1p2p3-之上叠加"></a>
+
+## 4. 0.5 ⇄ 0.6 Timing (Layered over ADR-013 P1/P2/P3)
+
+The retained roadmap lists 0.5 metadata indexing/batch OA ingestion (P1), local GS spike (P1+), shared OA serving (P3), opt-in delinked lazy-fill (P3+), and BYOK agentic/hybrid search/reranking (P2). In 0.6/V1 it places the opt-in query flywheel with privacy-boundary redefinition and non-API expansion gated by the GS spike.
 
 ```
-0.5（必做/观察 · 无重隐私面）
-  P1  ▸ [ADR-013] OpenAlex 元数据 index + 批量 OA 摄取（eager）
-  P1+ ▸ [D2/D3 本 ADR] user-local 抓取机制 + GS 单标杆源（观察档）+ spike 量化可用率
-  P3  ▸ [ADR-013] 读侧：服务端共享 OA 解析缓存（serving · 公共内容 · 零新增隐私）
-  P3+ ▸ [D4/D5/D6 本 ADR] 写侧：需求驱动语料懒填（信号驱动 + 服务端自取自解析 · opt-in · 去关联）
-  P2  ▸ [ADR-013] agentic 检索 + 混合召回 + LLM 重排（跑 BYOK）
+0.5 (required/observe · no heavy privacy exposure)
+  P1  ▸ [ADR-013] OpenAlex metadata index + batch OA ingestion (eager)
+  P1+ ▸ [D2/D3 this ADR] user-local fetching + GS benchmark (observe) + availability spike
+  P3  ▸ [ADR-013] Read side: shared server OA parse cache (serving · public content · no new privacy exposure)
+  P3+ ▸ [D4/D5/D6 this ADR] Write side: demand-driven lazy-fill (signals + server retrieval/parsing · opt-in · delinked)
+  P2  ▸ [ADR-013] agentic search + hybrid retrieval + LLM reranking (BYOK)
 
-0.6/V1（opt-in + 红线重定义 / 按证据扩）
-  ▸ 查询飞轮（相关性信号复利）—— 撞 0.3 红线，opt-in + 重定义
-  ▸ 无 API 源扩类（ResearchGate / CNKI / 万方 / 出版商页）—— 以 0.5 GS spike 结果为门
+0.6/V1 (opt-in + boundary redefinition / evidence-gated expansion)
+  ▸ Query flywheel (compounding relevance signals) — conflicts with 0.3 boundary; opt-in + redefinition
+  ▸ Expand non-API sources (ResearchGate / CNKI / Wanfang / publisher pages) — gated by 0.5 GS spike
 ```
 
 ---
 
-## 五、后果
+<a id="五后果"></a>
 
-- **扩展 ADR-013 而非替代**：方向（部分自建分层 / 不囤论文囤相关性 / BYOK 零每查询成本）全部继承；本 ADR 只新增"无 API 源实时层"与"需求驱动 OA 懒填层"。
-- **保 BYOK / 本地优先身份**：无 API 抓取跑用户本地或用户自配 key，回流是去关联信号、服务端只做 OA 自取自解析（一次性、跨用户摊薄，非每查询成本）——身份不破。
-- **服务端新增一条按需 OA 取+解析管道**：在 ADR-013 批量摄取之外，须能按去关联信号触发"取 OA → 解析 → 入共享缓存"；继承 ADR-013 对 ADR-002 的扩展（index/语料 workload）。
-- **隐私红线轻量澄清（0.5）**：需说明"去关联的公共 OA 需求信号"为何不构成 0.3 意义上的"研究内容遥测"，并落 opt-in + 披露；与 0.6 查询飞轮的红线重定义分离。
-- **GS 黑名单状态待重评**：扩源 spec §4.2 将 `google_scholar` 列死源；本 ADR 落地后该条需据 spike 结论修订（user-local 路径 ≠ 当时的服务端 fan-out 路径）。
+## 5. Consequences
 
-### 风险
+- **Extends rather than replaces ADR-013**: Fully inherits partially self-built layers / accumulating relevance rather than papers / zero per-query BYOK cost; adds only live non-API sources and demand-driven OA lazy-fill.
+- **Preserves BYOK / local-first identity**: Fetching runs user-local or with user-provided keys; contributions are delinked signals, while servers only retrieve/parse OA (one-time costs amortized across users rather than per query).
+- **New server pipeline for on-demand OA retrieval + parsing**: In addition to ADR-013 batches, delinked signals trigger OA fetch → parse → shared cache; inherits ADR-013's extension to ADR-002 (index/corpus workload).
+- **Lightweight privacy-boundary clarification (0.5)**: Explain why delinked public OA demand signals are not research-content telemetry in the 0.3 sense, with opt-in + disclosure; separate from 0.6 query-flywheel boundary redefinition.
+- **GS blacklist status needs reevaluation**: Source expansion spec §4.2 lists `google_scholar` as dead; revise after implementation according to spike findings (user-local differs from the original server fan-out path).
 
-| 风险 | 缓解 |
+<a id="风险"></a>
+
+### Risks
+
+| Risk | Mitigation |
 |------|------|
-| GS user-local 抓取真实可用率未知（现为死源）| **spike 先量化**（可用率/延迟/CAPTCHA/封锁），过阈才扩源；不过阈则 GS 仅尽力而为、不承诺 |
-| ASCI 分发抓取器的 ToS/声誉风险（即便跑用户本地）| 法务确认"提供工具 vs 代为抓取"的边界；默认用户本地、明确不代抓 |
-| 逐篇上游版权（OA 桶级"可商业"≠每篇无 NC/ND）| 继承 ADR-013：共享缓存保留逐篇 license 元数据、过滤 NC/ND；落地前法务确认 |
-| 去关联是否真去关联（服务端仍可能从连接侧关联）| 工程上确保不落 who↔DOI 映射；披露其边界；保守仍 opt-in |
-| 范围叠加（0.5 紧跟 0.4 超大版本，4 人）| D3/D6 均可降级；GS 观察档 + 写侧 opt-in 可后置不阻塞 0.5 主线 |
+| Unknown actual GS user-local availability (currently dead source) | **Measure first in spike** (availability/latency/CAPTCHA/blocking); expand only above threshold, otherwise GS remains best effort without promises |
+| ToS/reputational risk from distributing a scraper (even user-local) | Legal confirmation of providing tools vs. scraping on behalf of users; default local, explicitly no proxy scraping |
+| Per-paper upstream copyright (commercially usable OA bucket does not mean every paper lacks NC/ND) | Inherit ADR-013: retain per-paper license metadata, filter NC/ND; legal confirmation before implementation |
+| Whether delinking is real (servers may still correlate connections) | Engineer storage to omit who↔DOI mappings; disclose limits; remain opt-in conservatively |
+| Accumulated scope (four people, 0.5 immediately after large 0.4) | D3/D6 can degrade; GS observation and opt-in writing may be deferred without blocking 0.5 mainline |
 
 ---
 
-## 六、后续动作
+<a id="六后续动作"></a>
 
-- [ ] 产研 Lead 签字（Proposed → Accepted）
-- [ ] **spike（前移 0.4 并行执行 · 追踪 [#722](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/722)）**：user-local 抓取 GS 的真实可用率/延迟/CAPTCHA 命中/封锁率 + 选定抓取技术路径 + fallback 链可行性（D3 扩源门；见 [0.4 north-star](../milestones/0.4/north-star.md) §四 GS-E1~E4）
-- [ ] 法务确认：① 分发抓取器/SERP 接入的 ToS 边界；② 需求驱动懒填的逐篇 OA license 过滤
-- [x] GS 升格为 0.5 独立功能：[0.5 north-star](../milestones/0.5/north-star.md) §五 P5 + [0.5 PRD](../specs/0.5.0/0.5.0-prd.md) Epic 5；可行性探索前移 [0.4](../milestones/0.4/north-star.md) §四（GS 从原 D3「观察档 / P1+ spike 脚注」升格，三层 fallback 链 L1 user-local / L2 SERP API / L3 直达 GS）
-- [ ] 同步更新 north-star：P3+ **需求驱动懒填**（D4–D6 写侧，尚未落 0.5 PRD / north-star，待补）
-- [ ] 修订 [失败触发扩源 spec](../specs/lit-search-failure-source-expansion-spec.md) §4.2 GS 黑名单状态（据 spike 结论）
-- [ ] 同步修订 [ADR-002](./ADR-002-server-stack.md)：按需 OA 取+解析管道纳入服务端 workload（与 ADR-013 同批）
+## 6. Follow-Up
+
+- [ ] Product/engineering Lead signature (Proposed → Accepted).
+- [ ] **Spike (moved forward for parallel 0.4 execution · tracked in [#722](https://github.com/OPENSCI-Labs/ASCI-Alpha/issues/722))**: Actual user-local GS availability/latency/CAPTCHA/block rate + select fetching technology + fallback feasibility (D3 expansion gate; [0.4 north-star](../milestones/0.4/north-star.md) §4 GS-E1~E4).
+- [ ] Legal confirmation: ① ToS boundaries for scraper distribution/SERP integration; ② per-paper OA license filtering for demand-driven lazy-fill.
+- [x] GS promoted to an independent 0.5 feature: [0.5 north-star](../milestones/0.5/north-star.md) §5 P5 + [0.5 PRD](../specs/0.5.0/0.5.0-prd.md) Epic 5; feasibility exploration moved to [0.4](../milestones/0.4/north-star.md) §4 (promoted from D3 observation / P1+ spike footnote; three-level fallback L1 user-local / L2 SERP API / L3 direct GS).
+- [ ] Update north-star: P3+ **demand-driven lazy-fill** (D4–D6 write side, not yet in 0.5 PRD / north-star).
+- [ ] Revise [Failure-Triggered Source Expansion Spec](../specs/lit-search-failure-source-expansion-spec.md) §4.2 GS blacklist according to spike findings.
+- [ ] Update [ADR-002](./ADR-002-server-stack.md): Include on-demand OA retrieval/parsing in server workload (same batch as ADR-013).

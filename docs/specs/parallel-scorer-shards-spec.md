@@ -1,67 +1,87 @@
-# 并行化 V2 scorer shards Spec（Parallel Scorer Shards）
+<a id="并行化-v2-scorer-shards-specparallel-scorer-shards"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：#689（lit-search：并行化 V2 scorer shards，加速大候选集评分）
-> **关联 PR**：TBD
-> **领域语言事实源**：本 spec §2 术语；与 `CONTEXT.md` / `docs/specs/lit-scoring-agent-spec.md` 对齐
-> **依赖**：`docs/specs/lit-scoring-agent-spec.md`（score / scorer v2）、`docs/specs/execution-step-grouping-spec.md`（PLAN 并行步骤）
+# Parallel V2 scorer shards Spec (Parallel Scorer Shards)
+
+> **Status**: Draft · Review pending
+> **Related issue**: #689 (lit-search: parallelize V2 scorer shards to accelerate scoring large candidate sets)
+> **Related PR**: TBD
+> **Domain-language source of truth**: Terminology in §2 of this spec; aligned with `CONTEXT.md` / `docs/specs/lit-scoring-agent-spec.md`
+> **Dependencies**: `docs/specs/lit-scoring-agent-spec.md` (score / scorer v2), `docs/specs/execution-step-grouping-spec.md` (PLAN parallel steps)
 
 ---
 
-## 1. 背景与问题
+<a id="1-背景与问题"></a>
 
-lit-search 默认 V2 评分链路当前是 `searcher/retrieve → scorer`（**单个** scorer 子 Agent）。scorer 在 Step 0 用一段**手写 Python**：读整份 session JSONL → 过滤本轮 turn → 按 F22 `extra.relevance` 排序 → 取判分窗口（F22>50 OR method≥70，floor 50，cap 120，并合并 seeds）→ 把整窗候选打印进 context，再逐篇判 `semantic` / `method`，最后一次 `apply_scoring` 回写 `extra.score`。
+## 1. Background and problem
 
-问题：**LLM judge 是检索最贵的环节**。窗口可达 120 篇，单个 scorer 串行判完全部，候选集越大延迟越高。判分窗口里各篇相互独立，天然可并行。
+The current default lit-search V2 scoring pipeline is `searcher/retrieve → scorer` (a **single** scorer sub-Agent). In Step 0, scorer uses **handwritten Python** to read the entire session JSONL → filter this turn → sort by F22 `extra.relevance` → select the scoring window (F22>50 OR method≥70, floor 50, cap 120, merging seeds) → print all window candidates into context, then judge `semantic` / `method` paper by paper and use one final `apply_scoring` call to write back `extra.score`.
 
-## 2. 术语（领域语言）
+Problem: **LLM judging is the most expensive search stage**. A window can contain 120 papers; a single scorer judges them all serially, increasing latency with candidate count. Papers in the scoring window are independent and naturally parallelizable.
 
-- **V2 scoring window（评分窗口）**：本轮 turn 里需要 LLM 判 `semantic`/`method` 的候选集合。规则由**服务端**确定（F22>50 OR methodRelevance≥70，floor 50，cap 120，合并 forced seeds）。
-- **shard（分片）**：评分窗口的一个**不相交子集**。N 个 shard 互不重叠、合并 == 完整窗口。
-- **scorer shard**：只判分自己 shard 内论文的一个 `scorer` 子 Agent 实例。
-- **DEFAULT_SCORING_SHARD_COUNT**：默认分片数，先取 **3**。
+<a id="2-术语领域语言"></a>
 
-## 3. 目标与边界
+## 2. Terminology (domain language)
 
-完成后普通文献检索仍保持 `searcher/retrieve → scorer` 的**用户可见行为不变**，但当候选集较大时系统把评分窗口稳定切分成多个 shard，并行派发多个 `scorer`。两条硬边界：
+- **V2 scoring window**: Candidates in this turn requiring LLM `semantic`/`method` judgments. Rules are determined **server-side** (F22>50 OR methodRelevance≥70, floor 50, cap 120, merging forced seeds).
+- **shard**: A **disjoint subset** of the scoring window. N shards do not overlap, and their union == the complete window.
+- **scorer shard**: One `scorer` sub-Agent instance judging only papers in its own shard.
+- **DEFAULT_SCORING_SHARD_COUNT**: Default shard count, initially **3**.
 
-1. **并行只发生在 LLM judge 阶段**。候选窗口规则、分片规则、写回合并规则**必须由服务端确定**——scorer prompt 不再手写 Bash/Python 读整份 JSONL 自行切片。
-2. **并发写安全**。多个 scorer 并发写同一 session JSONL 的不同 handles 时，`apply_scoring` 的 read-modify-write 必须并发安全，后写 shard 不得覆盖先写 shard 的 `score`。
+<a id="3-目标与边界"></a>
 
-旧 `relevance-scorer` / `finalRelevance`（v1）仍是 legacy fallback，不进入默认路径。
+## 3. Goals and boundaries
 
-## 4. 设计
+After completion, ordinary literature search retains **unchanged user-visible behavior** for `searcher/retrieve → scorer`, but for large candidate sets the system deterministically splits the scoring window into multiple shards and dispatches multiple `scorer` instances in parallel. Two hard boundaries:
 
-### 4.1 服务端窗口 + 分片工具（paper-search MCP）
+1. **Parallelism occurs only in the LLM judge stage**. Candidate-window, sharding, and writeback-merge rules **must be determined server-side**; scorer prompts no longer handwrite Bash/Python to read and slice the entire JSONL.
+2. **Concurrent write safety**. When multiple scorers concurrently write different handles in the same session JSONL, the `apply_scoring` read-modify-write must be concurrency-safe; later shards must not overwrite earlier shards' `score`.
 
-- `select_scoring_window(records, turn_id=None) -> (resolved_turn_id, window_records)`：把原来散落在 scorer.md 的窗口规则下沉为**服务端确定性函数**（同样的阈值/floor/cap/seed 合并；按 F22 desc 稳定排序）。
-- 新 MCP 工具 `get_scoring_shard(shard_index, shard_count=3, session_id="", turn_id="")`：
-  - 读 JSONL → `select_scoring_window` → 按 **round-robin** `window[shard_index::shard_count]` 取本 shard（稳定、不相交、合并完整、难度均衡）。
-  - 返回 `{turn_id, shard_index, shard_count, window_total, shard_size, candidates:[{handle,title,abstract,year}], note?}`。
-  - **边界**：`shard_count<1` 或 `shard_index` 越界（<0 或 ≥shard_count）→ `{error}`；空窗口 / 空 shard → `candidates: []`、`shard_size: 0`、`note` 可解释（scorer 据此报告 scored 0），**不报错**。
-  - 单 scorer fallback = `shard_count=1, shard_index=0` → 返回整窗。
+Old `relevance-scorer` / `finalRelevance` (v1) remain legacy fallbacks outside the default path.
 
-### 4.2 JSONL 回写并发安全
+<a id="4-设计"></a>
 
-- 按 `out_path` 维护进程内 `asyncio.Lock`（module-level dict，按 path 建键；MCP 单进程单事件循环模型下同一 loop 内复用同一锁）。
-- **所有"读整份 → 改 → 原子重写同一份 JSONL"的写者都必须进同一把锁**，否则后写者会用读时旧快照覆盖先写者的字段：
-  - `apply_scoring`（多个 scorer shard 并发回写 `score`）；
-  - `enrich_session_async`（后台 venue 反查 + 分区 + 七维评分回写）—— 其 read→merge→rewrite 临界区进锁；慢网络富化在锁外完成，锁持有窗口短。
-- 每个写者的 RMW 读到的是**当前**文件（含其他写者已落地的字段），只改自己负责的字段/handles，再原子重写 → 合并语义正确、无丢分（shard↔shard 不丢 `score`，shard↔enrich 不丢 `journalRank`/`venue`）。
-- ⚠️ 历史教训：`apply_scoring` 把文件 I/O 改成 `await to_thread` 引入了 yield 点，若 `enrich` 不进同一把锁就会与 shard 交错互相覆盖——两段同锁后消除。
+## 4. Design
 
-### 4.3 scorer 子 Agent
+<a id="41-服务端窗口-&#45;分片工具paper-search-mcp"></a>
 
-- 工具白名单：`["mcp__paper-search__get_scoring_shard", "mcp__paper-search__apply_scoring"]`（去掉 Bash —— 不再手写 Python 切片）。
-- Step 0 改为**一次 `get_scoring_shard` 调用**，`shard_index`/`shard_count` 取自派活 brief（缺省 = 0/1，判整窗）。其余判分/回写逻辑不变。
+### 4.1 Server-side window + sharding tool (paper-search MCP)
 
-### 4.4 PLAN / 派活协议
+- `select_scoring_window(records, turn_id=None) -> (resolved_turn_id, window_records)`: Move window rules previously scattered across scorer.md into a **deterministic server-side function** (same thresholds/floor/cap/seed merging; stable F22 desc sort).
+- New MCP tool `get_scoring_shard(shard_index, shard_count=3, session_id="", turn_id="")`:
+  - Read JSONL → `select_scoring_window` → select this shard using **round-robin** `window[shard_index::shard_count]` (stable, disjoint, complete union, balanced difficulty).
+  - Return `{turn_id, shard_index, shard_count, window_total, shard_size, candidates:[{handle,title,abstract,year}], note?}`.
+  - **Boundaries**: `shard_count<1` or out-of-range `shard_index` (<0 or ≥shard_count) → `{error}`; empty window / shard → `candidates: []`, `shard_size: 0`, explanatory `note` (scorer reports scored 0), **without error**.
+  - Single-scorer fallback = `shard_count=1, shard_index=0` → return the entire window.
 
-- scenario `general-query` / `citation-tracing` 默认在 `searcher` / `citation-explorer` 之后，emit **3 个 `parallel: true` 的 `scorer` shard 步骤**（`shard_index` 0/1/2，`shard_count` 3）。
-- 主 Agent 派活协议（agent-prompt-builder）：**连续的 `parallel: true` 步骤组成一个并行组**，一次性并发派发，等组内全部 tool_result 回齐（barrier）后再进入下一顺序步骤 / terminal skill。`searcher` 不带 `parallel`（顺序），保证 scorer 组在候选已落盘后才启动。
+<a id="42-jsonl-回写并发安全"></a>
 
-## 5. 验收（见 issue #689 Acceptance criteria）
+### 4.2 Concurrent JSONL writeback safety
 
-- Python 单测：窗口分片不相交+合并完整、空 shard、越界 shard、单 shard fallback、并发 `apply_scoring` 不丢分。
-- Bun 契约测试：scenario 产出并行 scorer shards、scorer 白名单含 `get_scoring_shard` + `apply_scoring`、PLAN dispatch 协议支持同组并行步骤。
-- `bun run typecheck` / `bun test` 通过；受影响包 patch 递增。
+- Maintain an in-process `asyncio.Lock` per `out_path` (module-level dict keyed by path; reuse the same lock within the same loop under MCP's single-process, single-event-loop model).
+- **All writers that read the entire JSONL → modify → atomically rewrite that same JSONL must acquire the same lock**, or later writers overwrite earlier fields with a stale read snapshot:
+  - `apply_scoring` (multiple scorer shards concurrently writing `score`);
+  - `enrich_session_async` (background venue lookup + ranking + seven-dimensional score writeback): lock its read→merge→rewrite critical section; perform slow network enrichment outside the lock to keep lock duration short.
+- Each writer's RMW reads the **current** file (including fields already persisted by other writers), modifies only its own fields/handles, then rewrites atomically → correct merging without lost scores (shard↔shard preserves `score`; shard↔enrich preserves `journalRank`/`venue`).
+- ⚠️ Historical lesson: Changing file I/O in `apply_scoring` to `await to_thread` introduced yield points; without the same lock, `enrich` interleaved with shards and overwrote their changes. Sharing the lock across both sections eliminated this.
+
+<a id="43-scorer-子-agent"></a>
+
+### 4.3 scorer sub-Agent
+
+- Tool allowlist: `["mcp__paper-search__get_scoring_shard", "mcp__paper-search__apply_scoring"]` (remove Bash; no more handwritten Python slicing).
+- Change Step 0 to **one `get_scoring_shard` call**, taking `shard_index`/`shard_count` from the dispatch brief (default = 0/1, judging the full window). Other judging/writeback logic stays unchanged.
+
+<a id="44-plan-&#45;派活协议"></a>
+
+### 4.4 PLAN / dispatch protocol
+
+- Scenarios `general-query` / `citation-tracing` default to emitting **3 `parallel: true` `scorer` shard steps** after `searcher` / `citation-explorer` (`shard_index` 0/1/2, `shard_count` 3).
+- Main Agent dispatch protocol (agent-prompt-builder): **Consecutive `parallel: true` steps form a parallel group**, dispatched concurrently in one batch; wait for all tool_result responses in the group (barrier) before the next sequential step / terminal skill. `searcher` has no `parallel` (sequential), ensuring the scorer group starts only after candidates are persisted.
+
+<a id="5-验收见-issue-689-acceptance-criteria"></a>
+
+## 5. Acceptance (see issue #689 Acceptance criteria)
+
+- Python unit tests: disjoint window shards + complete union, empty shard, out-of-range shard, single-shard fallback, concurrent `apply_scoring` without lost scores.
+- Bun contract tests: scenarios produce parallel scorer shards, scorer allowlist includes `get_scoring_shard` + `apply_scoring`, PLAN dispatch protocol supports parallel steps in one group.
+- `bun run typecheck` / `bun test` pass; increment patch versions of affected packages.

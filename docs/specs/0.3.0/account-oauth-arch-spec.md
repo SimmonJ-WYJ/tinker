@@ -1,228 +1,274 @@
-# 账户体系 OAuth 架构 Spec（Account OAuth Architecture Specification）
+<a id="账户体系-oauth-架构-specaccount-oauth-architecture-specification"></a>
 
-> **状态**：草稿 · 待 review
-> **关联 issue**：#413（Epic 7 切片 7.4 邮件域前置，引出 SSO 契约依赖）· Epic 1 账户体系
-> **领域语言事实源**：`CONTEXT.md`（待补 OAuth 术语）
-> **依赖输入**：`docs/specs/0.3.0/0.3.0-prd.md` Epic 1（账户体系）+ Epic 7（发布前置 LT-3 SSO 契约冻结）
-> **阻塞后续**：Epic 1 登录链路实现（U-A1~U-A6）；依赖 OPENSCI SSO 接口契约冻结（Epic 7 LT-3）
+# Account OAuth Architecture Spec (Account OAuth Architecture Specification)
 
----
-
-## 1. 概述与定位
-
-ASCI 0.3 通过 **OPENSCI 作为唯一登录入口**（OAuth2/OIDC 委托）完成强制登录。本 spec 把 Epic 1 的账户硬约束落成可实现的认证架构与时序，并标注依赖 OPENSCI 契约的待决点。
-
-### 1.1 两个决定架构形态的前置事实
-
-1. **桌面应用 OAuth = Native App 流程**：必须用 **Authorization Code + PKCE**（RFC 8252 "OAuth 2.0 for Native Apps"），不能用隐式流，不能在客户端内嵌 client secret。
-2. **离线要求（US13）+ token 本地加密（U-A2）** 基本排除纯 BFF（后端持 token）模式 → **app 本地持 token** 才能在断网时通过强制登录门。
-
-### 1.2 现状起点（供实现参考）
-
-- 账户/服务端通信：0.2 为 greenfield，无现成 OAuth 代码。
-- 可复用：0.1/0.2 的 `safeStorage` AES-256-GCM 加密（见 `channel-manager.ts`）、proxy-fetch 模式。
-- 研究数据：设备级单一本地库（SQLite + JSONL，落 `~/.asci/`），**不按账户隔离**（对齐 Zotero）。
+> **Status**: Draft · Awaiting review
+> **Related issues**: #413 (Epic 7 slice 7.4 email-domain prerequisite, introducing SSO contract dependency) · Epic 1 account system
+> **Domain source of truth**: `CONTEXT.md` (OAuth terminology to be added)
+> **Input dependencies**: `docs/specs/0.3.0/0.3.0-prd.md` Epic 1 (account system) + Epic 7 (pre-release LT-3 SSO contract freeze)
+> **Blocks**: Epic 1 login-chain implementation (U-A1~U-A6); depends on OPENSCI SSO interface contract freeze (Epic 7 LT-3)
 
 ---
 
-## 2. 整体架构 / 信任边界
+<a id="1-概述与定位"></a>
+
+## 1. Overview and Positioning
+
+ASCI 0.3 implements mandatory login using **OPENSCI as the sole login entry** (OAuth2/OIDC delegation). This spec turns Epic 1 account constraints into implementable authentication architecture and sequences, identifying decisions that depend on the OPENSCI contract.
+
+<a id="11-两个决定架构形态的前置事实"></a>
+
+### 1.1 Two Prerequisites That Determine Architecture
+
+1. **Desktop OAuth = Native App flow**: Must use **Authorization Code + PKCE** (RFC 8252 "OAuth 2.0 for Native Apps"), never implicit flow or embedded client secrets.
+2. **Offline requirements (US13) + locally encrypted tokens (U-A2)** largely rule out pure BFF (backend holds tokens) → **the app must hold tokens locally** to pass mandatory-login gating offline.
+
+<a id="12-现状起点供实现参考"></a>
+
+### 1.2 Current Starting Point (Implementation Reference)
+
+- Accounts/server communication: Greenfield in 0.2, no existing OAuth code.
+- Reusable: 0.1/0.2 `safeStorage` AES-256-GCM encryption (see `channel-manager.ts`), proxy-fetch pattern.
+- Research data: One device-level local library (SQLite + JSONL under `~/.asci/`), **not partitioned by account** (aligned with Zotero).
+
+---
+
+<a id="2-整体架构-&#45;信任边界"></a>
+
+## 2. Overall Architecture / Trust Boundaries
 
 ```mermaid
 graph TB
-    subgraph Device["用户设备（ASCI Electron）"]
-        subgraph Renderer["Renderer 进程"]
-            UI["登录入口 / 账户 tab<br/>(只读 profile)"]
-            Guard["强制登录门<br/>(路由守卫)"]
+    subgraph Device["User device (ASCI Electron)"]
+        subgraph Renderer["Renderer process"]
+            UI["Login entry / Account tab<br/>(Read-only profile)"]
+            Guard["Mandatory login gate<br/>(Route guard)"]
         end
-        subgraph Main["Main 进程"]
-            AuthSvc["AuthService<br/>OAuth+PKCE 编排"]
+        subgraph Main["Main process"]
+            AuthSvc["AuthService<br/>OAuth+PKCE orchestration"]
             TokenStore["TokenStore<br/>safeStorage AES-256-GCM<br/>~/.asci/auth.enc"]
-            Proto["Protocol/Loopback<br/>回调接收"]
+            Proto["Protocol/Loopback<br/>Callback receiver"]
         end
-        LocalDB["设备级研究库<br/>(SQLite + JSONL，本地，不按账户隔离)"]
+        LocalDB["Device-level research library<br/>(SQLite + JSONL, local, not account-partitioned)"]
     end
 
-    subgraph OPENSCI["OPENSCI（唯一登录方，外部）"]
+    subgraph OPENSCI["OPENSCI (sole external login party)"]
         Auth["Auth Server<br/>OAuth2/OIDC<br/>authorize / token / userinfo"]
-        IdP["上游 IdP<br/>ORCID / Google<br/>(client 归 OPENSCI)"]
+        IdP["Upstream IdP<br/>ORCID / Google<br/>(Client belongs to OPENSCI)"]
     end
 
-    subgraph ASCIBackend["ASCI 后端（闭源仓，外部）"]
-        Map["用户映射表<br/>OPENSCI uid → ASCI user<br/>(仅身份+遥测归属，不存 profile)"]
-        Telemetry["行为遥测归属"]
+    subgraph ASCIBackend["ASCI backend (external, closed-source repository)"]
+        Map["User mapping<br/>OPENSCI uid → ASCI user<br/>(Identity+telemetry attribution only, no profile storage)"]
+        Telemetry["Behavioral telemetry attribution"]
     end
 
     UI --> AuthSvc
-    Guard -. "校验本地 token 有效期" .-> TokenStore
-    AuthSvc -->|"① 打开系统浏览器 authorize+PKCE"| Auth
+    Guard -. "Check local token expiry" .-> TokenStore
+    AuthSvc -->|"① Open system browser authorize+PKCE"| Auth
     Auth --> IdP
-    Auth -->|"② 回调 code"| Proto
+    Auth -->|"② Callback code"| Proto
     Proto --> AuthSvc
-    AuthSvc -->|"③ code+verifier 换 token"| Auth
-    AuthSvc -->|"④ 加密落盘"| TokenStore
-    AuthSvc -->|"⑤ 持 token 注册映射"| Map
-    AuthSvc -->|"profile 实时读"| Auth
+    AuthSvc -->|"③ Exchange code+verifier for token"| Auth
+    AuthSvc -->|"④ Encrypted persistence"| TokenStore
+    AuthSvc -->|"⑤ Register mapping with token"| Map
+    AuthSvc -->|"Read profile live"| Auth
     Guard --> LocalDB
-    Telemetry -. "uid 归属" .- Map
+    Telemetry -. "uid attribution" .- Map
 ```
 
-**要点**：
-- profile 不落任何本地/服务端，**实时读 OPENSCI** `/userinfo`。
-- 研究库设备级、不按账户隔离；同设备换账户看到同一份库（US11）。
-- ASCI 后端只存 `OPENSCI uid → ASCI user` 映射，用于身份与行为遥测归属。
+The preserved diagram labels mean: user device (ASCI Electron), Renderer process (login entry/account tab with read-only profile, mandatory-login route guard), Main process (AuthService OAuth+PKCE orchestration, encrypted TokenStore, protocol/loopback callback receiver), and device-level local research library. External OPENSCI is the sole login party with upstream ORCID/Google IdPs; the external closed-source ASCI backend keeps only OPENSCI uid→ASCI user mapping and behavioral telemetry attribution. Arrows: check local token expiry; ① open system browser authorize+PKCE; ② callback code; ③ exchange code+verifier for tokens; ④ encrypted persistence; ⑤ register mapping with token; read profile live; attribute telemetry by uid.
+
+**Key points**:
+- Persist profile nowhere locally or server-side; **read OPENSCI** `/userinfo` **live**.
+- The research library is device-level, not account-partitioned; switching accounts on one device shows the same library (US11).
+- ASCI backend stores only `OPENSCI uid → ASCI user` mapping for identity and behavioral telemetry attribution.
 
 ---
 
-## 3. 登录时序（Authorization Code + PKCE）
+<a id="3-登录时序authorization-code-&#45;pkce"></a>
+
+## 3. Login Sequence (Authorization Code + PKCE)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant R as Renderer (登录页)
+    participant R as Renderer (login page)
     participant M as Main / AuthService
-    participant B as 系统浏览器
+    participant B as System browser
     participant O as OPENSCI Auth
-    participant A as ASCI 后端
+    participant A as ASCI backend
 
-    R->>M: 点击「用 OPENSCI 登录」
-    M->>M: 生成 code_verifier + code_challenge(S256) + state
-    M->>B: 打开 authorize URL(challenge,state,redirect_uri)
-    B->>O: 授权请求
-    O->>B: 用户登录/同意(可能转 ORCID/Google)
-    O-->>M: 回调 redirect_uri?code=...&state=...
-    Note over M: 校验 state，防 CSRF
+    R->>M: Click Log in with OPENSCI
+    M->>M: Generate code_verifier + code_challenge(S256) + state
+    M->>B: Open authorize URL(challenge,state,redirect_uri)
+    B->>O: Authorization request
+    O->>B: User login/consent (may redirect to ORCID/Google)
+    O-->>M: Callback redirect_uri?code=...&state=...
+    Note over M: Validate state against CSRF
     M->>O: POST /token (code + code_verifier)
-    O-->>M: access_token + refresh_token + id_token(过期时间)
-    M->>M: safeStorage 加密落盘 ~/.asci/auth.enc
-    M->>A: 携 token 注册/确认映射(OPENSCI uid→ASCI user)
-    A-->>M: ok(可选: 返回 ASCI session token)
-    M->>O: GET /userinfo → profile(只读)
-    M-->>R: 登录成功 + profile + 解除强制登录门
+    O-->>M: access_token + refresh_token + id_token(Expiry)
+    M->>M: safeStorage encrypted persistence ~/.asci/auth.enc
+    M->>A: Register/confirm mapping with token(OPENSCI uid→ASCI user)
+    A-->>M: ok(Optional: return ASCI session token)
+    M->>O: GET /userinfo → profile(read-only)
+    M-->>R: Login success + profile + release mandatory login gate
 ```
 
-对应验收：U-A1（走完登录链路）、U-A5（只读 profile）。
+Preserved sequence, in English: Renderer login page → Main/AuthService → system browser → OPENSCI Auth → ASCI backend. Click "Log in with OPENSCI"; generate verifier/challenge(S256)/state; open authorize URL; request authorization; user login/consent (possibly ORCID/Google); receive callback; validate state against CSRF; exchange code+verifier for access/refresh/id tokens and expiry; encrypt to ~/.asci/auth.enc; register/confirm uid mapping (optional ASCI session token); fetch read-only profile; report login success and release the login gate.
+
+Acceptance mapping: U-A1 (complete login chain), U-A5 (read-only profile).
 
 ---
 
-## 4. Token 刷新 + 旧 token 失效（U-A3）
+<a id="4-token-刷新-&#45;旧-token-失效u-a3"></a>
+
+## 4. Token Refresh + Old-token Invalidation (U-A3)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as ASCI(任意带 token 请求)
+    participant App as ASCI(Any token-bearing request)
     participant O as OPENSCI Auth
-    App->>App: 请求前检查 access_token 是否临期/过期
-    alt 过期且有 refresh_token
+    App->>App: Check access_token near expiry/expired before request
+    alt Expired with refresh_token
         App->>O: POST /token grant_type=refresh_token
-        O-->>App: 新 access + 新 refresh(rotation)，旧 refresh 一次性作废
-        App->>App: 覆盖写加密存储(新 token)
+        O-->>App: New access + new refresh(rotation), old refresh invalidated once
+        App->>App: Overwrite encrypted storage (new token)
     end
-    App->>O: 用 access_token 访问资源
-    O-->>App: 200 / 旧 token 已返回 401
+    App->>O: Access resources with access_token
+    O-->>App: 200 / Old token returns 401
 ```
 
-> **refresh token rotation**（刷新即换新 refresh、旧的立即失效）是 U-A3「旧 token 泄露无效」的实现关键，**依赖 OPENSCI 是否支持** —— 属 Epic 7 LT-3 契约冻结需确认项（见 §6 D4）。
+Preserved sequence, in English: Before any token-bearing request, check access_token nearing expiry/expired; if expired and refresh_token exists, POST refresh grant, receive new access/refresh with rotation invalidating the old refresh once, overwrite encrypted storage; request resources using access_token, receiving 200 while old tokens receive 401.
+
+> **Refresh token rotation** (new refresh on each refresh, old one immediately invalidated) is essential to U-A3's "leaked old token is invalid" requirement and **depends on OPENSCI support**. Confirm during Epic 7 LT-3 contract freeze (§6 D4).
 
 ---
 
-## 5. 应用启动 / 强制登录 / 离线 状态机
+<a id="5-应用启动-&#45;强制登录-&#45;离线-状态机"></a>
+
+## 5. Startup / Mandatory Login / Offline State Machine
 
 ```mermaid
 stateDiagram-v2
+    state "Check local token" as 检查本地token
+    state "Welcome/login page" as 欢迎登录页
+    state "Access valid" as access有效
+    state "Attempt refresh" as 尝试刷新
+    state "Offline grace" as 离线宽限
+    state "Enter app" as 进入应用
     [*] --> 检查本地token
-    检查本地token --> 欢迎登录页: 无 token
-    检查本地token --> access有效: access 未过期
-    检查本地token --> 尝试刷新: access 过期且有 refresh
+    检查本地token --> 欢迎登录页: No token
+    检查本地token --> access有效: Access unexpired
+    检查本地token --> 尝试刷新: Access expired with refresh
 
-    尝试刷新 --> access有效: 刷新成功
-    尝试刷新 --> 离线宽限: 断网(refresh 未过期)
-    尝试刷新 --> 欢迎登录页: refresh 过期/失败
+    尝试刷新 --> access有效: Refresh succeeds
+    尝试刷新 --> 离线宽限: Offline (refresh unexpired)
+    尝试刷新 --> 欢迎登录页: Refresh expired/failed
 
-    欢迎登录页 --> access有效: 完成 OAuth+PKCE
+    欢迎登录页 --> access有效: Complete OAuth+PKCE
     access有效 --> 进入应用
-    离线宽限 --> 进入应用: US13 本地功能可用
-    进入应用 --> 欢迎登录页: 登出(清加密存储)
+    离线宽限 --> 进入应用: US13 local features available
+    进入应用 --> 欢迎登录页: Logout (clear encrypted storage)
 ```
 
-> 离线宽限：所有研究功能本地化，只需本地 token 未过期即可用（US13）。宽限期长短取决于 OPENSCI refresh token TTL（§6 D5）。
+Preserved states and transitions, in English: Check local token → welcome/login if absent, access-valid if unexpired, attempt refresh if expired with refresh available. Refresh → access-valid on success, offline grace on network loss with unexpired refresh, welcome/login on expired/failed refresh. Complete OAuth+PKCE → access-valid → enter app. Offline grace permits local features under US13. Logout clears encrypted storage and returns to welcome/login.
 
-对应验收：U-A1（强制登录门）、U-A2（加密存储 / 登出清除）。
+> Offline grace: All research features are local; an unexpired local token suffices (US13). Grace duration depends on OPENSCI refresh-token TTL (§6 D5).
+
+Acceptance mapping: U-A1 (mandatory-login gate), U-A2 (encrypted storage / logout clearing).
 
 ---
 
-## 6. 需要拍板的关键决策
+<a id="6-需要拍板的关键决策"></a>
 
-| # | 决策点 | 选项 | 倾向 / 依赖 |
+## 6. Key Decisions Requiring Approval
+
+| # | Decision | Options | Preference / dependency |
 |---|--------|------|------|
-| D1 | **回调机制** | A. 自定义协议 `asci://callback`(deep link)<br/>B. Loopback `http://127.0.0.1:port` | A 体验好但需注册 protocol handler；B 最稳(RFC 8252 推荐)。建议 **B 主、A 备**，**取决于 OPENSCI 允许注册哪种 redirect_uri** |
-| D2 | **OAuth client 模式** | A. Native public client(PKCE,app 直连)<br/>B. BFF(后端持 token) | **A** —— 离线 + 本地 token 要求基本锁定 A；B 违背 US13 |
-| D3 | **缓存的是哪个 token** | A. OPENSCI access/refresh<br/>B. 额外发 ASCI session token | 看 ASCI 后端是否要独立鉴权；若仅遥测归属，**A 足够**，后端调用临时带 OPENSCI token |
-| D4 | **refresh rotation** | OPENSCI 是否支持旋转 | U-A3 强依赖；**Epic 7 LT-3 契约冻结需确认** |
-| D5 | **token 过期 vs 强制登录** | 离线宽限期长短 | 取决于 OPENSCI refresh token TTL，影响"出差断网能用多久" |
-| D6 | **多账户切换** | 同设备换 OPENSCI 账户 → 同一份设备库 | PRD 已定(设备级共享)，图已反映，无需再决 |
+| D1 | **Callback mechanism** | A. Custom protocol `asci://callback` (deep link)<br/>B. Loopback `http://127.0.0.1:port` | A offers good UX but requires protocol registration; B is most robust (RFC 8252 recommendation). Recommend **B primary, A fallback**, **depending on which redirect_uri OPENSCI permits** |
+| D2 | **OAuth client mode** | A. Native public client (PKCE, direct app connection)<br/>B. BFF (backend holds tokens) | **A**: Offline + local-token requirements effectively mandate A; B violates US13 |
+| D3 | **Which token to cache** | A. OPENSCI access/refresh<br/>B. Additional ASCI session token | Depends on whether ASCI backend requires separate authentication; if only telemetry attribution, **A suffices**, temporarily carrying OPENSCI token in backend calls |
+| D4 | **Refresh rotation** | Whether OPENSCI supports rotation | U-A3 strongly depends on it; **confirm at Epic 7 LT-3 contract freeze** |
+| D5 | **Token expiry vs mandatory login** | Offline grace duration | Depends on OPENSCI refresh-token TTL, affecting "how long it works offline while traveling" |
+| D6 | **Multiple accounts** | Switch OPENSCI account on one device → same device library | Already settled by PRD (device-level sharing) and reflected in diagram; no further decision |
 
-> D1/D3/D4/D5 **都依赖 OPENSCI SSO 接口契约**（Epic 7 LT-3）。因此 #413（发布前置）与 SSO 契约冻结连在一起，应同期推进。
-
----
-
-## 7. 实现侧落点（供 Epic 1 拆 issue 参考）
-
-IPC 四联同步（按 CLAUDE.md §5）：
-1. `packages/shared/src/...` — 认证 IPC 通道名常量 + 请求/响应类型（login / logout / getProfile / tokenStatus）。
-2. `apps/electron/src/main/ipc.ts` — `ipcMain.handle` 注册，调用 `main/lib/auth-service`。
-3. `apps/electron/src/preload/index.ts` — `contextBridge` 暴露 `window.electronAPI.auth.*`。
-4. `apps/electron/src/renderer/atoms/` — 登录态 atom + 强制登录路由守卫。
-
-主进程新增服务（建议）：
-- `auth-service.ts` — OAuth+PKCE 编排（生成 verifier/challenge/state、换 token、刷新）。
-- `token-store.ts` — 复用 safeStorage AES-256-GCM，落 `~/.asci/auth.enc`（dev 走 `~/.asci-dev`）。
-- 回调接收 — protocol handler（D1-A）或本地 loopback server（D1-B）。
-
-> 服务端实现细节（映射表 schema / API / 部署）归独立闭源仓 + ADR-002，本 spec 不展开。
+> D1/D3/D4/D5 **all depend on the OPENSCI SSO interface contract** (Epic 7 LT-3). Thus #413 (release prerequisites) connects to SSO contract freeze and should advance concurrently.
 
 ---
 
-## 8. 真实 httpClient 接入（OPENSCI OIDC，替代 stub）
+<a id="7-实现侧落点供-epic-1-拆-issue-参考"></a>
 
-#531 把骨架（类型 / IPC / 登录页 / 路由守卫 / token 存储 / deeplink）搭齐，OAuth 数据来源是
-disk stub（`auth-stub.oauthExchange` + `auth-stub-server` 的 mock 同意页）。本节落地"服务端就绪后
-换 httpClient"——把真实对接 ASCI-Server（OIDC broker）的逻辑接进同一套骨架。
+## 7. Implementation Locations (Reference for Epic 1 Issue Breakdown)
 
-### 8.1 选型落点（对 §6 决策的收敛）
-- **D1 回调机制 = loopback（B）**：`/auth/start?redirect_uri=http://127.0.0.1:port/callback`。
-  实测 ASCI-Server 真实契约用 loopback；故 OAuth 回调走 loopback server（**不**用 #531 的
-  `asci://` deeplink，deeplink 保留给 email-verify / reset）。
-- **D2/D3 = broker 透传**：PKCE / state / discovery / token 交换在 ASCI-Server；桌面端只
-  `POST /auth/handoff` 用一次性 code 换 OPENSCI 透传 token（access/refresh/id），不在客户端持 client secret。
+Synchronize all four IPC layers (CLAUDE.md §5):
+1. `packages/shared/src/...` — Authentication IPC channel constants + request/response types (login / logout / getProfile / tokenStatus).
+2. `apps/electron/src/main/ipc.ts` — `ipcMain.handle` registration invoking `main/lib/auth-service`.
+3. `apps/electron/src/preload/index.ts` — `contextBridge` exposes `window.electronAPI.auth.*`.
+4. `apps/electron/src/renderer/atoms/` — Login-state atoms + mandatory-login route guard.
 
-### 8.2 模块
-- `auth-oidc.ts`（零依赖纯逻辑）：`parseCallbackUrl` / `parseHandoffResponse` /
-  `decodeJwtClaims` / `parseProfileFromClaims` / `parseProfileFromTokens` / `isTokenExpired`。
-- `auth-opensci-client.ts`（`OpensciAuthClient`）：`startLogin()` 起 loopback + 构造 authorizeUrl，
-  收 code → `/auth/handoff` → 解码 id_token → `opensciProfileToUser` 映射成 `User`；
-  并管理 `User` 设备级缓存（`~/.asci[-dev]/auth-opensci-user.json`）。
+Suggested new main-process services:
+- `auth-service.ts` — OAuth+PKCE orchestration (verifier/challenge/state generation, exchange, refresh).
+- `token-store.ts` — Reuse safeStorage AES-256-GCM; persist at `~/.asci/auth.enc` (dev uses `~/.asci-dev`).
+- Callback receiver — Protocol handler (D1-A) or local loopback server (D1-B).
 
-### 8.3 AuthService 接线（四个点）
-1. `oauthStart(provider='opensci')`：若注入 `opensciClient` → `client.startLogin()` 起 loopback、
-   开浏览器、异步等 `completion`，resolve 后存 token + 缓存 User + 发 `login-success`。
-2. `oauthCancel`：先查 OIDC pending（关 loopback），否则回落 deeplink.cancel。
-3. `getCurrentUser`：OIDC 优先——有 User 缓存 + 有效 token（refresh 存在或 access 未过期）→ 恢复；
-   失效则清缓存。stub / dev-bypass 路径保留兼容。
-4. `logout`：清 token + `opensciClient.clearCachedUser()`。
-
-`auth-token-store`：`refreshToken` 放宽为 `string | null`（OPENSCI 可能无 refresh），新增可选 `expiresAt`。
-
-### 8.4 dev / 门控
-- 门控由 `LOGIN_ENABLED`（渲染侧）/ `isLoginEnabled()`（主进程）统一控制，**默认开启**；
-  仅 `bun run dev:skip-login`（`ASCI_SKIP_LOGIN=1`）关闭，打包产物恒含登录。
-  机制详见 [`login-default-on-spec.md`](./login-default-on-spec.md)。stub / stubServer 仍注入
-  （email/password + dev-bypass + 未来其他 provider）；opensci OAuth 因 `opensciClient` 优先而走真实链路。
-- dev 实跑需本地 ASCI-Server（`localhost:6060`，经 `auth-config.json` 覆盖）或可达线上 `api.asci.opensci.io`。
-
-### 8.5 后续切片（不在本次）
-- refresh token rotation（`/auth/refresh`，对接 `rotateRefreshToken`）；
-- 在线刷新 profile（`/me`）；`User` 增 `orcidId`（当前映射暂丢弃 orcid_id）。
+> Server implementation details (mapping schema / APIs / deployment) belong to a separate closed-source repository + ADR-002, outside this spec.
 
 ---
 
-**Spec 版本**：v1 · 2026-06-03 · 草稿待 review；v1.1 · 2026-06-09 · 补 §8 真实 httpClient 接入
+<a id="8-真实-httpclient-接入opensci-oidc替代-stub"></a>
+
+## 8. Actual httpClient Integration (OPENSCI OIDC, Replacing Stub)
+
+#531 assembled the skeleton (types / IPC / login page / route guard / token storage / deeplink), with OAuth data from
+a disk stub (`auth-stub.oauthExchange` + `auth-stub-server` mock consent page). This section implements "replace httpClient
+when the server is ready," connecting actual ASCI-Server (OIDC broker) integration into the same skeleton.
+
+<a id="81-选型落点对-6-决策的收敛"></a>
+
+### 8.1 Selected Implementation (Resolving §6 Decisions)
+- **D1 callback = loopback (B)**: `/auth/start?redirect_uri=http://127.0.0.1:port/callback`.
+  Actual ASCI-Server contract uses loopback, so OAuth callbacks use a loopback server (**not** #531's
+  `asci://` deeplink; deeplink remains for email-verify / reset).
+- **D2/D3 = broker passthrough**: PKCE / state / discovery / token exchange happen in ASCI-Server; desktop only
+  `POST /auth/handoff` exchanges a one-time code for OPENSCI passthrough access/refresh/id tokens, without holding a client secret.
+
+<a id="82-模块"></a>
+
+### 8.2 Modules
+- `auth-oidc.ts` (dependency-free pure logic): `parseCallbackUrl` / `parseHandoffResponse` /
+  `decodeJwtClaims` / `parseProfileFromClaims` / `parseProfileFromTokens` / `isTokenExpired`.
+- `auth-opensci-client.ts` (`OpensciAuthClient`): `startLogin()` starts loopback + constructs authorizeUrl,
+  receives code → `/auth/handoff` → decodes id_token → maps to `User` through `opensciProfileToUser`;
+  also manages device-level `User` cache (`~/.asci[-dev]/auth-opensci-user.json`).
+
+<a id="83-authservice-接线四个点"></a>
+
+### 8.3 AuthService Wiring (Four Points)
+1. `oauthStart(provider='opensci')`: With injected `opensciClient` → `client.startLogin()` starts loopback,
+   opens browser, waits asynchronously for `completion`; on resolution, stores tokens + caches User + emits `login-success`.
+2. `oauthCancel`: Check OIDC pending first (close loopback), otherwise fall back to deeplink.cancel.
+3. `getCurrentUser`: OIDC first: cached User + valid token (refresh exists or access unexpired) → restore;
+   clear cache if invalid. Retain stub / dev-bypass compatibility.
+4. `logout`: Clear tokens + `opensciClient.clearCachedUser()`.
+
+`auth-token-store`: Broaden `refreshToken` to `string | null` (OPENSCI may omit refresh); add optional `expiresAt`.
+
+<a id="84-dev-&#45;门控"></a>
+
+### 8.4 Dev / Gating
+- Gating is unified through `LOGIN_ENABLED` (renderer) / `isLoginEnabled()` (main), **on by default**;
+  only `bun run dev:skip-login` (`ASCI_SKIP_LOGIN=1`) disables it; packaged artifacts always include login.
+  See [`login-default-on-spec.md`](./login-default-on-spec.md). stub / stubServer remain injected
+  (email/password + dev-bypass + future providers); opensci OAuth follows the actual chain because `opensciClient` takes precedence.
+- Actual dev runs require local ASCI-Server (`localhost:6060`, overridden via `auth-config.json`) or reachable online `api.asci.opensci.io`.
+
+<a id="85-后续切片不在本次"></a>
+
+### 8.5 Follow-up Slices (Outside This Change)
+- Refresh token rotation (`/auth/refresh`, integrating `rotateRefreshToken`);
+- Online profile refresh (`/me`); add `orcidId` to `User` (mapping currently discards orcid_id).
+
+---
+
+**Spec version**: v1 · 2026-06-03 · Draft awaiting review; v1.1 · 2026-06-09 · Added §8 actual httpClient integration

@@ -1,37 +1,45 @@
-# Tinker 三处接缝等距校准
+<a id="tinker-三处接缝等距校准"></a>
 
-状态：已实现并验证，基线为私有 `SimmonJ-WYJ/tinker` main `c646b75`。
+# Equalize Tinker's Three Junction Gaps
 
-用户要求校准左上、右侧、左下三个模块交接处间隙，生成可编辑 SVG，替换应用图标并推送 GitHub。截图在本机不可访问，定位依据是正式 A 版三个模块路径及用户文字说明。保留所有路径轮廓、原有下方模块比例、字标、配色、画布与整体缩放，只作局部平移。三个部件的平移向量之和为零，避免整体重心漂移。
+Status: implemented and verified against private `SimmonJ-WYJ/tinker` main `c646b75`.
 
-## 几何验收
+The user requested calibration of the gaps at the upper-left, right, and lower-left module junctions, an editable SVG, application icon replacement, and a push to GitHub. Screenshots were inaccessible locally, so positioning used the three module paths in the official A version and the user's description. Preserve all path contours, original lower-module proportions, wordmark, colors, canvas, and overall scaling; apply only local translations. The three components' translation vectors sum to zero to prevent overall center-of-gravity drift.
 
-间隙定义为相邻两个填充轮廓的最小欧氏距离，单位为标志局部 SVG 坐标。独立 Python/NumPy 对每段二次曲线采样 500 点核对，项目测试采样 160 点，允许误差 0.02。
+<a id="几何验收"></a>
 
-| 接缝 | 原普通版 | 校准普通版 | 原 Micro | 校准 Micro |
+## Geometric Acceptance
+
+A gap is the minimum Euclidean distance between two adjacent filled contours, in local SVG logo coordinates. Independent Python/NumPy verification samples 500 points per quadratic curve; project tests sample 160, with a tolerance of 0.02.
+
+| Junction | Original regular | Calibrated regular | Original Micro | Calibrated Micro |
 | --- | ---: | ---: | ---: | ---: |
-| 左上（上方/蓝色） | 26.08 | 18.00 | 39.12 | 26.00 |
-| 右侧（上方/下方） | 6.07 | 18.00 | 20.58 | 26.00 |
-| 左下（蓝色/下方） | 13.64 | 18.00 | 25.27 | 26.00 |
+| Upper-left (upper/blue) | 26.08 | 18.00 | 39.12 | 26.00 |
+| Right (upper/lower) | 6.07 | 18.00 | 20.58 | 26.00 |
+| Lower-left (blue/lower) | 13.64 | 18.00 | 25.27 | 26.00 |
 
-Micro 保留更宽留白：16px 应用图标下约 1px 最小间隙，24px 下约 1.5px。正常版与 Micro 各自三处相等。
+Micro retains wider whitespace: approximately 1px minimum at a 16px application icon and approximately 1.5px at 24px. The three gaps are equal within each of the regular and Micro versions.
 
-## 更新范围与生成
+<a id="更新范围与生成"></a>
 
-- 普通、黑色、白色、Micro、横标、应用图标 SVG。
-- Electron React 内联 SVG、兼容菜单栏 SVG、Template @1x/@2x/@3x。
-- 全部 16/24/32/48/64/128/256/512/1024 PNG，ICNS、ICO。
-- Rust 前端浅深主题 SVG 与 Rust/原型平台图标。
-- `bun run apps/electron/scripts/generate-brand-icons.ts` 现在直接从 SVG 重生成 PNG，再封装各平台图标和同步各应用资源，防止旧 PNG 覆盖新源文件。
+## Update Scope and Generation
 
-## 验证与限制
+- Regular, black, white, Micro, horizontal wordmark, and application icon SVGs.
+- Electron React inline SVG, compatible menu-bar SVG, and Template @1x/@2x/@3x.
+- All 16/24/32/48/64/128/256/512/1024 PNGs, ICNS, and ICO.
+- Rust frontend light/dark SVGs and Rust/prototype platform icons.
+- `bun run apps/electron/scripts/generate-brand-icons.ts` now regenerates PNGs directly from SVGs, packages platform icons, and synchronizes application resources, preventing old PNGs from overwriting new source files.
 
-- 新增 6 项图标测试全部通过，含轮廓间距、React/SVG 一致性和平台资产一致性。
-- `bun test`：3166 pass，0 fail。沙箱内回环端口限制曾导致 13 项失败，允许本机回环服务后全量通过。
-- Electron `build:renderer` 通过，Rust 前端 `build`、`typecheck` 通过。
-- 在隔离副本的 Rust 前端通过浏览器实际核对浅深主题的侧栏横标和首页图形。未启动或修改用户现有桌面实例，未测试 Rust 后端。
-- 全仓库 `bun run typecheck` 通过。隔离副本最初复用的依赖链接指向旧开发目录，曾报告 `AgentView.tsx:994` 类型错误。将内部包链接改为隔离副本后通过，无需修改该文件。
-- 没有重打安装包，不能声称用户当前已安装应用已更新。
-- 原开发目录和其他线程构建目录均保持不变。使用 `/tmp` 独立克隆，不带入其他未提交修改。
+<a id="验证与限制"></a>
 
-前后对比：[`before-after.png`](../logo-gap-review/before-after.png)，同时保留 [`before-after.svg`](../logo-gap-review/before-after.svg)。
+## Verification and Limitations
+
+- All 6 new icon tests passed, covering contour spacing, React/SVG consistency, and platform asset consistency.
+- `bun test`: 3166 pass, 0 fail. Sandbox loopback-port restrictions initially caused 13 failures; all tests passed after local loopback services were allowed.
+- Electron `build:renderer` passed; Rust frontend `build` and `typecheck` passed.
+- Verified light/dark sidebar wordmarks and home graphics in the isolated Rust frontend copy through a browser. Did not launch or modify the user's existing desktop instance or test the Rust backend.
+- Repository-wide `bun run typecheck` passed. Dependency links initially reused in the isolated copy pointed to the old development directory and reported an `AgentView.tsx:994` type error. Updating internal package links to the isolated copy resolved it without modifying that file.
+- No installer was rebuilt; this does not establish that the user's installed application has updated.
+- The original development directory and other threads' build directories remain unchanged. Used an independent clone in `/tmp`, excluding unrelated uncommitted changes.
+
+Before/after comparison: [`before-after.png`](../logo-gap-review/before-after.png), with [`before-after.svg`](../logo-gap-review/before-after.svg) also retained.

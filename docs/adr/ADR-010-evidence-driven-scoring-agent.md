@@ -1,77 +1,91 @@
-# ADR-010：文献评分从「F22 五维质量分」升级为「证据驱动相关性主导评分（score）」，与 F22 耦合并行
+<a id="adr-010文献评分从f22-五维质量分升级为证据驱动相关性主导评分score与-f22-耦合并行"></a>
 
-| 字段 | 内容 |
+# ADR-010: Upgrade Literature Scoring from "F22 Five-dimensional Quality Scores" to "Evidence-driven, Relevance-led Scoring (score)," Operating Alongside and Coupled to F22
+
+| Field | Content |
 |------|------|
-| **状态** | Accepted（2026-06-04，lee；score MVP 已落地，参数仍在迭代）|
-| **决策日期** | 2026-06-04 |
-| **拍板人** | lee |
-| **决策时点硬约束** | lit-search 检索面板"相关度"排序/展示线路从 F22 切到 score 之前（已落地） |
-| **关联 PR** | [#511](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/511) |
-| **关联** | [实现规格 `docs/specs/lit-scoring-agent-spec.md`](../specs/lit-scoring-agent-spec.md) · `paper_search/service/paper_scoring.py` / `venue_tier.py` · F22 `paper_search/service/scoring.py` · `default-capability-packs/lit-search/sub-agents/scorer.md` · [CONTEXT.md](../../CONTEXT.md) · 设计母本《ASCI_文献评分排序Agent方案_修订版v3》（Obsidian，附录 C 为 ASCI 现状映射）|
+| **Status** | Accepted (2026-06-04, lee; score MVP implemented, parameters still iterating) |
+| **Decision date** | 2026-06-04 |
+| **Decision maker** | lee |
+| **Decision deadline** | Before switching the lit-search panel's "relevance" sorting/display from F22 to score (implemented) |
+| **Related PR** | [#511](https://github.com/OPENSCI-Labs/ASCI-Alpha/pull/511) |
+| **Related** | [Implementation spec `docs/specs/lit-scoring-agent-spec.md`](../specs/lit-scoring-agent-spec.md) · `paper_search/service/paper_scoring.py` / `venue_tier.py` · F22 `paper_search/service/scoring.py` · `default-capability-packs/lit-search/sub-agents/scorer.md` · [CONTEXT.md](../../CONTEXT.md) · Design source "ASCI Literature Scoring and Ranking Agent Proposal, Revised v3" (Obsidian; Appendix C maps the current ASCI implementation) |
 
 ---
 
-## 一、背景
+<a id="一背景"></a>
 
-检索结果的默认排序一直由 **F22 五维评分**（`scoring.py` → `extra.relevance`）决定：`citations .25 + recency .25 + citation_velocity .15 + venue_presence .15 + keyword_relevance .20`，纯确定性、可秒算。
+## I. Background
 
-但 F22 是**质量导向**的：
+Default search-result ranking has always used **F22 five-dimensional scoring** (`scoring.py` → `extra.relevance`): `citations .25 + recency .25 + citation_velocity .15 + venue_presence .15 + keyword_relevance .20`, fully deterministic and calculable in seconds.
 
-- 相关性只占 `keyword_relevance` 一维（.20），且是**关键词逐 term 字面命中率**（无语义、无 LLM）——同领域只要词撞上就给高分；
-- 引用 + 时效合计 .65 主导排序 → **高被引经典 / 高产期刊容易顶到最前，哪怕不对题**；
-- `venue_presence` 只判"有没有期刊名"（二值 0.5/null），用不上已接入的 EasyScholar IF / JCR / 中科院分区。
+But F22 is **quality-oriented**:
 
-真实例子：查"光场拓展显微镜景深的深度学习方法"，F22 把经典全光相机论文 *The Light Field Camera: Extended Depth of Field*（高被引、强 venue、关键词字面全中、但非深度学习、非显微镜）排到最前。用户要的是"能回答我问题的论文"，F22 给的是"高质量的论文"。
+- Relevance is just one dimension, `keyword_relevance` (.20), measured as **literal keyword term hit rate** (no semantics or LLM): matching words in the same discipline can yield a high score;
+- Citations + recency dominate ranking at .65 → **highly cited classics / prolific journals can rise to the top even when off-topic**;
+- `venue_presence` checks only "is there a journal name" (binary 0.5/null), without using the integrated EasyScholar IF / JCR / Chinese Academy of Sciences tiers.
 
-本会话已先行落地的基础设施（venue 全源对齐、`extra.journalRank` 的 EasyScholar IF/分区、正刊反查）让"证据驱动 + 语义判别"的评分具备数据条件。
+Actual example: For "deep learning methods for extending microscope depth of field with light fields," F22 ranked the classic plenoptic-camera paper *The Light Field Camera: Extended Depth of Field* first (highly cited, strong venue, all literal keywords matched, but neither deep learning nor microscopy). Users want "papers that answer my question"; F22 supplies "high-quality papers."
 
-## 二、决策维度
+Infrastructure already implemented in this session (venue alignment across sources, EasyScholar IF/tiers in `extra.journalRank`, and main-journal reverse lookup) supplies the data required for "evidence-driven + semantic discrimination" scoring.
 
-1. **替换还是并行**：新评分取代 F22，还是与 F22 并行共存？
-2. **相关性怎么判**：关键词字面命中（F22 现状）还是 LLM 对照用户原问题做语义判别？
-3. **质量信号定位**：venue/IF/分区/影响力主导排序，还是降为二级 + 卡片标注？
-4. **未经 LLM 判分时**：相关性维缺失的论文，如何取值？
+<a id="二决策维度"></a>
 
-## 三、候选方案
+## II. Decision Dimensions
 
-| | A. 维持 F22 | B. score 并行 + **解耦** | C. score 并行 + **耦合 F22**（**选中**）|
+1. **Replace or coexist**: Does new scoring replace F22 or operate alongside it?
+2. **Determine relevance**: Literal keyword matching (current F22) or LLM semantic judgment against the user's original question?
+3. **Role of quality signals**: Do venue/IF/tier/influence dominate ranking, or become secondary signals + card annotations?
+4. **Before LLM scoring**: What value should papers lacking relevance dimensions receive?
+
+<a id="三候选方案"></a>
+
+## III. Alternatives
+
+| | A. Keep F22 | B. Parallel score + **decoupling** | C. Parallel score + **F22 coupling** (**selected**) |
 |---|---|---|---|
-| 相关性判别 | 关键词字面命中率 | LLM 判 semantic+method（对照原问题 + 硬负约束） | 同 B |
-| 质量定位 | 引用+时效主导（.65） | 质量降为二级（finalScore 0.8 给相关性） | 同 B |
-| 未经 scorer 判分 | —（无此概念） | `null` = **未评分**，不借 F22，排最后 | **回退 F22**（`finalRelevance ?? keywordRelevance ?? relevance`），保证每篇都有分 |
-| 体验 | 秒出、但不对题 | 大量"未评分"论文需 LLM 判完才有序 | 后台基线先用 F22 兜底出序，scorer 判完再精修 |
-| 两套是否互相借分 | — | 完全隔离 | score 的 semantic 可回退 F22 信号 |
+| Relevance judgment | Literal keyword hit rate | LLM judges semantic+method (original question + hard negative constraints) | Same as B |
+| Quality role | Citations+recency dominate (.65) | Quality becomes secondary (finalScore assigns 0.8 to relevance) | Same as B |
+| Not judged by scorer | — (no such concept) | `null` = **unscored**, no F22 fallback, ranked last | **Fall back to F22** (`finalRelevance ?? keywordRelevance ?? relevance`), ensuring every paper has a score |
+| Experience | Instant but off-topic | Many "unscored" papers remain unordered until LLM judgment completes | Use F22 as a background baseline ordering, then refine after scorer judgment |
+| Scores shared between systems | — | Fully isolated | score semantic can fall back to F22 signals |
 
-> **B 曾被原型实现并随即回退（2026-06-04，lee）**：解耦后未经 scorer 判分的论文（top-50 之外、判分前）一律记"未评分"沉底，候选展示出现大面积空档、体验割裂；权衡后认为"耦合兜底"更实用——宁可用 F22 弱信号占位，也不要把"还没判"暴露成"无分"。
+> **B was prototyped and promptly reverted (2026-06-04, lee)**: Decoupling marked every paper not judged by scorer (outside top-50 or before judgment) as "unscored" and sent it to the bottom, leaving large gaps in candidate display and fragmenting the experience. The tradeoff favored a coupled fallback: use weak F22 signals as placeholders rather than exposing "not judged yet" as "no score."
 
-## 四、决策
+<a id="四决策"></a>
 
-**采用 C：引入证据驱动评分 score，相关性主导、与 F22 耦合并行；F22 原样保留。**
+## IV. Decision
 
-- **结构（相关性主导、质量二级）**：
-  - `relevanceScore = 加权(semantic .35 + method .20)`，由 LLM `scorer` 子 Agent 对照用户 `research_question` 判（含硬负约束："同领域/同模态 ≠ 相关"，不瞄准问题具体目标的封顶低分）；
-  - `qualityScore = 加权(venue_quality .15 + publication_status .10 + recency .10 + paper_influence .05 + reproducibility .05)`，服务端从 record 字段（含 `extra.journalRank`）确定性计算；
-  - `finalScore = 0.8 × relevanceScore + 0.2 × qualityScore`（相关性 80% 主导，质量仅二级微调 + 卡片标注）。
-- **null 权重重分配**：缺数据维不计入、权重按比例分给同组其它维（`unknown(null) ≠ negative(0)`）。
-- **与 F22 耦合**：`semantic` 缺失（scorer 未判该篇）时回退 `finalRelevance ?? keywordRelevance ?? relevance ?? 50`；F22 仍内部用于"按相关度排序、选前 50 篇送 scorer"。
-- **运行链路**：默认 PLAN `searcher → scorer`（scorer = 默认判官）；检索后 `enrich_session_async` 后台 fire-and-forget 补 venue/分区/IF 并算基线 score，面板 5s 轮询刷新。结果写 session JSONL 的 **`extra.score`**（version 3），不动任何 v1 字段。
-- 不建新 SQLite 表、不建 raw/evidence/canonical 层（母本附录 C MVP 取舍）。
+**Adopt C: Introduce evidence-driven score, led by relevance and coupled alongside F22; retain F22 unchanged.**
 
-## 五、反转 / 影响
+- **Structure (relevance leads, quality is secondary)**:
+  - `relevanceScore = 加权(semantic .35 + method .20)` (the Chinese literal means "weighted"), judged by the LLM `scorer` sub-Agent against the user's `research_question` (including hard negative constraints: "same discipline/modality ≠ relevant"; papers not addressing the question's specific objective receive a low ceiling);
+  - `qualityScore = 加权(venue_quality .15 + publication_status .10 + recency .10 + paper_influence .05 + reproducibility .05)` ("weighted"), computed deterministically server-side from record fields (including `extra.journalRank`);
+  - `finalScore = 0.8 × relevanceScore + 0.2 × qualityScore` (relevance dominates at 80%; quality provides only secondary adjustment + card annotations).
+- **null weight redistribution**: Exclude dimensions with missing data and redistribute weights proportionally to other dimensions in the same group (`unknown(null) ≠ negative(0)`).
+- **F22 coupling**: When `semantic` is absent (scorer has not judged this paper), fall back to `finalRelevance ?? keywordRelevance ?? relevance ?? 50`; F22 still internally supports "sort by relevance and select the first 50 papers for scorer."
+- **Runtime chain**: Default PLAN `searcher → scorer` (scorer = default judge); after search, `enrich_session_async` performs background fire-and-forget venue/tier/IF enrichment and baseline score computation, with panel polling every 5s. Results go to **`extra.score`** (version 3) in session JSONL; no v1 fields change.
+- No new SQLite tables or raw/evidence/canonical layers (MVP tradeoffs in design source Appendix C).
 
-- 检索面板默认"相关度"排序与卡片展示从 **F22（`extra.relevance`）切到 `score.finalScore`**；F22 与 v1 `finalRelevance` 后端原样保留，仅前端不再展示（`RelevanceBadge` 退场、保留文件）。
-- 评分等级 S/A/B/C/D 仍内部计算，**前端只显示 `finalScore` 数字**，不显示字母。
+<a id="五反转-&#45;影响"></a>
 
-## 六、后果
+## V. Reversals / Impact
 
-- **正向**：对题优先（相关性 0.8 主导）；可解释（`reason` + 七维分解 + `data_confidence`）；IF/JCR/中科院分区正式进入打分（venue_tier 五档）；与 F22 解耦风险低（耦合兜底，旧线路随时可回退）。
-- **负向 / 代价**：
-  - **慢**——多一整轮 LLM 判分（scorer 读前 50 篇逐篇判，约 10–30s）；IF/分区/分数靠后台富化 + 5s 轮询"挤牙膏"地出现（EasyScholar 并发 3、超时 6s、免费 key 易被 403/429 限流后退避重试）。
-  - score 质量**受检索召回质量制约**：候选池不对题时，scorer 如实给一片低分——这是暴露上游检索问题（如领域锚跑偏导致跨域噪声），**非评分 bug**。
-- **风险**：LLM 判分的稳定性与成本；EasyScholar 限流导致富化拖长。
-- **后续动作 / 待定**：
-  - scorer 是否默认派发 / 是否后台化（性能 vs 即时精排）；判分窗口大小（现 top-50）；
-  - EasyScholar 付费 / 高配额 key 以消除限流退避；
-  - 上游检索锚点修复（`object_terms` 只放研究对象、anchor 取最具体词），从源头减少跨域噪声；
-  - 解耦方案 B 保留为未来选项（若"未评分"体验问题被前端解法消化）。
-- **关联开关**：`PAPER_SEARCH_MCP_DISABLE_EASYSCHOLAR`（关 IF/分区）· `PAPER_SEARCH_MCP_EASYSCHOLAR_CONCURRENCY`（富化并发）· `PAPER_SEARCH_MCP_ENRICH_TOP_N`（富化篇数）。七维评分始终运行，无关闭开关。
+- Default "relevance" sorting and card display switch from **F22 (`extra.relevance`) to `score.finalScore`**; F22 and v1 `finalRelevance` remain unchanged in the backend but are no longer displayed (`RelevanceBadge` retires, file retained).
+- Scoring grades S/A/B/C/D are still calculated internally; **the frontend displays only the `finalScore` number**, without a letter.
+
+<a id="六后果"></a>
+
+## VI. Consequences
+
+- **Positive**: On-topic papers first (relevance dominates at 0.8); explainable (`reason` + seven-dimensional breakdown + `data_confidence`); IF/JCR/Chinese Academy of Sciences tiers formally enter scoring (five venue_tier levels); low risk around F22 separation because the coupled fallback retains an immediate rollback path to the old chain.
+- **Negative / costs**:
+  - **Slow**: An additional full LLM judging round (scorer reads and judges the first 50 papers individually, approximately 10–30s); IF/tiers/scores appear incrementally through background enrichment + 5s polling (EasyScholar concurrency 3, timeout 6s, free keys prone to 403/429 rate limits followed by backoff retries).
+  - score quality **depends on retrieval recall quality**: When the candidate pool is off-topic, scorer honestly assigns uniformly low scores. This exposes upstream retrieval problems (such as drifting discipline anchors causing cross-domain noise), **not a scoring bug**.
+- **Risks**: LLM judging stability and cost; EasyScholar rate limiting prolongs enrichment.
+- **Follow-up / undecided**:
+  - Whether scorer dispatches by default or runs in the background (performance vs immediate reranking); judging-window size (currently top-50);
+  - Paid / higher-quota EasyScholar keys to eliminate rate-limit backoff;
+  - Upstream search-anchor fixes (`object_terms` contains only research objects, anchor uses the most specific term), reducing cross-domain noise at the source;
+  - Retain decoupled alternative B for the future if frontend solutions absorb the "unscored" experience issue.
+- **Related switches**: `PAPER_SEARCH_MCP_DISABLE_EASYSCHOLAR` (disable IF/tiers) · `PAPER_SEARCH_MCP_EASYSCHOLAR_CONCURRENCY` (enrichment concurrency) · `PAPER_SEARCH_MCP_ENRICH_TOP_N` (number of papers enriched). Seven-dimensional scoring always runs and has no off switch.

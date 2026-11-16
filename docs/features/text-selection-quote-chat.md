@@ -1,66 +1,84 @@
-# 文本选择与引用对话功能
+<a id="文本选择与引用对话功能"></a>
 
-## 功能概述
+# Text selection and quote chat feature
 
-用户可以在 AI 生成的消息中选择文本，会出现一个浮动工具栏，提供两个操作：
+<a id="功能概述"></a>
 
-1. **Ask in sidebar** - 在右侧面板打开一个新的对话 tab，显示选中的文本
-2. **Add to chat** - 将选中的文本作为引用插入到当前聊天输入框
+## Feature overview
 
-## 实现文件
+Selecting text in an AI-generated message displays a floating toolbar with two actions:
 
-### 核心组件
-- `apps/electron/src/renderer/components/ai-elements/text-selection-toolbar.tsx` - 浮动工具栏 UI
-- `apps/electron/src/renderer/components/ai-elements/selectable-message-response.tsx` - 可选择文本的消息包装器
-- `apps/electron/src/renderer/components/agent/QuoteChatView.tsx` - 右侧面板的引用对话视图
+1. **Ask in sidebar** - Open a new conversation tab in the right panel showing the selected text
+2. **Add to chat** - Insert the selected text as a quote into the current chat input
+
+<a id="实现文件"></a>
+
+## Implementation files
+
+<a id="核心组件"></a>
+
+### Core components
+- `apps/electron/src/renderer/components/ai-elements/text-selection-toolbar.tsx` - Floating toolbar UI
+- `apps/electron/src/renderer/components/ai-elements/selectable-message-response.tsx` - Selectable message wrapper
+- `apps/electron/src/renderer/components/agent/QuoteChatView.tsx` - Quote chat view in the right panel
 
 ### Hooks
-- `apps/electron/src/renderer/hooks/useTextSelection.ts` - 文本选择逻辑
-- `apps/electron/src/renderer/hooks/useQuoteChatTab.ts` - 监听侧边栏引用并自动打开 tab
+- `apps/electron/src/renderer/hooks/useTextSelection.ts` - Text selection logic
+- `apps/electron/src/renderer/hooks/useQuoteChatTab.ts` - Listen for sidebar quotes and automatically open a tab
 
-### 状态管理
-- `apps/electron/src/renderer/atoms/text-selection-atoms.ts` - 文本选择状态
-  - `pendingQuoteAtom` - 待插入聊天框的引用
-  - `sidebarQuoteAtom` - 待显示在侧边栏的引用
+<a id="状态管理"></a>
 
-### 集成点
-- `apps/electron/src/renderer/components/agent/AgentMessages.tsx` - 使用 SelectableMessageResponse
-- `apps/electron/src/renderer/components/agent/ContentBlock.tsx` - 使用 SelectableMessageResponse
-- `apps/electron/src/renderer/components/ai-elements/rich-text-input.tsx` - 监听 pendingQuoteAtom 并插入引用
-- `apps/electron/src/renderer/main.tsx` - 在 AgentListenersInitializer 中调用 useQuoteChatTab
+### State management
+- `apps/electron/src/renderer/atoms/text-selection-atoms.ts` - Text selection state
+  - `pendingQuoteAtom` - Quote pending insertion into the chat input
+  - `sidebarQuoteAtom` - Quote pending display in the sidebar
 
-### 右侧面板集成
-- `apps/electron/src/renderer/atoms/right-panel-tabs.ts` - 添加 'quote-chat' TabKind
-- `apps/electron/src/renderer/components/app-shell/RightPanelTabContent.tsx` - 渲染 QuoteChatView
-- `apps/electron/src/renderer/components/app-shell/RightPanelTabBar.tsx` - 添加图标和标题
+<a id="集成点"></a>
+
+### Integration points
+- `apps/electron/src/renderer/components/agent/AgentMessages.tsx` - Use SelectableMessageResponse
+- `apps/electron/src/renderer/components/agent/ContentBlock.tsx` - Use SelectableMessageResponse
+- `apps/electron/src/renderer/components/ai-elements/rich-text-input.tsx` - Listen to pendingQuoteAtom and insert the quote
+- `apps/electron/src/renderer/main.tsx` - Call useQuoteChatTab in AgentListenersInitializer
+
+<a id="右侧面板集成"></a>
+
+### Right-panel integration
+- `apps/electron/src/renderer/atoms/right-panel-tabs.ts` - Add 'quote-chat' TabKind
+- `apps/electron/src/renderer/components/app-shell/RightPanelTabContent.tsx` - Render QuoteChatView
+- `apps/electron/src/renderer/components/app-shell/RightPanelTabBar.tsx` - Add icon and title
 
 ### i18n
-- `apps/electron/src/renderer/locales/en/conversation/panels.json` - 英文翻译
-- `apps/electron/src/renderer/locales/zh/conversation/panels.json` - 中文翻译
+- `apps/electron/src/renderer/locales/en/conversation/panels.json` - English translations
+- `apps/electron/src/renderer/locales/zh/conversation/panels.json` - Chinese translations
 
-## 使用流程
+<a id="使用流程"></a>
+
+## Usage flow
 
 ### Add to chat
-1. 用户在 AI 消息中选择文本
-2. 点击工具栏的 "Add to chat" 按钮
-3. `pendingQuoteAtom` 被设置
-4. `rich-text-input.tsx` 中的 useEffect 监听到变化
-5. 将文本格式化为 markdown 引用（每行前加 `> `）
-6. 插入到编辑器并聚焦到末尾
+1. User selects text in an AI message
+2. Clicks “Add to chat” in the toolbar
+3. `pendingQuoteAtom` is set
+4. useEffect in `rich-text-input.tsx` observes the change
+5. Format text as a markdown quote (prefix each line with `> `)
+6. Insert into the editor and focus the end
 
 ### Ask in sidebar
-1. 用户在 AI 消息中选择文本
-2. 点击工具栏的 "Ask in sidebar" 按钮
-3. `sidebarQuoteAtom` 被设置
-4. `useQuoteChatTab` hook 监听到变化
-5. 调用 `upsertTab` 创建或切换到 'quote-chat' tab
-6. 右侧面板显示 QuoteChatView 组件
-7. 组件读取 `sidebarQuoteAtom` 并显示选中的文本
+1. User selects text in an AI message
+2. Clicks “Ask in sidebar” in the toolbar
+3. `sidebarQuoteAtom` is set
+4. `useQuoteChatTab` hook observes the change
+5. Call `upsertTab` to create or switch to the 'quote-chat' tab
+6. The right panel displays the QuoteChatView component
+7. The component reads `sidebarQuoteAtom` and displays the selected text
 
-## 测试要点
+<a id="测试要点"></a>
 
-- 在开发模式下选择 AI 生成的文本
-- 验证工具栏出现在选中文本上方
-- 测试 "Add to chat" 是否正确插入引用格式
-- 测试 "Ask in sidebar" 是否打开右侧 tab
-- 切换语言验证翻译
+## Test points
+
+- Select AI-generated text in development mode
+- Verify the toolbar appears above the selected text
+- Test that “Add to chat” correctly inserts quote formatting
+- Test that “Ask in sidebar” opens the right-side tab
+- Switch languages to verify translations
