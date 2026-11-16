@@ -235,6 +235,7 @@ impl Inner {
     }
     pub(super) fn apply_plain_binding(&mut self, b: Binding) -> Result<()> {
         if self.request_count(&b.request.session_id) >= MAX_REQUESTS
+            || self.chains.contains_key(&b.request.request_id)
             || self.chains.values().any(|c| {
                 (c.session_id == b.request.session_id && c.closure.is_none())
                     || c.messages

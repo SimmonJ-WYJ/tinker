@@ -506,3 +506,146 @@ fn deleted_session_exact_retry_returns_receipt_without_revealing_history() {
     let r = queue_runtime(&f);
     assert_eq!(call(&r, "chat.queue", p), receipt);
 }
+
+fn review_fixture_tree(root: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+    let mut entries = Vec::new();
+    for entry in std::fs::read_dir(root).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            entries.push((path.clone(), vec![]));
+            entries.extend(review_fixture_tree(&path));
+        } else {
+            entries.push((path.clone(), std::fs::read(path).unwrap()));
+        }
+    }
+    entries.sort();
+    entries
+}
+fn review_append_entry(root: &std::path::Path, version: u32, entry: Value) {
+    use std::io::Write;
+    let path = root.join("desktop-runtime-v1/journal.jsonl");
+    let sequence = std::fs::read_to_string(&path).unwrap().lines().count() + 1;
+    let record = json!({"version":version,"sequence":sequence,"entry":entry});
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(path)
+        .unwrap()
+        .write_all(format!("{record}\n").as_bytes())
+        .unwrap();
+}
+fn review_leave_run_nonterminal(
+    root: &std::path::Path,
+    sid: &str,
+    rid: &str,
+) -> std::path::PathBuf {
+    let path = root.join(format!("desktop-runtime-v1/{sid}/runs-v1/{rid}.jsonl"));
+    let text = std::fs::read_to_string(&path).unwrap();
+    let lines: Vec<_> = text.lines().take(2).collect();
+    assert_eq!(lines.len(), 2);
+    let started: Value = serde_json::from_str(lines[1]).unwrap();
+    assert_eq!(started["kind"], "started");
+    std::fs::write(&path, format!("{}\n", lines.join("\n"))).unwrap();
+    path
+}
+#[test]
+fn review_i1_plain_bind_cannot_reuse_early_stop_tombstone() {
+    let f = Fixture::new();
+    let r = queue_runtime(&f);
+    let session = create(&r, false)["result"].clone();
+    let sid = session["sessionId"].as_str().unwrap();
+    assert!(call(
+        &r,
+        "chat.stopChain",
+        json!({"sessionId":sid,"chainId":"stopped-slot","reason":"stop"})
+    )["error"]
+        .is_null());
+    drop(r);
+    let mut request = send_params(sid);
+    request["requestId"] = json!("stopped-slot");
+    review_append_entry(
+        &f.0,
+        1,
+        json!({"kind":"bind","binding":{"request":request,"configRevision":"r1","acceptedAt":session["updatedAt"].as_u64().unwrap()+1,"parentRunId":null}}),
+    );
+    let before = review_fixture_tree(&f.0);
+    let reopened = DesktopRuntime::open_with_queueing(&f.0, profiles(), vec![]);
+    assert!(
+        review_fixture_tree(&f.0) == before,
+        "重放拒绝不能修改 journal、run 或 cache"
+    );
+    assert!(
+        matches!(reopened,Err(e)if e.0=="corruptJournal"),
+        "早期 Stop 身份不得重放为普通 Bind"
+    );
+}
+#[test]
+fn review_i2_deleted_open_chain_is_rejected_before_global_recovery() {
+    let f = Fixture::new();
+    let r = queue_runtime(&f);
+    let other = create(&r, false)["result"]["sessionId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mut request = send_params(&other);
+    request["requestId"] = json!("other-running");
+    assert!(call(&r, "chat.send", request)["error"].is_null());
+    let queued = create(&r, false)["result"]["sessionId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(begin(&r, &queued)["error"].is_null());
+    let mut session = call(&r, "sessions.list", json!({}))["result"]["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["sessionId"] == queued)
+        .unwrap()
+        .clone();
+    drop(r);
+    review_leave_run_nonterminal(&f.0, &other, "other-running");
+    review_leave_run_nonterminal(&f.0, &queued, "request");
+    session["deleted"] = json!(true);
+    session["updatedAt"] = json!(session["updatedAt"].as_u64().unwrap() + 1);
+    review_append_entry(&f.0, 1, json!({"kind":"session","session":session}));
+    let before = review_fixture_tree(&f.0);
+    let reopened = DesktopRuntime::open_with_queueing(&f.0, profiles(), vec![]);
+    assert!(
+        review_fixture_tree(&f.0) == before,
+        "全局预检失败不得向任一 session 的 run/cache 写入恢复记录"
+    );
+    assert!(matches!(reopened,Err(e)if e.0=="corruptJournal"));
+}
+#[test]
+fn review_legacy_nonqueue_deletion_remains_recoverable() {
+    for queue_enabled in [false, true] {
+        let f = Fixture::new();
+        let r = DesktopRuntime::open(&f.0, profiles()).unwrap();
+        let sid = create(&r, false)["result"]["sessionId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(call(&r, "chat.send", send_params(&sid))["error"].is_null());
+        assert_eq!(
+            call(&r, "sessions.delete", json!({"sessionId":sid}))["result"]["deleted"],
+            true
+        );
+        drop(r);
+        let run = review_leave_run_nonterminal(&f.0, &sid, "request");
+        let journal = f.0.join("desktop-runtime-v1/journal.jsonl");
+        let before = std::fs::read(&journal).unwrap();
+        let r = if queue_enabled {
+            DesktopRuntime::open_with_queueing(&f.0, profiles(), vec![])
+        } else {
+            DesktopRuntime::open(&f.0, profiles())
+        }
+        .unwrap();
+        assert!(call(&r, "sessions.list", json!({}))["result"]["sessions"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert_eq!(std::fs::read(journal).unwrap(), before);
+        let text = std::fs::read_to_string(run).unwrap();
+        let last: Value = serde_json::from_str(text.lines().last().unwrap()).unwrap();
+        assert_eq!(last["kind"], "interrupted");
+    }
+}

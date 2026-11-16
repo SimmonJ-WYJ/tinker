@@ -127,6 +127,14 @@ impl DesktopRuntime {
                     } else if session.deleted || inner.sessions.len() >= MAX_SESSIONS {
                         return Err(DesktopError("corruptJournal"));
                     }
+                    // 队列必须先关闭再删除；在任何控制器恢复写入之前拒绝不可能的 tombstone。
+                    if session.deleted
+                        && inner.chains.values().any(|chain| {
+                            chain.session_id == session.session_id && chain.closure.is_none()
+                        })
+                    {
+                        return Err(DesktopError("corruptJournal"));
+                    }
                     inner
                         .bindings
                         .entry(session.session_id.clone())
