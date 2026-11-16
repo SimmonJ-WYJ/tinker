@@ -1,5 +1,5 @@
 //! 工具与权限的唯一核心类型；公开字段在信任边界再次校验。
-use crate::run_types::{validate_id, RunError};
+use crate::run_types::{validate_id, RunError, MAX_INPUT_BYTES};
 use serde::{Deserialize, Serialize};
 use std::{sync::atomic::AtomicBool, time::Duration};
 pub const MAX_TOOL_ARGUMENT_BYTES: usize = 2048;
@@ -205,4 +205,37 @@ pub(crate) fn required_option<'de, D: serde::Deserializer<'de>, T: Deserialize<'
     d: D,
 ) -> Result<Option<T>, D::Error> {
     Option::<T>::deserialize(d)
+}
+
+/// 工具输入按完整JSON字符串计量；legacy text入口继续沿原raw字节契约。
+pub(crate) fn validate_tool_input(input: &str) -> Result<(), RunError> {
+    if input.trim().is_empty() {
+        return Err(RunError::EmptyInput);
+    }
+    if input.len() > MAX_INPUT_BYTES
+        || serde_json::to_vec(input)
+            .map_err(|_| RunError::InputTooLarge)?
+            .len()
+            > MAX_INPUT_BYTES
+    {
+        return Err(RunError::InputTooLarge);
+    }
+    Ok(())
+}
+#[cfg(test)]
+mod encoded_input_tests {
+    use super::*;
+    #[test]
+    fn complete_json_input_boundary_counts_quotes_unicode_and_escapes() {
+        for fragment in ["x", "é", "\u{1}", "\"\\\n"] {
+            let width = serde_json::to_vec(fragment).unwrap().len() - 2;
+            let mut input = fragment.repeat((MAX_INPUT_BYTES - 2) / width);
+            input
+                .push_str(&"x".repeat(MAX_INPUT_BYTES - serde_json::to_vec(&input).unwrap().len()));
+            assert_eq!(serde_json::to_vec(&input).unwrap().len(), MAX_INPUT_BYTES);
+            assert_eq!(validate_tool_input(&input), Ok(()));
+            input.push('x');
+            assert_eq!(validate_tool_input(&input), Err(RunError::InputTooLarge));
+        }
+    }
 }

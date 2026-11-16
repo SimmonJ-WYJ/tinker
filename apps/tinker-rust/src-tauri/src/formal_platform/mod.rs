@@ -1,6 +1,8 @@
 //! 正式预览的原生平台事实源；与DesktopRuntime共用已标记根，独立持久化命名空间。
 pub mod close;
 mod launch;
+mod receipt;
+use receipt::Receipt;
 pub mod protocol;
 pub mod settings;
 mod spotlight;
@@ -22,12 +24,6 @@ use serde_json::{json, Value};
 use std::{collections::BTreeMap, sync::Mutex};
 use workspace::WorkspaceRecord;
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Receipt {
-    request: PlatformRequest,
-    revision: u64,
-}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Persisted {
@@ -182,7 +178,7 @@ impl FormalPlatform {
                 .as_ref()
                 .ok_or(DesktopError("invalidParams"))?;
             if let Some(receipt) = inner.state.receipts.get(&mutation.mutation_id) {
-                if receipt.request != request {
+                if !receipt.matches(&request)? {
                     return Err(DesktopError("mutationConflict"));
                 }
                 // 幂等重试返回当前revision和当前事实，不能让客户端cache倒退。
@@ -196,12 +192,13 @@ impl FormalPlatform {
                 let mut next = inner.state.clone();
                 next.apply(&request, &self.profiles)?;
                 next.revision += 1;
+                // 首次新提交时也压紧旧完整草稿receipt，不改历史幂等身份或revision。
+                for receipt in next.receipts.values_mut() {
+                    receipt.compact()?;
+                }
                 next.receipts.insert(
                     mutation.mutation_id.clone(),
-                    Receipt {
-                        request: request.clone(),
-                        revision: next.revision,
-                    },
+                    Receipt::new(request.clone(), next.revision)?,
                 );
                 let bytes = serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?;
                 inner.store.write(bytes)?;
@@ -248,6 +245,7 @@ impl Persisted {
         self.workspaces[0].validate()?;
         let mut revisions = std::collections::HashSet::new();
         for (id, r) in &self.receipts {
+            r.validate()?;
             if !validate_request(&r.request).map_err(|_| DesktopError("corruptSnapshot"))?
                 || r.request
                     .mutation

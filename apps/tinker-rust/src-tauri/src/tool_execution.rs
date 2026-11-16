@@ -81,18 +81,14 @@ impl RunController {
     /// 绑定日志写入前的只读预检；start_tools 仍在自己的锁内再次校验。
     pub(crate) fn preflight_tools(
         &self,
+        request_id: &str,
         parent: Option<&str>,
         input: &str,
         provider: &dyn RunProvider,
         executor: &dyn ToolExecutor,
         options: &ToolRunOptions,
     ) -> Result<(), RunError> {
-        if input.trim().is_empty() {
-            return Err(RunError::EmptyInput);
-        }
-        if input.len() > MAX_INPUT_BYTES {
-            return Err(RunError::InputTooLarge);
-        }
+        validate_tool_input(input)?;
         ToolRunOptions::new(
             options.workspace_revision.clone(),
             options.permission_timeout,
@@ -101,6 +97,7 @@ impl RunController {
         if options.workspace_revision != executor.workspace_revision() {
             return Err(RunError::ToolArguments);
         }
+        validate_metadata(provider, request_id, parent, options)?;
         let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
         if !inner.tools_enabled {
             return Err(RunError::ToolUnsupported);
@@ -122,12 +119,7 @@ impl RunController {
     ) -> Result<ToolRunSnapshot, RunError> {
         let start = Instant::now();
         validate_id(&request_id)?;
-        if input.trim().is_empty() {
-            return Err(RunError::EmptyInput);
-        }
-        if input.len() > MAX_INPUT_BYTES {
-            return Err(RunError::InputTooLarge);
-        }
+        validate_tool_input(&input)?;
         ToolRunOptions::new(
             options.workspace_revision.clone(),
             options.permission_timeout,
@@ -136,6 +128,12 @@ impl RunController {
         if options.workspace_revision != executor.workspace_revision() {
             return Err(RunError::ToolArguments);
         }
+        validate_metadata(
+            provider.as_ref(),
+            &request_id,
+            parent_run_id.as_deref(),
+            &options,
+        )?;
         let mut handle = self.worker.lock().map_err(|_| RunError::StoreIo)?;
         let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
         if !inner.tools_enabled {
@@ -188,6 +186,9 @@ impl RunController {
             parent,
             workspace_revision: options.workspace_revision,
         };
+        provider.validate_tool_metadata(
+            &serde_json::to_value(&header).map_err(|_| RunError::StoreIo)?,
+        )?;
         let run = match inner.store.create_tool_run(header) {
             Ok(r) => r,
             Err(e) => {
@@ -548,4 +549,13 @@ fn prepare_context(
         .store
         .tool_context_for(parent.as_ref(), order, input)?;
     Ok((order, parent, context))
+}
+
+fn validate_metadata(
+    provider: &dyn RunProvider,
+    request_id: &str,
+    parent: Option<&str>,
+    options: &ToolRunOptions,
+) -> Result<(), RunError> {
+    provider.validate_tool_metadata(&serde_json::json!({"requestId":request_id,"parentRunId":parent,"workspaceRevision":options.workspace_revision,"permissionTimeoutMs":options.permission_timeout.as_millis(),"runTimeoutMs":options.run_timeout.as_millis()}))
 }

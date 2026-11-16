@@ -570,3 +570,217 @@ fn escaped_tool_output_remains_bounded_for_events_history_duplicate_cancel_and_r
     drop(reopened);
     std::fs::remove_dir_all(path).unwrap();
 }
+
+#[test]
+fn encoded_tools_input_limit_rejects_before_binding_header_or_http() {
+    use std::{sync::Arc, time::Duration};
+    use tinker_rust_foundation::{
+        desktop_runtime::TrustedToolBinding,
+        formal_mock::OwnedMock,
+        formal_platform::TrustedRoot,
+        synthetic_workspace::SyntheticWorkspace,
+        tool_types::{ToolExecutor, ToolRunOptions},
+    };
+    let path = std::env::temp_dir().canonicalize().unwrap().join(format!(
+        "tinker-tauri-tools-preview-input-encoded-{}",
+        std::process::id()
+    ));
+    let root = TrustedRoot::create_tools_temporary(&path).unwrap();
+    let mut mock = OwnedMock::start_tools().unwrap();
+    let executor = Arc::new(SyntheticWorkspace::create(&root).unwrap());
+    let runtime = DesktopRuntime::open_with_tools(
+        root.path(),
+        mock.profiles().unwrap(),
+        vec![TrustedToolBinding {
+            profile_id: "local-tools-mock".into(),
+            executor: executor.clone(),
+            options: ToolRunOptions::new(
+                executor.workspace_revision().into(),
+                Duration::from_secs(60),
+                Duration::from_secs(120),
+            )
+            .unwrap(),
+        }],
+    )
+    .unwrap();
+    let sid=call(&runtime,"sessions.create",json!({"title":"encoded input","profileId":"local-tools-mock","workspaceId":null,"reuseDraft":false}))["result"]["sessionId"].as_str().unwrap().to_owned();
+    let mut request = send_params(&sid);
+    request["profileId"] = json!("local-tools-mock");
+    request["modelId"] = json!("local-tools-mock");
+    request["userMessage"] = json!("\u{1}".repeat(60000));
+    let journal = path.join("desktop-runtime-v1/journal.jsonl");
+    let before = std::fs::read(&journal).unwrap();
+    assert_eq!(
+        call(&runtime, "chat.send", request)["error"]["code"],
+        "inputTooLarge"
+    );
+    assert_eq!(std::fs::read(journal).unwrap(), before);
+    assert!(!path
+        .join("desktop-runtime-v1")
+        .join(&sid)
+        .join("runs-v1/tools-v3/request.jsonl")
+        .exists());
+    assert!(mock.records().is_empty());
+    drop(runtime);
+    mock.shutdown();
+    std::fs::remove_dir_all(path).unwrap();
+}
+
+#[test]
+fn provider_key_in_request_metadata_is_rejected_by_desktop_and_direct_core_before_write() {
+    use std::{
+        sync::{
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+            Arc,
+        },
+        time::{Duration, Instant},
+    };
+    use tinker_rust_foundation::{
+        chat_http::{ChatHttpConfig, ChatHttpProvider},
+        desktop_runtime::TrustedToolBinding,
+        formal_mock::OwnedMock,
+        formal_platform::{TrustedRoot, MOCK_KEY},
+        run_controller::RunController,
+        run_types::RunError,
+        synthetic_workspace::SyntheticWorkspace,
+        tool_types::*,
+    };
+    struct Count {
+        workspace: SyntheticWorkspace,
+        calls: AtomicUsize,
+    }
+    impl ToolExecutor for Count {
+        fn workspace_revision(&self) -> &str {
+            self.workspace.workspace_revision()
+        }
+        fn catalog(&self) -> Vec<ToolSpec> {
+            self.workspace.catalog()
+        }
+        fn execute(&self, call: &ToolCall, cancelled: &AtomicBool) -> Result<ToolResult, RunError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.workspace.execute(call, cancelled)
+        }
+    }
+    for direct in [false, true] {
+        let path = std::env::temp_dir().canonicalize().unwrap().join(format!(
+            "tinker-tauri-tools-preview-metadata-{}-{direct}",
+            std::process::id()
+        ));
+        let root = TrustedRoot::create_tools_temporary(&path).unwrap();
+        let mut mock = OwnedMock::start_tools().unwrap();
+        let executor = Arc::new(Count {
+            workspace: SyntheticWorkspace::create(&root).unwrap(),
+            calls: AtomicUsize::new(0),
+        });
+        let options = || {
+            ToolRunOptions::new(
+                executor.workspace_revision().into(),
+                Duration::from_secs(60),
+                Duration::from_secs(120),
+            )
+            .unwrap()
+        };
+        if direct {
+            let profile = mock.profiles().unwrap().remove(0);
+            let provider = Arc::new(ChatHttpProvider::new(
+                ChatHttpConfig::new(profile.endpoint, profile.key, "local-tools-mock".into())
+                    .unwrap(),
+            ));
+            let controller = RunController::open_with_tools(root.path()).unwrap();
+            assert!(controller
+                .start_tools(
+                    MOCK_KEY.into(),
+                    None,
+                    "benign input".into(),
+                    provider.clone(),
+                    executor.clone(),
+                    options()
+                )
+                .is_err());
+            assert!(!path.join("runs-v1/tools-v3").exists());
+            assert!(mock.records().is_empty());
+            controller
+                .start_tools(
+                    "normal".into(),
+                    None,
+                    "benign input".into(),
+                    provider,
+                    executor.clone(),
+                    options(),
+                )
+                .unwrap();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while controller
+                .read_tools("normal", 0, 256)
+                .unwrap()
+                .snapshot
+                .pending
+                .is_none()
+            {
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            controller.cancel_tools("normal").unwrap();
+            drop(controller);
+        } else {
+            let runtime = DesktopRuntime::open_with_tools(
+                root.path(),
+                mock.profiles().unwrap(),
+                vec![TrustedToolBinding {
+                    profile_id: "local-tools-mock".into(),
+                    executor: executor.clone(),
+                    options: options(),
+                }],
+            )
+            .unwrap();
+            let sid=call(&runtime,"sessions.create",json!({"title":"metadata guard","profileId":"local-tools-mock","workspaceId":null,"reuseDraft":false}))["result"]["sessionId"].as_str().unwrap().to_owned();
+            let mut request = send_params(&sid);
+            request["profileId"] = json!("local-tools-mock");
+            request["modelId"] = json!("local-tools-mock");
+            request["requestId"] = json!(MOCK_KEY);
+            let journal = path.join("desktop-runtime-v1/journal.jsonl");
+            let before = std::fs::read(&journal).unwrap();
+            assert!(!call(&runtime, "chat.send", request.clone())["error"].is_null());
+            assert_eq!(std::fs::read(journal).unwrap(), before);
+            assert!(!path
+                .join("desktop-runtime-v1")
+                .join(&sid)
+                .join("runs-v1/tools-v3")
+                .exists());
+            assert_eq!(
+                call(
+                    &runtime,
+                    "sessions.historyV2",
+                    json!({"sessionId":sid,"after":0,"limit":128})
+                )["result"]["turns"],
+                json!([])
+            );
+            assert!(mock.records().is_empty());
+            request["requestId"] = json!("normal");
+            assert!(call(&runtime, "chat.send", request)["error"].is_null());
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while call(
+                &runtime,
+                "chat.pendingPermissions",
+                json!({"sessionId":sid}),
+            )["result"]["permissions"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+            {
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            call(
+                &runtime,
+                "chat.cancel",
+                json!({"sessionId":sid,"requestId":"normal"}),
+            );
+            drop(runtime);
+        }
+        assert_eq!(executor.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(mock.records().len(), 1);
+        mock.shutdown();
+        std::fs::remove_dir_all(path).unwrap();
+    }
+}

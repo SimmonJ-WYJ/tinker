@@ -707,3 +707,88 @@ fn session_drafts_are_bounded_secret_checked_atomic_and_compatible_with_old_snap
             .is_none()
     );
 }
+
+#[test]
+fn near_limit_draft_autosaves_compact_receipts_preserving_retry_conflict_and_legacy_reopen() {
+    let (root, p) = setup();
+    let mut requests = Vec::new();
+    for index in 0..32 {
+        let text = format!("draft-{index} {}", "x".repeat(59000));
+        let request = req(
+            "settings:update",
+            json!([{"language":"en","sessionDrafts":{"session-a":text,"session-b":"second nested key"}}]),
+            Some((&format!("autosave-{index}"), index)),
+        );
+        let reply = p.invoke(request.clone()).unwrap();
+        assert_eq!(reply.revision, index + 1);
+        requests.push(request);
+    }
+    fn reversed_json(value: &Value) -> String {
+        match value {
+            Value::Object(fields) => format!(
+                "{{{}}}",
+                fields
+                    .iter()
+                    .rev()
+                    .map(|(key, value)| format!(
+                        "{}:{}",
+                        serde_json::to_string(key).unwrap(),
+                        reversed_json(value)
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            Value::Array(items) => format!(
+                "[{}]",
+                items
+                    .iter()
+                    .map(reversed_json)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            _ => serde_json::to_string(value).unwrap(),
+        }
+    }
+    let reordered: PlatformRequest =
+        serde_json::from_str(&reversed_json(&serde_json::to_value(&requests[0]).unwrap())).unwrap();
+    assert_eq!(reordered, requests[0]);
+    assert_eq!(p.invoke(reordered).unwrap().revision, 32);
+    assert_eq!(p.invoke(requests[0].clone()).unwrap().revision, 32);
+    let mut conflict = requests[0].clone();
+    conflict.args[0]["sessionDrafts"]["session-a"] = json!("different draft same mutation");
+    assert_eq!(
+        p.invoke(conflict.clone()).unwrap_err().0,
+        "mutationConflict"
+    );
+    drop(p);
+    let file = root.path().join("formal-platform-v1/snapshot.json");
+    assert!(fs::metadata(&file).unwrap().len() < 300000);
+    // 旧完整receipt同样可读、可重试；下一次提交将它转换为摘要receipt。
+    let mut legacy: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    legacy["receipts"]["autosave-0"]
+        .as_object_mut()
+        .unwrap()
+        .remove("requestDigest");
+    legacy["receipts"]["autosave-0"]["request"] = serde_json::to_value(&requests[0]).unwrap();
+    fs::write(&file, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    let p = open(&root);
+    assert_eq!(p.invoke(requests[0].clone()).unwrap().revision, 32);
+    assert_eq!(p.invoke(conflict).unwrap_err().0, "mutationConflict");
+    let last = req(
+        "settings:update",
+        json!([{"sessionDrafts":{"session-a":"final close draft café 你好"}}]),
+        Some(("close-latest", 32)),
+    );
+    assert_eq!(p.invoke(last.clone()).unwrap().revision, 33);
+    assert_eq!(p.invoke(last).unwrap().revision, 33);
+    drop(p);
+    let p = open(&root);
+    assert_eq!(
+        serde_json::to_value(p.bootstrap().unwrap()).unwrap()["settings"]["sessionDrafts"]
+            ["session-a"],
+        "final close draft café 你好"
+    );
+    let bytes = fs::read_to_string(file).unwrap();
+    assert!(!bytes.contains("draft-0 "));
+    assert!(bytes.len() < 300000);
+}

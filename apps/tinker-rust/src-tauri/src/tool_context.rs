@@ -81,9 +81,7 @@ impl RunStore {
         child_order: u64,
         input: &str,
     ) -> Result<ToolContext, RunError> {
-        if input.len() > MAX_INPUT_BYTES {
-            return Err(RunError::InputTooLarge);
-        }
+        validate_tool_input(input)?;
         let mut next = parent.cloned();
         let mut order = child_order;
         let mut visited = std::collections::HashSet::new();

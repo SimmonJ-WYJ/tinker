@@ -188,7 +188,7 @@ impl ToolRunHeader {
         }
         validate_id(&self.run_id)?;
         validate_revision(&self.workspace_revision)?;
-        if self.created_order == 0 || self.input.len() > MAX_INPUT_BYTES {
+        if self.created_order == 0 || validate_tool_input(&self.input).is_err() {
             return Err(RunError::CorruptLog);
         }
         if let Some(p) = &self.parent {

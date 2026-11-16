@@ -151,6 +151,10 @@ impl reqwest::dns::Resolve for RejectDns {
     }
 }
 impl RunProvider for ChatHttpProvider {
+    fn validate_tool_metadata(&self, metadata: &serde_json::Value) -> Result<(), RunError> {
+        self.check_tool_metadata(metadata)
+    }
+
     fn validate_tool_context(
         &self,
         context: &crate::tool_types::ToolContext,

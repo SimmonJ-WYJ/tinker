@@ -2,6 +2,25 @@
 use super::*;
 use crate::tool_types::*;
 impl ChatHttpProvider {
+    pub(super) fn check_tool_metadata(&self, value: &serde_json::Value) -> Result<(), RunError> {
+        match value {
+            serde_json::Value::String(text) => self.check_tool_secret(text)?,
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    self.check_tool_metadata(item)?;
+                }
+            }
+            serde_json::Value::Object(items) => {
+                for (name, item) in items {
+                    self.check_tool_secret(name)?;
+                    self.check_tool_metadata(item)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
     pub(super) fn check_tool_secret(&self, text: &str) -> Result<(), RunError> {
         if text.contains(&self.config.key) {
             Err(RunError::ToolFailed)

@@ -72,3 +72,14 @@
 定向工具lib36 pass；tool_desktop、tool_http_adversarial、formal_platform受影响套件均通过。全套/最终普通QA包与实际新SHA Quit后草稿/active tab重开仍待执行。深色主题截图对比度异常已记录，不能仅由`dark`类声称视觉完整通过，需新原生computed tokens核查。
 
 草稿恢复支持边界：本轮只保留纯文本（含Unicode/换行），不保存`agentSessionDraftHtmlAtom`。HTML排版、mention chip、文件/图片附件及引用结构不承诺无损恢复，均未验收；不能把纯文本复验外推到富文本或引用恢复。
+
+## 补审边界修复（集中修复第二检查点）
+
+- 工具输入现在统一按完整JSON字符串≤64KiB检查（含引号、Unicode和转义），RunController start/preBind预检、ToolContext新输入和v3 header一致；legacy text原行为不变。60,000个U+0001先真实复现被接受，修复后在Bind/header/HTTP前拒绝。完整编码边界及header拒绝另有定向测试；早先journal fixture中60,000控制字符本身不合法，改为10,000个合法输入，未放宽限额。
+- 草稿自动保存的历史receipt不再复制旧正文：递归canonical JSON请求经SHA-256指纹识别，receipt保留原metadata/其余patch，草稿替换为空标记；当前settings只保留最新正文。旧完整receipt可读/可等价重试，下次提交原子压紧。mutation重复无额外写入、同ID不同body冲突、对象key重排等价、数组顺序保留；1MiB快照/1024receipt上限保持。真实32次约59KiB不同草稿→重开legacy receipt→最后close保存→重开验证通过，历史draft-0正文不在最终文件。
+- 指纹使用已在Cargo.lock及本地缓存的标准`sha2 =0.10.9`（checksum `a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283`）。Root明确接受将已有包提升为精确直接依赖的必要小幅plan调整；实际lock diff仅foundation dependencies增加`sha2`一行，没有新包/版本或下载，无自制密码算法。摘要用于幂等冲突识别，不是快照认证或真实凭据存储。
+- 私有provider已知key检查扩展到结构化request/parent/policy、完整Bind/header metadata，不暴露key getter、不伪造模型用户context。已知合成MOCK_KEY作为合法requestId的Desktop/直接core路径先复现被接受，修复后零journal变化/零header/零HTTP/runner0/无被拒历史；正常ID正例仍进入真实pending。父ID、策略revision、嵌套metadata也有检查回归。
+
+实际定向退出0：followup-lib 38 pass；followup-integration formal_platform20、tool_desktop8、tool_http_adversarial7；followup-clippy -D warnings通过。receipt-growth-green.log是首次重开失败日志（空patch被现契约拒绝），原样保留；修为合法空草稿标记后receipt-growth-green-2.log才是1 pass/exit0，未放宽空patch规则。
+
+03:45锁屏检查得到CGSSessionScreenIsLocked=true与IOConsoleLocked=false并存，不能只用IO标志判断。一次脚本误按IO条件启动caffeinate36930后在2026-11-16T03:45:44.708388Z立即核实身份并SIGTERM释放（起始03:45:17.301738Z），没有启动或操作新QA。后续原生复验受锁屏阻塞；Root已请求用户正常解锁，未获回复不视为解锁许可。旧SHA后续长构建已停止，修复后全套将独立完成；不改变系统安全/密码/锁屏设置。

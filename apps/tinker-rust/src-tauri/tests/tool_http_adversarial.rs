@@ -343,3 +343,28 @@ fn real_read_crash_reopen_closes_without_network_or_runner() {
     );
     assert!(matches!(listener.accept(),Err(e) if e.kind()==std::io::ErrorKind::WouldBlock));
 }
+
+#[test]
+fn structured_metadata_guard_checks_nested_identifiers_and_policy_without_exposing_key() {
+    use tinker_rust_foundation::run_provider::RunProvider;
+    let provider = ChatHttpProvider::new(
+        ChatHttpConfig::new(
+            "http://127.0.0.1:1/chat".into(),
+            "known-fake-key".into(),
+            "synthetic".into(),
+        )
+        .unwrap(),
+    );
+    for metadata in [
+        serde_json::json!({"requestId":"known-fake-key"}),
+        serde_json::json!({"parent":{"runId":"known-fake-key","sequence":1}}),
+        serde_json::json!({"workspaceRevision":"known-fake-key"}),
+        serde_json::json!({"binding":{"configRevision":"prefix-known-fake-key-suffix"}}),
+    ] {
+        assert_eq!(
+            provider.validate_tool_metadata(&metadata),
+            Err(RunError::ToolFailed)
+        );
+    }
+    assert_eq!(provider.validate_tool_metadata(&serde_json::json!({"requestId":"safe","parent":null,"workspaceRevision":"synthetic-v1"})),Ok(()));
+}

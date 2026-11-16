@@ -8,6 +8,11 @@ use std::{
 /// 受信任的同步实现；必须轮询取消令牌、遵守 remaining 总时限并立即传播 sink 错误。
 /// 取消或错误后不得继续提交片段或启动网络；宿主负责配置实现，不能注入不受信代码。
 pub trait RunProvider: Send + Sync {
+    /// 结构化宿主元数据的秘密检查；不把元数据伪装成模型用户上下文。
+    fn validate_tool_metadata(&self, _metadata: &serde_json::Value) -> Result<(), RunError> {
+        Ok(())
+    }
+
     fn validate_tool_context(
         &self,
         _context: &crate::tool_types::ToolContext,

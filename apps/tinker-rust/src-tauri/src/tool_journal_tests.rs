@@ -730,7 +730,7 @@ fn encoded_delta_and_context_rejection_preserves_log_and_readable_terminal() {
                 policy_version: 1,
                 run_id: "encoded".into(),
                 input: if large_input {
-                    "\u{1}".repeat(60000)
+                    "\u{1}".repeat(10000)
                 } else {
                     "question".into()
                 },
@@ -782,4 +782,23 @@ fn encoded_delta_and_context_rejection_preserves_log_and_readable_terminal() {
         assert_eq!(reopened.snapshot, run.snapshot);
         assert_eq!(reopened.snapshot.status, RunStatus::Failed);
     }
+}
+
+#[test]
+fn tools_header_rejects_raw_small_but_encoded_oversized_input_without_creating_files() {
+    let temp = Temp::new();
+    let store = RunStore::open(&temp.0).unwrap();
+    assert!(store
+        .create_tool_run(ToolRunHeader {
+            storage_version: 3,
+            policy_version: 1,
+            run_id: "bad-input".into(),
+            input: "\u{1}".repeat(60000),
+            created_order: 1,
+            parent: None,
+            workspace_revision: "synthetic-v1".into()
+        })
+        .is_err());
+    assert!(!temp.log("bad-input").exists());
+    assert!(!temp.0.join("runs-v1/tools-v3").exists());
 }

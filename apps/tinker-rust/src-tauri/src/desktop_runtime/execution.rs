@@ -111,6 +111,7 @@ impl Inner {
                 .get(&p.session_id)
                 .ok_or(DesktopError("sessionNotFound"))?
                 .preflight_tools(
+                    &p.request_id,
                     parent.as_deref(),
                     &p.user_message,
                     provider.as_ref(),
@@ -124,6 +125,11 @@ impl Inner {
             accepted_at: super::activity_time(session.updated_at)?,
             parent_run_id: parent.clone(),
         };
+        if self.tools.contains_key(&p.profile_id) {
+            provider.validate_tool_metadata(
+                &serde_json::to_value(&binding).map_err(|_| DesktopError("invalidParams"))?,
+            )?;
+        }
         self.journal.append(Entry::Bind {
             binding: binding.clone(),
         })?;
