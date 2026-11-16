@@ -41,6 +41,13 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
   const publish = (channel: string, value: unknown) => {
     for (const callback of callbacks.get(channel) ?? []) callback(projectErrors(value))
   }
+  function dispatchStream(channel:string,payload:{sessionId:string;[key:string]:unknown}) {
+    const identity=typeof payload.requestId==='string' ? JSON.stringify([payload.sessionId,payload.requestId]) : undefined
+    if(identity && completed.has(identity))return
+    if(identity && channel==='agent:stream:complete')completed.add(identity)
+    queue?.observe(channel,payload)
+    publish(channel,payload)
+  }
   function projectErrors(value: unknown): unknown {
     if (Array.isArray(value)) return value.map(projectErrors)
     if (!value || typeof value !== 'object') return value
@@ -80,9 +87,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     try { assembled = frames.accept(event) }
     catch { frames.clear(sid); void recover(sid).catch(console.error); return }
     if (!assembled) return
-    queue?.observe(assembled.channel, assembled.payload)
-    publish(assembled.channel, assembled.payload)
-    if (identity && event.channel === 'agent:stream:complete') completed.add(identity)
+    dispatchStream(assembled.channel,assembled.payload)
     observed[sid] = event.deliverySequence
   })
   try { bootstrap = await native.request<Bootstrap>({ command: 'bootstrap' }); cache = bootstrap.platformSnapshot; environmentSequence = bootstrap.environmentSequence ?? 0 }
@@ -153,13 +158,14 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
         await ensureAttached()
         const bundle = await command<RestoreBundle>('restore', { sessionId: sid, observedDeliverySequence: observed[sid] ?? 0 })
         watermarks.set(sid, bundle.deliverySequence)
-        queue?.restoreStates(bundle.chainStates ?? [])
+        const terminals=queue?.restoreStates((bundle.chainStates ?? []).filter(state=>state.sessionId===sid)) ?? []
         queue?.restore(bundle.activeSnapshot,restoreOwner)
         active(bundle.activeSnapshot)
         // 下一 task 让两层原 API Promise 的全部历史消费者先完成 microtask。
         setTimeout(() => {
           paused.delete(sid)
           restores.delete(sid)
+          if(!disposed && ready())for(const proof of terminals)dispatchStream('agent:stream:complete',{...proof})
           // COMPLETE 可以先于 resume reply；其 history refresh 必须建立新基线。
           void command('resume', { restoreToken: bundle.restoreToken }).catch(() => {
             if (!restores.has(sid)) return recover(sid)
@@ -175,7 +181,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
   if (bootstrap.queueing) queue = createQueueControl(bootstrap.activeRuns, async (channel, args, expectedChainId) => {
     const reply = await command<{value: unknown}>('invoke', {channel,args,expectedChainId})
     return reply.value
-  }, track, translate)
+  }, track, translate, undefined, payload=>dispatchStream('agent:stream:complete',{...payload}))
   async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
     if (closing && channel !== 'settings:update') throw new Error(translate('closing'))
     if (channel === 'agent:get-messages' || channel === 'agent:get-sdk-messages') {

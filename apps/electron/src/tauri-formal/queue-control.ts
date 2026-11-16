@@ -6,6 +6,8 @@ export class NativeQueueError extends Error {
   constructor(readonly code: string, message: string, readonly queueAcknowledgmentUnknown = false) { super(message) }
 }
 interface Waiter { promise: Promise<void>; finish(error?: Error): void }
+interface TerminalPayload {sessionId:string;requestId:string;resultSubtype:string;stoppedByUser:boolean}
+interface ClosedChain {sessionId:string;chainId:string;closureReason:string|null}
 interface Lane { tail: Promise<unknown>; count: number; frozen: boolean }
 export function createQueueControl(
   runs: ActiveRun[],
@@ -13,13 +15,21 @@ export function createQueueControl(
   track: (promise: Promise<unknown>) => void,
   translate: (code: string) => string,
   timeoutMs = CHAIN_TIMEOUT_MS,
+  terminal?: (payload: TerminalPayload) => void,
 ) {
   const owners = new Map(runs.map(run => [run.sessionId, run.requestId]))
   const lanes = new Map<string, Lane>()
   const waiters = new Map<string, Waiter>()
   const key = (sid: string, chain: string) => JSON.stringify([sid, chain])
-  const uncertain = (error: unknown) => !(error instanceof NativeQueueError) || ['transportTimeout','runtimeUnavailable','hostClosed','staleGeneration'].includes(error.code)
+  // 只有明确的准入拒绝可回滚；持久化/取消错误可能发生在收据同步之后。
+  const definiteRejections=new Set(['invalidParams','invalidId','emptyInput','inputTooLarge','invalidTime','unsupported','unsupportedEffort','profileNotFound','modelNotFound','sessionNotFound','workspaceNotFound','workspaceMismatch','requestConflict','requestLimit','queueLimit','queuePayloadLimit','chainNotFound','chainClosed','staleQueue','runBusy','activeLimit','hostBusy','closing'])
+  const uncertain = (error: unknown) => !(error instanceof NativeQueueError) || !definiteRejections.has(error.code)
   const unknown = () => new NativeQueueError('transportTimeout', translate('transportTimeout'), true)
+  function freeze(sid:string) {const lane=lanes.get(sid);if(lane)lane.frozen=true}
+  function terminalPayload(state:ClosedChain):TerminalPayload|undefined {
+    if(!state.closureReason || !['completed','stop','failure','close','delete','recovered'].includes(state.closureReason))return
+    return {sessionId:state.sessionId,requestId:state.chainId,resultSubtype:['failure','recovered'].includes(state.closureReason)?'error_during_execution':'success',stoppedByUser:['stop','delete'].includes(state.closureReason)}
+  }
   function enqueue(sid: string, action: () => Promise<unknown>): Promise<unknown> {
     let lane = lanes.get(sid)
     if (!lane) {
@@ -67,10 +77,19 @@ export function createQueueControl(
             try { return await invoke(channel,args,chain) }
             catch(error) {
               if(!uncertain(error))throw error
-              try {return await invoke('agent:queue-state',[{sessionId:sid}],chain)}catch{throw unknown()}
+              freeze(sid)
+              try {
+                const proof=await invoke('agent:queue-state',[{sessionId:sid}],chain) as ClosedChain
+                if(proof.sessionId!==sid || proof.chainId!==chain)throw unknown()
+                return proof
+              }catch{throw unknown()}
             }
           }) as {closureReason?:string|null}
-          if(acknowledgment?.closureReason)waiter.finish(['failure','recovered'].includes(acknowledgment.closureReason) ? new NativeQueueError('responseFailed',translate('responseFailed')) : undefined)
+          const proof=terminalPayload({sessionId:sid,chainId:chain,closureReason:acknowledgment?.closureReason ?? null})
+          if(proof) {
+            if(terminal)terminal(proof)
+            else waiter.finish(proof.resultSubtype==='success' ? undefined : new NativeQueueError('responseFailed',translate('responseFailed')))
+          }
         }
         catch(error) {waiter.finish(error instanceof Error ? error : unknown());throw error}
         return waiter.promise
@@ -79,7 +98,8 @@ export function createQueueControl(
         if(channel==='agent:stop') {
           try {return await invoke(channel,args,chain)}catch(error){
             if(!uncertain(error))throw error
-            try {const state=await invoke('agent:queue-state',[{sessionId:sid}],chain) as {closureReason?:string};if(state.closureReason)return null}catch{/* 保留冻结，不能推测停止已持久化。 */}
+            freeze(sid)
+            try {const state=await invoke('agent:queue-state',[{sessionId:sid}],chain) as ClosedChain;if(state.sessionId===sid && state.chainId===chain && state.closureReason)return null}catch{/* 保留冻结，不能推测停止已持久化。 */}
             throw unknown()
           }
         }
@@ -89,6 +109,7 @@ export function createQueueControl(
           return receipt.uuid
         } catch(error) {
           if(!uncertain(error) && !(error instanceof NativeQueueError && error.queueAcknowledgmentUnknown))throw error
+          freeze(sid)
           try {
             const state=await invoke('agent:queue-state',[{sessionId:sid,uuid:input.uuid}],chain) as {receipt?:{uuid?:string;chainId?:string;sessionId?:string}}
             if(state.receipt && state.receipt.uuid===input.uuid && state.receipt.chainId===chain && state.receipt.sessionId===sid)return input.uuid
@@ -104,8 +125,11 @@ export function createQueueControl(
         if(owners.get(payload.sessionId)===payload.requestId)owners.delete(payload.sessionId)
       }
     },
-    restoreStates(states:{sessionId:string;chainId:string;closureReason:string|null}[]) {
-      for(const state of states)if(state.closureReason)waiters.get(key(state.sessionId,state.chainId))?.finish(['failure','recovered'].includes(state.closureReason) ? new NativeQueueError('responseFailed',translate('responseFailed')) : undefined)
+    restoreStates(states:ClosedChain[]):TerminalPayload[] {
+      return states.flatMap(state=>{
+        if(!waiters.has(key(state.sessionId,state.chainId)) && owners.get(state.sessionId)!==state.chainId)return []
+        const proof=terminalPayload(state);return proof ? [proof] : []
+      })
     },
     owner(sid:string) {return owners.get(sid)},
     restore(run: ActiveRun | null,expectedOwner?:string) {if(run && owners.get(run.sessionId)===expectedOwner)owners.set(run.sessionId,run.requestId)},

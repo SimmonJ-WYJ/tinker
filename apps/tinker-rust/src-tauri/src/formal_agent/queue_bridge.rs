@@ -94,37 +94,94 @@ impl Actor {
             .as_str()
             .ok_or(DesktopError("invalidParams"))?
             .to_owned();
+        let sid = params["sessionId"]
+            .as_str()
+            .ok_or(DesktopError("invalidParams"))?
+            .to_owned();
+        crate::desktop_runtime::protocol::id(&cid)?;
+        crate::desktop_runtime::protocol::id(&sid)?;
+        let started = params["startedAt"]
+            .as_u64()
+            .ok_or(DesktopError("invalidParams"))?;
         if !self.queue_entries.contains_key(&cid) && self.queue_entries.len() >= 128 {
             return Err(DesktopError("hostBusy"));
         }
-        let state = self.core("chat.beginChain", params)?;
-        let sid = state["sessionId"]
-            .as_str()
-            .ok_or(DesktopError("invalidReply"))?;
-        let turns = self.turns(sid)?;
-        let turn = self.queue_turn(&state)?;
-        let started = turns
-            .iter()
-            .find(|t| t["requestId"] == cid)
-            .and_then(|t| t["startedAt"].as_u64())
-            .ok_or(DesktopError("invalidReply"))?;
-        let snapshot = queue_projection::snapshot(&state, &turns, started)?;
-        self.queue_entries.entry(cid).or_insert(QueueDelivery {
-            state: state.clone(),
-            turn,
-            snapshot,
-            started,
-            delivered: None,
-            staged: Vec::new(),
-            stage_index: 0,
-            stage_signature: None,
-            badge_clear_revision: 0,
-            error_delivered: false,
-            deleted: false,
-        });
+        // core 可能先持久化、启动，再返回错误；调用前先保留有限生命周期归属。
+        let reserved = !self.queue_entries.contains_key(&cid);
+        self.queue_entries
+            .entry(cid.clone())
+            .or_insert(QueueDelivery {
+                state: json!({"sessionId":sid,"chainId":cid,"closureReason":null}),
+                turn: Value::Null,
+                snapshot: Value::Null,
+                started,
+                delivered: None,
+                staged: Vec::new(),
+                stage_index: 0,
+                stage_signature: None,
+                badge_clear_revision: 0,
+                error_delivered: false,
+                deleted: false,
+            });
+        let state = match self.core("chat.beginChain", params) {
+            Ok(state) => state,
+            Err(error) => {
+                // 已有归属的重试失败不得删除或关闭原链。
+                if reserved {
+                    match self.core("chat.queueState", json!({"sessionId":sid,"chainId":cid})) {
+                        Ok(state) => {
+                            self.queue_entries.get_mut(&cid).expect("已保留归属").state = state;
+                            self.close_failed_begin(&sid, &cid);
+                        }
+                        Err(proof) if matches!(proof.0, "chainNotFound" | "sessionNotFound") => {
+                            // 只读查询明确证明没有接受，才移除本次新建的预留。
+                            self.queue_entries.remove(&cid);
+                        }
+                        Err(_) => self.draining = true,
+                    }
+                }
+                return Err(error);
+            }
+        };
+        self.queue_entries.get_mut(&cid).expect("已保留归属").state = state.clone();
+        #[cfg(test)]
+        if let Some(after_begin) = self.queue_after_begin.take() {
+            after_begin(self);
+        }
+        let projected = (|| {
+            let turns = self.turns(&sid)?;
+            let turn = self.queue_turn(&state)?;
+            let snapshot = queue_projection::snapshot(&state, &turns, started)?;
+            Ok::<_, DesktopError>((turn, snapshot))
+        })();
+        match projected {
+            Ok((turn, snapshot)) => {
+                let entry = self.queue_entries.get_mut(&cid).expect("已保留归属");
+                entry.turn = turn;
+                entry.snapshot = snapshot;
+            }
+            Err(error) => {
+                self.close_failed_begin(&sid, &cid);
+                return Err(error);
+            }
+        }
         Ok(Some(
             json!({"value":{"chainId":state["chainId"],"accepted":true,"closureReason":state["closureReason"]}}),
         ))
+    }
+    fn close_failed_begin(&mut self, sid: &str, cid: &str) {
+        match self.core(
+            "chat.stopChain",
+            json!({"sessionId":sid,"chainId":cid,"reason":"failure"}),
+        ) {
+            // stopChain 成功才证明持久关闭及取消安全；错误由调用方用原身份只读核对。
+            Ok(_) => {
+                self.queue_entries.remove(cid);
+            }
+            Err(_) => {
+                self.draining = true;
+            }
+        }
     }
     fn queue_turn(&self, state: &Value) -> Result<Value> {
         let r = &state["activeExecution"];

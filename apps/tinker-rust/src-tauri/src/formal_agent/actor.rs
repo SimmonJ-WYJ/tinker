@@ -54,6 +54,8 @@ pub(super) struct Barrier {
 pub(super) struct Actor {
     pub runtime: Arc<DesktopRuntime>,
     pub queueing: bool,
+    #[cfg(test)]
+    pub queue_after_begin: Option<fn(&Actor)>,
     pub queue_terminal_receipts: BTreeMap<String, super::queue_bridge::QueueTerminalReceipt>,
     pub queue_entries: BTreeMap<String, super::queue_bridge::QueueDelivery>,
     pub platform: FormalPlatform,
@@ -82,6 +84,8 @@ impl Actor {
         Self {
             runtime,
             queueing: false,
+            #[cfg(test)]
+            queue_after_begin: None,
             queue_terminal_receipts: BTreeMap::new(),
             queue_entries: BTreeMap::new(),
             platform,
@@ -535,3 +539,7 @@ fn core_error(code: &str) -> DesktopError {
 #[cfg(test)]
 #[path = "delivery_tests.rs"]
 mod delivery_tests;
+
+#[cfg(test)]
+#[path = "queue_fault_tests.rs"]
+mod queue_fault_tests;
