@@ -45,3 +45,8 @@ objc2-web-kit = { version = "=0.3.2", optional = true, default-features = false,
 name = "tinker-tools-preview"
 path = "src/bin/tinker-tools-preview.rs"
 required-features = ["formal-preview"]
+
+[[bin]]
+name = "tinker-tools-native-qa"
+path = "src/bin/tinker-tools-native-qa.rs"
+required-features = ["formal-native-qa"]

@@ -39,3 +39,14 @@ fn shutdown_joins_idle_connection_workers_and_releases_owned_listener() {
     assert!(start.elapsed() < Duration::from_secs(2));
     assert!(TcpStream::connect(("127.0.0.1", url.port().unwrap())).is_err());
 }
+
+#[test]
+fn tools_partial_error_emits_real_text_then_disconnects_without_terminal_sse() {
+    let mock = OwnedMock::start_tools().unwrap();
+    let request = json!({"model":"local-tools-mock","messages":[{"role":"user","content":"[partial-error] owned failure"}],"parallel_tool_calls":false,"tools":[{},{}],"stream":true});
+    let response = post(&mock, &request.to_string());
+    assert!(response.contains("Synthetic partial output before transport failure."));
+    assert!(!response.contains("[DONE]"));
+    assert!(!response.contains("tool_calls"));
+    assert_eq!(mock.records().len(), 1);
+}

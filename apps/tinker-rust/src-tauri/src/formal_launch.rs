@@ -53,6 +53,15 @@ pub fn run_tools(
     );
     run_mode(context, expected_identifier, probe, true)
 }
+/// QA 身份固定且必须显式指定临时工具根，禁止退回默认 appData。
+#[cfg(feature = "formal-native-qa")]
+pub fn run_tools_qa(context: tauri::Context<tauri::Wry>, probe: LaunchProbe) {
+    assert!(
+        std::env::var_os("TINKER_TOOLS_PREVIEW_ROOT").is_some(),
+        "QA 必须显式指定合成工具临时根"
+    );
+    run_mode(context, "com.tinker.tools-native-qa", Some(probe), true)
+}
 fn run_mode(
     context: tauri::Context<tauri::Wry>,
     expected_identifier: &str,
@@ -167,6 +176,27 @@ mod tests {
             serde_json::from_str(include_str!("../tauri.qa.conf.json")).unwrap();
         let tools: tauri::Config =
             serde_json::from_str(include_str!("../tauri.tools.conf.json")).unwrap();
+        let tools_qa: tauri::Config =
+            serde_json::from_str(include_str!("../tauri.tools-qa.conf.json")).unwrap();
+        for (config, identity) in [
+            (&formal, "com.tinker.formal-preview"),
+            (&qa, "com.tinker.formal-native-qa"),
+            (&tools, TOOLS_APPLICATION_ID),
+            (&tools_qa, "com.tinker.tools-native-qa"),
+        ] {
+            for expected in [
+                "com.tinker.formal-preview",
+                "com.tinker.formal-native-qa",
+                TOOLS_APPLICATION_ID,
+                "com.tinker.tools-native-qa",
+            ] {
+                assert_eq!(
+                    validate_config(config, expected).is_ok(),
+                    identity == expected
+                );
+            }
+        }
+        assert_eq!(tools_qa.app.security.csp, tools.app.security.csp);
         assert!(validate_config(&formal, TOOLS_APPLICATION_ID).is_err());
         assert!(validate_config(&tools, TOOLS_APPLICATION_ID).is_ok());
         assert!(validate_config(&tools, "com.tinker.formal-preview").is_err());

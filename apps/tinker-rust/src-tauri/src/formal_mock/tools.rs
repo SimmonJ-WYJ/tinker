@@ -99,6 +99,19 @@ pub(super) fn respond(
     stream.write_all(
         b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n",
     )?;
+    // 仅 owned mock 的传输故障场景：真实 SSE delta 后断流，无 finish/[DONE]。
+    if results.is_empty()
+        && messages[start]["content"]
+            .as_str()
+            .is_some_and(|s| s.starts_with("[partial-error]"))
+    {
+        write!(
+            stream,
+            "data: {}\n\n",
+            json!({"choices":[{"index":0,"delta":{"content":"Synthetic partial output before transport failure."},"finish_reason":null}]})
+        )?;
+        return stream.flush();
+    }
     if results.is_empty()
         && messages[start]["content"]
             .as_str()
