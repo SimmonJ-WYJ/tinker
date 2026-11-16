@@ -661,3 +661,49 @@ fn wire_bounds_and_host_theme_updates_keep_renderer_authority_narrow() {
         true
     );
 }
+
+#[test]
+fn session_drafts_are_bounded_secret_checked_atomic_and_compatible_with_old_snapshots() {
+    use tinker_rust_foundation::formal_platform::MOCK_KEY;
+    let (root, p) = setup();
+    let file = root.path().join("formal-platform-v1/snapshot.json");
+    let before = fs::read(&file).unwrap();
+    for (index, drafts) in [
+        json!({"session-a":MOCK_KEY}),
+        json!({"session-a":"x".repeat(65536)}),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert!(p
+            .invoke(req(
+                "settings:update",
+                json!([{"sessionDrafts":drafts}]),
+                Some((&format!("bad-draft-{index}"), 0))
+            ))
+            .is_err());
+        assert_eq!(fs::read(&file).unwrap(), before);
+        assert_eq!(p.bootstrap().unwrap().revision, 0);
+    }
+    let drafts = json!({"session-a":"last native draft café 你好"});
+    update(&p, "good-draft", 0, json!({"sessionDrafts":drafts}));
+    drop(p);
+    let p = open(&root);
+    assert_eq!(
+        serde_json::to_value(p.bootstrap().unwrap()).unwrap()["settings"]["sessionDrafts"],
+        drafts
+    );
+    drop(p);
+    let mut legacy: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    legacy["settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("sessionDrafts");
+    fs::write(&file, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    let p = open(&root);
+    assert!(
+        serde_json::to_value(p.bootstrap().unwrap()).unwrap()["settings"]
+            .get("sessionDrafts")
+            .is_none()
+    );
+}

@@ -86,7 +86,7 @@ impl Inner {
                 .ok_or(DesktopError("invalidReply"))?
                 .remove("toolState");
         }
-        Ok(turn)
+        bounded(turn)
     }
     pub(super) fn turn_v2(&self, b: &Binding) -> Result<Value> {
         let c = self

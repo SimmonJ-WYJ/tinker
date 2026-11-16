@@ -351,3 +351,222 @@ fn text_send_and_cancel_keep_legacy_turn_shape() {
     );
     assert!(cancelled["result"].get("toolState").is_none());
 }
+
+#[test]
+fn rejected_secret_input_and_completed_ancestor_never_change_binding_journal() {
+    use std::{
+        sync::Arc,
+        time::{Duration, Instant},
+    };
+    use tinker_rust_foundation::{
+        desktop_runtime::TrustedToolBinding,
+        formal_mock::OwnedMock,
+        formal_platform::{TrustedRoot, MOCK_KEY},
+        synthetic_workspace::SyntheticWorkspace,
+        tool_types::{ToolExecutor, ToolRunOptions},
+    };
+    for ancestor in [false, true] {
+        let path = std::env::temp_dir().canonicalize().unwrap().join(format!(
+            "tinker-tauri-tools-preview-prebind-{}-{ancestor}",
+            std::process::id()
+        ));
+        let root = TrustedRoot::create_tools_temporary(&path).unwrap();
+        let mut mock = OwnedMock::start_tools().unwrap();
+        let executor = Arc::new(SyntheticWorkspace::create(&root).unwrap());
+        let bindings = || {
+            vec![TrustedToolBinding {
+                profile_id: "local-tools-mock".into(),
+                executor: executor.clone(),
+                options: ToolRunOptions::new(
+                    executor.workspace_revision().into(),
+                    Duration::from_secs(60),
+                    Duration::from_secs(120),
+                )
+                .unwrap(),
+            }]
+        };
+        let mut runtime =
+            DesktopRuntime::open_with_tools(root.path(), mock.profiles().unwrap(), bindings())
+                .unwrap();
+        let sid = call(&runtime, "sessions.create", json!({"title":"owned secret preflight","profileId":"local-tools-mock","workspaceId":null,"reuseDraft":false}))["result"]["sessionId"].as_str().unwrap().to_owned();
+        let mut request = send_params(&sid);
+        request["profileId"] = json!("local-tools-mock");
+        request["modelId"] = json!("local-tools-mock");
+        if ancestor {
+            request["userMessage"] = json!("synthetic ancestor credential candidate");
+            assert!(call(&runtime, "chat.send", request.clone())["error"].is_null());
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                let page = call(
+                    &runtime,
+                    "chat.eventsV2",
+                    json!({"sessionId":sid,"requestId":"request","afterSequence":0,"limit":256}),
+                );
+                assert!(page["error"].is_null(), "{page}");
+                if page["result"]["turn"]["status"] == "completed" {
+                    break;
+                }
+                if let Some(pid) =
+                    page["result"]["turn"]["toolState"]["pending"]["permissionId"].as_str()
+                {
+                    assert!(call(&runtime,"chat.permissionRespond",json!({"sessionId":sid,"runId":"request","permissionId":pid,"behavior":"allow","alwaysAllow":false}))["error"].is_null());
+                }
+                assert!(Instant::now() < deadline);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            drop(runtime);
+            let mut rotated = mock.profiles().unwrap();
+            rotated[0].key = "synthetic ancestor credential candidate".into();
+            runtime = DesktopRuntime::open_with_tools(root.path(), rotated, bindings()).unwrap();
+            request["userMessage"] = json!("safe followup");
+        } else {
+            request["userMessage"] = json!(format!("synthetic input {MOCK_KEY}"));
+        }
+        request["requestId"] = json!("rejected");
+        let journal = path.join("desktop-runtime-v1/journal.jsonl");
+        let before = std::fs::read(&journal).unwrap();
+        let http_before = mock.records().len();
+        let rejected = call(&runtime, "chat.send", request);
+        assert!(!rejected["error"].is_null(), "{rejected}");
+        assert_eq!(
+            std::fs::read(&journal).unwrap(),
+            before,
+            "rejected tools input/context must not Bind"
+        );
+        assert!(!path
+            .join("desktop-runtime-v1")
+            .join(&sid)
+            .join("runs-v1/tools-v3/rejected.jsonl")
+            .exists());
+        assert_eq!(mock.records().len(), http_before);
+        assert_eq!(
+            call(
+                &runtime,
+                "sessions.historyV2",
+                json!({"sessionId":sid,"after":0,"limit":128})
+            )["result"]["turns"]
+                .as_array()
+                .unwrap()
+                .len(),
+            usize::from(ancestor)
+        );
+        drop(runtime);
+        mock.shutdown();
+        std::fs::remove_dir_all(path).unwrap();
+    }
+}
+
+#[test]
+fn escaped_tool_output_remains_bounded_for_events_history_duplicate_cancel_and_reopen() {
+    use std::{
+        io::Write,
+        net::TcpListener,
+        sync::Arc,
+        time::{Duration, Instant},
+    };
+    use tinker_rust_foundation::{
+        desktop_runtime::{TrustedProfile, TrustedToolBinding},
+        formal_platform::TrustedRoot,
+        synthetic_workspace::SyntheticWorkspace,
+        tool_types::{ToolExecutor, ToolRunOptions},
+    };
+    let path = std::env::temp_dir().canonicalize().unwrap().join(format!(
+        "tinker-tauri-tools-preview-encoded-{}",
+        std::process::id()
+    ));
+    let root = TrustedRoot::create_tools_temporary(&path).unwrap();
+    let executor = Arc::new(SyntheticWorkspace::create(&root).unwrap());
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}/chat", listener.local_addr().unwrap());
+    let server = std::thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        #[path = "support/http.rs"]
+        mod http_support;
+        http_support::read_request(&mut socket);
+        let delta = format!(
+            "data: {}\n\n",
+            json!({"choices":[{"index":0,"delta":{"content":"\u{1}".repeat(2000)},"finish_reason":null}]})
+        );
+        let body = format!(
+            "{}data: {}\n\ndata: [DONE]\n\n",
+            delta.repeat(130),
+            json!({"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]})
+        );
+        let _=write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
+    });
+    let profiles = || {
+        vec![serde_json::from_value::<TrustedProfile>(json!({"profileId":"encoded","label":"Encoded fixture","configRevision":"r1","models":[{"modelId":"encoded","label":"Encoded"}],"endpoint":endpoint,"key":"encoded-fake-key"})).unwrap()]
+    };
+    let bindings = || {
+        vec![TrustedToolBinding {
+            profile_id: "encoded".into(),
+            executor: executor.clone(),
+            options: ToolRunOptions::new(
+                executor.workspace_revision().into(),
+                Duration::from_secs(60),
+                Duration::from_secs(120),
+            )
+            .unwrap(),
+        }]
+    };
+    let runtime = DesktopRuntime::open_with_tools(root.path(), profiles(), bindings()).unwrap();
+    let sid=call(&runtime,"sessions.create",json!({"title":"bounded encoded","profileId":"encoded","workspaceId":null,"reuseDraft":false}))["result"]["sessionId"].as_str().unwrap().to_owned();
+    let mut request = send_params(&sid);
+    request["profileId"] = json!("encoded");
+    request["modelId"] = json!("encoded");
+    assert!(call(&runtime, "chat.send", request.clone())["error"].is_null());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let final_turn = loop {
+        let page = call(
+            &runtime,
+            "chat.eventsV2",
+            json!({"sessionId":sid,"requestId":"request","afterSequence":0,"limit":256}),
+        );
+        assert!(
+            page["error"].is_null(),
+            "escaped aggregate must remain readable: {page}"
+        );
+        assert!(serde_json::to_vec(&page["result"]).unwrap().len() <= 2 * 1024 * 1024);
+        if page["result"]["turn"]["status"] == "failed" {
+            break page["result"]["turn"].clone();
+        }
+        assert_ne!(
+            page["result"]["turn"]["status"], "completed",
+            "oversized encoded output must be rejected"
+        );
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let output = final_turn["assistantMessage"].as_str().unwrap();
+    assert!(!output.is_empty());
+    assert!(serde_json::to_vec(output).unwrap().len() <= 256 * 1024);
+    for reply in [
+        call(&runtime, "chat.send", request),
+        call(
+            &runtime,
+            "chat.cancel",
+            json!({"sessionId":sid,"requestId":"request"}),
+        ),
+        call(
+            &runtime,
+            "sessions.historyV2",
+            json!({"sessionId":sid,"after":0,"limit":128}),
+        ),
+    ] {
+        assert!(reply["error"].is_null(), "{reply}");
+        assert!(serde_json::to_vec(&reply["result"]).unwrap().len() <= 2 * 1024 * 1024);
+    }
+    server.join().unwrap();
+    drop(runtime);
+    let reopened = DesktopRuntime::open_with_tools(root.path(), profiles(), bindings()).unwrap();
+    assert_eq!(
+        call(
+            &reopened,
+            "sessions.historyV2",
+            json!({"sessionId":sid,"after":0,"limit":128})
+        )["result"]["turns"][0],
+        final_turn
+    );
+    drop(reopened);
+    std::fs::remove_dir_all(path).unwrap();
+}

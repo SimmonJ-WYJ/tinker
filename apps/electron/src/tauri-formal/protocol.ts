@@ -4,7 +4,7 @@ import type { AppSettings, UserProfile, ResolvedTheme } from '../types/index.ts'
 export interface PlatformSnapshot {
   version: number
   revision: number
-  settings: AppSettings
+  settings: AppSettings & { sessionDrafts?: Record<string, string> }
   userProfile: UserProfile
   workspaces: unknown[]
   theme: ResolvedTheme

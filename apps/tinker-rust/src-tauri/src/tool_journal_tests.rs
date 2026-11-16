@@ -718,3 +718,68 @@ fn tool_journal_four_calls_then_fifth_round_must_stop() {
 }
 #[path = "tool_journal_context_tests.rs"]
 mod context_tests;
+
+#[test]
+fn encoded_delta_and_context_rejection_preserves_log_and_readable_terminal() {
+    for large_input in [false, true] {
+        let temp = Temp::new();
+        let store = RunStore::open(&temp.0).unwrap();
+        let mut run = store
+            .create_tool_run(ToolRunHeader {
+                storage_version: 3,
+                policy_version: 1,
+                run_id: "encoded".into(),
+                input: if large_input {
+                    "\u{1}".repeat(60000)
+                } else {
+                    "question".into()
+                },
+                created_order: 1,
+                parent: None,
+                workspace_revision: "synthetic-v1".into(),
+            })
+            .unwrap();
+        add(&store, &mut run, ToolRecordKind::Started);
+        add(&store, &mut run, ToolRecordKind::RoundStarted { round: 0 });
+        let mut rejected = false;
+        for _ in 0..130 {
+            let before = fs::read(temp.log("encoded")).unwrap();
+            let snapshot = run.snapshot.clone();
+            match store.append_tool_record(
+                &mut run,
+                ToolRecordKind::TextDelta {
+                    round: 0,
+                    text: "\u{1}".repeat(2000),
+                },
+            ) {
+                Ok(()) => {}
+                Err(error) => {
+                    assert!(matches!(
+                        error,
+                        RunError::RunLimitExceeded | RunError::ContextLimitExceeded
+                    ));
+                    assert_eq!(fs::read(temp.log("encoded")).unwrap(), before);
+                    assert_eq!(run.snapshot, snapshot);
+                    rejected = true;
+                    break;
+                }
+            }
+        }
+        assert!(rejected);
+        assert!(!run.snapshot.output.is_empty());
+        assert!(serde_json::to_vec(&run.snapshot.output).unwrap().len() <= MAX_OUTPUT_BYTES);
+        assert!(serde_json::to_vec(&run.snapshot).unwrap().len() <= MAX_TOOL_SNAPSHOT_BYTES);
+        add(
+            &store,
+            &mut run,
+            ToolRecordKind::Terminated {
+                status: RunStatus::Failed,
+                error_code: Some("runLimitExceeded".into()),
+                closed_call: None,
+            },
+        );
+        let reopened = store.load_tool_run("encoded").unwrap();
+        assert_eq!(reopened.snapshot, run.snapshot);
+        assert_eq!(reopened.snapshot.status, RunStatus::Failed);
+    }
+}

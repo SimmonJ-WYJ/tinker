@@ -3,14 +3,19 @@ use crate::{
     run_context::*, run_store::RunStore, run_types::*, session_lifecycle::RunStatus, tool_types::*,
 };
 impl ToolContext {
-    pub fn validate(&self) -> Result<(), RunError> {
+    pub(crate) fn validate_budget(&self, reserve: usize) -> Result<(), RunError> {
         if serde_json::to_vec(self)
             .map_err(|_| RunError::CorruptLog)?
             .len()
-            > MAX_CONTEXT_BYTES
+            > MAX_CONTEXT_BYTES.saturating_sub(reserve)
         {
             return Err(RunError::ContextLimitExceeded);
         }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<(), RunError> {
+        self.validate_budget(0)?;
         let mut pending: Option<&str> = None;
         let mut expect_user = true;
         let mut stopped = false;

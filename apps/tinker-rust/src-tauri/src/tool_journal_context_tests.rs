@@ -202,13 +202,14 @@ fn tool_journal_cross_version_context_counts_encoded_metadata() {
         .unwrap();
     add(&s, &mut r, ToolRecordKind::Started);
     add(&s, &mut r, ToolRecordKind::RoundStarted { round: 0 });
-    for _ in 0..32 {
+    for index in 0..32 {
         add(
             &s,
             &mut r,
             ToolRecordKind::TextDelta {
                 round: 0,
-                text: "y".repeat(8192),
+                // 完整JSON字符串的引号也占两个字节；保留跨版本metadata溢出反例。
+                text: "y".repeat(if index == 31 { 8190 } else { 8192 }),
             },
         );
     }

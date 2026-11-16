@@ -236,3 +236,86 @@ fn output_validation_panic_does_not_poison_lifecycle_mutex() {
     assert!(s.output.is_empty());
     assert_eq!(c.cancel_tools("r1").unwrap().status, RunStatus::Failed);
 }
+
+#[test]
+fn completed_ancestor_budget_is_checked_before_partial_and_stop_commit() {
+    struct LargeStop;
+    impl RunProvider for LargeStop {
+        fn execute(
+            &self,
+            _: &str,
+            _: &AtomicBool,
+            _: &mut dyn FnMut(&str) -> Result<(), RunError>,
+        ) -> Result<(), RunError> {
+            unreachable!()
+        }
+        fn execute_tool_round(
+            &self,
+            _: &ToolContext,
+            _: &[ToolSpec],
+            _: &AtomicBool,
+            _: Duration,
+            emit: &mut dyn FnMut(&str) -> Result<(), RunError>,
+        ) -> Result<ToolRoundOutput, RunError> {
+            for _ in 0..32 {
+                emit(&"x".repeat(8000))?;
+            }
+            Ok(ToolRoundOutput::Stop)
+        }
+    }
+    let path = root();
+    let c = RunController::open_with_tools(&path).unwrap();
+    let executor = Arc::new(Executor(AtomicUsize::new(0)));
+    let options = || {
+        ToolRunOptions::new(
+            "fixture".into(),
+            Duration::from_secs(1),
+            Duration::from_secs(10),
+        )
+        .unwrap()
+    };
+    c.start_tools(
+        "parent".into(),
+        None,
+        "first".into(),
+        Arc::new(LargeStop),
+        executor.clone(),
+        options(),
+    )
+    .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let parent = c.read_tools("parent", 0, 256).unwrap().snapshot;
+        if parent.status == RunStatus::Completed {
+            assert_eq!(parent.output.len(), 256000);
+            break;
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    c.start_tools(
+        "r1".into(),
+        Some("parent".into()),
+        "i".repeat(60000),
+        Arc::new(LargeStop),
+        executor.clone(),
+        options(),
+    )
+    .unwrap();
+    let failed = wait(&c, RunStatus::Failed);
+    assert_eq!(failed.error_code.as_deref(), Some("contextLimitExceeded"));
+    assert!(!failed.output.is_empty());
+    assert!(failed.output.len() < 200000);
+    assert!(c
+        .read_tools("r1", 0, 256)
+        .unwrap()
+        .events
+        .iter()
+        .all(|record| !matches!(record.event, ToolRecordKind::RoundFinished { .. })));
+    assert_eq!(executor.0.load(Ordering::SeqCst), 0);
+    drop(c);
+    let c = RunController::open_with_tools(&path).unwrap();
+    assert_eq!(c.read_tools("r1", 0, 256).unwrap().snapshot, failed);
+    drop(c);
+    std::fs::remove_dir_all(path).unwrap();
+}

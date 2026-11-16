@@ -78,6 +78,39 @@ impl RunController {
             worker: Mutex::new(None),
         })
     }
+    /// 绑定日志写入前的只读预检；start_tools 仍在自己的锁内再次校验。
+    pub(crate) fn preflight_tools(
+        &self,
+        parent: Option<&str>,
+        input: &str,
+        provider: &dyn RunProvider,
+        executor: &dyn ToolExecutor,
+        options: &ToolRunOptions,
+    ) -> Result<(), RunError> {
+        if input.trim().is_empty() {
+            return Err(RunError::EmptyInput);
+        }
+        if input.len() > MAX_INPUT_BYTES {
+            return Err(RunError::InputTooLarge);
+        }
+        ToolRunOptions::new(
+            options.workspace_revision.clone(),
+            options.permission_timeout,
+            options.run_timeout,
+        )?;
+        if options.workspace_revision != executor.workspace_revision() {
+            return Err(RunError::ToolArguments);
+        }
+        let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        if !inner.tools_enabled {
+            return Err(RunError::ToolUnsupported);
+        }
+        if inner.blocked {
+            return Err(RunError::RecoveryRequired);
+        }
+        let (_, _, context) = prepare_context(&inner, parent, input)?;
+        provider.validate_tool_context(&context, &executor.catalog())
+    }
     pub fn start_tools(
         &self,
         request_id: String,
@@ -143,24 +176,7 @@ impl RunController {
             worker.join().map_err(|_| RunError::StoreIo)?;
         }
         inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
-        let order = inner.store.next_created_order()?;
-        let parent = parent_run_id
-            .map(|id| -> Result<_, RunError> {
-                validate_id(&id)?;
-                let sequence = if inner.store.find_location(&id)? == 3 {
-                    inner.store.load_tool_run(&id)?.snapshot.sequence
-                } else {
-                    inner.store.load(&id)?.snapshot.sequence
-                };
-                Ok(ParentRunRef {
-                    run_id: id,
-                    sequence,
-                })
-            })
-            .transpose()?;
-        let context = inner
-            .store
-            .tool_context_for(parent.as_ref(), order, &input)?;
+        let (order, parent, context) = prepare_context(&inner, parent_run_id.as_deref(), &input)?;
         let tools = executor.catalog();
         provider.validate_tool_context(&context, &tools)?;
         let header = ToolRunHeader {
@@ -506,3 +522,30 @@ mod tests {
 #[cfg(test)]
 #[path = "tool_execution_regression_tests.rs"]
 mod regression_tests;
+
+/// 同一只读父链构造用于 Bind 前与真正创建 run 前，两次均按将分配的顺序校验。
+fn prepare_context(
+    inner: &Inner,
+    parent: Option<&str>,
+    input: &str,
+) -> Result<(u64, Option<ParentRunRef>, ToolContext), RunError> {
+    let order = inner.store.next_created_order()?;
+    let parent = parent
+        .map(|id| -> Result<_, RunError> {
+            validate_id(id)?;
+            let sequence = if inner.store.find_location(id)? == 3 {
+                inner.store.load_tool_run(id)?.snapshot.sequence
+            } else {
+                inner.store.load(id)?.snapshot.sequence
+            };
+            Ok(ParentRunRef {
+                run_id: id.into(),
+                sequence,
+            })
+        })
+        .transpose()?;
+    let context = inner
+        .store
+        .tool_context_for(parent.as_ref(), order, input)?;
+    Ok((order, parent, context))
+}

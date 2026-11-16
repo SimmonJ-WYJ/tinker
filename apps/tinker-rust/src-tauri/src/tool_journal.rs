@@ -385,6 +385,32 @@ impl StoredToolRun {
             }
             _ => return Err(RunError::CorruptLog),
         }
+        // 完整编码预算在候选reducer提交前检查；为失败/取消闭合保留空间。
+        let reserve = if state.phase == Phase::Terminal {
+            0
+        } else {
+            2 * MAX_EVENT_BYTES
+        };
+        if serde_json::to_vec(&s.output)
+            .map_err(|_| RunError::CorruptLog)?
+            .len()
+            > MAX_OUTPUT_BYTES
+            || serde_json::to_vec(&s)
+                .map_err(|_| RunError::CorruptLog)?
+                .len()
+                > MAX_TOOL_SNAPSHOT_BYTES - reserve
+        {
+            return Err(RunError::RunLimitExceeded);
+        }
+        let mut context = s.transcript.clone();
+        if !s.partial_text.is_empty() {
+            context.messages.push(TranscriptMessage::Assistant {
+                round: s.current_round.ok_or(RunError::CorruptLog)?,
+                text: s.partial_text.clone(),
+                call: None,
+            });
+        }
+        context.validate_budget(reserve)?;
         s.sequence = record.sequence;
         self.events.push(record);
         Ok(())

@@ -1,6 +1,6 @@
 /** direct Cargo 固定入口和完整配置；组装并验证本批独立工具包。 */
 import { resolve } from 'node:path'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import ordinary from '../src-tauri/tauri.tools.conf.json'
 import nativeQA from '../src-tauri/tauri.tools-qa.conf.json'
 import { createToolsStaging } from './tools-staging.ts'
@@ -30,10 +30,6 @@ export function buildTools(qa: boolean): void {
     const contents = resolve(bundle, 'Contents')
     const macos = resolve(contents, 'MacOS')
     const resources = resolve(contents, 'Resources')
-    if (existsSync(resolve(contents, 'Info.plist'))) {
-      const identity = Bun.spawnSync(['/usr/bin/plutil', '-extract', 'CFBundleIdentifier', 'raw', '-o', '-', resolve(contents, 'Info.plist')])
-      if (identity.exitCode !== 0 || identity.stdout.toString().trim() !== config.identifier) throw new Error('输出路径不是正式预览包')
-    }
     mkdirSync(macos, { recursive: true }); mkdirSync(resources, { recursive: true })
     copyFileSync(executable, resolve(macos, config.mainBinaryName))
     copyFileSync(resolve(appRoot, '../electron/resources/icon.icns'), resolve(resources, 'icon.icns'))

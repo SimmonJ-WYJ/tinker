@@ -106,6 +106,18 @@ impl Inner {
                 }
             }
         }
+        if let Some(tool) = self.tools.get(&p.profile_id) {
+            self.controllers
+                .get(&p.session_id)
+                .ok_or(DesktopError("sessionNotFound"))?
+                .preflight_tools(
+                    parent.as_deref(),
+                    &p.user_message,
+                    provider.as_ref(),
+                    tool.executor.as_ref(),
+                    &tool.options,
+                )?;
+        }
         let binding = Binding {
             request: p.clone(),
             config_revision: profile.config_revision.clone(),

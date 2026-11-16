@@ -41,6 +41,17 @@ pub(crate) fn run(
                 provider.validate_tool_output(&candidate)
             }))
             .unwrap_or(Err(RunError::ProviderPanicked))?;
+            let mut candidate_context = context.clone();
+            let mut partial = active(&inner)?.run.snapshot.partial_text.clone();
+            partial.push_str(text);
+            candidate_context
+                .messages
+                .push(TranscriptMessage::Assistant {
+                    round,
+                    text: partial,
+                    call: None,
+                });
+            candidate_context.validate_budget(2 * MAX_EVENT_BYTES)?;
             check(&inner, id, token)?;
             append(
                 &mut inner,
@@ -61,6 +72,18 @@ pub(crate) fn run(
                 Some(ToolCall::from_provider(round, raw)?)
             }
         };
+        let mut finished_context = context.clone();
+        finished_context
+            .messages
+            .push(TranscriptMessage::Assistant {
+                round,
+                text: active(&inner)?.run.snapshot.partial_text.clone(),
+                call: call.clone(),
+            });
+        finished_context.validate_budget(2 * MAX_EVENT_BYTES)?;
+        if call.is_none() {
+            finished_context.validate()?;
+        }
         append(
             &mut inner,
             ToolRecordKind::RoundFinished {
@@ -158,6 +181,20 @@ pub(crate) fn run(
         }))
         .unwrap_or(Err(RunError::ToolFailed))?;
         check(&inner, id, token)?;
+        let mut next_transcript = active(&inner)?.run.snapshot.transcript.clone();
+        next_transcript.messages.push(TranscriptMessage::Tool {
+            result: result.clone(),
+        });
+        let mut next_context = context.clone();
+        let start = next_context
+            .messages
+            .iter()
+            .rposition(|m| matches!(m, TranscriptMessage::User { .. }))
+            .ok_or(RunError::CorruptLog)?;
+        next_context.messages.truncate(start);
+        next_context.messages.extend(next_transcript.messages);
+        next_context.validate_budget(2 * MAX_EVENT_BYTES)?;
+        next_context.validate()?;
         append(&mut inner, ToolRecordKind::ToolFinished { result })?;
         check(&inner, id, token)?;
         // 已闭合 transcript 才能进入标准 context validator。

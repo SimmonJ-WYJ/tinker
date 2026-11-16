@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const MAX_INPUT_BYTES: usize = 65_536;
 pub const MAX_OUTPUT_BYTES: usize = 256 * 1024;
+// 工具快照留出2MiB desktop页中基础turn与至少一条事件的完整编码空间。
+pub const MAX_TOOL_SNAPSHOT_BYTES: usize = 1024 * 1024;
 pub const MAX_EVENT_BYTES: usize = 16 * 1024;
 pub const MAX_EVENTS: usize = 4096;
 pub const MAX_LOG_BYTES: usize = 4 * 1024 * 1024;

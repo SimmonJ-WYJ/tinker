@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { Window as TestWindow } from 'happy-dom'
 import { getDefaultStore } from 'jotai'
 import { tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom } from '../renderer/atoms/tab-atoms.ts'
-import { sidebarProjectFilesExpandedMapAtom } from '../renderer/atoms/agent-atoms.ts'
+import { sidebarProjectFilesExpandedMapAtom, agentSessionDraftsAtom, currentAgentWorkspaceIdAtom } from '../renderer/atoms/agent-atoms.ts'
 import { installPersistence } from './persistence.ts'
 import { createFormalTransport } from './transport.ts'
 import type { NativeBridge, NativeEvent } from './protocol.ts'
@@ -12,7 +12,7 @@ test('真实 close participant 在防抖前读取同一 Jotai 最新 tabs/工作
   const previousWindow = globalThis.window
   globalThis.window = new TestWindow() as unknown as typeof window
   const store = getDefaultStore()
-  const previous = [store.get(tabsAtom), store.get(activeTabIdAtom), store.get(activeTabIdByWorkspaceAtom), store.get(sidebarProjectFilesExpandedMapAtom)] as const
+  const previous = [store.get(tabsAtom), store.get(activeTabIdAtom), store.get(activeTabIdByWorkspaceAtom), store.get(sidebarProjectFilesExpandedMapAtom), store.get(agentSessionDraftsAtom), store.get(currentAgentWorkspaceIdAtom)] as const
   let emit: (event: NativeEvent) => void = () => {}
   const writes: unknown[] = []
   let done = () => {}
@@ -41,15 +41,17 @@ test('真实 close participant 在防抖前读取同一 Jotai 最新 tabs/工作
     await Promise.resolve(); expect(writes).toEqual([])
     store.set(tabsAtom, [{ id: 'latest', sessionId: 'session-1', type: 'agent', title: '最新' }])
     store.set(activeTabIdAtom, 'latest')
-    store.set(activeTabIdByWorkspaceAtom, { 'local-mock-workspace-id': 'latest' })
+    store.set(activeTabIdByWorkspaceAtom, { 'local-mock-workspace-id': 'stale' })
+    store.set(currentAgentWorkspaceIdAtom, 'local-mock-workspace-id')
+    store.set(agentSessionDraftsAtom, new Map([['session-1', 'latest typed draft café']]))
     store.set(sidebarProjectFilesExpandedMapAtom, new Map([['local-mock-workspace-id', true]]))
     participant.hydrated('tabs')
     await withDeadline(closed, 500)
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(writes).toEqual([{ tabState: { tabs: store.get(tabsAtom), activeTabId: 'latest', activeTabIdByWorkspace: { 'local-mock-workspace-id': 'latest' } }, sidebarProjectFilesExpandedByWorkspace: { 'local-mock-workspace-id': true } }])
+    expect(writes).toEqual([{ tabState: { tabs: store.get(tabsAtom), activeTabId: 'latest', activeTabIdByWorkspace: { 'local-mock-workspace-id': 'latest' } }, sidebarProjectFilesExpandedByWorkspace: { 'local-mock-workspace-id': true }, sessionDrafts: { 'session-1': 'latest typed draft café' } }])
   } finally {
     transport.dispose()
-    store.set(tabsAtom, previous[0]); store.set(activeTabIdAtom, previous[1]); store.set(activeTabIdByWorkspaceAtom, previous[2]); store.set(sidebarProjectFilesExpandedMapAtom, previous[3])
+    store.set(tabsAtom, previous[0]); store.set(activeTabIdAtom, previous[1]); store.set(activeTabIdByWorkspaceAtom, previous[2]); store.set(sidebarProjectFilesExpandedMapAtom, previous[3]); store.set(agentSessionDraftsAtom, previous[4]); store.set(currentAgentWorkspaceIdAtom, previous[5])
     globalThis.window = previousWindow
   }
 })

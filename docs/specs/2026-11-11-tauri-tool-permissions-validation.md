@@ -62,3 +62,13 @@
 构建最后使用唯一staging：普通 `/private/tmp/tinker-tauri-tools-package-UwPNup/Tinker Tools Preview.app`，QA `/private/tmp/tinker-tauri-tools-package-GqMvgG/Tinker Tools Native QA.app`。正常ad-hoc codesign和strict verify退出0；尚未作为最终交付包归档，因全分支审查存在两项Important（Bind前凭据/context预检、聚合编码预算）以及关闭恢复失败，待集中修复后重建。
 
 本批caffeinate命令`/usr/bin/caffeinate -di -t 1800`、PID21529、起始2026-11-16T03:02:35.958731Z；pmset核验同时具有PreventUserIdleSystemSleep/PreventUserIdleDisplaySleep。2026-11-16T03:25:13.887493Z核实同owned身份后SIGTERM释放；原始证据wake-lease.json/wake-assertions.txt/wake-lease-release.json。QA PID33989已经正常close，后续编译期间无wake lease。
+
+## 集中审查修复（新原生复验前）
+
+1. Desktop工具Bind前增加只读完整父链/context/catalog/凭据预检；`start_tools`仍锁内二次验证。输入与旋转可信合成key后祖先两模式回归先真实发现journal已变，修复后拒绝不改binding journal字节、不建V3header、不发HTTP、不出现被拒历史turn。
+2. 工具output按完整JSON字符串≤256KiB计量；snapshot完整编码≤1MiB，为2MiB desktop页的基础turn/至少一个事件保留空间。完整context仍≤512KiB，非终态预留32KiB闭合空间；delta/round/result提交前根据worker启动时已有的完整可信内存context计算候选，不逐片读取祖先磁盘。Stop前也验证，store/replay校验当前run snapshot/transcript，所有turn_reply（含重复Send/cancel）统一bounded。真实130×2000控制字符SSE先复现pageLimit，修复后失败状态、partial、events/history/duplicate/cancel/reopen均可读；祖先预算和journal拒绝不追加另有回归。旧cross-version fixture把256KiB ASCII输出减去JSON引号2字节，仍保持metadata溢出断言，未放宽边界。
+3. formal-only Settings新增可选`sessionDrafts: Record<sessionId,string>`，旧snapshot缺失默认空。仅保存纯文本，完整JSON总计≤64KiB、最多128会话；超限或已知可信profilekey拒绝整个patch，不截断、不写receipt/snapshot。hydrate在正式renderer入口恢复同一草稿atom，400ms普通保存与关闭最终capture都包含草稿。capture依据当前有效workspace/仍存在的active tab正规化workspace记忆，不修改Electron默认API/存储/初始化。合法草稿重开、旧snapshot兼容、超限/合成key原子拒绝与close participant最新atoms均有RED→GREEN。
+
+定向工具lib36 pass；tool_desktop、tool_http_adversarial、formal_platform受影响套件均通过。全套/最终普通QA包与实际新SHA Quit后草稿/active tab重开仍待执行。深色主题截图对比度异常已记录，不能仅由`dark`类声称视觉完整通过，需新原生computed tokens核查。
+
+草稿恢复支持边界：本轮只保留纯文本（含Unicode/换行），不保存`agentSessionDraftHtmlAtom`。HTML排版、mention chip、文件/图片附件及引用结构不承诺无损恢复，均未验收；不能把纯文本复验外推到富文本或引用恢复。

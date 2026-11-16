@@ -2,7 +2,7 @@
 import { getDefaultStore } from 'jotai'
 import { toast } from 'sonner'
 import { tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom } from '../renderer/atoms/tab-atoms.ts'
-import { sidebarProjectFilesExpandedMapAtom } from '../renderer/atoms/agent-atoms.ts'
+import { sidebarProjectFilesExpandedMapAtom, agentSessionDraftsAtom, currentAgentWorkspaceIdAtom } from '../renderer/atoms/agent-atoms.ts'
 import type { FormalTransport } from './transport.ts'
 import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
@@ -11,6 +11,8 @@ export interface FormalLifecycleMarker { hydrated(part: 'tabs' | 'settings', err
 declare global { interface Window { __TAURI_FORMAL__?: FormalLifecycleMarker } }
 export function installPersistence(transport: FormalTransport): FormalLifecycleMarker {
   const store = getDefaultStore()
+  // 草稿只在正式Tauri入口hydrate；不修改Electron默认初始化或存储。
+  store.set(agentSessionDraftsAtom, new Map(Object.entries(transport.bootstrap.platformSnapshot.settings.sessionDrafts ?? {})))
   const ready = new Set<string>()
   let resolve = () => {}
   let reject: (error: unknown) => void = () => {}
@@ -19,10 +21,19 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
   let hydrateFailed = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let frozen = false
-  const capture = () => ({
-    tabState: { tabs: store.get(tabsAtom), activeTabId: store.get(activeTabIdAtom), activeTabIdByWorkspace: store.get(activeTabIdByWorkspaceAtom) },
-    sidebarProjectFilesExpandedByWorkspace: Object.fromEntries(store.get(sidebarProjectFilesExpandedMapAtom)),
-  })
+  const capture = () => {
+    const tabs = store.get(tabsAtom)
+    const activeTabId = store.get(activeTabIdAtom)
+    const workspace = store.get(currentAgentWorkspaceIdAtom)
+    const active = tabs.find(tab => tab.id === activeTabId)
+    const activeTabIdByWorkspace = { ...store.get(activeTabIdByWorkspaceAtom) }
+    if (workspace && active && (active.workspaceId ?? workspace) === workspace) activeTabIdByWorkspace[workspace] = active.id
+    return {
+      tabState: { tabs, activeTabId, activeTabIdByWorkspace },
+      sidebarProjectFilesExpandedByWorkspace: Object.fromEntries(store.get(sidebarProjectFilesExpandedMapAtom)),
+      sessionDrafts: Object.fromEntries(store.get(agentSessionDraftsAtom)),
+    }
+  }
   const persist = async (value: ReturnType<typeof capture>) => {
     if (hydrateFailed || ready.size !== 2) throw new Error('hydrateFailed')
     if (!transport.readSync('settings:update-sync', value)) await transport.invoke('settings:update', value)
@@ -34,7 +45,7 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
     timer = setTimeout(() => { void persist(capture()).catch(failure) }, 400)
   }
   const failure = (error: unknown) => { console.error('[原生预览] 保存失败', error); toast.error(i18n.t('desktopRuntime.transport', { ns: 'errors' })) }
-  for (const target of [tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom, sidebarProjectFilesExpandedMapAtom]) store.sub(target, schedule)
+  for (const target of [tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom, sidebarProjectFilesExpandedMapAtom, agentSessionDraftsAtom]) store.sub(target, schedule)
   const block = (event: Event) => { if (frozen) { event.preventDefault(); event.stopImmediatePropagation() } }
   for (const name of ['click', 'pointerdown', 'keydown', 'beforeinput', 'drop']) window.addEventListener(name, block, true)
   const lifecycle = createLifecycle({

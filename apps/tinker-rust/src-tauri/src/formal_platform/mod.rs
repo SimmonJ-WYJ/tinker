@@ -46,6 +46,7 @@ struct Inner {
 pub struct FormalPlatform {
     inner: Mutex<Inner>,
     profiles: Vec<PublicProfile>,
+    known_keys: Vec<String>,
 }
 // 与preload常量逐字一致；未来能力不能通过前缀匹配被误放行。
 fn mutating(channel: &str) -> Result<bool> {
@@ -111,6 +112,10 @@ impl FormalPlatform {
         profiles: &[TrustedProfile],
         environment: HostEnvironment,
     ) -> Result<Self> {
+        let known_keys = profiles
+            .iter()
+            .map(|profile| profile.key.clone())
+            .collect::<Vec<_>>();
         let profiles = public_profiles(profiles)?;
         let mut store = store::Store::open(root)?;
         let state = if let Some(bytes) = store.bytes() {
@@ -124,6 +129,11 @@ impl FormalPlatform {
             Persisted::initial(&profiles)
         };
         state.validate(&profiles)?;
+        reject_credentials(
+            &serde_json::to_value(&state.settings.session_drafts)
+                .map_err(|_| DesktopError("corruptSnapshot"))?,
+            &known_keys,
+        )?;
         store.recover_pending()?;
         if store.bytes().is_none() {
             store.write(serde_json::to_vec(&state).map_err(|_| DesktopError("storeIo"))?)?;
@@ -135,6 +145,7 @@ impl FormalPlatform {
                 environment,
             }),
             profiles,
+            known_keys,
         })
     }
     pub fn bootstrap(&self) -> Result<PlatformSnapshot> {
@@ -155,6 +166,12 @@ impl FormalPlatform {
     }
     pub fn invoke(&self, request: PlatformRequest) -> Result<PlatformReply> {
         let write = validate_request(&request)?;
+        if write {
+            reject_credentials(
+                &serde_json::to_value(&request).map_err(|_| DesktopError("invalidParams"))?,
+                &self.known_keys,
+            )?;
+        }
         let mut inner = self
             .inner
             .lock()
@@ -379,3 +396,23 @@ impl Persisted {
 
 #[cfg(test)]
 mod tests;
+
+// 只校验受信任profile已知key；不接触HOME/系统凭据，且在receipt/snapshot写入之前拒绝。
+fn reject_credentials(value: &Value, keys: &[String]) -> Result<()> {
+    let secret = |text: &str| keys.iter().any(|key| !key.is_empty() && text.contains(key));
+    let rejected = match value {
+        Value::String(text) => secret(text),
+        Value::Array(items) => items
+            .iter()
+            .any(|item| reject_credentials(item, keys).is_err()),
+        Value::Object(items) => items
+            .iter()
+            .any(|(name, item)| secret(name) || reject_credentials(item, keys).is_err()),
+        _ => false,
+    };
+    if rejected {
+        Err(DesktopError("invalidParams"))
+    } else {
+        Ok(())
+    }
+}
