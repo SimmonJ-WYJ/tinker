@@ -1,4 +1,5 @@
 //! 正式会话服务；stdio与Tauri共同调用，秘密仅由可信宿主注入。
+pub mod availability;
 mod execution;
 pub(crate) mod profile;
 pub mod protocol;
@@ -29,6 +30,9 @@ pub struct DesktopRuntime {
 }
 struct Inner {
     journal: Journal,
+    availability: Option<availability::Availability>,
+    availability_policy_invalid: bool,
+    availability_recovery_required: bool,
     queue_enabled: bool,
     queue_blocked: bool,
     chains: BTreeMap<String, queue_types::Chain>,
@@ -90,6 +94,9 @@ impl DesktopRuntime {
         };
         let mut inner = Inner {
             journal,
+            availability: None,
+            availability_policy_invalid: false,
+            availability_recovery_required: false,
             queue_enabled,
             queue_blocked: false,
             chains: BTreeMap::new(),

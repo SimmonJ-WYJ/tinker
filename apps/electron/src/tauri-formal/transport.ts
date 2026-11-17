@@ -52,7 +52,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     if (Array.isArray(value)) return value.map(projectErrors)
     if (!value || typeof value !== 'object') return value
     const result: Record<string, unknown> = {}
-    for (const [key, v] of Object.entries(value)) result[key] = key === 'error' && typeof v === 'string' ? translate(v) : key === 'message' && v === 'responseFailed' ? translate(v) : projectErrors(v)
+    for (const [key, v] of Object.entries(value)) result[key] = key === 'error' && typeof v === 'string' ? translate(v) : key === 'message' && (v === 'responseFailed' || v === 'catalogValidated') ? translate(v) : projectErrors(v)
     return result
   }
   function snapshot(next: PlatformSnapshot, environment = false) {
@@ -190,6 +190,13 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     }
     if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
     const execute = async (): Promise<T> => {
+      // 原 UI 用显式 undefined 清除选择；JSON 省略前转换为成对空值。
+      if (channel === 'settings:update' && args[0] && typeof args[0] === 'object') {
+        const patch = args[0] as Record<string, unknown>
+        if (['agentChannelId', 'agentModelId'].some(key => Object.hasOwn(patch, key) && patch[key] === undefined)) {
+          args = [{ ...patch, agentChannelId: '', agentModelId: '' }, ...args.slice(1)]
+        }
+      }
       const mutation = MUTATION_CHANNELS.has(channel) ? { mutationId: crypto.randomUUID(), expectedRevision: cache.revision } : undefined
       const reply = await command<{ value: T; snapshot?: PlatformSnapshot }>('invoke', { channel, args, ...(mutation ? { mutation } : {}) })
       if (reply.snapshot) snapshot(reply.snapshot)

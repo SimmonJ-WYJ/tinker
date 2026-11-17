@@ -73,6 +73,8 @@
     "failed": "Rust 回复未能完成，已有对话已保留。",
     "transport": "Rust 运行时已断开。重新打开预览可恢复对话。",
     "invalid": "Rust 预览无法使用所选模型或请求。",
-    "permission": "此权限请求已失效或决定已提交。请刷新会话状态。"
+    "permission": "此权限请求已失效或决定已提交。请刷新会话状态。",
+    "catalogValidated": "连接和模型目录验证通过，未执行模型对话。",
+    "modelUnavailable": "此渠道或模型已停用。"
   }
 }

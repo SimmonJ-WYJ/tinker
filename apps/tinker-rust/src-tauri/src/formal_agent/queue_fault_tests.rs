@@ -166,8 +166,12 @@ fn post_acceptance_uncertain_cancel_retains_owner_and_cannot_acknowledge_safe_cl
         thread::sleep(Duration::from_millis(5));
     }
     actor.queue_after_begin = Some(fail_cancel_after_begin);
-    assert!(actor.begin_queue(input(&sid, "uncertain")).is_err());
-    assert!(actor.queue_entries.contains_key("uncertain"));
+    let failure = actor.begin_queue(input(&sid, "uncertain")).unwrap_err();
+    assert!(
+        actor.queue_entries.contains_key("uncertain"),
+        "保留归属失败: {}",
+        failure.0
+    );
     assert_eq!(
         actor.queue_entries["uncertain"].state["activeExecution"]["requestId"],
         "uncertain"
@@ -182,4 +186,68 @@ fn post_acceptance_uncertain_cancel_retains_owner_and_cannot_acknowledge_safe_cl
     );
     assert!(actor.core("chat.queue",json!({"sessionId":sid,"chainId":"uncertain","uuid":"child","userMessage":"不得开始","interrupt":false})).is_err());
     assert!(mock.records().len() <= 2);
+}
+
+#[test]
+fn recovery_freeze_preserves_accepted_queue_retries_stop_and_close() {
+    let (mut actor, mock, sid) = setup();
+    let policy = actor.platform.availability().unwrap();
+    actor.runtime.set_availability(policy.clone()).unwrap();
+    let accepted = input(&sid, "accepted-freeze");
+    actor.begin_queue(accepted.clone()).unwrap();
+    let queued = json!({"sessionId":sid,"chainId":"accepted-freeze","uuid":"queued-freeze","userMessage":"合成排队","interrupt":false});
+    let receipt = actor.core("chat.queue", queued.clone()).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while mock.records().is_empty() {
+        assert!(Instant::now() < deadline);
+        thread::sleep(Duration::from_millis(5));
+    }
+    actor.runtime.freeze_availability();
+    actor.runtime.set_availability(policy).unwrap();
+    assert_eq!(
+        actor.core("chat.beginChain", accepted).unwrap()["chainId"],
+        "accepted-freeze"
+    );
+    assert_eq!(actor.core("chat.queue", queued.clone()).unwrap(), receipt);
+    let fresh=actor.core("sessions.create",json!({"profileId":"local-mock","title":"合成冻结","workspaceId":null,"reuseDraft":false})).unwrap()["sessionId"].as_str().unwrap().to_owned();
+    let count = mock.records().len();
+    assert_eq!(
+        actor
+            .begin_queue(input(&fresh, "new-frozen-chain"))
+            .unwrap_err()
+            .0,
+        "recoveryRequired"
+    );
+    assert_eq!(mock.records().len(), count);
+    let (reply, _) = mpsc::sync_channel(1);
+    actor
+        .queue_invoke(
+            "agent:stop",
+            vec![json!(sid)],
+            Some("accepted-freeze"),
+            &reply,
+        )
+        .unwrap();
+    assert_eq!(actor.core("chat.queue", queued).unwrap(), receipt);
+    let ticket = actor
+        .handle(
+            Command::BeginClose {
+                generation: actor.generation.clone(),
+            },
+            &reply,
+        )
+        .unwrap()
+        .unwrap();
+    actor
+        .handle(
+            Command::CloseReady {
+                generation: actor.generation.clone(),
+                close_token: ticket["closeToken"].as_str().unwrap().into(),
+                committed_revision: ticket["baselineRevision"].as_u64().unwrap(),
+            },
+            &reply,
+        )
+        .unwrap();
+    actor.cancel_all().unwrap();
+    assert_eq!(mock.records().len(), count);
 }

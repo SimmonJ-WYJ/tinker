@@ -198,6 +198,9 @@ impl TrustedRoot {
 }
 pub(crate) struct PublicProfile {
     pub profile_id: String,
+    pub label: String,
+    pub endpoint: String,
+    pub protocol: HttpProtocol,
     pub models: Vec<Model>,
 }
 pub(crate) fn public_profiles(profiles: &[TrustedProfile]) -> Result<Vec<PublicProfile>> {
@@ -229,6 +232,9 @@ pub(crate) fn public_profiles(profiles: &[TrustedProfile]) -> Result<Vec<PublicP
         })?;
         result.push(PublicProfile {
             profile_id: validated.profile_id,
+            label: p.label.clone(),
+            endpoint: p.endpoint.clone(),
+            protocol: p.protocol,
             models: validated.models,
         });
     }

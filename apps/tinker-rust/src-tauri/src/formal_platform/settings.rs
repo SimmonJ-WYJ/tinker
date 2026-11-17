@@ -114,27 +114,40 @@ impl Settings {
         {
             return Err(invalid());
         }
-        let profile = profiles
-            .iter()
-            .find(|p| p.profile_id == self.agent_channel_id)
-            .ok_or(DesktopError("profileNotFound"))?;
-        let model = profile
-            .models
-            .iter()
-            .find(|m| m.model_id == self.agent_model_id)
-            .ok_or(DesktopError("modelNotFound"))?;
-        if !model.supported_efforts.contains(&self.agent_effort) {
+        if self.agent_channel_id.is_empty() != self.agent_model_id.is_empty() {
+            return Err(invalid());
+        }
+        if self.agent_channel_id.is_empty()
+            && !profiles
+                .iter()
+                .flat_map(|p| &p.models)
+                .any(|m| m.supported_efforts.contains(&self.agent_effort))
+        {
             return Err(DesktopError("unsupportedEffort"));
         }
-        if self.agent_channel_ids.is_empty()
-            || self.agent_channel_ids.len() > profiles.len()
+        if !self.agent_channel_id.is_empty() {
+            let profile = profiles
+                .iter()
+                .find(|p| p.profile_id == self.agent_channel_id)
+                .ok_or(DesktopError("profileNotFound"))?;
+            let model = profile
+                .models
+                .iter()
+                .find(|m| m.model_id == self.agent_model_id)
+                .ok_or(DesktopError("modelNotFound"))?;
+            if !model.supported_efforts.contains(&self.agent_effort) {
+                return Err(DesktopError("unsupportedEffort"));
+            }
+        }
+        if self.agent_channel_ids.len() > profiles.len()
             || self.agent_channel_ids.iter().collect::<HashSet<_>>().len()
                 != self.agent_channel_ids.len()
             || self
                 .agent_channel_ids
                 .iter()
                 .any(|id| !profiles.iter().any(|p| p.profile_id == *id))
-            || !self.agent_channel_ids.contains(&self.agent_channel_id)
+            || (!self.agent_channel_id.is_empty()
+                && !self.agent_channel_ids.contains(&self.agent_channel_id))
         {
             return Err(invalid());
         }

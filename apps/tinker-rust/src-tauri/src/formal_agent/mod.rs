@@ -1,5 +1,6 @@
 //! 常驻适配actor只调同一个Arc<DesktopRuntime>；不持有第二套执行或journal。
 mod actor;
+mod channel_discovery;
 mod channels;
 mod delivery;
 mod permissions;
@@ -83,6 +84,7 @@ impl FormalAgentHost {
         root: TrustedRoot,
         queueing: bool,
     ) -> Result<Self> {
+        runtime.set_availability(platform.availability()?)?;
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
         let worker = thread::Builder::new()
@@ -179,3 +181,7 @@ mod tests {
         assert!(host.worker.is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "channel_probe_tests.rs"]
+mod channel_probe_tests;

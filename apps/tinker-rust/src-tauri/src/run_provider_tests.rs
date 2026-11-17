@@ -220,6 +220,10 @@ fn injected_provider_storage_failure_retains_only_acknowledged_partial() {
     assert_eq!(failed.error_code.as_deref(), Some("unsafePath"));
     assert!(failed.recovery_required);
     assert_eq!(
+        controller.cancel("broken").unwrap_err().code(),
+        "recoveryRequired"
+    );
+    assert_eq!(
         controller
             .start_with_provider(
                 "blocked".into(),
@@ -231,4 +235,49 @@ fn injected_provider_storage_failure_retains_only_acknowledged_partial() {
             .code(),
         "recoveryRequired"
     );
+}
+
+struct WaitingCancelProvider {
+    ready: std::sync::mpsc::SyncSender<()>,
+    release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+}
+impl crate::run_provider::RunProvider for WaitingCancelProvider {
+    fn execute(
+        &self,
+        _: &str,
+        _: &std::sync::atomic::AtomicBool,
+        emit: &mut dyn FnMut(&str) -> Result<(), crate::run_types::RunError>,
+    ) -> Result<(), crate::run_types::RunError> {
+        emit("durable partial")?;
+        self.ready.send(()).unwrap();
+        self.release.lock().unwrap().recv().unwrap();
+        Ok(())
+    }
+}
+#[test]
+fn active_cancel_storage_failure_cannot_become_successful_terminal_retry() {
+    let temp = Temp::new();
+    let controller = RunController::open(&temp.0).unwrap();
+    let (ready, received) = std::sync::mpsc::sync_channel(1);
+    let (release, waiting) = std::sync::mpsc::sync_channel(1);
+    controller
+        .start_with_provider(
+            "cancel-broken".into(),
+            "synthetic".into(),
+            OfflineScenario::Success,
+            std::sync::Arc::new(WaitingCancelProvider {
+                ready,
+                release: std::sync::Mutex::new(waiting),
+            }),
+        )
+        .unwrap();
+    received.recv_timeout(Duration::from_secs(1)).unwrap();
+    let file = temp.0.join("runs-v1/cancel-broken.jsonl");
+    fs::rename(&file, file.with_extension("saved")).unwrap();
+    fs::create_dir(&file).unwrap();
+    let first = controller.cancel("cancel-broken");
+    let retry = controller.cancel("cancel-broken");
+    release.send(()).unwrap();
+    assert_eq!(first.unwrap_err().code(), "unsafePath");
+    assert_eq!(retry.unwrap_err().code(), "recoveryRequired");
 }

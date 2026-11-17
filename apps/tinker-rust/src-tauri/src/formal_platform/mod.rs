@@ -1,4 +1,5 @@
 //! 正式预览的原生平台事实源；与DesktopRuntime共用已标记根，独立持久化命名空间。
+mod channels;
 pub mod close;
 mod launch;
 mod receipt;
@@ -33,6 +34,8 @@ struct Persisted {
     user_profile: UserProfile,
     workspaces: Vec<WorkspaceRecord>,
     receipts: BTreeMap<String, Receipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    channel_overlay: Option<channels::Overlay>,
 }
 struct Inner {
     store: store::Store,
@@ -61,7 +64,8 @@ fn mutating(channel: &str) -> Result<bool> {
         | "telemetry:get-consent-state"
         | "telemetry:real-send-allowed"
         | "runtime:get-status" => Ok(false),
-        "settings:update"
+        "channel:update"
+        | "settings:update"
         | "settings:update-sync"
         | "user-profile:update"
         | "agent:set-reasoning-effort"
@@ -126,10 +130,10 @@ impl FormalPlatform {
         };
         state.validate(&profiles)?;
         reject_credentials(
-            &serde_json::to_value(&state.settings.session_drafts)
-                .map_err(|_| DesktopError("corruptSnapshot"))?,
+            &serde_json::to_value(&state).map_err(|_| DesktopError("corruptSnapshot"))?,
             &known_keys,
-        )?;
+        )
+        .map_err(|_| DesktopError("corruptSnapshot"))?;
         store.recover_pending()?;
         if store.bytes().is_none() {
             store.write(serde_json::to_vec(&state).map_err(|_| DesktopError("storeIo"))?)?;
@@ -143,6 +147,42 @@ impl FormalPlatform {
             profiles,
             known_keys,
         })
+    }
+    pub fn channels(&self) -> Result<Value> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("recoveryRequired"))?;
+        inner
+            .state
+            .channel_overlay
+            .clone()
+            .unwrap_or_else(|| channels::Overlay::initial(&self.profiles))
+            .list(&self.profiles)
+    }
+    pub fn availability(&self) -> Result<crate::desktop_runtime::availability::Availability> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("recoveryRequired"))?;
+        Ok(inner
+            .state
+            .channel_overlay
+            .clone()
+            .unwrap_or_else(|| channels::Overlay::initial(&self.profiles))
+            .availability())
+    }
+    pub fn synthetic_connection(&self, id: &str) -> Result<(String, String, Vec<String>)> {
+        let p = self
+            .profiles
+            .iter()
+            .find(|p| p.profile_id == id)
+            .ok_or(DesktopError("profileNotFound"))?;
+        Ok((
+            channels::provider(p).into(),
+            channels::base_url(p),
+            p.models.iter().map(|m| m.model_id.clone()).collect(),
+        ))
     }
     pub fn bootstrap(&self) -> Result<PlatformSnapshot> {
         let inner = self
@@ -160,8 +200,9 @@ impl FormalPlatform {
         inner.environment = environment;
         Ok(inner.state.snapshot(&inner.environment))
     }
-    pub fn invoke(&self, request: PlatformRequest) -> Result<PlatformReply> {
+    pub fn invoke(&self, mut request: PlatformRequest) -> Result<PlatformReply> {
         let write = validate_request(&request)?;
+        channels::normalize(&mut request, &self.profiles)?;
         if write {
             reject_credentials(
                 &serde_json::to_value(&request).map_err(|_| DesktopError("invalidParams"))?,
@@ -206,7 +247,21 @@ impl FormalPlatform {
             }
         }
         let snapshot = inner.state.snapshot(&inner.environment);
-        let value = inner.state.value(&request, &snapshot)?;
+        let value = if request.channel == "channel:update" {
+            inner
+                .state
+                .channel_overlay
+                .as_ref()
+                .ok_or(DesktopError("corruptSnapshot"))?
+                .channel(
+                    request.args[0]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?,
+                    &self.profiles,
+                )?
+        } else {
+            inner.state.value(&request, &snapshot)?
+        };
         Ok(PlatformReply {
             version: VERSION,
             revision: inner.state.revision,
@@ -227,6 +282,7 @@ impl Persisted {
             },
             workspaces: vec![WorkspaceRecord::initial()],
             receipts: BTreeMap::new(),
+            channel_overlay: None,
         }
     }
     fn validate(&self, profiles: &[PublicProfile]) -> Result<()> {
@@ -267,6 +323,18 @@ impl Persisted {
                 .apply(&receipt.request, profiles)
                 .map_err(|_| DesktopError("corruptSnapshot"))?;
         }
+        if let Some(overlay) = &self.channel_overlay {
+            overlay
+                .validate(profiles)
+                .map_err(|_| DesktopError("corruptSnapshot"))?;
+            if replay.channel_overlay.as_ref() != Some(overlay)
+                || !overlay.selection_valid(&self.settings)
+            {
+                return Err(DesktopError("corruptSnapshot"));
+            }
+        } else if replay.channel_overlay.is_some() {
+            return Err(DesktopError("corruptSnapshot"));
+        }
         Ok(())
     }
     fn snapshot(&self, env: &HostEnvironment) -> PlatformSnapshot {
@@ -304,6 +372,15 @@ impl Persisted {
     }
     fn apply(&mut self, r: &PlatformRequest, profiles: &[PublicProfile]) -> Result<()> {
         match r.channel.as_str() {
+            "channel:update" => {
+                let mut overlay = self
+                    .channel_overlay
+                    .clone()
+                    .unwrap_or_else(|| channels::Overlay::initial(profiles));
+                overlay.update(&r.args, profiles)?;
+                overlay.reconcile(&mut self.settings);
+                self.channel_overlay = Some(overlay);
+            }
             "settings:update" | "settings:update-sync" => {
                 if r.args.len() != 1
                     || r.args[0].get("onboardingSpotlight").is_some()
@@ -313,6 +390,14 @@ impl Persisted {
                 }
                 let settings: settings::Settings = patch(&self.settings, &r.args[0])?;
                 settings.validate(profiles)?;
+                if !self
+                    .channel_overlay
+                    .clone()
+                    .unwrap_or_else(|| channels::Overlay::initial(profiles))
+                    .selection_valid(&settings)
+                {
+                    return Err(DesktopError("invalidParams"));
+                }
                 self.settings = settings;
             }
             "user-profile:update" => {
@@ -393,7 +478,7 @@ impl Persisted {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 // 只校验受信任profile已知key；不接触HOME/系统凭据，且在receipt/snapshot写入之前拒绝。
 fn reject_credentials(value: &Value, keys: &[String]) -> Result<()> {

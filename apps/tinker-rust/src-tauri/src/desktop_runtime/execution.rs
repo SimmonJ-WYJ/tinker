@@ -77,6 +77,7 @@ impl Inner {
                 };
             }
         }
+        self.require_available(&p.profile_id, &p.model_id)?;
         let provider = profile.provider(&p.model_id, p.effort.as_deref())?;
         if begin {
             provider.validate_tool_metadata(&json!(p))?;

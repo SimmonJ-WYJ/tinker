@@ -47,7 +47,7 @@ export interface RestoreBundle {
 }
 export const STREAM_CHANNELS = ['agent:stream:event', 'agent:stream:complete', 'agent:stream:error'] as const
 export const MUTATION_CHANNELS = new Set([
-  'settings:update', 'user-profile:update', 'agent:set-reasoning-effort',
+  'channel:update', 'settings:update', 'user-profile:update', 'agent:set-reasoning-effort',
   ...['start', 'advance', 'skip-sub-stage', 'complete', 'skip', 'restart'].map((name) => `onboarding-spotlight:${name}`),
   ...['start', 'advance', 'skip', 'complete', 'restart'].map((name) => `concept-spotlight:${name}`),
 ])

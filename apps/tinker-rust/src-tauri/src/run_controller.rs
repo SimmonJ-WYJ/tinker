@@ -240,6 +240,17 @@ impl RunController {
         }
         let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
         if inner.current.as_ref().is_some_and(|run| run.id() == run_id) {
+            // 内存终态可能来自未确认的写入失败，不能据此证明安全取消。
+            if inner
+                .current
+                .as_ref()
+                .ok_or(RunError::RunNotFound)?
+                .text()?
+                .snapshot
+                .recovery_required
+            {
+                return Err(RunError::RecoveryRequired);
+            }
             if inner
                 .current
                 .as_ref()
