@@ -33,6 +33,14 @@ The full-suite controller exited 0. Its source is not relabeled as a full rerun 
 
 An earlier default-parallel Rust run had five formal-agent failures. No controlled comparison establishes their cause. The supported serial package command passed. Parallel execution remains unproven. Existing Jotai deprecation notices remain. The expected lost-ack test error is captured, asserted and restored.
 
+## Additional publication-hook checkpoint
+
+The first normal push hook at documentation head `a3a5b0f920466265227c68f2bc6152ab079511fa` passed all six type checks but failed one unchanged Python-packaging wrapper test at its existing 5-second timeout. Observed totals were 3,568 passed, 5 skipped and 1 failed across 424 files. `spawnSync` returned a null status after the runner killed the timed-out test. The hook stopped the push with exit 1. No hook was skipped.
+
+Both `optional-python-payload.ts` and its test are byte-identical to the base. A focused diagnostic using the same synthetic config/runtime environment as the earlier supported full check passed both tests with the original timeout, including the wrapper case in about 2.84 seconds. This does not prove the full-run failure's cause or make every timing configuration green. No timeout, assertion, hook or implementation was changed.
+
+Publication remains conditional on a fresh complete normal hook. Its final outcome belongs to the PR's exact-head validation record. An unpassed hook must leave the branch local. The supported serial Rust and earlier full Bun evidence above retain their own source/run identities.
+
 ## Actual native-window observations
 
 The tested app was an independent `com.tinker.channels-native-qa` arm64 copy, with a fresh strictly marked QA root and no installed-app replacement. Its input binary before environment preparation was SHA-256 `d14d70ff25a8b9508e4187f5893ae06508140ab92522b8022cad07e20b0943ef`. The configured and ad-hoc re-signed executable was SHA-256 `9b8fe5a6b4ab6b09edd8c8587340fd57d6ab839d399e6d766f70815f0fce6835`. The ordinary preview was assembled and structurally audited, not launched against a real vault.
