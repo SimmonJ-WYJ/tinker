@@ -51,3 +51,13 @@ required-features = ["formal-preview"]
 name = "tinker-tools-native-qa"
 path = "src/bin/tinker-tools-native-qa.rs"
 required-features = ["formal-native-qa"]
+
+[[bin]]
+name = "tinker-channels-preview"
+path = "src/bin/tinker-channels-preview.rs"
+required-features = ["formal-preview"]
+
+[[bin]]
+name = "tinker-channels-native-qa"
+path = "src/bin/tinker-channels-native-qa.rs"
+required-features = ["formal-native-qa"]

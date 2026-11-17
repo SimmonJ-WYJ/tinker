@@ -32,6 +32,9 @@ pub struct PreparedMutation {
     replay: bool,
 }
 impl PreparedMutation {
+    pub fn is_replay(&self) -> bool {
+        self.replay
+    }
     pub fn catalog(&self) -> &Catalog {
         self.next.credential_catalog.as_ref().expect("已验证目录")
     }
@@ -132,11 +135,30 @@ impl CredentialedPlatform {
     /// 只允许显式保存；调用者必须在actor之外执行vault I/O。测试连接不得使用此API。
     pub fn stage(
         &self,
-        mut request: PlatformRequest,
+        request: PlatformRequest,
         generation: &str,
         secret: &Secret,
         vault: &dyn CredentialVault,
     ) -> Result<PlatformRequest> {
+        self.stage_cancellable(
+            request,
+            generation,
+            secret,
+            vault,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+    }
+    pub(crate) fn stage_cancellable(
+        &self,
+        mut request: PlatformRequest,
+        generation: &str,
+        secret: &Secret,
+        vault: &dyn CredentialVault,
+        cancelled: &std::sync::atomic::AtomicBool,
+    ) -> Result<PlatformRequest> {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(DesktopError("staleGeneration"));
+        }
         identifier(generation)?;
         if !matches!(
             request.channel.as_str(),
@@ -181,8 +203,7 @@ impl CredentialedPlatform {
             {
                 return Err(DesktopError("stageConflict"));
             }
-            let mut next = i.state.clone();
-            state::apply(&mut next, &request, &self.policy)?;
+            let next = self.next_state(&i.state, &request)?;
             let public = serde_json::to_value(&(request.clone(), next))
                 .map_err(|_| DesktopError("invalidParams"))?;
             if secret.with_bytes(|key| contains_secret(&public, key)) {
@@ -206,7 +227,11 @@ impl CredentialedPlatform {
         if vault.owned_references(&self.scope)?.len() >= 144 {
             return Err(DesktopError("storageLimit"));
         }
-        vault.put(&self.scope, &reference, secret)?;
+        let binding = crate::credentialed_channels::vault::CredentialBinding::new(
+            &self.scope,
+            &write.channel,
+        );
+        vault.put_bound_cancellable(&self.scope, &reference, &binding, secret, cancelled)?;
         let mut i = self
             .inner
             .lock()
@@ -285,8 +310,24 @@ impl CredentialedPlatform {
                 }
             }
         }
-        let mut next = i.state.clone();
-        state::apply(&mut next, &request, &self.policy)?;
+        let next = self.next_state(&i.state, &request)?;
+        Ok(PreparedMutation {
+            next,
+            request,
+            base_revision: i.state.revision,
+            replay: false,
+        })
+    }
+    fn next_state(&self, current: &Persisted, request: &PlatformRequest) -> Result<Persisted> {
+        if current.receipts.len() >= MAX_RECEIPTS {
+            return Err(DesktopError("storageLimit"));
+        }
+        let mutation = request
+            .mutation
+            .as_ref()
+            .ok_or(DesktopError("invalidParams"))?;
+        let mut next = current.clone();
+        state::apply(&mut next, request, &self.policy)?;
         next.revision += 1;
         for receipt in next.receipts.values_mut() {
             receipt.compact()?;
@@ -296,12 +337,16 @@ impl CredentialedPlatform {
             Receipt::new(request.clone(), next.revision)?,
         );
         state::validate(&next, &self.policy)?;
-        Ok(PreparedMutation {
-            next,
-            request,
-            base_revision: i.state.revision,
-            replay: false,
-        })
+        store::snapshot_budget(&serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?)?;
+        Ok(next)
+    }
+    pub fn set_host_environment(&self, environment: HostEnvironment) -> Result<PlatformSnapshot> {
+        let mut i = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("recoveryRequired"))?;
+        i.environment = environment;
+        Ok(i.state.snapshot(&i.environment))
     }
     /// install必须消费prepare后已完成校验的运行时状态；异常后本实例永久冻结。
     pub fn commit(

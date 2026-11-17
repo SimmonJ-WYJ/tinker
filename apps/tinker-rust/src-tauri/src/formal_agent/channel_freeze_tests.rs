@@ -71,7 +71,11 @@ fn recovery_freeze_survives_old_receipt_after_uncertain_rename_and_reopens_disab
     let accepted = core_input(&sid, "already-accepted");
     completed(&actor, accepted.clone());
     let a = metadata(&mut actor, "A", 0, json!({"name":"Alias A"})).unwrap();
-    crate::formal_platform::tests::fail_after_rename(&actor.platform);
+    if let crate::formal_agent::platform::HostPlatform::Synthetic(p) = &actor.platform {
+        crate::formal_platform::tests::fail_after_rename(p);
+    } else {
+        panic!("预期合成平台");
+    }
     assert_eq!(metadata(&mut actor,"B",1,json!({"models":[{"id":"local-mock-a","name":"A","enabled":false},{"id":"local-mock-b","name":"B","enabled":true}]})).unwrap_err().0,"storeIo");
     let file = actor.root.path().join("formal-platform-v1/snapshot.json");
     let uncertain = std::fs::read(&file).unwrap();

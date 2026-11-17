@@ -39,6 +39,15 @@ impl Actor {
         {
             return Err(DesktopError("closing"));
         }
+        if self.credentialed.is_some() && c == "channel:decrypt-key" {
+            return Err(DesktopError("unsupported"));
+        }
+        if self.credentialed.is_some() && c == "agent:stop" {
+            self.cancel_credential_work();
+        }
+        if self.needs_credential_work(c, mutation.is_some()) {
+            return self.start_credential_work(c, args, mutation, reply);
+        }
         if mutation.is_some() {
             let result = self
                 .platform
@@ -108,7 +117,11 @@ impl Actor {
                 let profile = optional(&args, offset)?.unwrap_or_else(|| {
                     profiles["profiles"][0]["profileId"]
                         .as_str()
-                        .unwrap_or_default()
+                        .unwrap_or(if self.credentialed.is_some() {
+                            crate::desktop_runtime::UNCONFIGURED_PROFILE_ID
+                        } else {
+                            ""
+                        })
                         .into()
                 });
                 let workspace = optional(&args, offset + 1)?;
@@ -379,8 +392,13 @@ impl Actor {
                     format!("native-{now}-{}", self.token_seq)
                 }
             });
+        let effort = input
+            .get("effort")
+            .filter(|v| !(self.credentialed.is_some() && v.as_str() == Some("")))
+            .cloned()
+            .unwrap_or(Value::Null);
         if self.queueing {
-            return self.begin_queue(json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":input.get("effort").cloned().unwrap_or(Value::Null)}));
+            return self.begin_queue(json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort}));
         }
         let existing = self.entries.get(sid);
         if existing.is_some_and(|e| projection::active(&e.turn) && e.turn["requestId"] != request) {
@@ -395,7 +413,7 @@ impl Actor {
         {
             return Err(DesktopError("hostBusy"));
         }
-        let turn=self.core("chat.send",json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":input.get("effort").cloned().unwrap_or(Value::Null)}))?;
+        let turn=self.core("chat.send",json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort}))?;
 
         if let Some(e) = self.entries.get_mut(sid) {
             if e.turn["requestId"] == request {

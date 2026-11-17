@@ -15,6 +15,8 @@ struct Slot {
     namespace: String,
     reference: String,
     slot: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    binding: Option<CredentialBinding>,
 }
 impl FakeVault {
     pub fn open(path: PathBuf) -> Result<Self> {
@@ -53,8 +55,17 @@ impl FakeVault {
         Ok(refs)
     }
 }
-impl CredentialVault for FakeVault {
-    fn put(&self, scope: &VaultScope, reference: &str, secret: &Secret) -> Result<()> {
+impl FakeVault {
+    fn put_inner(
+        &self,
+        scope: &VaultScope,
+        reference: &str,
+        secret: &Secret,
+        binding: Option<&CredentialBinding>,
+    ) -> Result<()> {
+        if let Some(b) = binding {
+            b.validate(scope)?;
+        }
         let slot = secret
             .with_bytes(|b| {
                 if b == QA_SECRET_ONE.as_bytes() {
@@ -79,6 +90,7 @@ impl CredentialVault for FakeVault {
             namespace: scope.namespace().into(),
             reference: reference.into(),
             slot,
+            binding: binding.cloned(),
         })
         .map_err(|_| DesktopError("vaultUnavailable"))?;
         crate::formal_platform::store::write_new(&path, &bytes)
@@ -86,7 +98,12 @@ impl CredentialVault for FakeVault {
         crate::formal_platform::store::sync_dir(&self.path)
             .map_err(|_| DesktopError("vaultWriteUncertain"))
     }
-    fn acquire(&self, scope: &VaultScope, reference: &str) -> Result<Secret> {
+    fn acquire_inner(
+        &self,
+        scope: &VaultScope,
+        reference: &str,
+        binding: Option<&CredentialBinding>,
+    ) -> Result<Secret> {
         let _guard = self
             .lock
             .lock()
@@ -98,12 +115,15 @@ impl CredentialVault for FakeVault {
         {
             return Err(DesktopError("credentialMissing"));
         }
-        let bytes = crate::formal_platform::store::read_regular(&path, 1024)
+        let bytes = crate::formal_platform::store::read_regular(&path, 4096)
             .map_err(|_| DesktopError("vaultUnavailable"))?;
         let slot: Slot =
             serde_json::from_slice(&bytes).map_err(|_| DesktopError("vaultUnavailable"))?;
         if slot.version != 1 || slot.namespace != scope.namespace() || slot.reference != reference {
             return Err(DesktopError("vaultUnavailable"));
+        }
+        if slot.binding.as_ref() != binding {
+            return Err(DesktopError("credentialBindingMismatch"));
         }
         let value = match slot.slot {
             1 => QA_SECRET_ONE,
@@ -111,6 +131,21 @@ impl CredentialVault for FakeVault {
             _ => return Err(DesktopError("vaultUnavailable")),
         };
         Secret::new(value.as_bytes().to_vec())
+    }
+}
+impl CredentialVault for FakeVault {
+    fn put_bound(&self, s: &VaultScope, r: &str, b: &CredentialBinding, k: &Secret) -> Result<()> {
+        self.put_inner(s, r, k, Some(b))
+    }
+    fn acquire_bound(&self, s: &VaultScope, r: &str, b: &CredentialBinding) -> Result<Secret> {
+        b.validate(s)?;
+        self.acquire_inner(s, r, Some(b))
+    }
+    fn put(&self, s: &VaultScope, r: &str, k: &Secret) -> Result<()> {
+        self.put_inner(s, r, k, None)
+    }
+    fn acquire(&self, s: &VaultScope, r: &str) -> Result<Secret> {
+        self.acquire_inner(s, r, None)
     }
     fn owned_references(&self, scope: &VaultScope) -> Result<Vec<String>> {
         let _guard = self
@@ -125,7 +160,7 @@ impl CredentialVault for FakeVault {
             .lock()
             .map_err(|_| DesktopError("vaultUnavailable"))?;
         let path = self.path(scope, reference)?;
-        crate::formal_platform::store::read_regular(&path, 1024)
+        crate::formal_platform::store::read_regular(&path, 4096)
             .map_err(|_| DesktopError("vaultUnavailable"))?;
         std::fs::remove_file(path).map_err(|_| DesktopError("vaultUnavailable"))?;
         crate::formal_platform::store::sync_dir(&self.path)
@@ -181,5 +216,61 @@ mod tests {
             assert!(!String::from_utf8_lossy(&bytes).contains(QA_SECRET_ONE));
         }
         std::fs::remove_dir_all(path).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod bound_tests {
+    use super::*;
+    #[test]
+    fn acquire_rejects_each_wrong_binding_before_returning_secret() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("tinker-bound-vault-test-{}", std::process::id()));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let vault = FakeVault::open(path.clone()).unwrap();
+        let scope = VaultScope::new("a".repeat(32)).unwrap();
+        let reference = "b".repeat(32);
+        let value = serde_json::json!({"namespace":scope.namespace(),"channelId":"channel","protocol":"openai-chat","baseUrl":"https://example.com/v1"});
+        let binding: CredentialBinding = serde_json::from_value(value.clone()).unwrap();
+        vault
+            .put_bound(
+                &scope,
+                &reference,
+                &binding,
+                &Secret::new(QA_SECRET_ONE.as_bytes().to_vec()).unwrap(),
+            )
+            .unwrap();
+        for (field, wrong) in [
+            ("namespace", "c".repeat(32)),
+            ("channelId", "other".into()),
+            ("protocol", "anthropic-messages".into()),
+            ("baseUrl", "https://example.com/other".into()),
+        ] {
+            let mut changed = value.clone();
+            changed[field] = serde_json::Value::String(wrong);
+            let changed = serde_json::from_value(changed).unwrap();
+            assert!(
+                matches!(
+                    vault.acquire_bound(&scope, &reference, &changed),
+                    Err(DesktopError("credentialBindingMismatch"))
+                ),
+                "错误字段必须拒绝: {field}"
+            );
+        }
+        assert!(matches!(
+            vault.acquire(&scope, &reference),
+            Err(DesktopError("credentialBindingMismatch"))
+        ));
+        let acquired = vault.acquire_bound(&scope, &reference, &binding).unwrap();
+        assert!(acquired.with_bytes(|bytes| bytes == QA_SECRET_ONE.as_bytes()));
+        for file in std::fs::read_dir(path).unwrap() {
+            assert!(!std::fs::read_to_string(file.unwrap().path())
+                .unwrap()
+                .contains(QA_SECRET_ONE));
+        }
     }
 }

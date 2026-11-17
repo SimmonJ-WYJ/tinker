@@ -271,6 +271,24 @@ struct FaultVault {
     puts: AtomicU64,
 }
 impl CredentialVault for FaultVault {
+    fn put_bound(
+        &self,
+        s: &VaultScope,
+        r: &str,
+        _: &crate::credentialed_channels::vault::CredentialBinding,
+        k: &Secret,
+    ) -> Result<()> {
+        self.put(s, r, k)
+    }
+    fn acquire_bound(
+        &self,
+        s: &VaultScope,
+        r: &str,
+        _: &crate::credentialed_channels::vault::CredentialBinding,
+    ) -> Result<Secret> {
+        self.acquire(s, r)
+    }
+
     fn put(&self, _: &VaultScope, _: &str, _: &Secret) -> Result<()> {
         self.puts.fetch_add(1, Ordering::Relaxed);
         Err(DesktopError(self.code))
@@ -387,4 +405,72 @@ fn saved_disabled_models_remain_visible_but_cannot_be_selected() {
         .unwrap();
     assert!(p.bootstrap().unwrap().settings.agent_model_id.is_empty());
     assert_eq!(p.channels().unwrap()[0]["models"][0]["enabled"], false);
+}
+
+#[test]
+fn exhausted_receipts_refuse_stage_before_put_without_freezing() {
+    let f = Fixture::new();
+    let p = f.open();
+    let mut i = p.inner.lock().unwrap();
+    for n in 0..MAX_RECEIPTS {
+        let mut request = create_request("unused", 0);
+        request.mutation.as_mut().unwrap().mutation_id = format!("receipt-{n}");
+        i.state
+            .receipts
+            .insert(format!("receipt-{n}"), Receipt::new(request, 1).unwrap());
+    }
+    drop(i);
+    let vault = FaultVault {
+        code: "unexpectedPut",
+        count: 0,
+        puts: AtomicU64::new(0),
+    };
+    assert!(matches!(
+        p.stage(create_request("new", 0), "doc", &secret(), &vault),
+        Err(DesktopError("storageLimit"))
+    ));
+    assert_eq!(vault.puts.load(Ordering::Relaxed), 0);
+    assert!(!p.inner.lock().unwrap().frozen);
+}
+
+#[test]
+fn snapshot_byte_capacity_refuses_put_without_freezing() {
+    let f = Fixture::new();
+    let p = f.open();
+    let avatar = format!("data:image/png;base64,{}", "a".repeat(60000));
+    for n in 0..30 {
+        let r = PlatformRequest {
+            version: 1,
+            channel: "user-profile:update".into(),
+            args: vec![json!({"avatar":avatar})],
+            mutation: Some(protocol::Mutation {
+                mutation_id: format!("large-{n}"),
+                expected_revision: n,
+            }),
+        };
+        match p.prepare(r, "doc") {
+            Ok(prepared) => {
+                p.commit(prepared, |_| Ok(())).unwrap();
+            }
+            Err(DesktopError("storageLimit")) => break,
+            Err(e) => panic!("unexpected {}", e.0),
+        }
+    }
+    let revision = p.bootstrap().unwrap().revision;
+    assert!(revision > 0 && revision < 30);
+    let mut r = create_request("capacity", revision);
+    r.args[0]["channel"]["models"] = json!((0..128)
+        .map(|n| json!({"modelId":format!("{n}{}","x".repeat(200)),"label":"y".repeat(240)}))
+        .collect::<Vec<_>>());
+    let vault = FaultVault {
+        code: "unexpectedPut",
+        count: 0,
+        puts: AtomicU64::new(0),
+    };
+    assert!(matches!(
+        p.stage(r, "doc", &secret(), &vault),
+        Err(DesktopError("storageLimit"))
+    ));
+    assert_eq!(vault.puts.load(Ordering::Relaxed), 0);
+    assert!(!p.inner.lock().unwrap().frozen);
 }

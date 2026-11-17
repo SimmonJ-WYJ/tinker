@@ -1,4 +1,6 @@
-//! 单actor串行协调generation、平台revision、执行归属与关闭阶段。
+#[cfg(test)]
+use crate::formal_platform::FormalPlatform;
+// 单actor串行协调generation、平台revision、执行归属与关闭阶段。
 use super::{
     projection,
     protocol::{Command, EventEnvelope},
@@ -11,7 +13,7 @@ use crate::{
     },
     formal_platform::{
         close::{CloseGate, CloseTicket},
-        FormalPlatform, TrustedRoot,
+        TrustedRoot,
     },
 };
 use serde_json::{json, Value};
@@ -60,7 +62,8 @@ pub(super) struct Actor {
     pub queue_after_begin: Option<fn(&Actor)>,
     pub queue_terminal_receipts: BTreeMap<String, super::queue_bridge::QueueTerminalReceipt>,
     pub queue_entries: BTreeMap<String, super::queue_bridge::QueueDelivery>,
-    pub platform: FormalPlatform,
+    pub platform: super::platform::HostPlatform,
+    pub credentialed: Option<super::credentialed::Credentialed>,
     pub root: TrustedRoot,
     pub entries: BTreeMap<String, Entry>,
     pub barriers: BTreeMap<String, Barrier>,
@@ -79,7 +82,7 @@ pub(super) struct Actor {
 impl Actor {
     pub fn new(
         runtime: Arc<DesktopRuntime>,
-        platform: FormalPlatform,
+        platform: impl Into<super::platform::HostPlatform>,
         root: TrustedRoot,
         out: SyncSender<EventEnvelope>,
     ) -> Self {
@@ -92,7 +95,8 @@ impl Actor {
             queue_after_begin: None,
             queue_terminal_receipts: BTreeMap::new(),
             queue_entries: BTreeMap::new(),
-            platform,
+            platform: platform.into(),
+            credentialed: None,
             root,
             entries: BTreeMap::new(),
             barriers: BTreeMap::new(),
@@ -162,6 +166,7 @@ impl Actor {
                 Err(RecvTimeoutError::Timeout) => {}
             }
             self.gate.expire();
+            self.poll_credential_work();
             self.poll();
             if self.draining {
                 self.reject_waiters();
@@ -240,6 +245,7 @@ impl Actor {
         }
         match command {
             Command::Bootstrap {} => {
+                self.cancel_credential_work();
                 self.cancel_probe();
                 if let Some(t) = self.ticket.take() {
                     let _ = self.gate.abort(&t.close_token);
@@ -256,7 +262,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -403,6 +409,7 @@ impl Actor {
                 Ok(Some(Value::Null))
             }
             Command::BeginClose { .. } => {
+                self.cancel_credential_work();
                 self.cancel_probe();
                 let ticket = self
                     .gate
@@ -484,6 +491,7 @@ impl Actor {
         Ok(())
     }
     pub fn cancel_all(&mut self) -> Result<()> {
+        self.cancel_credential_work();
         self.cancel_probe();
         self.stop_all_queues("close")?;
         let runs: Vec<_> = self

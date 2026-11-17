@@ -104,6 +104,13 @@ pub(crate) fn sync_dir(path: &Path) -> Result<()> {
     File::open(path)?.sync_all()?;
     Ok(())
 }
+pub(crate) fn snapshot_budget(bytes: &[u8]) -> Result<()> {
+    if bytes.len() > MAX_SNAPSHOT_BYTES {
+        Err(DesktopError("storageLimit"))
+    } else {
+        Ok(())
+    }
+}
 pub(crate) struct Store {
     trusted: TrustedRoot,
     root: PathBuf,
@@ -203,9 +210,7 @@ impl Store {
         if self.blocked {
             return Err(DesktopError("recoveryRequired"));
         }
-        if bytes.len() > MAX_SNAPSHOT_BYTES {
-            return Err(DesktopError("storageLimit"));
-        }
+        snapshot_budget(&bytes)?;
         self.trusted.validate()?;
         directory(&self.root, true)?;
         same_file(

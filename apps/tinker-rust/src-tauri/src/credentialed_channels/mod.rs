@@ -5,3 +5,15 @@ pub mod vault;
 pub mod vault_fake;
 #[cfg(target_os = "macos")]
 pub(crate) mod vault_macos;
+
+#[cfg(target_os = "macos")]
+pub(crate) mod auth_macos;
+pub(crate) mod discovery;
+pub(crate) mod endpoint;
+pub mod process;
+#[cfg(any(test, feature = "formal-native-qa"))]
+pub(crate) mod qa;
+pub(crate) mod resolver;
+#[cfg(target_os = "macos")]
+pub(crate) mod vault_host;
+pub(crate) mod worker;

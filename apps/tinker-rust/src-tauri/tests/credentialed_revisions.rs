@@ -347,3 +347,28 @@ fn missing_current_credential_is_recoverable_and_never_executes() {
     )["error"]
         .is_null());
 }
+
+#[test]
+fn same_authority_nonempty_factory_is_never_replaced() {
+    let f = Fixture::new();
+    let r = DesktopRuntime::open_managed(&f.0).unwrap();
+    let original = Arc::new(Mutex::new(Vec::new()));
+    let replacement = Arc::new(Mutex::new(Vec::new()));
+    let release = Arc::new(AtomicBool::new(true));
+    install(
+        &r,
+        vec![revision("r1", &original, &release, true)],
+        Some("r1"),
+    );
+    install(
+        &r,
+        vec![revision("r1", &replacement, &release, true)],
+        Some("r1"),
+    );
+    let created = create(&r, false);
+    let sid = created["result"]["sessionId"].as_str().unwrap();
+    assert!(call(&r, "chat.send", send_params(sid))["error"].is_null());
+    terminal(&r, sid, "request");
+    assert_eq!(original.lock().unwrap().len(), 1);
+    assert!(replacement.lock().unwrap().is_empty());
+}

@@ -1,15 +1,24 @@
-//! Security.framework适配器仅供已认证的owned helper；本阶段没有创建证明或执行入口。
+//! Security.framework适配器仅供动态身份和私有握手均验证的owned helper。
 #![allow(dead_code)]
 use super::{
     catalog::opaque_reference,
-    vault::{CredentialVault, Secret, VaultScope},
+    vault::{CredentialBinding, CredentialVault, Secret, VaultScope},
 };
 use crate::desktop_runtime::protocol::{DesktopError, Result};
 use std::{ffi::c_void, ptr};
 type Cf = *const c_void;
-/// 私有字段且无构造器：实际宿主任务必须先实现父进程认证与私有管道握手。
+/// 私有证明只在严格的helper握手完成后构造，每次系统操作前重新验证。
 pub(crate) struct OwnedHelperProof {
-    _private: (),
+    parent: i32,
+}
+impl OwnedHelperProof {
+    pub(super) fn after_private_handshake(parent: i32) -> Result<Self> {
+        super::auth_macos::recheck(parent)?;
+        Ok(Self { parent })
+    }
+    fn validate(&self) -> Result<()> {
+        super::auth_macos::recheck(self.parent)
+    }
 }
 pub(crate) struct MacosVault {
     _proof: OwnedHelperProof,
@@ -125,15 +134,14 @@ fn status(value: i32) -> Result<()> {
         _ => Err(DesktopError("vaultUnavailable")),
     }
 }
-impl CredentialVault for MacosVault {
-    fn put(&self, scope: &VaultScope, reference: &str, secret: &Secret) -> Result<()> {
+impl MacosVault {
+    fn put_data(&self, scope: &VaultScope, reference: &str, bytes: &[u8]) -> Result<()> {
         if self.owned_references(scope)?.len() >= 144 {
             return Err(DesktopError("storageLimit"));
         }
         let q = query(scope, Some(reference))?;
-        let data = secret.with_bytes(|b| {
-            Owned::new(unsafe { CFDataCreate(ptr::null(), b.as_ptr(), b.len() as isize) })
-        })?;
+        let data =
+            Owned::new(unsafe { CFDataCreate(ptr::null(), bytes.as_ptr(), bytes.len() as isize) })?;
         unsafe {
             CFDictionarySetValue(q.0, kSecValueData, data.0);
             CFDictionarySetValue(
@@ -142,29 +150,84 @@ impl CredentialVault for MacosVault {
                 kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             );
         }
+        self._proof.validate()?;
         status(unsafe { SecItemAdd(q.0, ptr::null_mut()) })
     }
-    fn acquire(&self, scope: &VaultScope, reference: &str) -> Result<Secret> {
+    fn acquire_data(&self, scope: &VaultScope, reference: &str) -> Result<Vec<u8>> {
         let q = query(scope, Some(reference))?;
         unsafe {
             CFDictionarySetValue(q.0, kSecReturnData, kCFBooleanTrue);
             CFDictionarySetValue(q.0, kSecMatchLimit, kSecMatchLimitOne);
         }
         let mut result = ptr::null();
+        self._proof.validate()?;
         status(unsafe { SecItemCopyMatching(q.0, &mut result) })?;
         let data = Owned::new(result)?;
         if unsafe { CFGetTypeID(data.0) != CFDataGetTypeID() } {
             return Err(DesktopError("vaultUnavailable"));
         }
         let length = unsafe { CFDataGetLength(data.0) };
-        if !(1..=8192).contains(&length) {
+        if !(1..=16384).contains(&length) {
             return Err(DesktopError("vaultUnavailable"));
         }
         let bytes = unsafe { CFDataGetBytePtr(data.0) };
         if bytes.is_null() {
             return Err(DesktopError("vaultUnavailable"));
         }
-        Secret::new(unsafe { std::slice::from_raw_parts(bytes, length as usize) }.to_vec())
+        Ok(unsafe { std::slice::from_raw_parts(bytes, length as usize) }.to_vec())
+    }
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BoundItem {
+    version: u32,
+    reference: String,
+    binding: CredentialBinding,
+    secret: String,
+}
+impl CredentialVault for MacosVault {
+    fn put(&self, _: &VaultScope, _: &str, _: &Secret) -> Result<()> {
+        Err(DesktopError("credentialBindingRequired"))
+    }
+    fn acquire(&self, _: &VaultScope, _: &str) -> Result<Secret> {
+        Err(DesktopError("credentialBindingRequired"))
+    }
+    fn put_bound(
+        &self,
+        scope: &VaultScope,
+        reference: &str,
+        binding: &CredentialBinding,
+        secret: &Secret,
+    ) -> Result<()> {
+        binding.validate(scope)?;
+        let item = BoundItem {
+            version: 1,
+            reference: reference.into(),
+            binding: binding.clone(),
+            secret: secret
+                .with_bytes(|b| String::from_utf8(b.to_vec()))
+                .map_err(|_| DesktopError("invalidCredential"))?,
+        };
+        let bytes = serde_json::to_vec(&item).map_err(|_| DesktopError("vaultUnavailable"))?;
+        if bytes.len() > 16384 {
+            return Err(DesktopError("invalidCredential"));
+        }
+        self.put_data(scope, reference, &bytes)
+    }
+    fn acquire_bound(
+        &self,
+        scope: &VaultScope,
+        reference: &str,
+        binding: &CredentialBinding,
+    ) -> Result<Secret> {
+        binding.validate(scope)?;
+        let bytes = self.acquire_data(scope, reference)?;
+        let item: BoundItem = serde_json::from_slice(&bytes)
+            .map_err(|_| DesktopError("credentialBindingMismatch"))?;
+        if item.version != 1 || item.reference != reference || item.binding != *binding {
+            return Err(DesktopError("credentialBindingMismatch"));
+        }
+        Secret::new(item.secret.into_bytes())
     }
     fn owned_references(&self, scope: &VaultScope) -> Result<Vec<String>> {
         let q = query(scope, None)?;
@@ -173,6 +236,7 @@ impl CredentialVault for MacosVault {
             CFDictionarySetValue(q.0, kSecMatchLimit, kSecMatchLimitAll);
         }
         let mut result = ptr::null();
+        self._proof.validate()?;
         let code = unsafe { SecItemCopyMatching(q.0, &mut result) };
         if code == -25300 {
             return Ok(vec![]);
@@ -212,6 +276,7 @@ impl CredentialVault for MacosVault {
     }
     fn remove(&self, scope: &VaultScope, reference: &str) -> Result<()> {
         let q = query(scope, Some(reference))?;
+        self._proof.validate()?;
         status(unsafe { SecItemDelete(q.0) })
     }
 }

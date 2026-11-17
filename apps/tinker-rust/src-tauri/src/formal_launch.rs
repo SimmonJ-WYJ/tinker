@@ -40,7 +40,7 @@ pub fn run(
     expected_identifier: &str,
     probe: Option<LaunchProbe>,
 ) {
-    run_mode(context, expected_identifier, probe, false)
+    run_mode(context, expected_identifier, probe, false, false)
 }
 pub fn run_tools(
     context: tauri::Context<tauri::Wry>,
@@ -51,7 +51,7 @@ pub fn run_tools(
         expected_identifier, TOOLS_APPLICATION_ID,
         "工具入口身份不匹配"
     );
-    run_mode(context, expected_identifier, probe, true)
+    run_mode(context, expected_identifier, probe, true, false)
 }
 /// QA 身份固定且必须显式指定临时工具根，禁止退回默认 appData。
 #[cfg(feature = "formal-native-qa")]
@@ -60,40 +60,76 @@ pub fn run_tools_qa(context: tauri::Context<tauri::Wry>, probe: LaunchProbe) {
         std::env::var_os("TINKER_TOOLS_PREVIEW_ROOT").is_some(),
         "QA 必须显式指定合成工具临时根"
     );
-    run_mode(context, "com.tinker.tools-native-qa", Some(probe), true)
+    run_mode(
+        context,
+        "com.tinker.tools-native-qa",
+        Some(probe),
+        true,
+        false,
+    )
+}
+pub fn run_channels(context: tauri::Context<tauri::Wry>, qa: bool) {
+    if crate::credentialed_channels::process::dispatch() {
+        return;
+    }
+    let identity = if qa {
+        "com.tinker.channels-native-qa"
+    } else {
+        "com.tinker.channels-preview"
+    };
+    if qa {
+        assert!(
+            cfg!(feature = "formal-native-qa")
+                && std::env::var_os("TINKER_CHANNELS_PREVIEW_ROOT").is_some(),
+            "QA必须显式指定独立临时根"
+        );
+    }
+    run_mode(context, identity, None, false, true)
 }
 fn run_mode(
     context: tauri::Context<tauri::Wry>,
     expected_identifier: &str,
     probe: Option<LaunchProbe>,
     tools: bool,
+    channels: bool,
 ) {
     validate_config(context.config(), expected_identifier)
         .expect("编译配置不匹配，拒绝创建窗口或数据");
+    let channels_qa = expected_identifier == "com.tinker.channels-native-qa";
+    if channels && !channels_qa {
+        crate::credentialed_channels::process::enter_native_role();
+    }
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![formal_commands::formal_request, formal_commands::formal_window])
         .on_menu_event(formal_menu::event)
         .setup(move |app| {
             // QA 仅接受系统 tmp 的严格 marker 根；默认仅使用本 identifier 的 appData。
-            let (root, fresh) = if let Some(path) = std::env::var_os(if tools {"TINKER_TOOLS_PREVIEW_ROOT"} else {"TINKER_FORMAL_PREVIEW_ROOT"}) {
+            let (root, fresh) = if let Some(path) = std::env::var_os(if channels {"TINKER_CHANNELS_PREVIEW_ROOT"} else if tools {"TINKER_TOOLS_PREVIEW_ROOT"} else {"TINKER_FORMAL_PREVIEW_ROOT"}) {
                 let path = std::path::PathBuf::from(path);
                 let fresh = !path.exists();
-                (if tools {if fresh {TrustedRoot::create_tools_temporary(&path)} else {TrustedRoot::open_tools_temporary(&path)}} else if fresh { TrustedRoot::create_temporary(&path) } else { TrustedRoot::open_temporary(&path) }?,fresh)
+                (if channels {if fresh {TrustedRoot::create_channels_temporary(&path)} else {TrustedRoot::open_channels_temporary(&path)}} else if tools {if fresh {TrustedRoot::create_tools_temporary(&path)} else {TrustedRoot::open_tools_temporary(&path)}} else if fresh { TrustedRoot::create_temporary(&path) } else { TrustedRoot::open_temporary(&path) }?,fresh)
             } else {
                 let parent = app.path().app_local_data_dir()?;
                 if !parent.exists() { let mut builder=std::fs::DirBuilder::new(); #[cfg(unix)] { use std::os::unix::fs::DirBuilderExt; builder.mode(0o700); } builder.create(&parent)?; }
                 let parent = parent.canonicalize()?;
-                let fresh = !parent.join(if tools {SYNTHETIC_TOOLS} else {SYNTHETIC_PROFILE}).exists();
-                (if tools {if fresh {TrustedRoot::create_tools_app_data(&parent)} else {TrustedRoot::open_tools_app_data(&parent)}} else if fresh {TrustedRoot::create_app_data(&parent)} else {TrustedRoot::open_app_data(&parent)}?,fresh)
+                let fresh = !parent.join(if channels {"credentialed-v1"} else if tools {SYNTHETIC_TOOLS} else {SYNTHETIC_PROFILE}).exists();
+                (if channels {if fresh {TrustedRoot::create_channels_app_data(&parent)} else {TrustedRoot::open_channels_app_data(&parent)}} else if tools {if fresh {TrustedRoot::create_tools_app_data(&parent)} else {TrustedRoot::open_tools_app_data(&parent)}} else if fresh {TrustedRoot::create_app_data(&parent)} else {TrustedRoot::open_app_data(&parent)}?,fresh)
             };
             let window = WebviewWindowBuilder::new(app,"main",WebviewUrl::App("index.html".into()))
-                .title(if tools {"Tinker Tools Preview"} else {"Tinker Formal Preview"}).inner_size(1400.0,900.0).min_inner_size(1024.0,720.0)
+                .title(if channels {"Tinker Channels Preview"} else if tools {"Tinker Tools Preview"} else {"Tinker Formal Preview"}).inner_size(1400.0,900.0).min_inner_size(1024.0,720.0)
                 .title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
                 .initialization_script(probe.map(|p|p.initialization_script).unwrap_or(""))
                 .on_navigation(formal_commands::local_origin)
                 .on_new_window(|_,_| tauri::webview::NewWindowResponse::Deny)
                 .build()?;
-            let host = if tools {FormalHost::open_queueing(&root,environment(&window))?} else {FormalHost::open(&root,environment(&window))?};
+            let host = if channels {
+                if channels_qa {
+                    #[cfg(feature="formal-native-qa")]
+                    {FormalHost::open_channels_owned_qa(&root,environment(&window))?}
+                    #[cfg(not(feature="formal-native-qa"))]
+                    {return Err("QA unavailable".into());}
+                } else {FormalHost::open_channels(&root,environment(&window))?}
+            } else if tools {FormalHost::open_queueing(&root,environment(&window))?} else {FormalHost::open(&root,environment(&window))?};
             if fresh {
                 // 预配置合成验收 profile：实际持久化 skip，不虚构真实服务已连接。
                 let boot = host.command("main",serde_json::json!({"command":"bootstrap"}))?.wait(Duration::from_secs(5))?;

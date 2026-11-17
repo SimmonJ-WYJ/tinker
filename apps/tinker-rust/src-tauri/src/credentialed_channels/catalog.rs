@@ -334,6 +334,6 @@ impl Catalog {
             .filter_map(|r| self.revisions.get(&r.current_revision))
     }
     pub fn public_list(&self) -> serde_json::Value {
-        serde_json::Value::Array(self.current().map(|r|serde_json::json!({"id":r.channel.id,"name":r.channel.name,"provider":match r.channel.protocol{HttpProtocol::OpenaiChat=>"openai",HttpProtocol::AnthropicMessages=>"anthropic"},"baseUrl":r.channel.base_url,"enabled":r.channel.enabled,"hasCredential":true,"models":r.channel.models.iter().map(|m|serde_json::json!({"id":m.model_id,"name":m.label,"enabled":m.enabled})).collect::<Vec<_>>()})).collect())
+        serde_json::Value::Array(self.current().map(|r|serde_json::json!({"id":r.channel.id,"name":r.channel.name,"provider":match r.channel.protocol{HttpProtocol::OpenaiChat=>"custom-openai",HttpProtocol::AnthropicMessages=>"custom-anthropic"},"baseUrl":r.channel.base_url,"enabled":r.channel.enabled,"hasCredential":true,"apiKey":"","models":r.channel.models.iter().map(|m|serde_json::json!({"id":m.model_id,"name":m.label,"enabled":m.enabled,"supportedEfforts":m.supported_efforts})).collect::<Vec<_>>()})).collect())
     }
 }
