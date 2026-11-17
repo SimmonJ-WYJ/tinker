@@ -1,21 +1,23 @@
 //! 正式预览的原生平台事实源；与DesktopRuntime共用已标记根，独立持久化命名空间。
 mod channels;
 pub mod close;
+pub mod credentialed;
 mod launch;
 mod receipt;
 use receipt::Receipt;
 pub mod protocol;
 pub mod settings;
 mod spotlight;
-mod store;
+pub(crate) mod store;
 pub mod workspace;
 use crate::desktop_runtime::{
     protocol::{DesktopError, Result},
     TrustedProfile,
 };
 pub use launch::{
-    local_mock_profiles, TrustedRoot, APPLICATION_ID, MOCK_CONFIG_REVISION, MOCK_KEY,
-    MOCK_PROFILE_ID, SYNTHETIC_PROFILE, SYNTHETIC_TOOLS, TOOLS_APPLICATION_ID,
+    local_mock_profiles, TrustedRoot, APPLICATION_ID, CHANNELS_APPLICATION_ID, CHANNELS_ROOT_KIND,
+    MOCK_CONFIG_REVISION, MOCK_KEY, MOCK_PROFILE_ID, SYNTHETIC_PROFILE, SYNTHETIC_TOOLS,
+    TOOLS_APPLICATION_ID,
 };
 use launch::{public_profiles, PublicProfile};
 use protocol::*;
@@ -36,6 +38,8 @@ struct Persisted {
     receipts: BTreeMap<String, Receipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     channel_overlay: Option<channels::Overlay>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    credential_catalog: Option<crate::credentialed_channels::catalog::Catalog>,
 }
 struct Inner {
     store: store::Store,
@@ -112,6 +116,9 @@ impl FormalPlatform {
         profiles: &[TrustedProfile],
         environment: HostEnvironment,
     ) -> Result<Self> {
+        if root.is_channels() {
+            return Err(DesktopError("invalidRoot"));
+        }
         let known_keys = profiles
             .iter()
             .map(|profile| profile.key.clone())
@@ -283,9 +290,13 @@ impl Persisted {
             workspaces: vec![WorkspaceRecord::initial()],
             receipts: BTreeMap::new(),
             channel_overlay: None,
+            credential_catalog: None,
         }
     }
     fn validate(&self, profiles: &[PublicProfile]) -> Result<()> {
+        if self.credential_catalog.is_some() {
+            return Err(DesktopError("unsupportedVersion"));
+        }
         if self.version != VERSION
             || self.revision > MAX_SAFE_INTEGER
             || self.workspaces.len() != 1

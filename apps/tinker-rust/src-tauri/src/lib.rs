@@ -52,3 +52,5 @@ pub mod synthetic_workspace;
 
 mod tool_execution;
 mod tool_worker;
+
+pub mod credentialed_channels;

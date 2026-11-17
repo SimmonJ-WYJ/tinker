@@ -321,6 +321,24 @@ impl Inner {
     pub(super) fn apply_binding(&mut self, binding: Binding) -> Result<()> {
         super::execution::validate_send(&binding.request)?;
         id(&binding.config_revision)?;
+        if self.managed {
+            let profile = self
+                .bound_profile(&binding)
+                .map_err(|_| DesktopError("corruptJournal"))?;
+            let model = profile
+                .models
+                .iter()
+                .find(|m| m.model_id == binding.request.model_id)
+                .ok_or(DesktopError("corruptJournal"))?;
+            if binding
+                .request
+                .effort
+                .as_ref()
+                .is_some_and(|e| !model.supported_efforts.contains(e))
+            {
+                return Err(DesktopError("corruptJournal"));
+            }
+        }
         let s = self.session(&binding.request.session_id)?;
         if binding.accepted_at <= s.updated_at
             || binding.accepted_at > MAX_SAFE_INTEGER

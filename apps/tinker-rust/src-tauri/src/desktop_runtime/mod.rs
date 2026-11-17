@@ -6,6 +6,7 @@ pub mod protocol;
 mod queue;
 mod queue_replay;
 mod queue_types;
+pub mod revisions;
 mod session;
 mod store;
 mod tools;
@@ -25,6 +26,8 @@ use std::{
 };
 use store::Journal;
 pub use tools::TrustedToolBinding;
+/// 空目录草稿身份；永不出现在配置目录或授权执行。
+pub const UNCONFIGURED_PROFILE_ID: &str = "unconfigured";
 pub struct DesktopRuntime {
     inner: Mutex<Inner>,
 }
@@ -38,12 +41,26 @@ struct Inner {
     chains: BTreeMap<String, queue_types::Chain>,
     redirects: BTreeMap<String, BTreeMap<String, crate::run_context::ParentRunRef>>,
     profiles: BTreeMap<String, Profile>,
+    managed: bool,
+    revisions: BTreeMap<(String, String), Profile>,
     tools: BTreeMap<String, TrustedToolBinding>,
     sessions: BTreeMap<String, Session>,
     bindings: BTreeMap<String, Vec<Binding>>,
     controllers: BTreeMap<String, RunController>,
 }
 impl DesktopRuntime {
+    pub fn open_managed(root: impl AsRef<Path>) -> Result<Self> {
+        Self::open_managed_with_profiles(
+            root,
+            revisions::PreparedProfiles::new(vec![], BTreeMap::new(), BTreeMap::new())?,
+        )
+    }
+    pub fn open_managed_with_profiles(
+        root: impl AsRef<Path>,
+        prepared: revisions::PreparedProfiles,
+    ) -> Result<Self> {
+        Self::open_registry(root, BTreeMap::new(), vec![], true, Some(prepared))
+    }
     /// root须由可信宿主在稳定父目录下durable创建，使用既有绝对路径且无symlink祖先。
     /// 服务只创建自身namespace，启动时再次确认root及直接parent，不创建调用方祖先。
     pub fn open(root: impl AsRef<Path>, profiles: Vec<TrustedProfile>) -> Result<Self> {
@@ -79,6 +96,16 @@ impl DesktopRuntime {
                 return Err(DesktopError("invalidProfile"));
             }
         }
+        Self::open_registry(root, registry, bindings, queue_enabled, None)
+    }
+    fn open_registry(
+        root: impl AsRef<Path>,
+        mut registry: BTreeMap<String, Profile>,
+        bindings: Vec<TrustedToolBinding>,
+        queue_enabled: bool,
+        prepared: Option<revisions::PreparedProfiles>,
+    ) -> Result<Self> {
+        let managed = prepared.is_some();
         let tools = tools::validate_bindings(&mut registry, bindings)?;
         if serde_json::to_vec(&registry.values().collect::<Vec<_>>())
             .map_err(|_| DesktopError("invalidProfile"))?
@@ -102,11 +129,29 @@ impl DesktopRuntime {
             chains: BTreeMap::new(),
             redirects: BTreeMap::new(),
             profiles: registry,
+            managed,
+            revisions: BTreeMap::new(),
             tools,
             sessions: BTreeMap::new(),
             bindings: BTreeMap::new(),
             controllers: BTreeMap::new(),
         };
+        if let Some(prepared) = prepared {
+            inner.profiles = prepared
+                .current
+                .iter()
+                .map(|(id, revision)| {
+                    let profile = prepared
+                        .revisions
+                        .get(&(id.clone(), revision.clone()))
+                        .ok_or(DesktopError("invalidProfile"))?
+                        .clone();
+                    Ok((id.clone(), profile))
+                })
+                .collect::<Result<BTreeMap<_, _>>>()?;
+            inner.revisions = prepared.revisions;
+            inner.availability = Some(prepared.enabled);
+        }
         for record in records {
             match record.entry {
                 Entry::Session { session } => {
@@ -301,7 +346,9 @@ impl Inner {
         if let Some(w) = &p.workspace_id {
             id(w)?;
         }
-        if !self.profiles.contains_key(&p.profile_id) {
+        let unconfigured_draft =
+            self.managed && self.profiles.is_empty() && p.profile_id == UNCONFIGURED_PROFILE_ID;
+        if !(self.profiles.contains_key(&p.profile_id) || unconfigured_draft) {
             return Err(DesktopError("profileNotFound"));
         }
         if p.reuse_draft {

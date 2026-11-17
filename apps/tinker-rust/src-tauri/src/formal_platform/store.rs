@@ -172,6 +172,14 @@ impl Store {
         self.committed.as_deref()
     }
     /// 已验证主快照后，清理上次进程在rename之前留下的私有临时文件。
+    pub fn validate_pending(&self, validate: impl FnOnce(&[u8]) -> Result<()>) -> Result<()> {
+        let pending = self.root.join("snapshot.pending");
+        match fs::symlink_metadata(&pending) {
+            Ok(_) => validate(&read_regular(&pending, MAX_SNAPSHOT_BYTES)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(DesktopError("storeIo")),
+        }
+    }
     pub fn recover_pending(&self) -> Result<()> {
         let pending = self.root.join("snapshot.pending");
         match fs::symlink_metadata(&pending) {

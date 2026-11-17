@@ -6,7 +6,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, sync::Arc};
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Model {
     pub model_id: String,
@@ -26,7 +26,7 @@ pub struct TrustedProfile {
     #[serde(default)]
     pub protocol: HttpProtocol,
 }
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
     pub profile_id: String,
@@ -38,8 +38,58 @@ pub struct Profile {
     endpoint: String,
     #[serde(skip)]
     key: String,
+    #[serde(skip)]
+    pub(super) factory: Option<std::sync::Arc<dyn super::revisions::ManagedProviderFactory>>,
+    #[serde(skip)]
+    pub(super) authority: Option<String>,
 }
 impl Profile {
+    pub(super) fn from_managed(p: super::revisions::ManagedProfile) -> Result<Self> {
+        id(&p.profile_id)?;
+        id(&p.config_revision)?;
+        title(&p.label)?;
+        if p.profile_id == super::UNCONFIGURED_PROFILE_ID
+            || p.models.is_empty()
+            || p.models.len() > 128
+            || p.authority.is_empty()
+            || p.authority.len() > MAX_FRAME_BYTES
+        {
+            return Err(DesktopError("invalidProfile"));
+        }
+        let mut seen = HashSet::new();
+        for model in &p.models {
+            model_id(&model.model_id)?;
+            title(&model.label)?;
+            let mut efforts = HashSet::new();
+            if !seen.insert(&model.model_id)
+                || model.supported_efforts.iter().any(|e| {
+                    !p.protocol.allowed_efforts().contains(&e.as_str()) || !efforts.insert(e)
+                })
+            {
+                return Err(DesktopError("invalidProfile"));
+            }
+        }
+        Ok(Self {
+            profile_id: p.profile_id,
+            label: p.label,
+            config_revision: p.config_revision,
+            models: p.models,
+            protocol: p.protocol,
+            endpoint: String::new(),
+            key: String::new(),
+            factory: p.factory,
+            authority: Some(p.authority),
+        })
+    }
+    pub(super) fn same_revision(&self, other: &Self) -> bool {
+        self.profile_id == other.profile_id
+            && self.config_revision == other.config_revision
+            && self.label == other.label
+            && self.models == other.models
+            && self.protocol == other.protocol
+            && self.authority == other.authority
+    }
+
     pub fn from_trusted(p: TrustedProfile) -> Result<Self> {
         id(&p.profile_id)?;
         id(&p.config_revision)?;
@@ -80,6 +130,8 @@ impl Profile {
             protocol: p.protocol,
             endpoint: p.endpoint,
             key: p.key,
+            factory: None,
+            authority: None,
         })
     }
     pub fn provider(&self, model: &str, effort: Option<&str>) -> Result<Arc<dyn RunProvider>> {
@@ -90,6 +142,13 @@ impl Profile {
             .ok_or(DesktopError("modelNotFound"))?;
         if effort.is_some_and(|e| !selected.supported_efforts.iter().any(|s| s == e)) {
             return Err(DesktopError("unsupportedEffort"));
+        }
+        if self.authority.is_some() {
+            return self
+                .factory
+                .as_ref()
+                .ok_or(DesktopError("credentialUnavailable"))?
+                .provider(model, effort);
         }
         Ok(Arc::new(ChatHttpProvider::new(
             ChatHttpConfig::new(self.endpoint.clone(), self.key.clone(), model.into())?
