@@ -32,6 +32,8 @@ Dirty capture is committed before beginClose because the managed host refuses cr
 
 Regression tests combine actual createFormalTransport, original preload API, installPersistence, Jotai capture and lifecycle close/reload. They cover unknown stage with dirty draft/tabs, authoritative frozen-host rejection, abandoned known final replay, dirty changes after beginClose, capture ack loss, strict three-field scope, and closing while an active model reply is still unresolved. Drain continues to exclude the lifetime of an active model send. Persistence exposes only an internal disposer for its owned subscriptions/listeners, used by integration tests to remove their own handlers.
 
+Independent follow-up review approved I1/M1/M2 with 0 Critical and 0 Important findings. Its remaining Minor M3 identified that assigning the entire installer result exposed dispose at runtime despite the narrow declared marker type. The entry now retains the persistence instance locally and explicitly projects only `{ hydrated: persistence.hydrated }` to the global marker. Cleanup stays internal; the original marker runtime shape is preserved without a new API or feature. Root's full regression evidence remains scoped to dbe2fe6; this entry-only follow-up uses existing focused/preload regression, workspace types and entry lint rather than repeating unchanged Rust suites.
+
 The expected lost-final-ack DOM console error is now locally captured, asserted and redaction-checked; unexpected errors remain visible and the spy is restored in finally. Sensitive helpers/hooks and the new behavioral tests use conventional multiline statements and fields. No dependency migration or Rust product-source change is part of this follow-up.
 
 ## Owned native QA support

@@ -25,7 +25,8 @@ try {
   window.__INITIAL_THEME__ = transport.bootstrap.platformSnapshot.theme
   window.__DESKTOP_RUNTIME_PREVIEW__ = true
   window.__TAURI_QUEUEING__ = transport.bootstrap.queueing === true
-  window.__TAURI_FORMAL__ = installPersistence(transport)
+  const persistence = installPersistence(transport)
+  window.__TAURI_FORMAL__ = { hydrated: persistence.hydrated }
   seedCredentialedState(transport.bootstrap)
   seedActiveRuns(transport.bootstrap.activeRuns)
   await setAppLanguage(transport.bootstrap.platformSnapshot.settings.language ?? 'en')
