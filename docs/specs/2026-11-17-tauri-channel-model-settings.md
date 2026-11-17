@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `subagent-driven-development` with one implementation writer, behavior RED/GREEN, independent task review, and a final whole-branch review. Continue the already authorized text-workbench milestone without another execution-method confirmation.
 
-**Status:** Existing-channel slice implemented. Independent review identified Important finding I1; its scoped repair passed actual RED/GREEN, affected all-features Rust, fmt and warnings-denied clippy. Scoped re-review and new committed-head full/build/native verification remain pending. Native tooling recovery and baseline acceptance are recorded separately; new channel-settings GUI acceptance remains UNRUN.
+**Status:** Implemented and verified on code commit `616e9adb37300f62dbda8ef7fa234a3a1547a96b`, including independent re-review, full automated checks, builds and native existing-channel acceptance. This remains an isolated synthetic preview, not production cutover. See the [validation report](../reports/2026-11-17-native-channel-model-settings.md).
 **Baseline:** merged main `77f052052de8fc6af659c0def19d57f0c4515869` after PR #25.
 **Goal:** Make the original channel settings controls operate against Rust for existing host-managed channels, including durable model availability and actual owned-loopback connection discovery.
 **Architecture:** Keep one native actor, one platform snapshot/receipt authority, the existing session journal and original preload API. Add a bounded nonsecret channel overlay to platform persistence. The host retains immutable connections. A native-only trusted runtime availability setter gates new sends after immutable receipt reconciliation, without changing provider identity or accepted queue execution.
@@ -61,7 +61,7 @@
 - [x] Test platform write failure and uncertain writes preserve authority or freeze, no early success/cache changes. Corrupt/future/truncated overlay data fails before recovery writes. Old snapshot without overlay opens unchanged.
 - [x] Add actual bounded owned GET catalog/auth discovery, success and failure tests, redirect/external/different port/URL userinfo/key mismatch rejection, missing/unknown probe model rejection and timeout/response bound checks. Inspect output/storage for no secret persistence.
 - [x] Through `createDesktopApi(createFormalTransport(...))`, verify update arguments and serialized revision lane, snapshot-after-ack, failure cache preservation, quiesce/close waiting and no Electron import. With original ChannelForm test synthetic key/baseUrl and actual metadata-save payload, prove no component/layout rewrite is required.
-- [ ] GREEN: focused Rust/frontend tests and typecheck, then normal commit and task review. Covering commands and RED/GREEN evidence go in the external report.
+- [x] GREEN: focused Rust/frontend tests and typecheck, then normal commits and independent task review. Covering commands and RED/GREEN evidence go in the external report.
 
 Example original-API integration assertions:
 
@@ -81,19 +81,25 @@ Use the repository's actual test helpers or define complete local equivalents. D
 
 ## Final Verification and Delivery
 
-Implementation verification: prior complete Rust all-features runs, including Root's run on 1c3dbcce, passed before I1 and are historical for this repair. After I1, affected unit/channel/platform/queue coverage passed; Root will rerun the complete suite on the new committed head. Warnings-denied clippy and fmt passed. Full Bun passed 3540 tests with four existing rg integration skips; monorepo typecheck and affected ESLint passed. Original ChannelForm DOM and preload mutation-lane tests passed. Build and native final-binary acceptance are Root-owned remaining gates. The external report records every command, initial RED, failed diagnostic run, interruption, and successful resumed run.
+The final code commit `616e9adb37300f62dbda8ef7fa234a3a1547a96b` passed the complete Rust all-features suite (397 top-level tests, excluding nested child summary duplication), full Bun (3540 passed, four existing skips, zero failures), all six workspace typechecks, Electron build, ordinary Tauri build and separate native-QA build. Affected ESLint, fmt and warnings-denied all-feature/all-target clippy passed. Independent whole-branch review plus scoped I1 re-review concluded with zero Critical, Important or Minor findings and a passing simplify/reuse/readability gate.
 
-- [ ] Final committed-head complete Rust all-features suite after I1; affected all-features tests, fmt and clippy with warnings denied passed for the repair, single compiler.
-- [ ] Monorepo typecheck, full Bun suite, affected lint, Electron build, ordinary Tauri build. Reuse unchanged QA harness, no GUI operation through an alternative route.
-- [ ] Independent task/whole-branch/simplify review and final diff/secret/default audit. Fix Critical/Important issues and rerun affected checks.
-- [x] Document exactly which backend/process/renderer tests ran and which native GUI actions did not. No whole-product parity, real-model, installation or performance claim.
-- [ ] Fetch/merge latest main, normal hooks, safe push and English Draft PR if gates pass. Verify full head/main SHA, checks, statuses and Actions. Required English PR review comment ends workflow.
+- [x] Final committed-code complete all-features Rust suite after I1.
+- [x] Full Bun, monorepo typecheck, affected lint, Electron build and ordinary/native-QA Tauri builds.
+- [x] Independent task/whole-branch/simplify review, I1 repair and re-review, final protected-source/dependency audit.
+- [x] Final-binary native existing-channel save, actual owned GET catalog test, channel disable/enable, successful mock send, partial failure, Stop, bilingual/theme and normal Quit/restart acceptance.
+- [x] Document tested and untested boundaries without claiming complete product parity, real-model validation or performance improvement.
 
-## Native Acceptance History and Remaining Gate
+Publication must use latest-main reconciliation and normal hooks, a safe branch and Draft-only PR. Its exact remote head, base, checks, statuses and Actions will be recorded in PR metadata and the final review comment. No automatic merge, production switch, installation or release is included.
 
-The initial normal CUA inventory call failed before app access with `failed to start Node runtime: No such file or directory (os error 2)`. Root later proved Node existed and the execution cwd was missing, created only the empty private execution directory, and recovered the same normal inventory API. No alternate GUI driver, accessibility bypass, security-setting change, or installed-app replacement was used.
+## Native Acceptance History and Final Result
 
-Root independently exercised a copied immutable baseline QA bundle (binary revision 376, runtime-equivalent to baseline 77f0520), using a fresh marked synthetic root. Baseline observations include queued A/D/B/C execution, permissions, partial-failure retention and draft restore, stream Stop, zh/dark, idle reload, and live pending-permission restore. A shared execution transport interruption prevented the initial Quit/restart conclusion; Root resumed that independent acceptance after the environment recovered and confirmed Cmd+Q process exit, durable Unicode unsent draft/tabs/zh/dark, and explicit reopen with exact draft/history plus zero new mock records before sending. A first-paint observation remains for final-binary recheck: accessibility listed restored history while the first screenshot was blank; wheel scrolling made the bubbles render. No UI/CSS change or crash/force-termination injection was made for that observation. These observations do not test the new configuration implementation. Its native settings/save/send/restart acceptance remains UNRUN until Root builds the final source.
+The first normal CUA inventory failed before app access because its execution cwd was missing. Restoring only the empty private execution directory recovered the same route. No alternative GUI driver, security bypass or installed-app replacement was used. The earlier baseline QA bundle was separately exercised for queued A/D/B/C, permissions, failure/draft restore, Stop, reload and Quit/restart. It is not evidence for this new configuration code.
+
+Root then built code commit `616e9adb`, copied only its owned QA bundle into a fresh temporary staging directory, and supplied app-local synthetic paths. Actual native interaction used the original React workbench, original Models & Channels form and normal CUA APIs. Unicode channel rename persisted. English and Chinese connection/catalog success copy explicitly said no model turn ran. Refresh returned the known model. Channel disable cleared selection and disabled Send with zero chat POSTs, and re-enable restored the original model selection. A wrong numeric-loopback endpoint was rejected, and restoring the owned endpoint succeeded.
+
+A synthetic tool-enabled conversation completed after explicit read-only approvals. Separate runs retained partial output after a protocol error and after Stop. Restore Draft did not resend. Cmd+Q exited the process; reopen restored the exact unsent Unicode draft, history, channel metadata, selection, zh and dark mode, with zero automatic chat requests. The owned port changed between processes and the new connection passed without persisting either port. The first focused screenshot after bootstrap displayed restored history without scrolling, so the earlier blank-paint observation was not reproduced in this bounded recheck. This is not proof of universal rendering behavior.
+
+The existing form refuses to save an all-disabled model list, and that unchanged guard was observed. The backend's all-disabled and two-model cases are automated tests, not native two-model UI claims. Native force-crash, native storage-fault injection, a stalled-probe GUI race and whole-product parity were not exercised. All native data was synthetic. The QA process exited and its bounded `caffeinate -di -t 1800` lease was identity-checked and released.
 
 ## Additional Necessary Lifecycle Repair
 
@@ -108,7 +114,7 @@ The runtime now distinguishes resettable policy-validation failure from a lifeti
 - [x] Actual RED: four cases admitted fresh work before the repair, covering post-rename B uncertainty plus exact A replay, pre-write freeze plus A replay, a direct successful setter after freeze, and accepted queue retries followed by a new chain.
 - [x] GREEN: the same four cases pass; post-rename snapshot bytes and receipts remain unchanged, reopen derives disabled B, ordinary no-policy constructors and healthy policy updates work, and exact accepted receipts plus Stop/close remain available.
 - [x] Covering all-features Rust passed 144 unit, 5 original-API channel, 20 platform and 8 queue tests; fmt and all-target warnings-denied clippy passed.
-- [ ] Scoped independent re-review and Root's complete committed-head/build/final native acceptance gates.
+- [x] Scoped independent re-review and Root's complete committed-code/build/final native acceptance gates.
 
 Fault injection remains restricted to cfg(test), reusing the existing post-rename Store flag through a test helper. The external report preserves exact commands, statuses, expected RED failures, and prior run provenance.
 
@@ -116,4 +122,4 @@ Fault injection remains restricted to cfg(test), reusing the existing post-renam
 
 Production Electron and existing installed app remain the rollback path. The new overlay is synthetic-only. Preserve it and its receipts rather than rewriting/downgrading data. Old readers must fail before recovery writes when a new overlay is present. Do not delete real data or retire the old backend.
 
-Remaining: native window acceptance, general channel CRUD, secure real credential lifecycle, real provider smoke authorization, image/attachment/general tool parity, legacy-data cutover and measured rollout. This batch is an existing-channel configuration slice, not the complete text-product migration.
+Remaining: general channel CRUD, secure real credential lifecycle, real provider smoke authorization, image/attachment/general tool parity, legacy-data cutover and measured rollout. This batch is an existing-channel configuration slice, not the complete text-product migration.
