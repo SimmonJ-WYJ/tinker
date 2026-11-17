@@ -44,7 +44,13 @@ try {
   execFileSync('tar', ['-xf', '-', '-C', root], { input: archive })
  } else {
   // 日常测试无 Git 历史依赖：正文按受信精确布局合成，不保留退役资源副本。
-  for (const skill of retained) fs.cpSync(join(repo, 'apps/electron/default-skills', skill.slug), join(sources, skill.slug), { recursive: true })
+  // 显式逐项遍历，避免本机 macOS/Bun 整目录 clonefileat 快速路径阻塞；保留全部资源。
+  for (const skill of retained) {
+   const source = join(repo, 'apps/electron/default-skills', skill.slug)
+   const target = join(sources, skill.slug)
+   fs.cpSync(source, target, { recursive: true, filter: () => true })
+   assert.equal(treeHash(target), treeHash(source), `${skill.slug}: every retained resource copied unchanged`)
+  }
   for (const skill of retired) {
    for (const [path, bytes] of Object.entries(RETIRED_BUILTIN_SKILLS[skill.slug]!.files)) {
     const content = Buffer.alloc(bytes, 32)
