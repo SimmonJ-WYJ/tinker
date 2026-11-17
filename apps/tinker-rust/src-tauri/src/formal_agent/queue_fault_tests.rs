@@ -166,8 +166,12 @@ fn post_acceptance_uncertain_cancel_retains_owner_and_cannot_acknowledge_safe_cl
         thread::sleep(Duration::from_millis(5));
     }
     actor.queue_after_begin = Some(fail_cancel_after_begin);
-    assert!(actor.begin_queue(input(&sid, "uncertain")).is_err());
-    assert!(actor.queue_entries.contains_key("uncertain"));
+    let failure = actor.begin_queue(input(&sid, "uncertain")).unwrap_err();
+    assert!(
+        actor.queue_entries.contains_key("uncertain"),
+        "保留归属失败: {}",
+        failure.0
+    );
     assert_eq!(
         actor.queue_entries["uncertain"].state["activeExecution"]["requestId"],
         "uncertain"
