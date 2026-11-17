@@ -478,7 +478,7 @@ impl Persisted {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 // 只校验受信任profile已知key；不接触HOME/系统凭据，且在receipt/snapshot写入之前拒绝。
 fn reject_credentials(value: &Value, keys: &[String]) -> Result<()> {

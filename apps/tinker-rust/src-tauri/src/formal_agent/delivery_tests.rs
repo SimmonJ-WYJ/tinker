@@ -491,3 +491,6 @@ fn channel_storage_uncertainty_freezes_new_sends_without_mutating_session_journa
     assert!(mock.records().is_empty());
     std::fs::write(snapshot, old).unwrap();
 }
+
+#[path = "channel_freeze_tests.rs"]
+mod channel_freeze_tests;

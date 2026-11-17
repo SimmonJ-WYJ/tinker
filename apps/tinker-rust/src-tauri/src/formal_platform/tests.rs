@@ -1,5 +1,8 @@
-//! 门面故障注入仅在本模块测试中可达，产品IPC无故障注入入口。
+//! 门面故障注入仅在 cfg(test) 中可达，产品 IPC 无故障注入入口。
 use super::*;
+pub(crate) fn fail_after_rename(platform: &FormalPlatform) {
+    platform.inner.lock().unwrap().store.fail_after_rename = true;
+}
 #[test]
 fn directory_sync_failure_never_acknowledges_and_requires_restart() {
     let path = std::fs::canonicalize(std::env::temp_dir())
@@ -12,7 +15,7 @@ fn directory_sync_failure_never_acknowledges_and_requires_restart() {
     let profiles = local_mock_profiles("http://127.0.0.1:23456/v1/chat/completions").unwrap();
     let environment = HostEnvironment::new("darwin", false, false).unwrap();
     let p = FormalPlatform::open(&root, &profiles, environment.clone()).unwrap();
-    p.inner.lock().unwrap().store.fail_after_rename = true;
+    fail_after_rename(&p);
     let req:PlatformRequest=serde_json::from_value(json!({"version":1,"channel":"settings:update","args":[{"language":"zh"}],"mutation":{"mutationId":"sync-fault","expectedRevision":0}})).unwrap();
     assert_eq!(p.invoke(req.clone()).unwrap_err().0, "storeIo");
     assert_eq!(p.bootstrap().unwrap().revision, 0);
@@ -34,7 +37,7 @@ fn channel_uncertain_write_keeps_cache_and_recovers_once() {
     let profiles = local_mock_profiles("http://127.0.0.1:23456/v1/chat/completions").unwrap();
     let env = HostEnvironment::new("darwin", false, false).unwrap();
     let p = FormalPlatform::open(&root, &profiles, env.clone()).unwrap();
-    p.inner.lock().unwrap().store.fail_after_rename = true;
+    fail_after_rename(&p);
     let r:PlatformRequest=serde_json::from_value(json!({"version":1,"channel":"channel:update","args":["local-mock",{"enabled":false}],"mutation":{"mutationId":"channel-sync","expectedRevision":0}})).unwrap();
     assert_eq!(p.invoke(r.clone()).unwrap_err().0, "storeIo");
     assert_eq!(p.bootstrap().unwrap().revision, 0);

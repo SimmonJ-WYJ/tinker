@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `subagent-driven-development` with one implementation writer, behavior RED/GREEN, independent task review, and a final whole-branch review. Continue the already authorized text-workbench milestone without another execution-method confirmation.
 
-**Status:** Implemented and automatically verified in the isolated branch; independent review and final-binary native acceptance pending. Native acceptance initially failed before app access on 2026-11-17; the same normal CUA route recovered after the missing empty execution directory was restored. Root validated the immutable baseline separately; its native report is recorded outside the source tree. Native channel-settings acceptance awaits a rebuilt final binary.
+**Status:** Existing-channel slice implemented. Independent review identified Important finding I1; its scoped repair passed actual RED/GREEN, affected all-features Rust, fmt and warnings-denied clippy. Scoped re-review and new committed-head full/build/native verification remain pending. Native tooling recovery and baseline acceptance are recorded separately; new channel-settings GUI acceptance remains UNRUN.
 **Baseline:** merged main `77f052052de8fc6af659c0def19d57f0c4515869` after PR #25.
 **Goal:** Make the original channel settings controls operate against Rust for existing host-managed channels, including durable model availability and actual owned-loopback connection discovery.
 **Architecture:** Keep one native actor, one platform snapshot/receipt authority, the existing session journal and original preload API. Add a bounded nonsecret channel overlay to platform persistence. The host retains immutable connections. A native-only trusted runtime availability setter gates new sends after immutable receipt reconciliation, without changing provider identity or accepted queue execution.
@@ -81,9 +81,9 @@ Use the repository's actual test helpers or define complete local equivalents. D
 
 ## Final Verification and Delivery
 
-Implementation verification: complete Rust all-features suite passed; after the final empty-selection effort refinement, affected unit/channel/platform/queue coverage passed. Warnings-denied clippy and fmt passed. Full Bun passed 3540 tests with four existing rg integration skips; monorepo typecheck and affected ESLint passed. Original ChannelForm DOM and preload mutation-lane tests passed. Build and native final-binary acceptance are Root-owned remaining gates. The external report records every command, initial RED, failed diagnostic run, interruption, and successful resumed run.
+Implementation verification: prior complete Rust all-features runs, including Root's run on 1c3dbcce, passed before I1 and are historical for this repair. After I1, affected unit/channel/platform/queue coverage passed; Root will rerun the complete suite on the new committed head. Warnings-denied clippy and fmt passed. Full Bun passed 3540 tests with four existing rg integration skips; monorepo typecheck and affected ESLint passed. Original ChannelForm DOM and preload mutation-lane tests passed. Build and native final-binary acceptance are Root-owned remaining gates. The external report records every command, initial RED, failed diagnostic run, interruption, and successful resumed run.
 
-- [x] Rust fmt, all-features tests and clippy with warnings denied, single compiler.
+- [ ] Final committed-head complete Rust all-features suite after I1; affected all-features tests, fmt and clippy with warnings denied passed for the repair, single compiler.
 - [ ] Monorepo typecheck, full Bun suite, affected lint, Electron build, ordinary Tauri build. Reuse unchanged QA harness, no GUI operation through an alternative route.
 - [ ] Independent task/whole-branch/simplify review and final diff/secret/default audit. Fix Critical/Important issues and rerun affected checks.
 - [x] Document exactly which backend/process/renderer tests ran and which native GUI actions did not. No whole-product parity, real-model, installation or performance claim.
@@ -98,6 +98,19 @@ Root independently exercised a copied immutable baseline QA bundle (binary revis
 ## Additional Necessary Lifecycle Repair
 
 An existing actor fault test exposed a real race during active log-path failure. If the streaming worker first marked the run Failed with `recovery_required=true`, text `RunController.cancel` previously returned that terminal in-memory snapshot as success. `chat.stopChain` could then falsely acknowledge safe cancellation and discard actor ownership. Deterministic RED tests cover provider-triggered terminal uncertainty and an active cancel-write failure followed by retry. The minimal guard rejects cancellation success for a current text snapshot requiring recovery; durable terminal idempotency remains unchanged. The original actor ownership/unsafe-close assertion is retained and its diagnostic improved. No ToolContext validator or unrelated lifecycle refactor is included.
+
+## Independent Review Repair I1
+
+The independent task/whole-branch/simplify review found that replaying a successful earlier channel mutation could clear a later recovery freeze: an uncertain post-rename write left the platform store blocked and memory at the prior enabled state, but receipt replay bypassed Store.write and the successful availability setter reset the overloaded blocked flag.
+
+The runtime now distinguishes resettable policy-validation failure from a lifetime `availability_recovery_required` state. Healthy setters and exact mutation receipt replay cannot clear recovery state. Existing accepted send/queue bindings still reconcile before new-binding admission, and safe Stop/close remain available. Only a new runtime derives fresh authority from the validated durable snapshot. No receipt normalization, snapshot version, store recovery procedure, connection authority, ToolContext validator, frontend or production default changed.
+
+- [x] Actual RED: four cases admitted fresh work before the repair, covering post-rename B uncertainty plus exact A replay, pre-write freeze plus A replay, a direct successful setter after freeze, and accepted queue retries followed by a new chain.
+- [x] GREEN: the same four cases pass; post-rename snapshot bytes and receipts remain unchanged, reopen derives disabled B, ordinary no-policy constructors and healthy policy updates work, and exact accepted receipts plus Stop/close remain available.
+- [x] Covering all-features Rust passed 144 unit, 5 original-API channel, 20 platform and 8 queue tests; fmt and all-target warnings-denied clippy passed.
+- [ ] Scoped independent re-review and Root's complete committed-head/build/final native acceptance gates.
+
+Fault injection remains restricted to cfg(test), reusing the existing post-rename Store flag through a test helper. The external report preserves exact commands, statuses, expected RED failures, and prior run provenance.
 
 ## Rollback and Remaining Work
 
