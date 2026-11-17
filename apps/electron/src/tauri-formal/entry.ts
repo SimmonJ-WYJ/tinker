@@ -15,6 +15,7 @@ try {
   window.electronAPI = createDesktopApi(transport)
   window.__INITIAL_THEME__ = transport.bootstrap.platformSnapshot.theme
   window.__DESKTOP_RUNTIME_PREVIEW__ = true
+  window.__TAURI_QUEUEING__ = transport.bootstrap.queueing === true
   window.__TAURI_FORMAL__ = installPersistence(transport)
   seedActiveRuns(transport.bootstrap.activeRuns)
   await setAppLanguage(transport.bootstrap.platformSnapshot.settings.language ?? 'en')

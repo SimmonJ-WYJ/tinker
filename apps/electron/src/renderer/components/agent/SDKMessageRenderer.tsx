@@ -1,3 +1,4 @@
+import { nativeMessageIdentity } from '@/lib/native-message-identity'
 import { HOST_TURN_STOPPED_SUBTYPE } from '@asci/shared'
 import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 import { collectImageVersions } from './image-versions'
@@ -1464,6 +1465,8 @@ let fallbackIdCounter = 0
  */
 export function getGroupId(group: MessageGroup): string {
   if (group.type === 'user') {
+    const nativeId=nativeMessageIdentity(group.message)
+    if (nativeId) return nativeId
     if (group.message.uuid) return group.message.uuid
     // 没有 uuid：使用基于 message 对象引用的缓存 ID（message 引用在重渲染间稳定）
     if (!messageIdCache.has(group.message)) {
@@ -1479,6 +1482,7 @@ export function getGroupId(group: MessageGroup): string {
   }
   // assistant-turn：取首条 assistant 消息的 uuid
   const first = group.assistantMessages[0]
+  if (first && nativeMessageIdentity(first)) return nativeMessageIdentity(first)!
   if (first?.uuid) return first.uuid
   // 没有 uuid：使用基于首条 assistant message 对象引用的缓存 ID
   if (first) {

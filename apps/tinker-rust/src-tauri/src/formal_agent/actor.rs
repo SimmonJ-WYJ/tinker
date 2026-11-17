@@ -53,6 +53,11 @@ pub(super) struct Barrier {
 }
 pub(super) struct Actor {
     pub runtime: Arc<DesktopRuntime>,
+    pub queueing: bool,
+    #[cfg(test)]
+    pub queue_after_begin: Option<fn(&Actor)>,
+    pub queue_terminal_receipts: BTreeMap<String, super::queue_bridge::QueueTerminalReceipt>,
+    pub queue_entries: BTreeMap<String, super::queue_bridge::QueueDelivery>,
     pub platform: FormalPlatform,
     pub root: TrustedRoot,
     pub entries: BTreeMap<String, Entry>,
@@ -78,6 +83,11 @@ impl Actor {
     ) -> Self {
         Self {
             runtime,
+            queueing: false,
+            #[cfg(test)]
+            queue_after_begin: None,
+            queue_terminal_receipts: BTreeMap::new(),
+            queue_entries: BTreeMap::new(),
             platform,
             root,
             entries: BTreeMap::new(),
@@ -111,6 +121,15 @@ impl Actor {
                         let _ = reply.send(result);
                         return;
                     }
+                    let result = result.and_then(|value| {
+                        if value.as_ref().is_some_and(|v| {
+                            serde_json::to_vec(v)
+                                .map_or(true, |bytes| bytes.len() > 16 * 1024 * 1024)
+                        }) {
+                            return Err(DesktopError("historyLimit"));
+                        }
+                        Ok(value)
+                    });
                     if let Some(result) = result.transpose() {
                         let _ = reply.send(result);
                     }
@@ -194,7 +213,12 @@ impl Actor {
         }
     }
     pub fn history(&self, session: &str) -> Result<Value> {
-        let h = projection::history(&self.turns(session)?);
+        let turns = self.turns(session)?;
+        let h = if self.queueing {
+            self.queue_history(session, &turns)?
+        } else {
+            projection::history(&turns)
+        };
         if serde_json::to_vec(&h)
             .map_err(|_| DesktopError("invalidReply"))?
             .len()
@@ -220,12 +244,14 @@ impl Actor {
                 self.attached = false;
                 self.barriers.clear();
                 self.terminal_receipts.clear();
+                self.queue_terminal_receipts.clear();
                 self.refresh()?;
+                self.reset_queue_delivery();
                 for e in self.entries.values_mut() {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -246,13 +272,15 @@ impl Actor {
                 for (sid, turn) in missing {
                     self.retain_terminal(sid, turn);
                 }
+                self.replay_queue_terminals(&observed)?;
                 self.attached = true;
                 self.refresh()?;
+                self.reset_queue_delivery();
                 for e in self.entries.values_mut() {
                     e.resync = true;
                 }
                 // reply只报告权威active；实际补快照仍由单actor按序进入outbox。
-                let runs = self.active_runs();
+                let runs = self.active_runs()?;
                 self.poll();
                 Ok(Some(json!({"activeRuns":runs,"attached":self.attached})))
             }
@@ -264,8 +292,29 @@ impl Actor {
                 channel,
                 args,
                 mutation,
+                expected_chain_id,
                 ..
-            } => self.invoke(&channel, args, mutation, reply),
+            } => {
+                if self.queueing
+                    && matches!(
+                        channel.as_str(),
+                        "agent:send-message"
+                            | "agent:queue-message"
+                            | "agent:queue-state"
+                            | "agent:stop"
+                    )
+                {
+                    if mutation.is_some() {
+                        return Err(DesktopError("invalidParams"));
+                    }
+                    self.queue_invoke(&channel, args, expected_chain_id.as_deref(), reply)
+                } else {
+                    if expected_chain_id.is_some() {
+                        return Err(DesktopError("unsupported"));
+                    }
+                    self.invoke(&channel, args, mutation, reply)
+                }
+            }
             Command::Restore {
                 session_id,
                 observed_delivery_sequence,
@@ -283,12 +332,16 @@ impl Actor {
                     }
                 }
                 let turns = self.turns(&session_id)?;
-                let history = projection::history(&turns);
+                let history = self.history(&session_id)?;
                 self.token_seq += 1;
                 let token = format!("{}-restore-{}", self.generation, self.token_seq);
                 let turn = turns.last();
                 let active = turn.filter(|t| projection::active(t));
-                let bundle = json!({"restoreToken":token,"deliverySequence":self.sequence,"messages":history["messages"],"sdkMessages":history["sdkMessages"],"activeSnapshot":active.map(projection::active_run),"cursor":turn.map(|t|t["sequence"].clone()).unwrap_or(json!(0))});
+                let mut bundle = json!({"restoreToken":token,"deliverySequence":self.sequence,"messages":history["messages"],"sdkMessages":history["sdkMessages"],"activeSnapshot":active.map(projection::active_run),"cursor":turn.map(|t|t["sequence"].clone()).unwrap_or(json!(0))});
+                if self.queueing {
+                    self.queue_restore(&session_id, &turns, &mut bundle)?;
+                    self.reset_session_queue_delivery(&session_id);
+                }
                 // 已入outbox但尚未被原订阅者观察的终态，须在屏障后重投一次。
                 // observed来自transport实际dispatch完成的位置；已观察终态不再触发历史刷新。
                 if let Some(t) = turn {
@@ -388,12 +441,27 @@ impl Actor {
             },
         );
     }
-    fn active_runs(&self) -> Vec<Value> {
-        self.entries
+    fn active_runs(&self) -> Result<Vec<Value>> {
+        let mut runs: Vec<Value> = self
+            .entries
             .values()
             .filter(|e| projection::active(&e.turn))
             .map(|e| projection::active_run(&e.turn))
-            .collect()
+            .collect();
+        let sessions: std::collections::BTreeSet<_> = self
+            .queue_entries
+            .values()
+            .filter(|e| e.state["closureReason"].is_null())
+            .filter_map(|e| e.state["sessionId"].as_str())
+            .collect();
+        for sid in sessions {
+            let mut bundle = json!({});
+            self.queue_restore(sid, &self.turns(sid)?, &mut bundle)?;
+            if !bundle["activeSnapshot"].is_null() {
+                runs.push(bundle["activeSnapshot"].clone());
+            }
+        }
+        Ok(runs)
     }
     pub fn refresh(&mut self) -> Result<()> {
         let ids: Vec<_> = self.entries.keys().cloned().collect();
@@ -410,6 +478,7 @@ impl Actor {
         Ok(())
     }
     pub fn cancel_all(&mut self) -> Result<()> {
+        self.stop_all_queues("close")?;
         let runs: Vec<_> = self
             .entries
             .values()
@@ -433,6 +502,12 @@ impl Actor {
 // core错误来自固定枚举，但跨JSON后仍以静态allowlist收口，绝不转发任意服务文本。
 fn core_error(code: &str) -> DesktopError {
     DesktopError(match code {
+        "chainNotFound" => "chainNotFound",
+        "chainClosed" => "chainClosed",
+        "staleQueue" => "staleQueue",
+        "queueLimit" => "queueLimit",
+        "queuePayloadLimit" => "queuePayloadLimit",
+        "requestNotFound" => "requestNotFound",
         "permissionNotFound" => "permissionNotFound",
         "permissionConflict" => "permissionConflict",
         "permissionExpired" => "permissionExpired",
@@ -454,7 +529,6 @@ fn core_error(code: &str) -> DesktopError {
         "requestLimit" => "requestLimit",
         "sessionLimit" => "sessionLimit",
         "pageLimit" => "historyLimit",
-        "requestNotFound" => "requestNotFound",
         "invalidCursor" => "invalidCursor",
         "recoveryRequired" => "recoveryRequired",
         "storeIo" => "storeIo",
@@ -465,3 +539,7 @@ fn core_error(code: &str) -> DesktopError {
 #[cfg(test)]
 #[path = "delivery_tests.rs"]
 mod delivery_tests;
+
+#[cfg(test)]
+#[path = "queue_fault_tests.rs"]
+mod queue_fault_tests;

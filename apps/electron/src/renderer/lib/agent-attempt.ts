@@ -23,3 +23,10 @@ export function acceptAgentAttempt(store:ReturnType<typeof createStore>,sessionI
   // 重载后的 host 流没有本地登记；回调不能自行登记或抢占新的本地请求。
   return current===undefined || current===requestId
 }
+
+export function currentAgentAttempt(store:ReturnType<typeof createStore>,sessionId:string):string|undefined { return store.get(latestAttemptsAtom).get(sessionId) }
+
+/** 仅 mount 前的可信宿主 bootstrap 可以恢复 owner；流回调不得调用。 */
+export function restoreAgentAttempt(store:ReturnType<typeof createStore>,sessionId:string,requestId:string):void {
+  store.set(latestAttemptsAtom,previous=>new Map(previous).set(sessionId,requestId))
+}

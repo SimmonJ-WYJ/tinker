@@ -5,7 +5,7 @@ use super::{
     Inner,
 };
 use crate::{
-    run_types::{is_terminal, OfflineScenario, RunError, MAX_INPUT_BYTES},
+    run_types::{is_terminal, RunError, MAX_INPUT_BYTES},
     session_lifecycle::RunStatus,
 };
 use serde_json::{json, Value};
@@ -49,6 +49,16 @@ impl Inner {
         Ok(project_turn(b, snapshot))
     }
     pub(super) fn send(&mut self, p: Send) -> Result<Value> {
+        if self
+            .chains
+            .values()
+            .any(|c| c.session_id == p.session_id && c.closure.is_none())
+        {
+            return Err(DesktopError("runBusy"));
+        }
+        self.send_inner(p, false)
+    }
+    pub(super) fn send_inner(&mut self, p: Send, begin: bool) -> Result<Value> {
         validate_send(&p)?;
         let session = self.session(&p.session_id)?;
         let profile = self
@@ -68,11 +78,10 @@ impl Inner {
             }
         }
         let provider = profile.provider(&p.model_id, p.effort.as_deref())?;
-        let bindings = self
-            .bindings
-            .get(&p.session_id)
-            .ok_or(DesktopError("sessionNotFound"))?;
-        if bindings.len() >= MAX_REQUESTS {
+        if begin {
+            provider.validate_tool_metadata(&json!(p))?;
+        }
+        if self.request_count(&p.session_id) >= MAX_REQUESTS {
             return Err(DesktopError("requestLimit"));
         }
         let mut active = 0;
@@ -125,54 +134,35 @@ impl Inner {
             accepted_at: super::activity_time(session.updated_at)?,
             parent_run_id: parent.clone(),
         };
-        if self.tools.contains_key(&p.profile_id) {
+        if begin || self.tools.contains_key(&p.profile_id) {
             provider.validate_tool_metadata(
                 &serde_json::to_value(&binding).map_err(|_| DesktopError("invalidParams"))?,
             )?;
         }
-        self.journal.append(Entry::Bind {
-            binding: binding.clone(),
-        })?;
-        let session = self
-            .sessions
-            .get_mut(&p.session_id)
-            .ok_or(DesktopError("sessionNotFound"))?;
-        session.updated_at = binding.accepted_at;
-        session.profile_id = binding.request.profile_id.clone();
-        self.bindings
-            .get_mut(&p.session_id)
-            .ok_or(DesktopError("sessionNotFound"))?
-            .push(binding.clone());
-        let c = self
-            .controllers
-            .get(&p.session_id)
-            .ok_or(DesktopError("sessionNotFound"))?;
-        // 绑定成功后即使start失败也禁止重放；未知执行窗口作为interrupted保留。
-        if let Some(tool) = self.tools.get(&p.profile_id) {
-            c.start_tools(
-                p.request_id,
-                parent,
-                p.user_message,
-                provider,
-                tool.executor.clone(),
-                tool.options.clone(),
-            )?;
+        if self.chains.contains_key(&p.request_id)
+            || self
+                .chains
+                .values()
+                .any(|c| c.messages.iter().any(|m| m.input.uuid == p.request_id))
+        {
+            return Err(DesktopError("requestConflict"));
+        }
+        if begin {
+            self.queue_commit(super::queue_types::QueueEntry::Begin {
+                binding: binding.clone(),
+            })?;
         } else {
-            match parent {
-                Some(parent) => c.continue_with_provider(
-                    p.request_id,
-                    parent,
-                    p.user_message,
-                    OfflineScenario::Success,
-                    provider,
-                ),
-                None => c.start_with_provider(
-                    p.request_id,
-                    p.user_message,
-                    OfflineScenario::Success,
-                    provider,
-                ),
-            }?;
+            self.journal.append(Entry::Bind {
+                binding: binding.clone(),
+            })?;
+            self.apply_binding(binding.clone())?;
+        }
+        // 已绑定请求不重放；启动不确定时冻结整个队列实例。
+        if let Err(e) = self.start_binding(&binding, provider) {
+            if begin {
+                self.queue_blocked = true;
+            }
+            return Err(e);
         }
         self.turn_reply(&binding)
     }

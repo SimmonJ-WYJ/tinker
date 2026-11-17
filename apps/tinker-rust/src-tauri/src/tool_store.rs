@@ -23,15 +23,25 @@ impl RunStore {
         for id in self.ids()? {
             if self.find_location(&id)? == 3 {
                 let run = self.load_tool_run(&id)?;
-                self.tool_context_for(
+                self.tool_context_policy(
                     run.header.parent.as_ref(),
                     run.header.created_order,
                     &run.header.input,
+                    Some((&id, run.header.policy_version)),
                 )?;
             } else {
                 let run = self.load(&id)?;
-                if let RunLineage::Continuation { parent, .. } = &run.lineage {
-                    self.context_for(parent, run.created_order, &run.snapshot.input)?;
+                if let RunLineage::Continuation {
+                    parent,
+                    policy_version,
+                } = &run.lineage
+                {
+                    self.context_for_policy(
+                        parent,
+                        run.created_order,
+                        &run.snapshot.input,
+                        Some((&id, *policy_version)),
+                    )?;
                 }
             }
         }
@@ -51,7 +61,12 @@ impl RunStore {
         if header.created_order != expected {
             return Err(RunError::CorruptLog);
         }
-        self.tool_context_for(header.parent.as_ref(), header.created_order, &header.input)?;
+        self.tool_context_policy(
+            header.parent.as_ref(),
+            header.created_order,
+            &header.input,
+            Some((&header.run_id, header.policy_version)),
+        )?;
         let mut bytes = serde_json::to_vec(&header).map_err(|_| RunError::StoreIo)?;
         if bytes.len() > MAX_HEADER_BYTES {
             return Err(RunError::InputTooLarge);

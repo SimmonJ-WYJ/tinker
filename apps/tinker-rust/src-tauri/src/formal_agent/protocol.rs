@@ -20,6 +20,8 @@ pub enum Command {
         args: Vec<Value>,
         #[serde(default)]
         mutation: Option<Mutation>,
+        #[serde(default, rename = "expectedChainId")]
+        expected_chain_id: Option<String>,
     },
     Restore {
         generation: String,

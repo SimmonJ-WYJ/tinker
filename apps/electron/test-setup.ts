@@ -13,6 +13,11 @@ if (typeof globalThis.window === 'undefined') {
   GlobalRegistrator.register()
 }
 
+// 使用标准模式，避免数学渲染器在合成 DOM 中产生无关兼容性告警。
+if (!document.doctype) document.insertBefore(document.implementation.createDocumentType('html', '', ''), document.documentElement)
+// happy-dom 尚未实现 compatMode；本测试文档已有 HTML doctype，补齐标准模式只读属性。
+if (!document.compatMode) Object.defineProperty(document, 'compatMode', { value: 'CSS1Compat', configurable: true })
+
 expect.extend(matchers as never)
 
 // Vite define 的测试兜底：dev-mode.tsx 在模块求值期读取裸全局 __LOGIN_ENABLED__（由 Vite 编译期

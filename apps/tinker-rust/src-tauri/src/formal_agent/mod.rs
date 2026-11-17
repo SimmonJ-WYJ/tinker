@@ -5,6 +5,9 @@ mod delivery;
 mod permissions;
 pub mod projection;
 pub mod protocol;
+mod queue_bridge;
+mod queue_frames;
+mod queue_projection;
 mod tool_projection;
 use crate::{
     desktop_runtime::{
@@ -65,11 +68,30 @@ impl FormalAgentHost {
         platform: FormalPlatform,
         root: TrustedRoot,
     ) -> Result<Self> {
+        Self::new_mode(runtime, platform, root, false)
+    }
+    pub fn new_queueing(
+        runtime: Arc<DesktopRuntime>,
+        platform: FormalPlatform,
+        root: TrustedRoot,
+    ) -> Result<Self> {
+        Self::new_mode(runtime, platform, root, true)
+    }
+    fn new_mode(
+        runtime: Arc<DesktopRuntime>,
+        platform: FormalPlatform,
+        root: TrustedRoot,
+        queueing: bool,
+    ) -> Result<Self> {
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
         let worker = thread::Builder::new()
             .name("formal-agent".into())
-            .spawn(move || actor::Actor::new(runtime, platform, root, out).run(rx))
+            .spawn(move || {
+                let mut actor = actor::Actor::new(runtime, platform, root, out);
+                actor.queueing = queueing;
+                actor.run(rx)
+            })
             .map_err(|_| DesktopError("hostUnavailable"))?;
         Ok(Self {
             tx,

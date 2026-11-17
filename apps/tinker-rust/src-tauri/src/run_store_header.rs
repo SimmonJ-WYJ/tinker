@@ -49,7 +49,9 @@ pub(super) fn decode_header(
         )
     } else {
         let v: RunHeaderV2 = serde_json::from_slice(line).map_err(|_| RunError::CorruptLog)?;
-        if v.context_policy_version != CONTEXT_POLICY_VERSION {
+        if v.context_policy_version != CONTEXT_POLICY_VERSION
+            && v.context_policy_version != REDIRECT_POLICY_VERSION
+        {
             return Err(RunError::UnsupportedVersion);
         }
         validate_parent(&v.parent, id)?;

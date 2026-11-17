@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 import { Window as TestWindow } from 'happy-dom'
 import { getDefaultStore } from 'jotai'
 import { tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom } from '../renderer/atoms/tab-atoms.ts'
@@ -64,6 +64,7 @@ test.each(captureCases)('真实 close participant 最新状态: $name', async (s
 })
 
 test('hydrate 失败为终态：StrictMode 的迟到成功不能触发空 atoms 自动写回或关闭', async () => {
+  const logged = spyOn(console, 'error').mockImplementation(() => {})
   const previousWindow = globalThis.window
   globalThis.window = new TestWindow() as unknown as typeof window
   let emit: (event: NativeEvent) => void = () => {}
@@ -89,10 +90,14 @@ test('hydrate 失败为终态：StrictMode 的迟到成功不能触发空 atoms 
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(commands).not.toContain('closeReady')
     expect(writes).toEqual([])
-  } finally { transport.dispose(); globalThis.window = previousWindow }
+    expect(logged).toHaveBeenCalledTimes(1)
+    expect(logged.mock.calls[0]?.[0]).toBe('[原生预览] 保存失败')
+    expect(logged.mock.calls[0]?.[1]).toMatchObject({ message: '读取失败' })
+  } finally { logged.mockRestore(); transport.dispose(); globalThis.window = previousWindow }
 })
 
 test('closeReady 超时后晚到成功没有关闭权；再次原生 close 才提交 closeWindow', async () => {
+  const logged = spyOn(console, 'error').mockImplementation(() => {})
   const previousWindow = globalThis.window
   globalThis.window = new TestWindow() as unknown as typeof window
   let emit: (event: NativeEvent) => void = () => {}; let release = () => {}; let ready = false; let closes = 0; let begins = 0
@@ -122,5 +127,8 @@ test('closeReady 超时后晚到成功没有关闭权；再次原生 close 才�
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(closes).toBe(1); expect(begins).toBe(1)
     expect(commands.filter((name) => name === 'closeReady')).toHaveLength(2)
-  } finally { transport.dispose(); globalThis.window = previousWindow }
+    expect(logged).toHaveBeenCalledTimes(1)
+    expect(logged.mock.calls[0]?.[0]).toBe('[原生预览] 保存失败')
+    expect(logged.mock.calls[0]?.[1]).toMatchObject({ message: 'transportTimeout' })
+  } finally { logged.mockRestore(); transport.dispose(); globalThis.window = previousWindow }
 })

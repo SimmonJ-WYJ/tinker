@@ -1,3 +1,4 @@
+import { isPendingUserMessage } from '@/lib/native-message-identity'
 /**
  * AgentMessages — Agent 消息列表
  *
@@ -780,7 +781,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   // 累积 live 列表可能含已完成回合，只让最近真实输入之后的尾部助手回合运行。
   const pendingUserIds = new Set(queuedMessages?.map(message => message.uuid))
   const latestBoundaryIndex = allGroups.findLastIndex(group => group.type === 'user'
-    ? !pendingUserIds.has(group.message.uuid ?? '')
+    ? !isPendingUserMessage(group.message,pendingUserIds)
     : group.type === 'system' && (group.message.subtype === 'compact_boundary' || group.message.subtype === 'compacting'))
   const activeAssistantGroup = allGroups.findLast((group, index) => index > latestBoundaryIndex && group.type === 'assistant-turn' && liveGroupSet.has(group))
   const hasLiveAssistantContent = !!activeAssistantGroup

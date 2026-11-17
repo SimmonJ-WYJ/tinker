@@ -15,6 +15,7 @@ function blocks(message: SDKMessage): Record<string, unknown>[] {
 }
 function messageIdentity(message: SDKMessage): string | undefined {
   const value = message as Record<string, unknown>
+  if (typeof value._desktopQueueChainId === 'string' && typeof value._desktopQueueUuid === 'string') return JSON.stringify(['queue',value._desktopQueueChainId,value._desktopQueueUuid])
   return typeof value._desktopRunId === 'string' && value._desktopRunId.length > 0
     && typeof value.uuid === 'string' && value.uuid.length > 0
     ? JSON.stringify([value._desktopRunId, value.uuid]) : undefined

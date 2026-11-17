@@ -18,6 +18,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  queueing?: boolean
   environmentSequence?: number
   generation: string
   platformSnapshot: PlatformSnapshot
@@ -36,6 +37,7 @@ export interface NativeBridge {
   listen(callback: (event: NativeEvent) => void): Promise<() => void>
 }
 export interface RestoreBundle {
+  chainStates?: {sessionId:string;chainId:string;closureReason:string|null}[]
   restoreToken: string
   deliverySequence: number
   messages: unknown[]

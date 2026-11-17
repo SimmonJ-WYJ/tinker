@@ -183,7 +183,7 @@ struct State {
 }
 impl ToolRunHeader {
     pub(crate) fn validate(&self) -> Result<(), RunError> {
-        if self.storage_version != 3 || self.policy_version != 1 {
+        if self.storage_version != 3 || !matches!(self.policy_version, 1 | 2) {
             return Err(RunError::UnsupportedVersion);
         }
         validate_id(&self.run_id)?;

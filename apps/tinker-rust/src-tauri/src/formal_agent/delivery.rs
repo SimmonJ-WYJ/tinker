@@ -59,6 +59,7 @@ impl Actor {
         }
     }
     pub fn poll(&mut self) {
+        self.poll_queues();
         self.barriers.retain(|_, b| b.deadline > Instant::now());
         let ids: Vec<_> = self.entries.keys().cloned().collect();
         for sid in ids {
