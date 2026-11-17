@@ -38,7 +38,7 @@ pub(crate) fn guard(value: &Value, known: &Known) -> Result<()> {
         Ok(())
     }
 }
-fn contains(value: &Value, key: &[u8]) -> bool {
+pub(crate) fn contains(value: &Value, key: &[u8]) -> bool {
     let has = |s: &str| s.as_bytes().windows(key.len()).any(|w| w == key);
     match value {
         Value::String(s) => has(s),
@@ -53,6 +53,7 @@ pub(crate) fn hydrate(
     vault: &dyn CredentialVault,
     known: &Known,
     cancelled: &AtomicBool,
+    required_channel: Option<&str>,
 ) -> Result<BTreeMap<String, Arc<Secret>>> {
     let mut keys = BTreeMap::new();
     for revision in c.current() {
@@ -60,12 +61,30 @@ pub(crate) fn hydrate(
             return Err(DesktopError("staleGeneration"));
         }
 
-        let secret = Arc::new(vault.acquire_bound_cancellable(
+        let acquired = vault.acquire_bound_cancellable(
             scope,
             &revision.credential_ref,
             &super::vault::CredentialBinding::new(scope, &revision.channel),
             cancelled,
-        )?);
+        );
+        let secret = match acquired {
+            Ok(secret) => Arc::new(secret),
+            Err(error)
+                if required_channel != Some(revision.channel.id.as_str())
+                    && matches!(
+                        error.0,
+                        "credentialMissing"
+                            | "vaultDenied"
+                            | "vaultUnavailable"
+                            | "helperUnavailable"
+                            | "helperTimeout"
+                            | "helperBusy"
+                    ) =>
+            {
+                continue
+            }
+            Err(error) => return Err(error),
+        };
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
             return Err(DesktopError("staleGeneration"));
         }

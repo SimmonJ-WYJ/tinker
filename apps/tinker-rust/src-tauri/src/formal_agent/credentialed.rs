@@ -143,12 +143,24 @@ impl Actor {
                         ));
                     }
                     let catalog = platform.catalog()?;
+                    // 新执行仅要求选中渠道；其余可读取凭据仍用于防回显，缺失不阻断显式修复。
+                    let required = if c == "agent:send-message" {
+                        args.first().and_then(|a| a["channelId"].as_str())
+                    } else if matches!(
+                        c.as_str(),
+                        "channel:test" | "channel:test-direct" | "channel:fetch-models"
+                    ) {
+                        args.first().and_then(Value::as_str)
+                    } else {
+                        None
+                    };
                     let keys = worker::hydrate(
                         &catalog,
                         &platform.vault_scope(),
                         vault.as_ref(),
                         &known,
                         &token,
+                        required,
                     )?;
                     if cancelled() {
                         return Err(DesktopError("staleGeneration"));
@@ -208,12 +220,17 @@ impl Actor {
                         &known,
                     )?;
                     if let Some(prepared) = prepared {
+                        let replacement = args
+                            .first()
+                            .filter(|a| a["credential"]["replace"].is_string())
+                            .and_then(|a| a["channel"]["id"].as_str());
                         let keys = worker::hydrate(
                             prepared.catalog(),
                             &platform.vault_scope(),
                             vault.as_ref(),
                             &known,
                             &token,
+                            replacement,
                         )?;
                         worker::guard(
                             &serde_json::to_value(&request)

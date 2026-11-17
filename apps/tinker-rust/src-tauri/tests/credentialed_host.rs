@@ -86,7 +86,13 @@ mod owned {
                                     2 => thread::sleep(Duration::from_millis(2200)),
                                     _ => {}
                                 }
-                                let body = r#"{"data":[{"id":"model","display_name":"Model"}]}"#;
+                                let body = match response_mode.load(Ordering::Acquire) {
+                                    3 => r#"{"data":[{"id":"\u0074inker-qa-finite-key-two"}]}"#,
+                                    4 => {
+                                        r#"{"data":[{"id":"model","display_name":"\u0074inker-qa-finite-key-two"}]}"#
+                                    }
+                                    _ => r#"{"data":[{"id":"model","display_name":"Model"}]}"#,
+                                };
                                 let _=write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
                                 continue;
                             }
@@ -281,6 +287,274 @@ mod owned {
             .unwrap()
             .iter()
             .all(|r| r.starts_with(b"GET /v1/models ")));
+    }
+    #[test]
+    fn review_ephemeral_escaped_catalog_key_never_reaches_public_reply() {
+        for (provider, mode) in [("custom-openai", 3), ("custom-anthropic", 4)] {
+            let f = Fixture::new();
+            let h = f.open();
+            let g = boot(&h);
+            let file = f.root.path().join("formal-platform-v1/snapshot.json");
+            let before = std::fs::read(&file).unwrap();
+            f.mode.store(mode, Ordering::Release);
+            let args = json!([{"provider":provider,"baseUrl":f.base,"apiKey":QA_SECRET_TWO}]);
+            let result = invoke(&h, &g, "channel:fetch-models", args.clone());
+            assert!(result.is_err(), "escaped ephemeral credential must reject");
+            assert!(!format!("{result:?}").contains(QA_SECRET_TWO));
+            assert_eq!(std::fs::read(&file).unwrap(), before);
+            assert_eq!(
+                std::fs::read_dir(f.root.path().join("qa-vault"))
+                    .unwrap()
+                    .count(),
+                0
+            );
+            f.mode.store(0, Ordering::Release);
+            assert_eq!(
+                invoke(&h, &g, "channel:fetch-models", args).unwrap()["models"][0]["id"],
+                "model"
+            );
+        }
+    }
+    #[test]
+    fn review_missing_item_allows_explicit_replacement_and_deletion_after_reopen() {
+        for delete in [false, true] {
+            let f = Fixture::new();
+            let mut h = f.open();
+            let g = boot(&h);
+            save(&f, &h, &g, "openai-chat");
+            let sid = invoke(
+                &h,
+                &g,
+                "agent:create-session",
+                json!(["Owned", "user-channel"]),
+            )
+            .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            send(&h, &g, &sid, "accepted", "hello").unwrap();
+            let history = invoke(&h, &g, "agent:get-messages", json!([sid])).unwrap();
+            h.shutdown().unwrap();
+            drop(h);
+            for e in std::fs::read_dir(f.root.path().join("qa-vault")).unwrap() {
+                std::fs::remove_file(e.unwrap().path()).unwrap();
+            }
+            let h = f.open();
+            let g = boot(&h);
+            assert_eq!(
+                send(&h, &g, &sid, "missing", "preserved").unwrap_err(),
+                "credentialMissing"
+            );
+            if delete {
+                commit(&h,&g,json!({"version":1,"channel":"channel:delete","args":["user-channel"],"mutation":{"mutationId":"repair-delete","expectedRevision":1}})).unwrap();
+            } else {
+                let mut r = request(&f, "openai-chat", 1, "repair-replace");
+                r["channel"] = json!("channel:update");
+                let staged = invoke(
+                    &h,
+                    &g,
+                    "channel:stage",
+                    json!([{"request":r,"secret":QA_SECRET_TWO}]),
+                )
+                .unwrap();
+                commit(&h, &g, staged).unwrap();
+            }
+            assert_eq!(
+                invoke(&h, &g, "agent:get-messages", json!([sid])).unwrap(),
+                history
+            );
+            send(&h, &g, &sid, "accepted", "hello").unwrap();
+            assert_eq!(f.records.lock().unwrap().len(), 1);
+            if !delete {
+                send(&h, &g, &sid, "repaired", "hello again").unwrap();
+                assert_eq!(f.records.lock().unwrap().len(), 2);
+                assert!(String::from_utf8(f.records.lock().unwrap()[1].clone())
+                    .unwrap()
+                    .contains(QA_SECRET_TWO));
+            }
+        }
+    }
+    fn native_send(
+        h: &FormalHost,
+        g: &str,
+        sid: &str,
+        channel: &str,
+        id: &str,
+        text: &str,
+    ) -> Result<Value, String> {
+        invoke(
+            h,
+            g,
+            "agent:send-message",
+            json!([{"sessionId":sid,"requestId":id,"startedAt":100,"channelId":channel,"modelId":"owned-text","userMessage":text,"effort":""}]),
+        )
+    }
+    #[test]
+    fn review_missing_item_repair_in_fresh_process_preserves_other_key_guard() {
+        for mode in ["replace", "delete"] {
+            let f = Fixture::new();
+            let mut h = FormalHost::open_channels_owned_qa(
+                &f.root,
+                HostEnvironment::new("darwin", false, false).unwrap(),
+            )
+            .unwrap();
+            let g = boot(&h);
+            let port: Value = serde_json::from_slice(
+                &std::fs::read(f.root.path().join("qa-endpoint.json")).unwrap(),
+            )
+            .unwrap();
+            for (n, id, key) in [
+                (0, "user-channel", QA_SECRET_ONE),
+                (1, "other", QA_SECRET_TWO),
+            ] {
+                let mut r = request(&f, "openai-chat", n, &format!("save-{n}"));
+                r["channel"] = json!("channel:create");
+                r["args"][0]["channel"]["id"] = json!(id);
+                r["args"][0]["channel"]["baseUrl"] =
+                    json!(format!("http://127.0.0.1:{}/v1", port["port"]));
+                r["args"][0]["channel"]["models"][0]["modelId"] = json!("owned-text");
+                let staged =
+                    invoke(&h, &g, "channel:stage", json!([{"request":r,"secret":key}])).unwrap();
+                commit(&h, &g, staged).unwrap();
+            }
+            let sid = invoke(
+                &h,
+                &g,
+                "agent:create-session",
+                json!(["Owned", "user-channel"]),
+            )
+            .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            native_send(&h, &g, &sid, "user-channel", "accepted", "hello").unwrap();
+            h.shutdown().unwrap();
+            drop(h);
+            for e in std::fs::read_dir(f.root.path().join("qa-vault")).unwrap() {
+                let path = e.unwrap().path();
+                let slot: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+                if slot["slot"] == 1 {
+                    std::fs::remove_file(path).unwrap();
+                }
+            }
+            struct Child(std::process::Child);
+            impl Drop for Child {
+                fn drop(&mut self) {
+                    let _ = self.0.kill();
+                    let _ = self.0.wait();
+                }
+            }
+            let mut child = Child(
+                std::process::Command::new(std::env::current_exe().unwrap())
+                    .args([
+                        "--exact",
+                        "owned::review_repair_fresh_process_entry",
+                        "--ignored",
+                        "--nocapture",
+                    ])
+                    .env_clear()
+                    .env("TMPDIR", std::env::temp_dir())
+                    .env("TINKER_REPAIR_TEST_ROOT", f.root.path())
+                    .env("TINKER_REPAIR_TEST_MODE", mode)
+                    .env("TINKER_REPAIR_TEST_SESSION", sid)
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::piped())
+                    .spawn()
+                    .unwrap(),
+            );
+            let deadline = std::time::Instant::now() + Duration::from_secs(15);
+            let status = loop {
+                if let Some(s) = child.0.try_wait().unwrap() {
+                    break s;
+                }
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "repair child deadline"
+                );
+                thread::sleep(Duration::from_millis(5));
+            };
+            let mut error = String::new();
+            std::io::Read::read_to_string(child.0.stderr.as_mut().unwrap(), &mut error).unwrap();
+            assert!(status.success(), "fresh-process repair failed: {error}");
+        }
+    }
+    #[test]
+    #[ignore]
+    fn review_repair_fresh_process_entry() {
+        let root = TrustedRoot::open_channels_temporary(std::path::PathBuf::from(
+            std::env::var_os("TINKER_REPAIR_TEST_ROOT").expect("owned test root"),
+        ))
+        .unwrap();
+        let mode = std::env::var("TINKER_REPAIR_TEST_MODE").unwrap();
+        assert!(["replace", "delete"].contains(&mode.as_str()));
+        let sid = std::env::var("TINKER_REPAIR_TEST_SESSION").unwrap();
+        let h = FormalHost::open_channels_owned_qa(
+            &root,
+            HostEnvironment::new("darwin", false, false).unwrap(),
+        )
+        .unwrap();
+        let g = boot(&h);
+        let history = invoke(&h, &g, "agent:get-messages", json!([sid])).unwrap();
+        assert!(history.to_string().contains("completed."));
+        assert_eq!(
+            native_send(&h, &g, &sid, "user-channel", "missing", "preserved").unwrap_err(),
+            "credentialMissing"
+        );
+        assert_eq!(
+            invoke(&h, &g, "channel:test", json!(["user-channel"])).unwrap_err(),
+            "credentialMissing"
+        );
+        // 不可用渠道不能阻断另一条可用渠道，也不能绕过它的已知密钥回显检查。
+        let other = invoke(&h, &g, "agent:create-session", json!(["Other", "other"])).unwrap()
+            ["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        native_send(&h, &g, &other, "other", "unrelated", "hello").unwrap();
+        let snapshot: Value = serde_json::from_slice(
+            &std::fs::read(root.path().join("formal-platform-v1/snapshot.json")).unwrap(),
+        )
+        .unwrap();
+        let channel =
+            snapshot["credentialCatalog"]["revisions"]["revision-save-0"]["channel"].clone();
+        let mut r = json!({"version":1,"channel":"channel:update","args":[{"channel":channel,"credential":"keep"}],"mutation":{"mutationId":"repair","expectedRevision":2}});
+        let mut echo = r.clone();
+        echo["args"][0]["channel"]["name"] = json!(QA_SECRET_TWO);
+        assert_eq!(
+            invoke(
+                &h,
+                &g,
+                "channel:stage",
+                json!([{"request":echo,"secret":QA_SECRET_ONE}])
+            )
+            .unwrap_err(),
+            "invalidParams"
+        );
+        if mode == "replace" {
+            let staged = invoke(
+                &h,
+                &g,
+                "channel:stage",
+                json!([{"request":r,"secret":QA_SECRET_TWO}]),
+            )
+            .unwrap();
+            commit(&h, &g, staged).unwrap();
+        } else {
+            r["channel"] = json!("channel:delete");
+            r["args"] = json!(["user-channel"]);
+            commit(&h, &g, r).unwrap();
+        }
+        assert_eq!(
+            invoke(&h, &g, "agent:get-messages", json!([sid])).unwrap(),
+            history
+        );
+        native_send(&h, &g, &sid, "user-channel", "accepted", "hello").unwrap();
+        if mode == "replace" {
+            native_send(&h, &g, &sid, "user-channel", "repaired", "hello again").unwrap();
+        }
+        let snapshot =
+            std::fs::read_to_string(root.path().join("formal-platform-v1/snapshot.json")).unwrap();
+        assert!(!snapshot.contains(QA_SECRET_ONE) && !snapshot.contains(QA_SECRET_TWO));
     }
     #[test]
     fn stored_key_echo_keep_and_settings_rejected_without_persistence() {

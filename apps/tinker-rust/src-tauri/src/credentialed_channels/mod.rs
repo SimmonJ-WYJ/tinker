@@ -14,6 +14,7 @@ pub mod process;
 #[cfg(any(test, feature = "formal-native-qa"))]
 pub(crate) mod qa;
 pub(crate) mod resolver;
+pub(crate) mod validation;
 #[cfg(target_os = "macos")]
 pub(crate) mod vault_host;
 pub(crate) mod worker;

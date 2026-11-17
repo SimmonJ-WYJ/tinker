@@ -71,11 +71,29 @@ pub(crate) fn is_native_role() -> bool {
 }
 #[cfg(unix)]
 fn run_owned(
+    command: Command,
+    input: &[u8],
+    max: usize,
+    cancelled: &impl Fn() -> bool,
+    handshake: Option<String>,
+) -> Result<Vec<u8>> {
+    run_owned_with_validation(
+        command,
+        input,
+        max,
+        cancelled,
+        handshake,
+        &super::validation::validate,
+    )
+}
+#[cfg(unix)]
+fn run_owned_with_validation(
     mut command: Command,
     input: &[u8],
     max: usize,
     cancelled: &impl Fn() -> bool,
     handshake: Option<String>,
+    validate: &impl Fn(i32, Instant, &dyn Fn() -> bool) -> Result<()>,
 ) -> Result<Vec<u8>> {
     use std::os::fd::AsRawFd;
     if input.len() > 65536 || max > 65536 {
@@ -150,10 +168,13 @@ fn run_owned(
                         return Err(DesktopError("helperUnauthorized"));
                     }
                     if received_hello == *expected {
-                        #[cfg(target_os = "macos")]
-                        super::auth_macos::same_code(child.0.id() as i32)?;
-                        #[cfg(not(target_os = "macos"))]
-                        return Err(DesktopError("helperUnauthorized"));
+                        validate(child.0.id() as i32, deadline, cancelled)?;
+                        if cancelled() {
+                            return Err(DesktopError("staleGeneration"));
+                        }
+                        if Instant::now() >= deadline {
+                            return Err(DesktopError("helperTimeout"));
+                        }
                         handshaken = true;
                         offset = 0;
                     }
@@ -289,3 +310,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, unix))]
+#[path = "process_fixture.rs"]
+pub(crate) mod fixture;
