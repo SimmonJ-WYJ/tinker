@@ -53,6 +53,8 @@ pub(super) struct Barrier {
 }
 pub(super) struct Actor {
     pub runtime: Arc<DesktopRuntime>,
+    pub probe_worker: Option<std::thread::JoinHandle<()>>,
+    pub probe_epoch: Arc<std::sync::atomic::AtomicU64>,
     pub queueing: bool,
     #[cfg(test)]
     pub queue_after_begin: Option<fn(&Actor)>,
@@ -83,6 +85,8 @@ impl Actor {
     ) -> Self {
         Self {
             runtime,
+            probe_worker: None,
+            probe_epoch: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             queueing: false,
             #[cfg(test)]
             queue_after_begin: None,
@@ -236,6 +240,7 @@ impl Actor {
         }
         match command {
             Command::Bootstrap {} => {
+                self.cancel_probe();
                 if let Some(t) = self.ticket.take() {
                     let _ = self.gate.abort(&t.close_token);
                 }
@@ -398,6 +403,7 @@ impl Actor {
                 Ok(Some(Value::Null))
             }
             Command::BeginClose { .. } => {
+                self.cancel_probe();
                 let ticket = self
                     .gate
                     .begin(&self.generation, self.platform.bootstrap()?.revision)?;
@@ -478,6 +484,7 @@ impl Actor {
         Ok(())
     }
     pub fn cancel_all(&mut self) -> Result<()> {
+        self.cancel_probe();
         self.stop_all_queues("close")?;
         let runs: Vec<_> = self
             .entries
@@ -519,6 +526,7 @@ fn core_error(code: &str) -> DesktopError {
         "sessionNotFound" => "sessionNotFound",
         "profileNotFound" => "profileNotFound",
         "modelNotFound" => "modelNotFound",
+        "modelUnavailable" => "modelUnavailable",
         "unsupportedEffort" => "unsupportedEffort",
         "invalidParams" => "invalidParams",
         "invalidId" => "invalidId",

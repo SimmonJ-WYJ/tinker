@@ -1,4 +1,5 @@
 //! 正式预览专属owned HTTP合成服务；不读取环境、凭据或外部文件。
+pub(crate) mod discovery;
 mod tools;
 use crate::{
     desktop_runtime::{
@@ -171,7 +172,8 @@ fn serve(
         }
     };
     let headers = String::from_utf8_lossy(&bytes[..header_end]);
-    if !headers.starts_with("POST /v1/chat/completions HTTP/1.1\r\n") {
+    let catalog = headers.starts_with("GET /v1/models HTTP/1.1\r\n");
+    if !catalog && !headers.starts_with("POST /v1/chat/completions HTTP/1.1\r\n") {
         return Ok(());
     }
     let mut length = None;
@@ -190,6 +192,21 @@ fn serve(
                 _ => {}
             }
         }
+    }
+    if catalog {
+        if !auth {
+            return stream.write_all(
+                b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            );
+        }
+        let ids = if tools {
+            vec!["local-tools-mock"]
+        } else {
+            vec!["local-mock-a", "local-mock-b"]
+        };
+        let body =
+            json!({"data":ids.iter().map(|id|json!({"id":id})).collect::<Vec<_>>()}).to_string();
+        return write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body);
     }
     let Some(length) = length.filter(|n| *n <= MAX_BODY) else {
         return Ok(());

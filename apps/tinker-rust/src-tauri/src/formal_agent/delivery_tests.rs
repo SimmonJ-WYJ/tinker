@@ -457,3 +457,37 @@ fn deleted_summary_budget_rejects_before_cancelling_or_tombstoning() {
         "cancelled"
     );
 }
+
+#[test]
+fn channel_storage_uncertainty_freezes_new_sends_without_mutating_session_journal() {
+    let (mut actor, _events, mock, sid) = setup();
+    actor
+        .runtime
+        .set_availability(actor.platform.availability().unwrap())
+        .unwrap();
+    let snapshot = actor.root.path().join("formal-platform-v1/snapshot.json");
+    let old = std::fs::read(&snapshot).unwrap();
+    // 写入前外部变动必须失败，不能以旧的 permissive policy 接收新 UUID。
+    std::fs::write(&snapshot, b"{}").unwrap();
+    let (reply, _) = mpsc::sync_channel(1);
+    let mutation = crate::formal_platform::protocol::Mutation {
+        mutation_id: "failed-disable".into(),
+        expected_revision: 0,
+    };
+    assert_eq!(
+        actor
+            .invoke(
+                "channel:update",
+                vec![json!("local-mock"), json!({"enabled":false})],
+                Some(mutation),
+                &reply
+            )
+            .unwrap_err()
+            .0,
+        "storeChanged"
+    );
+    assert_eq!(actor.platform.bootstrap().unwrap().revision, 0);
+    assert_eq!(actor.invoke("agent:send-message",vec![json!({"sessionId":sid,"requestId":"frozen","startedAt":1,"channelId":"local-mock","modelId":"local-mock-a","userMessage":"synthetic"})],None,&reply).unwrap_err().0,"recoveryRequired");
+    assert!(mock.records().is_empty());
+    std::fs::write(snapshot, old).unwrap();
+}

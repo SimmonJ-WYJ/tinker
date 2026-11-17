@@ -40,7 +40,7 @@ impl Actor {
             return Err(DesktopError("closing"));
         }
         if mutation.is_some() {
-            return self
+            let result = self
                 .platform
                 .invoke(PlatformRequest {
                     version: 1,
@@ -49,36 +49,44 @@ impl Actor {
                     mutation,
                 })
                 .and_then(|r| {
+                    if c == "channel:update"
+                        && self
+                            .runtime
+                            .set_availability(self.platform.availability()?)
+                            .is_err()
+                    {
+                        self.runtime.freeze_availability();
+                        return Err(DesktopError("recoveryRequired"));
+                    }
                     serde_json::to_value(r)
                         .map(Some)
                         .map_err(|_| DesktopError("invalidReply"))
                 });
+            if c == "channel:update"
+                && result.as_ref().is_err_and(|e| {
+                    matches!(
+                        e.0,
+                        "storeIo"
+                            | "recoveryRequired"
+                            | "storeChanged"
+                            | "unsafePath"
+                            | "invalidRoot"
+                    )
+                })
+            {
+                self.runtime.freeze_availability();
+            }
+            return result;
         }
         let value = match c {
             "channel:list" => {
                 arity(&args, 0, 0)?;
-                let p = self.core("profiles.list", json!({}))?;
-                let profiles = p["profiles"]
-                    .as_array()
-                    .ok_or(DesktopError("invalidReply"))?;
-                let mut channels = Vec::new();
-                for profile in profiles {
-                    let models = profile["models"]
-                        .as_array()
-                        .ok_or(DesktopError("invalidReply"))?;
-                    let provider = if profile["protocol"] == "anthropic-messages" {
-                        "custom-anthropic"
-                    } else {
-                        "custom-openai"
-                    };
-                    channels.push(json!({
-                        "id": profile["profileId"], "name": profile["label"], "provider": provider,
-                        "baseUrl": "", "apiKey": "", "enabled": true, "createdAt": 0, "updatedAt": 0,
-                        "models": models.iter().map(|m| json!({"id":m["modelId"],"name":m["label"],"enabled":true})).collect::<Vec<_>>()
-                    }));
-                }
-                json!(channels)
+                self.platform.channels()?
             }
+            "channel:decrypt-key"
+            | "channel:test"
+            | "channel:test-direct"
+            | "channel:fetch-models" => return self.channel_discovery(c, &args, reply),
             "agent:list-sessions" => {
                 arity(&args, 0, 0)?;
                 json!(self

@@ -493,3 +493,66 @@ fn unobserved_terminal_replays_on_same_document_reattach_without_new_execution()
     assert_eq!(h.mock_records().len(), 3);
     h.shutdown().unwrap();
 }
+
+#[test]
+fn disabling_metadata_keeps_accepted_queue_and_receipts_but_blocks_new_chain() {
+    let (_root, mut h) = setup();
+    let g = call(&h, json!({"command":"bootstrap"}))["generation"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let s = invoke(
+        &h,
+        &g,
+        "agent:create-session",
+        json!(["availability", "local-tools-mock"]),
+        None,
+    )["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    begin(&h, &g, &s, "available-a", "A");
+    wait_permission(&h, &g, &s, "p-available-a-0");
+    let queued = json!([{"sessionId":s,"uuid":"available-b","userMessage":"B","interrupt":false}]);
+    let receipt = invoke(
+        &h,
+        &g,
+        "agent:queue-message",
+        queued.clone(),
+        Some("available-a"),
+    );
+    call(
+        &h,
+        json!({"command":"invoke","generation":g,"channel":"channel:update","args":["local-tools-mock",{"enabled":false}],"mutation":{"mutationId":"disabled","expectedRevision":0}}),
+    );
+    assert_eq!(
+        invoke(&h, &g, "channel:test", json!(["local-tools-mock"]), None)["success"],
+        true
+    );
+    assert_eq!(
+        invoke(&h, &g, "agent:queue-message", queued, Some("available-a")),
+        receipt
+    );
+    begin(&h, &g, &s, "available-a", "A");
+    for id in ["available-a", "available-b"] {
+        for round in 0..2 {
+            let pid = format!("p-{id}-{round}");
+            wait_permission(&h, &g, &s, &pid);
+            grant(&h, &g, &pid);
+        }
+    }
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while state(&h, &g, &s, "available-a")["closureReason"].is_null() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let count = h.mock_records().len();
+    assert_eq!(count, 6);
+    let pending=h.command("main",json!({"command":"invoke","generation":g,"channel":"agent:send-message","expectedChainId":"disabled-new","args":[{"sessionId":s,"requestId":"disabled-new","startedAt":1,"channelId":"local-tools-mock","modelId":"local-tools-mock","userMessage":"new"}]})).unwrap();
+    assert_eq!(
+        pending.wait(Duration::from_secs(2)).unwrap_err().0,
+        "modelUnavailable"
+    );
+    assert_eq!(h.mock_records().len(), count);
+    h.shutdown().unwrap();
+}
