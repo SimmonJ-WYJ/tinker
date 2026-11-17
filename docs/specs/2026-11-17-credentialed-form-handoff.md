@@ -1,6 +1,6 @@
 # Credentialed original-form implementation handoff
 
-**Status:** Task 3 implementation and focused checks complete for handoff. Native window acceptance, final whole-branch regression and independent review are separate Root-owned gates. No installation, production entry change or paid request is authorized by this document.
+**Status:** Task 3 implementation, recovery fixes and final marker projection passed source review and supported automatic checks through `20a225b`. Native checks covered configuration, two codecs, rotation, Stop, errors and quit/reopen. Deletion/older-history tool paths remain unaccepted. See [acceptance and rollback](2026-11-17-credentialed-native-acceptance.md). No installation, production entry change or paid request.
 
 ## Original controls and authority
 
