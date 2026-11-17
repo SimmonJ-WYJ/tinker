@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use subagent-driven-development with a fresh sole implementer per task, actual behavior RED/GREEN, independent task review and final whole-branch review. The user explicitly authorized design and implementation in this existing migration conversation, so proceed through the agreed bounded stage without another execution-method confirmation.
 
-**Status:** Ready for implementation after source/design self-review.
+**Status:** Task 1 foundation complete at c29c0235 with independent review approval (0 Critical, 0 Important, 3 Minor). Task 2 host/network/helper integration is next. The complete preview/native milestone is not yet verified.
 **Baseline:** `6c333ccb735b28d87f5310d006d959b9877bb1d8`, merged PR #26, tree identical to verified implementation/report head f083bfd.
 **Goal:** Make existing original channel controls and complete streamed text conversation work through a separate credential-capable Tauri host, with safe credential persistence and bounded networking, validated entirely with fake keys and owned local services.
 **Architecture:** Preserve existing synthetic proofs and production defaults. Add an explicitly separate credentialed host/root/catalog, reuse the native actor/platform atomic persistence and existing HTTP codecs, and retain immutable profile revisions for accepted runs/queues. OS Keychain stores real secret bytes, the catalog stores only references, and a QA-only fake vault reconstructs finite sentinels from nonsecret slots for restart acceptance.
@@ -59,6 +59,19 @@ The user asked to design and implement this stage. Routine implementation detail
 - [ ] Prove A starts and B is accepted on revision/key1, rotate to revision/key2, A/B finish on key1, fresh C uses key2. Exact old UUID/chain/queue receipt retry after rotate/delete makes zero extra HTTP. Current disable/delete blocks fresh work but preserves history and accepted leases.
 - [ ] Test vault missing/denied/timeout, pre-write/post-rename failure, install failure, old receipt after freeze, capacity, stage expiry/mismatch/lost ack, partial/future/corrupt catalogs, old synthetic proofs and no secret anywhere in persisted public bytes/receipts/error/Debug. Test fake adapter rejects arbitrary non-sentinel input.
 - [ ] Run focused RED/GREEN then affected full-feature Rust, fmt/clippy. Normal local commit, self-review and report. No push or native UI action by implementer. Root task-review gate before Task 2.
+
+
+## Task 2 review carry-forward gates
+
+- Task 1 completed at `c29c0235d3fa707d181c717cae68837d680d72c8`, full serial Rust 420 tests/42 targets, fmt/clippy passed. Its exact APIs are in the task handoff. The real adapter remains compiled/unreachable, not operationally verified.
+- Before a credential write, preflight predictable receipt/snapshot byte capacity using one shared store budget authority. Known exhausted capacity should perform zero put and deterministic validation must not become a spurious uncertain-write freeze. Add the focused tests identified by Task 1 Minor 1.
+- Add direct accepted-disable/delete and same-authority nonempty-factory replacement coverage (Minor 2) in the real host/fake-vault path. Historical factories remain frozen, accepted work retains old authority, fresh work obeys current policy.
+- Carry Minor 3 accurately: default-parallel full Rust had five timing failures, serial diagnostic23/23 and full420 pass. Existing package test command is serial. No preexisting/environment-only attribution has been proved and no deadline/assertion is weakened.
+- The host must guard currently known credential material across public catalog/Keep/settings/receipt writes, provider metadata/context/output and errors before persistence. Replacement staging alone is insufficient. Acquire needed leases off actor/runtime/platform locks. Metadata-only history must not acquire obsolete credentials. This is a no-system-leak/known-managed-secret guarantee, not universal detection of arbitrary unknown secrets deliberately entered as freeform user content. Add saved-key Keep/settings echo regressions.
+- Parent authentication needs live process identity/code validation, not merely a pathname or signing information read from disk. Authenticate the actual native-host parent and private pipe handshake, recheck lifetime and role, reject direct shell/foreign/helper parent before any Keychain operation. Use supported OS code validation/identity checks or keep the real adapter unavailable if the proof cannot be established. Signing metadata queries are distinct from Keychain item operations and must not be claimed as Keychain acceptance.
+- Do not hold runtime/platform locks across vault/DNS work, and do not turn a deferred provider's pre-bind secret guard into a noop. Fresh send preparation/hydration is off actor and cancellable, rechecks current revision/generation, prevents late HTTP, and does not acquire old keys for exact receipts. Missing/denied credentials fail before Bind with input/history preserved.
+- Fake QA endpoints need a validated restart strategy when owned ports change. Rebind only a validated own QA port with fail-closed collisions, or use a strictly QA-only logical binding proved by host authority. Never forward to an unrelated loopback service or kill another listener. Real base URLs remain normally persisted.
+- Task 1 deliberately retains retired/orphan owned items and caps exact owned references at144 (128revisions+16stages). A later cleanup needs validated pending/catalog/runtime state and settled leases. Conservative bounded retention may remain an explicit preview limitation, with no key-erasure claim.
 
 ## Task 2: Credentialed host and bounded actual HTTP execution
 
