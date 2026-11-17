@@ -10,6 +10,12 @@ export interface PlatformSnapshot {
   theme: ResolvedTheme
   chrome: { platform: string; fullscreen: boolean }
 }
+/** 关闭/刷新只允许提交这三项UI采集；不包含渠道或模型偏好。 */
+export interface LifecycleCapture {
+  tabState: NonNullable<AppSettings['tabState']>
+  sidebarProjectFilesExpandedByWorkspace: Record<string, boolean>
+  sessionDrafts: Record<string, string>
+}
 export interface ActiveRun {
   sessionId: string
   requestId: string

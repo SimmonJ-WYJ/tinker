@@ -41,8 +41,8 @@ test.each(captureCases)('真实 close participant 最新状态: $name', async (s
     },
   }
   const transport = await createFormalTransport(native, (code) => code)
+  const participant = installPersistence(transport)
   try {
-    const participant = installPersistence(transport)
     participant.hydrated('settings')
     emit({ kind: 'action', action: 'close' })
     await Promise.resolve(); expect(writes).toEqual([])
@@ -57,6 +57,7 @@ test.each(captureCases)('真实 close participant 最新状态: $name', async (s
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(writes).toEqual([{ tabState: { tabs: store.get(tabsAtom), activeTabId: sample.active, activeTabIdByWorkspace: sample.expected }, sidebarProjectFilesExpandedByWorkspace: { 'local-mock-workspace-id': true }, sessionDrafts: { 'session-1': 'latest typed draft café' } }])
   } finally {
+    participant.dispose()
     transport.dispose()
     store.set(tabsAtom, previous[0]); store.set(activeTabIdAtom, previous[1]); store.set(activeTabIdByWorkspaceAtom, previous[2]); store.set(sidebarProjectFilesExpandedMapAtom, previous[3]); store.set(agentSessionDraftsAtom, previous[4]); store.set(currentAgentWorkspaceIdAtom, previous[5])
     globalThis.window = previousWindow
@@ -79,8 +80,8 @@ test('hydrate 失败为终态：StrictMode 的迟到成功不能触发空 atoms 
     },
   }
   const transport = await createFormalTransport(native, (code) => code)
+  const participant = installPersistence(transport)
   try {
-    const participant = installPersistence(transport)
     participant.hydrated('settings')
     participant.hydrated('tabs', Error('读取失败'))
     participant.hydrated('tabs')
@@ -93,7 +94,7 @@ test('hydrate 失败为终态：StrictMode 的迟到成功不能触发空 atoms 
     expect(logged).toHaveBeenCalledTimes(1)
     expect(logged.mock.calls[0]?.[0]).toBe('[原生预览] 保存失败')
     expect(logged.mock.calls[0]?.[1]).toMatchObject({ message: '读取失败' })
-  } finally { logged.mockRestore(); transport.dispose(); globalThis.window = previousWindow }
+  } finally { participant.dispose(); logged.mockRestore(); transport.dispose(); globalThis.window = previousWindow }
 })
 
 test('closeReady 超时后晚到成功没有关闭权；再次原生 close 才提交 closeWindow', async () => {
@@ -116,8 +117,9 @@ test('closeReady 超时后晚到成功没有关闭权；再次原生 close 才�
     },
   }
   const transport = await createFormalTransport(native, (code) => code, { commandTimeoutMs: 5 })
+  const participant = installPersistence(transport)
   try {
-    const participant = installPersistence(transport); participant.hydrated('tabs'); participant.hydrated('settings')
+    participant.hydrated('tabs'); participant.hydrated('settings')
     emit({ kind: 'action', action: 'close' })
     await new Promise((resolve) => setTimeout(resolve, 25))
     release(); await new Promise((resolve) => setTimeout(resolve, 0))
@@ -130,5 +132,5 @@ test('closeReady 超时后晚到成功没有关闭权；再次原生 close 才�
     expect(logged).toHaveBeenCalledTimes(1)
     expect(logged.mock.calls[0]?.[0]).toBe('[原生预览] 保存失败')
     expect(logged.mock.calls[0]?.[1]).toMatchObject({ message: 'transportTimeout' })
-  } finally { logged.mockRestore(); transport.dispose(); globalThis.window = previousWindow }
+  } finally { participant.dispose(); logged.mockRestore(); transport.dispose(); globalThis.window = previousWindow }
 })
