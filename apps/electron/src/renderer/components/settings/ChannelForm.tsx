@@ -1,4 +1,5 @@
 import { addQuickModels, type ProviderDraft } from '@/lib/channel-drafts'
+import { useChannelCredentials } from './useChannelCredentials'
 import { ChannelModels } from './ChannelModels'
 import { ChannelProviderMark, getChannelProtocolLabel } from './ChannelProviderMark'
 import './channel-form.css'
@@ -44,7 +45,6 @@ import type {
   ImageProtocol,
   ChannelModel,
   ChannelTestResult,
-  FetchModelsResult,
   ProviderType,
 } from '@asci/shared'
 import {
@@ -69,18 +69,6 @@ interface ChannelFormProps {
 
 /** 所有可选供应商（全部走 Anthropic 兼容端点；OpenRouter 走其 "Anthropic Skin"） */
 const PROVIDER_OPTIONS: ProviderType[] = ['anthropic', 'minimax', 'kimi', 'moonshot', 'deepseek', 'openrouter', 'glm', 'custom-anthropic', 'custom-openai', 'custom-image']
-
-/**
- * 静态清单 provider —— 后端不调用真实 /models 接口，返回 provider 内置精选清单
- *
- * 这类 provider 满足两点：
- * 1. 拉取无需 apiKey（后端忽略 apiKey）
- * 2. provider 已在清单里挑选好默认 enabled，前端应直接尊重
- *
- * Anthropic 走真实 GET /v1/models，列表常达几十个 → 默认不启用，由用户挑。
- */
-const STATIC_MANIFEST_PROVIDERS: readonly ProviderType[] = ['minimax', 'kimi', 'moonshot', 'deepseek']
-const isStaticManifestProvider = (p: ProviderType): boolean => STATIC_MANIFEST_PROVIDERS.includes(p)
 
 /**
  * 从 Base URL 域名推断 provider —— 用户填了官方端点就能自动定位
@@ -176,33 +164,14 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
 
   // UI 状态
   const [saving, setSaving] = React.useState(false)
-  const [testing, setTesting] = React.useState(false)
-  const [lastTestResult, setTestResult] = React.useState<ChannelTestResult | null>(null)
-  const probeModelId = (isEdit && channel?.id === agentChannelId && models.some(m => m.id === agentModelId && m.enabled) ? agentModelId : models.find(m => m.enabled)?.id) ?? ''
-  const testIdentity = JSON.stringify([provider, baseUrl, apiKey, isCustom ? probeModelId : '', imageProtocol])
-  const currentIdentity = React.useRef(testIdentity)
-  currentIdentity.current = testIdentity
-  const requestId = React.useRef(0)
-  const [testedIdentity, setTestedIdentity] = React.useState('')
-  const testResult = testedIdentity === testIdentity ? lastTestResult : null
-  const [fetchingModels, setFetchingModels] = React.useState(false)
-  const [fetchResult, setFetchResult] = React.useState<FetchModelsResult | null>(null)
-  const [apiKeyLoaded, setApiKeyLoaded] = React.useState(false)
+  const savingRef = React.useRef(false)
+  const credentials = useChannelCredentials({channel,provider,baseUrl,apiKey,imageProtocol,models,setModels,setApiKey,agentChannelId,agentModelId,intentFields:[name,enabled,supportsPdfDocumentBlock,imageProtocol,imageQualityPriority,imageMaxReferences]})
+  const {acknowledge,credentialIntentId,managed,ready,apiKeyLoaded,hasUsableKey,testing,testResult,fetchingModels,fetchResult,probeModelId,requestId,setTestResult,setTestedIdentity,setFetchResult,testedIdentity,handleTest,handleFetchModels} = credentials
+  React.useEffect(() => {
+    if (managed && !isEdit && provider === 'anthropic') { setProvider('custom-openai'); setBaseUrl('') }
+  }, [managed, isEdit, provider])
   /** auto-save 状态指示 */
   const [autoSaveStatus, setAutoSaveStatus] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-
-  // 编辑模式下加载明文 API Key
-  React.useEffect(() => {
-    if (isEdit && channel && !apiKeyLoaded) {
-      window.electronAPI.decryptApiKey(channel.id).then((key) => {
-        setApiKey(key)
-        setApiKeyLoaded(true)
-      }).catch((error) => {
-        console.error('[模型配置表单] 解密 API Key 失败:', error)
-        setApiKeyLoaded(true)
-      })
-    }
-  }, [isEdit, channel, apiKeyLoaded])
 
   // ===== Auto-save（仅编辑模式） =====
   const autoSaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -221,10 +190,11 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
     currentApiKey: string,
     currentEnabled: boolean,
     currentSupportsPdfDocumentBlock: boolean,
+    explicit = false,
   ) => {
-    if (!isEdit || !channel) return
+    if (!isEdit || !channel || !ready || (managed && !explicit)) return
     // 基本信息不完整：name / apiKey / baseUrl 任一空 → 跳过，避免把残缺态覆盖原配置
-    if (!currentName.trim() || !currentApiKey.trim() || !currentBaseUrl.trim() || currentProvider === 'custom-image' && !validImageBaseUrl(currentBaseUrl)) {
+    if (!currentName.trim() || !(managed ? hasUsableKey : currentApiKey.trim()) || !currentBaseUrl.trim() || currentProvider === 'custom-image' && !validImageBaseUrl(currentBaseUrl)) {
       setAutoSaveStatus('idle')
       return
     }
@@ -236,6 +206,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
     setAutoSaveStatus('saving')
     try {
       await window.electronAPI.updateChannel(channel.id, {
+        ...(managed ? {credentialIntentId: credentialIntentId} : {}),
         name: currentName,
         provider: currentProvider,
         baseUrl: currentBaseUrl,
@@ -244,6 +215,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
         enabled: currentEnabled,
         capabilities: { ...channel.capabilities, supportsPdfDocumentBlock: currentSupportsPdfDocumentBlock, imageProtocol, imageQualityPriority, imageMaxReferences },
       })
+      const acknowledgedIntent = acknowledge(credentialIntentId)
       setAutoSaveStatus('saved')
       setTimeout(() => setAutoSaveStatus('idle'), 1500)
 
@@ -286,13 +258,14 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
         // reconcile 是一个增强行为，失败时不影响 auto-save 主路径
         console.error('[模型配置表单] auto-save 后 reconcile 失败:', err)
       }
-      return true
+      return acknowledgedIntent
     } catch (error) {
       console.error('[模型配置表单] auto-save 失败:', error)
       setAutoSaveStatus('error')
+      if (managed && error instanceof Error) toast.error(error.message)
       return false
     }
-  }, [isEdit, channel, agentChannelId, agentModelId, setAgentModelId, setSessionModelMap, setGlobalChannels, t, imageProtocol, imageQualityPriority, imageMaxReferences])
+  }, [ready, managed, hasUsableKey, credentialIntentId, acknowledge, isEdit, channel, agentChannelId, agentModelId, setAgentModelId, setSessionModelMap, setGlobalChannels, t, imageProtocol, imageQualityPriority, imageMaxReferences])
 
   /** 触发防抖 auto-save */
   const scheduleAutoSave = React.useCallback((
@@ -304,7 +277,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
     nextEnabled: boolean,
     nextSupportsPdfDocumentBlock: boolean,
   ) => {
-    if (!isEdit || !initializedRef.current) return
+    if (managed || !ready || !isEdit || !initializedRef.current) return
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
     autoSaveTimerRef.current = setTimeout(() => {
       doAutoSave(
@@ -317,7 +290,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
         nextSupportsPdfDocumentBlock,
       )
     }, AUTO_SAVE_DELAY)
-  }, [isEdit, doAutoSave])
+  }, [managed, ready, isEdit, doAutoSave])
 
   // API Key 加载完成后标记初始化
   React.useEffect(() => {
@@ -380,7 +353,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
    * 切换后由统一的 auto-test debounce 接力测试 → 测试通过自动拉模型。
    */
   React.useEffect(() => {
-    if (isEdit) return
+    if (!ready || managed || isEdit) return
     if (userPickedProviderRef.current || isCustom) return
 
     const fromKey = guessProviderFromApiKey(apiKey)
@@ -398,41 +371,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
       setTestResult(null)
       setModels([])
     }
-  }, [isEdit, apiKey, baseUrl, provider])
-
-  /**
-   * 测试通过 → 自动拉取模型列表（所有 provider 通用）
-   *
-   * Why: provider 已被 testProviderConnection 验证可达，此时拉模型不会再被 401 干扰；
-   *      静态/动态 provider 走同一个 handleFetchModels 入口，分支由 channel-manager 内部处理。
-   *      统一逻辑取代旧的"Anthropic-only 拉取"effect 与"静态 provider 在 handleProviderChange 内立即拉"分支。
-   */
-  React.useEffect(() => {
-    if (!testResult?.success) return
-    if (models.length > 0) return
-    if (!apiKey.trim() && !isStaticManifestProvider(provider)) return
-    if (!baseUrl.trim()) return
-    const timer = setTimeout(() => { void handleFetchModels() }, 200)
-    return () => clearTimeout(timer)
-    // handleFetchModels 故意不进 deps：每次渲染新引用，effect 内已用 models.length / testResult?.success 守门
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, apiKey, baseUrl, models.length, testResult?.success])
-
-  /**
-   * 自动测试连接：apiKey + baseUrl 都填好后 debounce 1.5s 触发 handleTest
-   *
-   * Why: 把"测试连接"按钮从必点操作转为可选；用户填完凭证就能看到验证结果，
-   *      也让"测试未通过则禁止创建"的守门可以自然解锁。每次 provider/apiKey/baseUrl 变化重新 debounce。
-   */
-  React.useEffect(() => {
-    if (provider === 'custom-image') return
-    if (!apiKey.trim() || !baseUrl.trim()) return
-    if (isCustom && !models.some(m => m.enabled)) return
-    const timer = setTimeout(() => { void handleTest() }, 1500)
-    return () => clearTimeout(timer)
-    // handleTest 故意不进 deps：每次渲染新引用，effect 内已通过 trim 守门
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, apiKey, baseUrl, isCustom, isCustom ? models.find(m => m.enabled)?.id : undefined])
+  }, [ready, managed, isEdit, apiKey, baseUrl, provider])
 
   /** 添加模型 */
   const handleAddModel = (): void => {
@@ -456,123 +395,14 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
     )
   }
 
-  /** 从供应商 API 拉取可用模型列表 */
-  const handleFetchModels = async (): Promise<void> => {
-    if (!apiKey.trim() || !baseUrl.trim()) return
-
-    const identity = currentIdentity.current
-    setFetchingModels(true)
-    setFetchResult(null)
-
-    try {
-      const result = await window.electronAPI.fetchModels({
-        provider,
-        baseUrl,
-        apiKey,
-        imageProtocol,
-      })
-
-      if (identity !== currentIdentity.current) return
-      if (result.success && result.models.length > 0) {
-        // 合并拉取的模型：保留已有模型的启用状态
-        // 静态清单（短、精选）尊重 provider 默认 enabled；动态拉取（如 Anthropic /v1/models）一律默认 false 由用户勾选
-        const respectProviderDefault = isStaticManifestProvider(provider)
-        const existingIds = new Set(models.map((m) => m.id))
-        const newModels = result.models
-          .filter((m) => !existingIds.has(m.id))
-          .map((m) => (respectProviderDefault ? m : { ...m, enabled: false }))
-        if (newModels.length > 0) {
-          setModels((prev) => [...prev, ...newModels])
-        }
-        const fetchedCount = result.models.length
-        const addedCount = newModels.length
-        const totalCount = models.length + newModels.length
-        const allFresh = addedCount === fetchedCount && totalCount === fetchedCount
-        setFetchResult({
-          ...result,
-          message: allFresh
-            ? t('channelForm.models.fetchSummary', { count: fetchedCount })
-            : t('channelForm.models.fetchSummaryDetailed', {
-                count: fetchedCount,
-                added: addedCount,
-                total: totalCount,
-              }),
-        })
-      } else {
-        setFetchResult(result)
-      }
-    } catch (error) {
-      if (identity === currentIdentity.current) setFetchResult({ success: false, message: t('channelForm.models.fetchRequestFailed'), models: [] })
-    } finally {
-      setFetchingModels(false)
-    }
-  }
-
-  /**
-   * 测试连接（直接使用表单当前值，无需先保存）
-   *
-   * 可选 override 用于 handleProviderChange 立即触发场景：状态刚被 setState 调度还未生效，
-   * 直接用即将切换到的 provider / baseUrl 调用，避免读到旧值。
-   * probeModel 优先级：调用时 override > 当前激活 Agent 模型（同 channel）> 第一个 enabled 模型 > 走主进程默认
-   */
-  const handleTest = async (
-    providerOverride?: ProviderType,
-    baseUrlOverride?: string,
-    probeModelOverride?: string,
-  ): Promise<void> => {
-    const effectiveProvider = providerOverride ?? provider
-    const effectiveBaseUrl = baseUrlOverride ?? baseUrl
-    if (!apiKey.trim() || !effectiveBaseUrl.trim()) return
-
-    let probeModel: string | undefined = probeModelOverride
-    if (!probeModel && isEdit && channel && agentChannelId === channel.id && agentModelId) {
-      const stillEnabled = models.find((m) => m.id === agentModelId && m.enabled)
-      if (stillEnabled) probeModel = agentModelId
-    }
-    if (!probeModel) {
-      probeModel = models.find((m) => m.enabled)?.id
-    }
-
-    const identity = JSON.stringify([effectiveProvider, effectiveBaseUrl, apiKey, effectiveProvider.startsWith('custom-') ? (probeModel ?? '') : '', imageProtocol])
-    const thisRequest = ++requestId.current
-    setTesting(true)
-    // 不清空旧 testResult：连续输入会反复触发 debounce，清空会导致错误条/状态闪烁；
-    // 让旧结果停留到新结果到达再原地替换
-
-    try {
-      const result = await window.electronAPI.testChannelDirect({
-        provider: effectiveProvider,
-        baseUrl: effectiveBaseUrl,
-        apiKey,
-        probeModel,
-        imageProtocol,
-      })
-      if (identity !== currentIdentity.current || thisRequest !== requestId.current) return
-      setTestedIdentity(identity)
-      setTestResult(result)
-      // 测试失败：清空当前 models 与拉取结果，避免用户看到上一轮残留的旧清单
-      if (!result.success) {
-        if (!isCustom) setModels([])
-        setFetchResult(null)
-      }
-    } catch (error) {
-      if (identity !== currentIdentity.current || thisRequest !== requestId.current) return
-      setTestedIdentity(identity)
-      setTestResult({ success: false, message: t('channelForm.fields.testRequestFailed') })
-      if (!isCustom) setModels([])
-      setFetchResult(null)
-    } finally {
-      if (thisRequest === requestId.current) setTesting(false)
-    }
-  }
-
   /** 创建渠道（仅新建模式） */
   const handleCreate = async (): Promise<void> => {
-    if (!name.trim() || !apiKey.trim()) return
-
+    if (!name.trim() || !apiKey.trim() || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     try {
       const input: ChannelCreateInput = {
+        ...(managed ? {credentialIntentId: credentialIntentId} : {}),
         name,
         provider,
         baseUrl,
@@ -582,10 +412,12 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
         capabilities: { supportsPdfDocumentBlock, imageProtocol, imageQualityPriority, imageMaxReferences },
       }
       await window.electronAPI.createChannel(input)
-      onSaved()
+      if (acknowledge(credentialIntentId)) onSaved()
     } catch (error) {
       console.error('[模型配置表单] 创建失败:', error)
+      if (managed && error instanceof Error) toast.error(error.message)
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
@@ -597,9 +429,9 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
    * 顺序：配置名 → API Key → Base URL → 启用模型 → 连接测试通过
    * 返回 null 表示一切就绪，按钮可点。
    */
-  const submitMissing: string | null = !name.trim()
+  const submitMissing: string | null = !ready ? t('channelForm.fields.credentialLoading') : !name.trim()
     ? t('channelForm.createTooltip.noName')
-    : !apiKey.trim()
+    : !hasUsableKey
       ? t('channelForm.createTooltip.noKey')
       : !baseUrl.trim()
         ? t('channelForm.createTooltip.noBaseUrl')
@@ -654,11 +486,13 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
               size="sm"
               className="settings-channel-primary"
               onClick={async () => {
+                if (savingRef.current) return
+                savingRef.current = true
                 if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
                 setSaving(true)
                 try {
-                  if (await doAutoSave(models, name, provider, baseUrl, apiKey, enabled, supportsPdfDocumentBlock)) onSaved()
-                } finally { setSaving(false) }
+                  if (await doAutoSave(models, name, provider, baseUrl, apiKey, enabled, supportsPdfDocumentBlock, true)) onSaved()
+                } finally { savingRef.current = false; setSaving(false) }
               }}
               disabled={saving || submitMissing !== null}
               title={submitMissing ?? undefined}
@@ -704,6 +538,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
             label={t('channelForm.fields.name')}
             value={name}
             onChange={setName}
+            disabled={managed && saving}
             placeholder={t('channelForm.fields.namePlaceholder')}
             required={!isEdit}
           />
@@ -712,7 +547,8 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
             label={t('channelForm.fields.providerLabel')}
             value={provider}
             onValueChange={handleProviderChange}
-            options={PROVIDER_SELECT_OPTIONS.map(option => ({ ...option, label: option.value === 'custom-image' ? t('channelForm.fields.customImage') : option.value === 'custom-anthropic' ? t('channelForm.fields.customAnthropic') : option.value === 'custom-openai' ? t('channelForm.fields.customOpenai') : option.label }))}
+            disabled={managed && saving}
+            options={PROVIDER_SELECT_OPTIONS.filter(option => !managed || ['custom-openai','custom-anthropic'].includes(option.value)).map(option => ({ ...option, label: option.value === 'custom-image' ? t('channelForm.fields.customImage') : option.value === 'custom-anthropic' ? t('channelForm.fields.customAnthropic') : option.value === 'custom-openai' ? t('channelForm.fields.customOpenai') : option.label }))}
             placeholder={t('channelForm.fields.providerPlaceholder')}
           />
         </div>
@@ -721,6 +557,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
           label={t('channelForm.fields.baseUrl')}
           value={baseUrl}
           onChange={setBaseUrl}
+          disabled={managed && saving}
           placeholder={t('channelForm.fields.baseUrlPlaceholder')}
           description={baseUrl.trim() ? t('channelForm.fields.previewUrl', { url: provider === 'custom-image' && imageProtocol !== 'openai-images' ? `${safeGeminiPreview(baseUrl)}/${imageProtocol === 'gemini-interactions' ? 'interactions' : `models/${probeModelId}:generateContent`}` : buildPreviewUrl(baseUrl, provider) }) : t('channelForm.fields.baseUrlEmptyHint')}
           descriptionAfterInput
@@ -751,8 +588,9 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
                 id={apiKeyId}
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
+                disabled={managed && saving}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder={isEdit ? t('channelForm.fields.apiKeyEditPlaceholder') : t('channelForm.fields.apiKeyCreatePlaceholder')}
+                placeholder={managed && isEdit ? t('channelForm.fields.managedKeyPlaceholder') : isEdit ? t('channelForm.fields.apiKeyEditPlaceholder') : t('channelForm.fields.apiKeyCreatePlaceholder')}
                 required={!isEdit}
                 className="pr-10"
               />
@@ -772,7 +610,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
               size="sm"
               type="button"
               onClick={() => { void handleTest() }}
-              disabled={testing || !apiKey.trim() || !baseUrl.trim()}
+              disabled={testing || !hasUsableKey || !baseUrl.trim()}
               className="h-9 border border-border/80 bg-background text-xs hover:bg-muted max-[760px]:w-full"
             >
               {testing ? (
@@ -783,6 +621,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
               <span>{t(provider === 'custom-image' ? 'channelForm.fields.testImage' : 'channelForm.fields.testConnection')}</span>
             </Button>
           </div>
+          {managed && isEdit && <p className="text-sm text-muted-foreground">{t('channelForm.fields.managedKeyNotice')}</p>}
           {provider === 'custom-image' && <p className="text-sm text-muted-foreground">{t('channelForm.fields.imageTestNotice')}</p>}
           {/* Provider 与 Key 前缀不匹配 —— 仅对 Anthropic（sk-ant- 是唯一稳定特征） */}
           {provider === 'anthropic' && apiKey.trim().length >= 20 && !apiKey.startsWith('sk-ant-') && (
@@ -812,6 +651,8 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
             fetchingModels={fetchingModels}
             baseUrl={baseUrl}
             apiKey={apiKey}
+            hasUsableKey={hasUsableKey}
+            locked={managed && saving}
             enabledModelCount={enabledModelCount}
             handleFetchModels={handleFetchModels}
             handleToggleModel={handleToggleModel}
@@ -842,6 +683,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
               label={t('channelForm.fields.supportsPdfDocumentBlockLabel')}
               description={t('channelForm.fields.supportsPdfDocumentBlockDescription')}
               checked={supportsPdfDocumentBlock}
+              disabled={managed && saving}
               onCheckedChange={setSupportsPdfDocumentBlock}
             />
           )}

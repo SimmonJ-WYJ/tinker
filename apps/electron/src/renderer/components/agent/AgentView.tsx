@@ -38,6 +38,7 @@ import { PermissionBanner } from './PermissionBanner'
 import { ProjectSwitcher } from './ProjectSwitcher'
 import { TaskModeSelector, useTaskMode, taskModesAtom, lockedTaskModesAtom, lockTaskModeAtom } from './TaskModeSelector'
 import { PermissionModeSelector } from './PermissionModeSelector'
+import { resolveSessionEffort } from '@/lib/session-effort'
 import { useReasoningEffort } from '@/hooks/useReasoningEffort'
 import { AskUserBanner } from './AskUserBanner'
 import { ExitPlanModeBanner } from './ExitPlanModeBanner'
@@ -91,8 +92,6 @@ import {
   agentPlanModeSessionsAtom,
   agentPermissionModeMapAtom,
   agentDefaultPermissionModeAtom,
-  agentReasoningEffortMapAtom,
-  agentDefaultReasoningEffortAtom,
   agentSessionPathMapAtom,
   allPendingAskUserRequestsAtom,
   allPendingExitPlanRequestsAtom,
@@ -144,19 +143,19 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const { t: tCommon } = useT('common')
 
   // 首页模型菜单与对话独立入口共享同一套每会话推理深度配置。
-  const { effort, setEffort } = useReasoningEffort(sessionId)
+  const { effort, setEffort, managed: managedEffort } = useReasoningEffort(sessionId)
   const reasoningForModel = React.useMemo(
     () => ({
       title: tConversation('reasoningEffort.menuLabel'),
       current: effort,
-      options: AGENT_EFFORT_ORDER.map((e) => ({
+      options: [...(managedEffort ? [{value:'',label:tConversation('reasoningEffort.default'),desc:tConversation('reasoningEffort.defaultDesc')}] : []), ...AGENT_EFFORT_ORDER.map((e) => ({
         value: e,
         label: tConversation(`reasoningEffort.${e}`),
         desc: tConversation(`reasoningEffort.${e}Desc`),
-      })),
-      onSelect: (v: string) => setEffort(v as AgentEffort),
+      }))],
+      onSelect: (v: string) => setEffort(v as AgentEffort | ''),
     }),
-    [effort, setEffort, tConversation],
+    [effort, setEffort, managedEffort, tConversation],
   )
 
   const [messages, setMessages] = React.useState<AgentMessage[]>([])
@@ -267,10 +266,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const isPermissionPlanMode = permissionMode === 'plan'
   const store = useStore()
   // 取当前会话推理深度（fresh read，避免闭包过期）：会话 Map 优先，回退工作区默认
-  const resolveSessionEffort = React.useCallback(
-    () => store.get(agentReasoningEffortMapAtom).get(sessionId) ?? store.get(agentDefaultReasoningEffortAtom),
-    [store, sessionId],
-  )
+  const getSessionEffort = React.useCallback(() => resolveSessionEffort(store, sessionId), [store, sessionId])
   const suggestionsMap = useAtomValue(agentPromptSuggestionsAtom)
   const suggestion = suggestionsMap.get(sessionId) ?? null
   const setPromptSuggestions = useSetAtom(agentPromptSuggestionsAtom)
@@ -569,7 +565,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
         workspaceId: snapshot.workspaceId,
         requestId,
         startedAt: streamStartedAt,
-        effort: resolveSessionEffort(),
+        effort: getSessionEffort(),
       }
       void observeAgentSend(store,sessionId,requestId,window.electronAPI.sendAgentMessage(input),recoveryDraft)
     })
@@ -1195,7 +1191,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       workspaceId: currentWorkspaceId || undefined,
       requestId,
       startedAt: streamStartedAt,
-      effort: resolveSessionEffort(),
+      effort: getSessionEffort(),
       ...(skills.length > 0 && { mentionedSkills: skills }),
       ...(mcps.length > 0 && { mentionedMcpServers: mcps }),
       ...(mentionedZoteroItems.length > 0 && { mentionedZoteroItems }),

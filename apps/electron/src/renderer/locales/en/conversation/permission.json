@@ -25,7 +25,9 @@
     "high": "Deep",
     "highDesc": "Deeper reasoning for hard problems",
     "max": "Max",
-    "maxDesc": "Maximum depth, slowest"
+    "maxDesc": "Maximum depth, slowest",
+    "default": "Default",
+    "defaultDesc": "Send no explicit effort setting; use the model’s default behavior."
   },
   "permission": {
     "title": "Confirmation required",

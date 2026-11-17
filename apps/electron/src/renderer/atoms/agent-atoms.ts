@@ -411,10 +411,10 @@ export const agentDefaultPermissionModeAtom = atom<ASCIPermissionMode>('acceptEd
 export const agentPermissionModeMapAtom = atom<Map<string, ASCIPermissionMode>>(new Map())
 
 /** 工作区默认推理深度（初始化和新会话使用） */
-export const agentDefaultReasoningEffortAtom = atom<AgentEffort>(DEFAULT_AGENT_EFFORT)
+export const agentDefaultReasoningEffortAtom = atom<AgentEffort | ''>(DEFAULT_AGENT_EFFORT)
 
 /** Per-session 推理深度 Map — sessionId → AgentEffort */
-export const agentReasoningEffortMapAtom = atom<Map<string, AgentEffort>>(new Map())
+export const agentReasoningEffortMapAtom = atom<Map<string, AgentEffort | ''>>(new Map())
 
 /** 待处理的权限请求 Map — 以 sessionId 为 key，切换会话时保留状态 */
 export const allPendingPermissionRequestsAtom = atom<Map<string, readonly PermissionRequest[]>>(new Map())

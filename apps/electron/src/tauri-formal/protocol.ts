@@ -4,7 +4,7 @@ import type { AppSettings, UserProfile, ResolvedTheme } from '../types/index.ts'
 export interface PlatformSnapshot {
   version: number
   revision: number
-  settings: AppSettings & { sessionDrafts?: Record<string, string> }
+  settings: Omit<AppSettings, 'agentEffort'> & { agentEffort?: AppSettings['agentEffort'] | ''; sessionDrafts?: Record<string, string> }
   userProfile: UserProfile
   workspaces: unknown[]
   theme: ResolvedTheme
@@ -18,6 +18,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  credentialedChannels?: boolean
   queueing?: boolean
   environmentSequence?: number
   generation: string

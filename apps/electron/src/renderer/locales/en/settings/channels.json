@@ -86,7 +86,10 @@
       "hideKey": "Hide API key",
       "imageRelay": "Custom relay",
       "testImage": "Generate test image · paid",
-      "imageTestNotice": "Saving does not test the connection or generate an image. The optional image test makes one real request and may incur charges, including on failure. Check your provider billing."
+      "imageTestNotice": "Saving does not test the connection or generate an image. The optional image test makes one real request and may incur charges, including on failure. Check your provider billing.",
+      "credentialLoading": "Checking secure credential mode…",
+      "managedKeyPlaceholder": "Stored key present. Leave blank to keep it.",
+      "managedKeyNotice": "The stored key is hidden. Show Key reveals only a newly typed replacement. Test and Refresh are manual; Save commits changes."
     },
     "models": {
       "emptyHint": "Fetch models first, or add a model ID manually.",

@@ -5,7 +5,7 @@
  * 数据导出、应用设置、遥测、主题、Onboarding / Concept Spotlight、代理配置、
  * 自动更新、GitHub Release、菜单转发、快速任务窗口。
  */
-import type { PlatformTransport } from '../transport.ts'
+import type { ChannelProbeOptions, PlatformTransport } from '../transport.ts'
 import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, ATTACHMENT_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, DATA_EXPORT_IPC_CHANNELS } from '@asci/shared'
 import type { ExportMyDataResult } from '@asci/shared'
 import { TELEMETRY_IPC_CHANNELS } from '@asci/shared'
@@ -66,6 +66,8 @@ export interface CoreApi {
   openExternal: (url: string) => Promise<void>
 
   // ===== 渠道管理相关 =====
+  /** 仅原生预览提供；能力来自完成的宿主 bootstrap。 */
+  getChannelCredentialMode?: () => Promise<'managed' | 'legacy'>
 
   /** 获取所有渠道列表（apiKey 保持加密态） */
   listChannels: () => Promise<Channel[]>
@@ -83,13 +85,13 @@ export interface CoreApi {
   decryptApiKey: (channelId: string) => Promise<string>
 
   /** 测试渠道连接 */
-  testChannel: (channelId: string) => Promise<ChannelTestResult>
+  testChannel: (channelId: string, options?: ChannelProbeOptions) => Promise<ChannelTestResult>
 
   /** 直接测试连接（无需已保存渠道，传入明文凭证） */
-  testChannelDirect: (input: FetchModelsInput) => Promise<ChannelTestResult>
+  testChannelDirect: (input: FetchModelsInput, options?: ChannelProbeOptions) => Promise<ChannelTestResult>
 
   /** 从供应商拉取可用模型列表（直接传入凭证，无需已保存渠道） */
-  fetchModels: (input: FetchModelsInput) => Promise<FetchModelsResult>
+  fetchModels: (input: FetchModelsInput | string, options?: ChannelProbeOptions) => Promise<FetchModelsResult>
 
   // ===== 附件管理相关 =====
 
@@ -258,6 +260,8 @@ export interface CoreApi {
 }
 
 export function createCoreApi(transport: PlatformTransport): CoreApi {
+  const probe = <T>(channel: string, input: unknown, options?: ChannelProbeOptions): Promise<T> =>
+    options?.signal && transport.invokeWithSignal ? transport.invokeWithSignal<T>(options.signal, channel, input) : transport.invoke<T>(channel, input)
   return {
     getContextRecord: (id) => transport.invoke('context:read', id),
     saveContextPins: (id, pins) => transport.invoke('context:pins', id, pins),
@@ -278,6 +282,7 @@ export function createCoreApi(transport: PlatformTransport): CoreApi {
     },
 
     // 渠道管理
+    ...(transport.credentialedChannels === undefined ? {} : { getChannelCredentialMode: async () => transport.credentialedChannels ? 'managed' as const : 'legacy' as const }),
     listChannels: () => {
       return transport.invoke(CHANNEL_IPC_CHANNELS.LIST)
     },
@@ -298,16 +303,16 @@ export function createCoreApi(transport: PlatformTransport): CoreApi {
       return transport.invoke(CHANNEL_IPC_CHANNELS.DECRYPT_KEY, channelId)
     },
 
-    testChannel: (channelId: string) => {
-      return transport.invoke(CHANNEL_IPC_CHANNELS.TEST, channelId)
+    testChannel: (channelId: string, options?: ChannelProbeOptions) => {
+      return probe(CHANNEL_IPC_CHANNELS.TEST, channelId, options)
     },
 
-    testChannelDirect: (input: FetchModelsInput) => {
-      return transport.invoke(CHANNEL_IPC_CHANNELS.TEST_DIRECT, input)
+    testChannelDirect: (input: FetchModelsInput, options?: ChannelProbeOptions) => {
+      return probe(CHANNEL_IPC_CHANNELS.TEST_DIRECT, input, options)
     },
 
-    fetchModels: (input: FetchModelsInput) => {
-      return transport.invoke(CHANNEL_IPC_CHANNELS.FETCH_MODELS, input)
+    fetchModels: (input: FetchModelsInput | string, options?: ChannelProbeOptions) => {
+      return probe(CHANNEL_IPC_CHANNELS.FETCH_MODELS, input, options)
     },
 
     // 附件管理

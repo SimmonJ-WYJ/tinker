@@ -1,4 +1,5 @@
 /** 单 native listener、串行平台写入、按会话恢复屏障；不包含 Node 或 Electron。 */
+import { createCredentialTransport } from './credentials.ts'
 import { createQueueFrames } from './queue-frames.ts'
 import { createQueueControl, NativeQueueError } from './queue-control.ts'
 import { withDeadline } from './deadline.ts'
@@ -182,7 +183,10 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     const reply = await command<{value: unknown}>('invoke', {channel,args,expectedChainId})
     return reply.value
   }, track, translate, undefined, payload=>dispatchStream('agent:stream:complete',{...payload}))
-  async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
+  const credentials = bootstrap.credentialedChannels ? createCredentialTransport(command, () => cache.revision, code => new NativeQueueError(code, translate(code))) : undefined
+  const isMutation = (channel: string) => MUTATION_CHANNELS.has(channel) || credentials?.handles(channel) === true
+  const usesLane = (channel: string) => isMutation(channel) || Boolean(credentials && ['channel:test','channel:test-direct','channel:fetch-models'].includes(channel))
+  async function invokeWithSignal<T>(signal: AbortSignal | undefined, channel: string, ...args: unknown[]): Promise<T> {
     if (closing && channel !== 'settings:update') throw new Error(translate('closing'))
     if (channel === 'agent:get-messages' || channel === 'agent:get-sdk-messages') {
       const bundle = await history(String(args[0]))
@@ -190,6 +194,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     }
     if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
     const execute = async (): Promise<T> => {
+      if (signal?.aborted) throw new NativeQueueError('probeCancelled', translate('probeCancelled'))
       // 原 UI 用显式 undefined 清除选择；JSON 省略前转换为成对空值。
       if (channel === 'settings:update' && args[0] && typeof args[0] === 'object') {
         const patch = args[0] as Record<string, unknown>
@@ -197,20 +202,29 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
           args = [{ ...patch, agentChannelId: '', agentModelId: '' }, ...args.slice(1)]
         }
       }
+      if (credentials?.handles(channel)) {
+        const reply = await credentials.invoke(channel, args)
+        if (reply.snapshot) snapshot(reply.snapshot)
+        return projectErrors(reply.value) as T
+      }
+      if (isMutation(channel)) credentials?.guard()
       const mutation = MUTATION_CHANNELS.has(channel) ? { mutationId: crypto.randomUUID(), expectedRevision: cache.revision } : undefined
       const reply = await command<{ value: T; snapshot?: PlatformSnapshot }>('invoke', { channel, args, ...(mutation ? { mutation } : {}) })
       if (reply.snapshot) snapshot(reply.snapshot)
+      credentials?.observe(channel, reply.value)
       return projectErrors(reply.value) as T
     }
-    const pending = MUTATION_CHANNELS.has(channel) ? lane.then(execute) : execute()
-    if (MUTATION_CHANNELS.has(channel)) lane = pending.catch(() => {})
+    const pending = usesLane(channel) ? lane.then(execute) : execute()
+    if (usesLane(channel)) lane = pending.catch(() => {})
     if (channel !== 'agent:send-message') { fast.add(pending); void pending.finally(() => fast.delete(pending)).catch(() => {}) }
     return pending
   }
   return {
+    get credentialedChannels() { return bootstrap.credentialedChannels === true },
     get bootstrap() { return { ...bootstrap, platformSnapshot: cache } },
     get revision() { return cache.revision },
-    invoke,
+    invoke<T>(channel: string, ...args: unknown[]) { return invokeWithSignal<T>(undefined, channel, ...args) },
+    invokeWithSignal,
     command,
     readSync<T>(channel: string, ...args: unknown[]): T {
       let result: unknown
@@ -238,6 +252,6 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     async quiesce() { while (fast.size) await Promise.all([...fast]); await lane },
     setClosing(value) { closing = value },
     onAction(callback) { actionHandler = callback },
-    dispose() { frames.clear(); queue?.dispose(); disposed = true; unlisten(); callbacks.clear(); for (const resolve of readyWaiters) resolve(); readyWaiters.clear(); requested = false; void control(false, true).catch(() => {}) },
+    dispose() { credentials?.dispose(); frames.clear(); queue?.dispose(); disposed = true; unlisten(); callbacks.clear(); for (const resolve of readyWaiters) resolve(); readyWaiters.clear(); requested = false; void control(false, true).catch(() => {}) },
   }
 }

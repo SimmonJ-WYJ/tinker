@@ -68,6 +68,8 @@ export type ImageProtocol = 'openai-images' | 'gemini-content' | 'gemini-interac
  * 渠道中的模型配置
  */
 export interface ChannelModel {
+  /** 原生宿主声明的推理能力；空列表表示不发送推理档位。 */
+  supportedEfforts?: string[]
   /** 模型唯一标识（如 claude-sonnet-4-5-20250929） */
   id: string
   /** 模型显示名称 */
@@ -106,6 +108,8 @@ export interface ChannelCapabilities {
  * 存储在 ~/.asci/channels.json 中，apiKey 字段为加密后的 base64 字符串
  */
 export interface Channel {
+  /** 受管凭据存在性元数据，不含密钥。 */
+  hasCredential?: boolean
   /** 渠道唯一标识 */
   id: string
   /** 渠道名称（用户自定义） */
@@ -132,6 +136,8 @@ export interface Channel {
  * 创建渠道时的输入数据（apiKey 为明文）
  */
 export interface ChannelCreateInput {
+  /** 原生文档内显式保存意图；不含密钥或密钥摘要。 */
+  credentialIntentId?: string
   name: string
   provider: ProviderType
   baseUrl: string
@@ -147,6 +153,8 @@ export interface ChannelCreateInput {
  * 更新渠道时的输入数据（所有字段可选）
  */
 export interface ChannelUpdateInput {
+  /** 原生文档内显式保存意图；不含密钥或密钥摘要。 */
+  credentialIntentId?: string
   name?: string
   provider?: ProviderType
   baseUrl?: string
