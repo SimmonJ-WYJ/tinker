@@ -17,6 +17,8 @@ interface Props {
   fetchingModels: boolean
   baseUrl: string
   apiKey: string
+  hasUsableKey?: boolean
+  locked?: boolean
   enabledModelCount: number
   handleFetchModels: () => Promise<void>
   handleToggleModel: (id: string) => void
@@ -30,10 +32,10 @@ interface Props {
   setNewModelName: (value: string) => void
   handleAddModel: () => void
 }
-export function ChannelModels({ models, isCustom, isEdit, testResult, fetchResult, fetchingModels, baseUrl, apiKey, enabledModelCount, handleFetchModels, handleToggleModel, showCustomInput, setShowCustomInput, addModelError, setAddModelError, newModelId, setNewModelId, newModelName, setNewModelName, handleAddModel }: Props): React.ReactElement {
+export function ChannelModels({ models, isCustom, isEdit, testResult, fetchResult, fetchingModels, baseUrl, apiKey, hasUsableKey, locked, enabledModelCount, handleFetchModels, handleToggleModel, showCustomInput, setShowCustomInput, addModelError, setAddModelError, newModelId, setNewModelId, newModelName, setNewModelName, handleAddModel }: Props): React.ReactElement {
   const { t } = useT('settings')
 const testPassed = testResult?.success === true
-const modelsEditable = testPassed || isCustom
+const modelsEditable = !locked && (testPassed || isCustom)
 const lockTooltip = modelsEditable ? undefined : t('channelForm.models.lockedNeedTest')
 return (
   <div
@@ -60,7 +62,7 @@ return (
         size="sm"
         type="button"
         onClick={handleFetchModels}
-        disabled={fetchingModels || !modelsEditable || !baseUrl.trim() || !apiKey.trim()}
+        disabled={fetchingModels || !modelsEditable || !baseUrl.trim() || !(hasUsableKey ?? Boolean(apiKey.trim()))}
         title={lockTooltip}
         className="h-8 border border-border/80 bg-background text-xs hover:bg-muted"
       >
@@ -158,6 +160,7 @@ return (
           <div className="flex items-center gap-2">
             <Input
               value={newModelId}
+              disabled={locked}
               onChange={(e) => { setNewModelId(e.target.value); setAddModelError(null) }}
               placeholder={t('channelForm.models.modelIdPlaceholder')}
               className={cn('flex-1 h-8 text-sm', addModelError && 'border-destructive')}
@@ -170,6 +173,7 @@ return (
             />
             <Input
               value={newModelName}
+              disabled={locked}
               onChange={(e) => setNewModelName(e.target.value)}
               placeholder={t('channelForm.models.modelNamePlaceholder')}
               className="flex-1 h-8 text-sm"

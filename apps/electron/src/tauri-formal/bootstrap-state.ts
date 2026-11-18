@@ -2,7 +2,7 @@ import { restoreAgentAttempt } from '../renderer/lib/agent-attempt.ts'
 /** mount 前由可信 native activeRuns 恢复同一 Jotai running gate。 */
 import { nativeQueueChainsAtom } from '../renderer/hooks/native-queue-state.ts'
 import { getDefaultStore } from 'jotai'
-import { agentStreamingStatesAtom } from '../renderer/atoms/agent-atoms.ts'
+import { agentChannelIdAtom, agentModelIdAtom, agentDefaultReasoningEffortAtom, agentStreamingStatesAtom } from '../renderer/atoms/agent-atoms.ts'
 import type { ActiveRun } from './protocol.ts'
 export function seedActiveRuns(runs: ActiveRun[]): void {
   const store = getDefaultStore()
@@ -19,4 +19,12 @@ export function seedActiveRuns(runs: ActiveRun[]): void {
     for (const run of runs) states.set(run.sessionId, { running: true, content: '', toolActivities: [], teammates: [], startedAt: run.startedAt })
     return states
   })
+}
+
+/** 只在可信受管 bootstrap 初始化；空目录保持未配置，不采用 SDK 默认档位。 */
+export function seedCredentialedState(bootstrap: import('./protocol.ts').Bootstrap, store = getDefaultStore()): void {
+ if (!bootstrap.credentialedChannels) return
+ store.set(agentDefaultReasoningEffortAtom, bootstrap.platformSnapshot.settings.agentEffort ?? '')
+ store.set(agentChannelIdAtom, bootstrap.platformSnapshot.settings.agentChannelId || null)
+ store.set(agentModelIdAtom, bootstrap.platformSnapshot.settings.agentModelId || null)
 }

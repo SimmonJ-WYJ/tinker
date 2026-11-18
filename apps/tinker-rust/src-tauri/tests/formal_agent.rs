@@ -1,4 +1,6 @@
-//! 原生正式适配必须经过真实HTTP/core，不使用替身执行引擎。
+#[path = "support/restore_http.rs"]
+mod restore_http;
+// 原生正式适配必须经过真实HTTP/core，不使用替身执行引擎。
 use serde_json::{json, Value};
 use std::{
     sync::atomic::{AtomicU64, Ordering},
@@ -229,7 +231,8 @@ fn a_slow_event_consumer_gets_final_snapshot_without_reattaching() {
 }
 #[test]
 fn restore_watermark_and_adjacent_reads_share_one_baseline_across_terminal() {
-    let (_root, h) = setup();
+    use restore_http::{bootstrap, call, create, invoke, send};
+    let (_root, h, mut fixture) = restore_http::setup();
     let g = bootstrap(&h);
     let s = create(&h, &g);
     call(&h, json!({"command":"attach","observed":{},"generation":g}));
@@ -253,6 +256,9 @@ fn restore_watermark_and_adjacent_reads_share_one_baseline_across_terminal() {
     let watermark = first["deliverySequence"]
         .as_u64()
         .expect("restore必须包含单会话投递屏障序号");
+    assert!(watermark > 0);
+    assert!(pending.try_result().is_none(), "终态必须等待显式release");
+    fixture.release();
     pending.wait(Duration::from_secs(5)).unwrap();
     // 等待终态期间该session仍暂停，不能抢在历史Promise消费者之前投递。
     while let Some(e) = h.next_event(Duration::from_millis(10)) {

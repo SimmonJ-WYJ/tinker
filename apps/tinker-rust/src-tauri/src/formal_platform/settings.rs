@@ -70,15 +70,22 @@ pub struct Settings {
 }
 impl Settings {
     pub(crate) fn initial(profiles: &[PublicProfile]) -> Self {
-        let profile = &profiles[0];
+        let profile = profiles.first();
         Self {
             theme: "system".into(),
             language: "en".into(),
-            agent_channel_id: profile.profile_id.clone(),
+            agent_channel_id: profile.map(|p| p.profile_id.clone()).unwrap_or_default(),
             agent_channel_ids: profiles.iter().map(|p| p.profile_id.clone()).collect(),
-            agent_model_id: profile.models[0].model_id.clone(),
+            agent_model_id: profile
+                .and_then(|p| p.models.first())
+                .map(|m| m.model_id.clone())
+                .unwrap_or_default(),
             agent_workspace_id: DEFAULT_WORKSPACE_ID.into(),
-            agent_effort: "high".into(),
+            agent_effort: if profiles.is_empty() {
+                String::new()
+            } else {
+                "high".into()
+            },
             agent_permission_mode: "acceptEdits".into(),
             notifications_enabled: true,
             notification_sound_enabled: false,
@@ -102,7 +109,16 @@ impl Settings {
         }
     }
     pub(crate) fn validate(&self, profiles: &[PublicProfile]) -> Result<()> {
+        self.validate_inner(profiles, false)
+    }
+    pub(crate) fn validate_managed(&self, profiles: &[PublicProfile]) -> Result<()> {
+        self.validate_inner(profiles, true)
+    }
+    fn validate_inner(&self, profiles: &[PublicProfile], managed: bool) -> Result<()> {
         let invalid = || DesktopError("invalidParams");
+        if managed && !["", "low", "medium", "high", "max"].contains(&self.agent_effort.as_str()) {
+            return Err(DesktopError("unsupportedEffort"));
+        }
         if !["system", "light", "dark"].contains(&self.theme.as_str())
             || !["en", "zh"].contains(&self.language.as_str())
             || self.agent_workspace_id != DEFAULT_WORKSPACE_ID
@@ -117,11 +133,12 @@ impl Settings {
         if self.agent_channel_id.is_empty() != self.agent_model_id.is_empty() {
             return Err(invalid());
         }
-        if self.agent_channel_id.is_empty()
-            && !profiles
-                .iter()
-                .flat_map(|p| &p.models)
-                .any(|m| m.supported_efforts.contains(&self.agent_effort))
+        let no_effort = managed && self.agent_effort.is_empty();
+        let known_effort = profiles
+            .iter()
+            .flat_map(|p| &p.models)
+            .any(|m| m.supported_efforts.contains(&self.agent_effort));
+        if self.agent_channel_id.is_empty() && !profiles.is_empty() && !(no_effort || known_effort)
         {
             return Err(DesktopError("unsupportedEffort"));
         }
@@ -135,7 +152,7 @@ impl Settings {
                 .iter()
                 .find(|m| m.model_id == self.agent_model_id)
                 .ok_or(DesktopError("modelNotFound"))?;
-            if !model.supported_efforts.contains(&self.agent_effort) {
+            if !(no_effort || model.supported_efforts.contains(&self.agent_effort)) {
                 return Err(DesktopError("unsupportedEffort"));
             }
         }
@@ -228,5 +245,18 @@ impl Settings {
         self.onboarding_spotlight.validate()?;
         self.concept_spotlight.validate()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod credentialed_empty_tests {
+    use super::*;
+    #[test]
+    fn empty_catalog_settings_do_not_invent_a_provider() {
+        let settings = Settings::initial(&[]);
+        assert!(settings.agent_channel_id.is_empty());
+        assert!(settings.agent_model_id.is_empty());
+        assert!(settings.agent_channel_ids.is_empty());
+        assert!(settings.validate(&[]).is_ok());
     }
 }

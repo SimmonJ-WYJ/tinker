@@ -3,7 +3,7 @@ use crate::formal_platform::protocol::Mutation;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(tag = "command", rename_all = "camelCase", deny_unknown_fields)]
 pub enum Command {
     Bootstrap {},

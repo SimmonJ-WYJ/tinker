@@ -86,7 +86,10 @@
       "hideKey": "隐藏 API Key",
       "imageRelay": "自定义中转站",
       "testImage": "生成测试图片 · 可能计费",
-      "imageTestNotice": "保存配置不会测试连接或生成图片。可选的生图测试会发起一次真实请求，成功或失败均可能计费，请核对渠道账单。"
+      "imageTestNotice": "保存配置不会测试连接或生成图片。可选的生图测试会发起一次真实请求，成功或失败均可能计费，请核对渠道账单。",
+      "credentialLoading": "正在确认安全凭据模式…",
+      "managedKeyPlaceholder": "已保存密钥；留空保留现有密钥。",
+      "managedKeyNotice": "已保存的密钥不会显示。“显示密钥”仅显示新输入的替换密钥；测试和刷新需手动操作，保存后才提交更改。"
     },
     "models": {
       "emptyHint": "先获取模型，或手动添加一个模型 ID。",

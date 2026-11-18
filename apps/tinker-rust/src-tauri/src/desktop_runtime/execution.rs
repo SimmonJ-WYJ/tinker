@@ -49,10 +49,16 @@ impl Inner {
         Ok(project_turn(b, snapshot))
     }
     pub(super) fn send(&mut self, p: Send) -> Result<Value> {
-        if self
-            .chains
-            .values()
-            .any(|c| c.session_id == p.session_id && c.closure.is_none())
+        if !(self.managed
+            && self
+                .bindings
+                .values()
+                .flatten()
+                .any(|b| b.request.request_id == p.request_id))
+            && self
+                .chains
+                .values()
+                .any(|c| c.session_id == p.session_id && c.closure.is_none())
         {
             return Err(DesktopError("runBusy"));
         }
@@ -61,25 +67,25 @@ impl Inner {
     pub(super) fn send_inner(&mut self, p: Send, begin: bool) -> Result<Value> {
         validate_send(&p)?;
         let session = self.session(&p.session_id)?;
-        let profile = self
-            .profiles
-            .get(&p.profile_id)
-            .ok_or(DesktopError("profileNotFound"))?;
         for bindings in self.bindings.values() {
             if let Some(b) = bindings
                 .iter()
                 .find(|b| b.request.request_id == p.request_id)
             {
-                return if b.request == p && b.config_revision == profile.config_revision {
+                return if b.request == p && self.binding_revision_matches(b) {
                     self.turn_reply(b)
                 } else {
                     Err(DesktopError("requestConflict"))
                 };
             }
         }
+        let profile = self
+            .profiles
+            .get(&p.profile_id)
+            .ok_or(DesktopError("profileNotFound"))?;
         self.require_available(&p.profile_id, &p.model_id)?;
         let provider = profile.provider(&p.model_id, p.effort.as_deref())?;
-        if begin {
+        if begin || self.managed {
             provider.validate_tool_metadata(&json!(p))?;
         }
         if self.request_count(&p.session_id) >= MAX_REQUESTS {
@@ -135,7 +141,7 @@ impl Inner {
             accepted_at: super::activity_time(session.updated_at)?,
             parent_run_id: parent.clone(),
         };
-        if begin || self.tools.contains_key(&p.profile_id) {
+        if begin || self.managed || self.tools.contains_key(&p.profile_id) {
             provider.validate_tool_metadata(
                 &serde_json::to_value(&binding).map_err(|_| DesktopError("invalidParams"))?,
             )?;

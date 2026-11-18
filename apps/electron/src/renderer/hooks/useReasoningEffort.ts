@@ -16,9 +16,16 @@ import {
 import type { AgentEffort } from '@asci/shared'
 
 export function useReasoningEffort(sessionId: string): {
-  effort: AgentEffort
-  setEffort: (next: AgentEffort) => void
+  effort: AgentEffort | ''
+  managed: boolean
+  setEffort: (next: AgentEffort | '') => void
 } {
+  const [managed,setManaged]=React.useState(false)
+  React.useEffect(()=>{
+    let live=true
+    void window.electronAPI.getChannelCredentialMode?.().then(mode=>{if(live)setManaged(mode==='managed')}).catch(()=>{})
+    return ()=>{live=false}
+  },[])
   const [effortMap, setEffortMap] = useAtom(agentReasoningEffortMapAtom)
   const defaultEffort = useAtomValue(agentDefaultReasoningEffortAtom)
   const setDefaultEffort = useSetAtom(agentDefaultReasoningEffortAtom)
@@ -53,7 +60,7 @@ export function useReasoningEffort(sessionId: string): {
         if (savedEffort !== defaultEffort) setDefaultEffort(savedEffort)
         setEffortMap((prev) => {
           const current = prev.get(sessionId)
-          if (current && current !== defaultEffort) return prev
+          if (current !== undefined && current !== defaultEffort) return prev
           if (current === savedEffort) return prev
           const next = new Map(prev)
           next.set(sessionId, savedEffort)
@@ -67,7 +74,7 @@ export function useReasoningEffort(sessionId: string): {
   }, [workspaceSlug, sessionId])
 
   const setEffort = React.useCallback(
-    (next: AgentEffort): void => {
+    (next: AgentEffort | ''): void => {
       setEffortMap((prev) => {
         const updated = new Map(prev)
         updated.set(sessionId, next)
@@ -82,5 +89,5 @@ export function useReasoningEffort(sessionId: string): {
     [sessionId, workspaceSlug, setEffortMap],
   )
 
-  return { effort, setEffort }
+  return { effort, setEffort, managed }
 }

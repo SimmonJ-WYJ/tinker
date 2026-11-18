@@ -104,6 +104,13 @@ pub(crate) fn sync_dir(path: &Path) -> Result<()> {
     File::open(path)?.sync_all()?;
     Ok(())
 }
+pub(crate) fn snapshot_budget(bytes: &[u8]) -> Result<()> {
+    if bytes.len() > MAX_SNAPSHOT_BYTES {
+        Err(DesktopError("storageLimit"))
+    } else {
+        Ok(())
+    }
+}
 pub(crate) struct Store {
     trusted: TrustedRoot,
     root: PathBuf,
@@ -172,6 +179,14 @@ impl Store {
         self.committed.as_deref()
     }
     /// 已验证主快照后，清理上次进程在rename之前留下的私有临时文件。
+    pub fn validate_pending(&self, validate: impl FnOnce(&[u8]) -> Result<()>) -> Result<()> {
+        let pending = self.root.join("snapshot.pending");
+        match fs::symlink_metadata(&pending) {
+            Ok(_) => validate(&read_regular(&pending, MAX_SNAPSHOT_BYTES)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(_) => Err(DesktopError("storeIo")),
+        }
+    }
     pub fn recover_pending(&self) -> Result<()> {
         let pending = self.root.join("snapshot.pending");
         match fs::symlink_metadata(&pending) {
@@ -195,9 +210,7 @@ impl Store {
         if self.blocked {
             return Err(DesktopError("recoveryRequired"));
         }
-        if bytes.len() > MAX_SNAPSHOT_BYTES {
-            return Err(DesktopError("storageLimit"));
-        }
+        snapshot_budget(&bytes)?;
         self.trusted.validate()?;
         directory(&self.root, true)?;
         same_file(

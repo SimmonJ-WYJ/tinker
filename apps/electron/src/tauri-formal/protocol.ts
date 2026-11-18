@@ -4,11 +4,17 @@ import type { AppSettings, UserProfile, ResolvedTheme } from '../types/index.ts'
 export interface PlatformSnapshot {
   version: number
   revision: number
-  settings: AppSettings & { sessionDrafts?: Record<string, string> }
+  settings: Omit<AppSettings, 'agentEffort'> & { agentEffort?: AppSettings['agentEffort'] | ''; sessionDrafts?: Record<string, string> }
   userProfile: UserProfile
   workspaces: unknown[]
   theme: ResolvedTheme
   chrome: { platform: string; fullscreen: boolean }
+}
+/** 关闭/刷新只允许提交这三项UI采集；不包含渠道或模型偏好。 */
+export interface LifecycleCapture {
+  tabState: NonNullable<AppSettings['tabState']>
+  sidebarProjectFilesExpandedByWorkspace: Record<string, boolean>
+  sessionDrafts: Record<string, string>
 }
 export interface ActiveRun {
   sessionId: string
@@ -18,6 +24,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  credentialedChannels?: boolean
   queueing?: boolean
   environmentSequence?: number
   generation: string

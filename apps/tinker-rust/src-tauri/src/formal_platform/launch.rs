@@ -13,6 +13,8 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+pub const CHANNELS_APPLICATION_ID: &str = "com.tinker.channels-preview";
+pub const CHANNELS_ROOT_KIND: &str = "tinker-tauri-channels-preview";
 pub const TOOLS_APPLICATION_ID: &str = "com.tinker.tools-preview";
 pub const SYNTHETIC_TOOLS: &str = "synthetic-tools-v1";
 pub const APPLICATION_ID: &str = "com.tinker.formal-preview";
@@ -22,6 +24,8 @@ pub const MOCK_CONFIG_REVISION: &str = "local-mock-protocol-v1";
 pub const MOCK_KEY: &str = "synthetic-local-mock-key";
 #[derive(Debug, Clone)]
 enum RootLocation {
+    ChannelsTemporary,
+    ChannelsAppData(PathBuf),
     Temporary,
     ToolsTemporary,
     ToolsAppData(PathBuf),
@@ -40,6 +44,37 @@ struct Marker {
     root: PathBuf,
 }
 impl TrustedRoot {
+    pub fn create_channels_temporary(path: impl AsRef<Path>) -> Result<Self> {
+        Self::create(path.as_ref(), RootLocation::ChannelsTemporary)
+    }
+    pub fn open_channels_temporary(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open(path.as_ref(), RootLocation::ChannelsTemporary)
+    }
+
+    pub fn create_channels_app_data(parent: impl AsRef<Path>) -> Result<Self> {
+        Self::create(
+            &parent.as_ref().join("credentialed-v1"),
+            RootLocation::ChannelsAppData(parent.as_ref().into()),
+        )
+    }
+    pub fn open_channels_app_data(parent: impl AsRef<Path>) -> Result<Self> {
+        Self::open(
+            &parent.as_ref().join("credentialed-v1"),
+            RootLocation::ChannelsAppData(parent.as_ref().into()),
+        )
+    }
+    pub(crate) fn is_channels(&self) -> bool {
+        matches!(
+            self.location,
+            RootLocation::ChannelsTemporary | RootLocation::ChannelsAppData(_)
+        )
+    }
+    pub(crate) fn validate_channels(&self) -> Result<()> {
+        if !self.is_channels() {
+            return Err(DesktopError("invalidRoot"));
+        }
+        self.validate()
+    }
     pub fn create_tools_temporary(path: impl AsRef<Path>) -> Result<Self> {
         Self::create(path.as_ref(), RootLocation::ToolsTemporary)
     }
@@ -68,6 +103,12 @@ impl TrustedRoot {
         self.validate()
     }
     fn kind(location: &RootLocation) -> &'static str {
+        if matches!(
+            location,
+            RootLocation::ChannelsTemporary | RootLocation::ChannelsAppData(_)
+        ) {
+            return CHANNELS_ROOT_KIND;
+        }
         if matches!(
             location,
             RootLocation::ToolsTemporary | RootLocation::ToolsAppData(_)
@@ -110,7 +151,9 @@ impl TrustedRoot {
             return Err(DesktopError("invalidRoot"));
         }
         match location {
-            RootLocation::Temporary | RootLocation::ToolsTemporary => {
+            RootLocation::Temporary
+            | RootLocation::ToolsTemporary
+            | RootLocation::ChannelsTemporary => {
                 let tmp = fs::canonicalize(std::env::temp_dir())
                     .map_err(|_| DesktopError("invalidRoot"))?;
                 let system_tmp = fs::canonicalize("/tmp").ok();
@@ -122,6 +165,16 @@ impl TrustedRoot {
                 {
                     return Err(DesktopError("invalidRoot"));
                 }
+            }
+            RootLocation::ChannelsAppData(expected) => {
+                if parent != expected
+                    || expected.file_name().and_then(|s| s.to_str())
+                        != Some(CHANNELS_APPLICATION_ID)
+                    || path.file_name().and_then(|s| s.to_str()) != Some("credentialed-v1")
+                {
+                    return Err(DesktopError("invalidRoot"));
+                }
+                directory(parent, true)?;
             }
             RootLocation::AppData(expected) | RootLocation::ToolsAppData(expected) => {
                 let tools = matches!(location, RootLocation::ToolsAppData(_));

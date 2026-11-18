@@ -32,6 +32,14 @@ impl WorkspaceRecord {
             effort: "high".into(),
         }
     }
+    pub(crate) fn validate_managed(&self) -> Result<()> {
+        if self.workspace != Self::initial().workspace
+            || !["", "low", "medium", "high", "max"].contains(&self.effort.as_str())
+        {
+            return Err(DesktopError("corruptSnapshot"));
+        }
+        identifier(&self.workspace.id)
+    }
     pub fn validate(&self) -> Result<()> {
         if self.workspace != Self::initial().workspace
             || !["low", "medium", "high", "max"].contains(&self.effort.as_str())

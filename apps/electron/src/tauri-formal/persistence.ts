@@ -7,16 +7,28 @@ import type { FormalTransport } from './transport.ts'
 import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
 
-export interface FormalLifecycleMarker { hydrated(part: 'tabs' | 'settings', error?: unknown): void }
-declare global { interface Window { __TAURI_FORMAL__?: FormalLifecycleMarker } }
-export function installPersistence(transport: FormalTransport): FormalLifecycleMarker {
+export interface FormalLifecycleMarker {
+  hydrated(part: 'tabs' | 'settings', error?: unknown): void
+}
+declare global {
+  interface Window {
+    __TAURI_FORMAL__?: FormalLifecycleMarker
+  }
+}
+
+export function installPersistence(transport: FormalTransport): FormalLifecycleMarker & {
+  dispose(): void
+} {
   const store = getDefaultStore()
   // 草稿只在正式Tauri入口hydrate；不修改Electron默认初始化或存储。
   store.set(agentSessionDraftsAtom, new Map(Object.entries(transport.bootstrap.platformSnapshot.settings.sessionDrafts ?? {})))
   const ready = new Set<string>()
   let resolve = () => {}
   let reject: (error: unknown) => void = () => {}
-  const hydrated = new Promise<void>((yes, no) => { resolve = yes; reject = no })
+  const hydrated = new Promise<void>((yes, no) => {
+    resolve = yes
+    reject = no
+  })
   void hydrated.catch(() => {})
   let hydrateFailed = false
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -26,50 +38,117 @@ export function installPersistence(transport: FormalTransport): FormalLifecycleM
     const activeTabId = store.get(activeTabIdAtom)
     const workspace = store.get(currentAgentWorkspaceIdAtom) ?? transport.bootstrap.platformSnapshot.settings.agentWorkspaceId
     const active = tabs.find(tab => tab.id === activeTabId)
-    const activeTabIdByWorkspace = { ...store.get(activeTabIdByWorkspaceAtom) }
+    const activeTabIdByWorkspace = {
+      ...store.get(activeTabIdByWorkspaceAtom)
+    }
     if (workspace && active && (active.workspaceId ?? workspace) === workspace) activeTabIdByWorkspace[workspace] = active.id
     return {
-      tabState: { tabs, activeTabId, activeTabIdByWorkspace },
+      tabState: {
+        tabs,
+        activeTabId,
+        activeTabIdByWorkspace
+      },
       sidebarProjectFilesExpandedByWorkspace: Object.fromEntries(store.get(sidebarProjectFilesExpandedMapAtom)),
       sessionDrafts: Object.fromEntries(store.get(agentSessionDraftsAtom)),
     }
   }
-  const persist = async (value: ReturnType<typeof capture>) => {
+  const persist = async (value: ReturnType<typeof capture>, lifecycle = false) => {
     if (hydrateFailed || ready.size !== 2) throw new Error('hydrateFailed')
+    if (lifecycle) return transport.persistCapture(value)
     if (!transport.readSync('settings:update-sync', value)) await transport.invoke('settings:update', value)
     return transport.revision
   }
   const schedule = () => {
     if (hydrateFailed || ready.size !== 2 || frozen) return
     clearTimeout(timer)
-    timer = setTimeout(() => { void persist(capture()).catch(failure) }, 400)
+    timer = setTimeout(() => {
+      void persist(capture()).catch(failure)
+    }, 400)
   }
-  const failure = (error: unknown) => { console.error('[原生预览] 保存失败', error); toast.error(i18n.t('desktopRuntime.transport', { ns: 'errors' })) }
-  for (const target of [tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom, sidebarProjectFilesExpandedMapAtom, agentSessionDraftsAtom]) store.sub(target, schedule)
-  const block = (event: Event) => { if (frozen) { event.preventDefault(); event.stopImmediatePropagation() } }
+  const failure = (error: unknown) => {
+    console.error('[原生预览] 保存失败', error)
+    toast.error(i18n.t('desktopRuntime.transport', {
+      ns: 'errors'
+    }))
+  }
+  const subscriptions = [tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom, sidebarProjectFilesExpandedMapAtom, agentSessionDraftsAtom].map(target => store.sub(target, schedule))
+  const block = (event: Event) => {
+    if (frozen) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+  }
   for (const name of ['click', 'pointerdown', 'keydown', 'beforeinput', 'drop']) window.addEventListener(name, block, true)
   const lifecycle = createLifecycle({
     hydrated,
-    freeze(value) { frozen = value; transport.setClosing(value); clearTimeout(timer) },
-    drain: () => transport.quiesce(), capture, persist,
-    async begin() { return (await transport.command<{ closeToken: string }>('beginClose')).closeToken },
-    async abort(closeToken) { await transport.command('abortClose', { closeToken }) },
-    async finish(closeToken, committedRevision) {
-      await transport.command('closeReady', { closeToken, committedRevision })
-      // 只有当前未超时的调用获得 drain/join 确认，才给予 native 最后关闭权。
-      await transport.command('closeWindow', { closeToken, committedRevision })
+    freeze(value) {
+      frozen = value
+      transport.setClosing(value)
+      clearTimeout(timer)
     },
-    reload() { window.location.reload() }, failure,
+    drain: () => transport.quiesce(),
+    capture,
+    persist: value => persist(value, true),
+    async begin() {
+      return (await transport.command<{
+        closeToken: string
+      }>('beginClose')).closeToken
+    },
+    async abort(closeToken) {
+      await transport.command('abortClose', {
+        closeToken
+      })
+    },
+    async finish(closeToken, committedRevision) {
+      await transport.command('closeReady', {
+        closeToken,
+        committedRevision
+      })
+      // 只有当前未超时的调用获得 drain/join 确认，才给予 native 最后关闭权。
+      await transport.command('closeWindow', {
+        closeToken,
+        committedRevision
+      })
+    },
+    reload() {
+      window.location.reload()
+    },
+    failure,
   })
-  transport.onAction((action) => { void lifecycle.run(action) })
-  window.addEventListener('keydown', (event) => {
-    if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'r') || event.key === 'F5') { event.preventDefault(); event.stopImmediatePropagation(); void lifecycle.run('reload') }
-  }, true)
-  return { hydrated(part, error) {
-    // 一个 document 的任何初始化失败均为终态；StrictMode 迟到成功不能重新开放写入。
-    if (error !== undefined) { hydrateFailed = true; clearTimeout(timer); reject(error); return }
-    if (hydrateFailed) return
-    ready.add(part)
-    if (ready.size === 2) { resolve(); schedule() }
-  } }
+  transport.onAction((action) => {
+    void lifecycle.run(action)
+  })
+  const reloadKey = (event: KeyboardEvent) => {
+    if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'r') || event.key === 'F5') {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      void lifecycle.run('reload')
+    }
+  }
+  window.addEventListener('keydown', reloadKey, true)
+  return {
+    dispose() {
+      frozen = true
+      clearTimeout(timer)
+      for (const unsubscribe of subscriptions) unsubscribe()
+      for (const name of ['click', 'pointerdown', 'keydown', 'beforeinput', 'drop']) window.removeEventListener(name, block, true)
+      window.removeEventListener('keydown', reloadKey, true)
+      transport.onAction(() => {})
+    },
+    hydrated(part, error) {
+      // 一个 document 的任何初始化失败均为终态；StrictMode 迟到成功不能重新开放写入。
+      if (error !== undefined) {
+        hydrateFailed = true
+        clearTimeout(timer)
+        reject(error)
+        return
+      }
+      if (hydrateFailed) return
+      ready.add(part)
+      if (ready.size === 2) {
+        resolve()
+        schedule()
+      }
+    }
+  }
 }

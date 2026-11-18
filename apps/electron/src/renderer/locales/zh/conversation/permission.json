@@ -25,7 +25,9 @@
     "high": "深度",
     "highDesc": "面向难题的深度推理",
     "max": "极致",
-    "maxDesc": "最大深度，速度最慢"
+    "maxDesc": "最大深度，速度最慢",
+    "default": "模型默认",
+    "defaultDesc": "不发送显式推理深度设置，沿用模型的默认行为。"
   },
   "permission": {
     "title": "需要确认",

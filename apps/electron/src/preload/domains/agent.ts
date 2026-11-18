@@ -219,10 +219,10 @@ export interface AgentApi {
   setPermissionMode: (workspaceSlug: string, mode: ASCIPermissionMode) => Promise<void>
 
   /** 获取工作区推理深度 */
-  getReasoningEffort: (workspaceSlug: string) => Promise<AgentEffort>
+  getReasoningEffort: (workspaceSlug: string) => Promise<AgentEffort | ''>
 
   /** 设置工作区推理深度 */
-  setReasoningEffort: (workspaceSlug: string, effort: AgentEffort) => Promise<void>
+  setReasoningEffort: (workspaceSlug: string, effort: AgentEffort | '') => Promise<void>
 
   // ===== AskUserQuestion 交互式问答 =====
 
@@ -581,7 +581,7 @@ export function createAgentApi(transport: PlatformTransport): AgentApi {
       return transport.invoke(AGENT_IPC_CHANNELS.GET_REASONING_EFFORT, workspaceSlug)
     },
 
-    setReasoningEffort: (workspaceSlug: string, effort: AgentEffort) => {
+    setReasoningEffort: (workspaceSlug: string, effort: AgentEffort | '') => {
       return transport.invoke(AGENT_IPC_CHANNELS.SET_REASONING_EFFORT, workspaceSlug, effort)
     },
 

@@ -2,8 +2,11 @@
 mod actor;
 mod channel_discovery;
 mod channels;
+mod credentialed;
+mod credentialed_discovery;
 mod delivery;
 mod permissions;
+mod platform;
 pub mod projection;
 pub mod protocol;
 mod queue_bridge;
@@ -93,6 +96,34 @@ impl FormalAgentHost {
                 let mut actor = actor::Actor::new(runtime, platform, root, out);
                 actor.queueing = queueing;
                 actor.run(rx)
+            })
+            .map_err(|_| DesktopError("hostUnavailable"))?;
+        Ok(Self {
+            tx,
+            events: Mutex::new(events),
+            worker: Some(worker),
+        })
+    }
+    pub(crate) fn new_credentialed(
+        runtime: Arc<DesktopRuntime>,
+        platform: Arc<crate::formal_platform::credentialed::CredentialedPlatform>,
+        root: TrustedRoot,
+        vault: Arc<dyn crate::credentialed_channels::vault::CredentialVault>,
+        policy: crate::credentialed_channels::catalog::EndpointPolicy,
+    ) -> Result<Self> {
+        let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
+        let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
+        let worker = thread::Builder::new()
+            .name("credentialed-agent".into())
+            .spawn(move || {
+                let mut actor = actor::Actor::new(
+                    runtime,
+                    platform::HostPlatform::Credentialed(platform.clone()),
+                    root,
+                    out,
+                );
+                actor.credentialed = Some(credentialed::Credentialed::new(platform, vault, policy));
+                actor.run(rx);
             })
             .map_err(|_| DesktopError("hostUnavailable"))?;
         Ok(Self {

@@ -75,6 +75,23 @@
     "invalid": "The selected model or request is not available in the Rust preview.",
     "permission": "This permission request is no longer active or a decision was already submitted. Refresh the session state.",
     "catalogValidated": "Connection and model catalog validated. No model turn was executed.",
-    "modelUnavailable": "This channel or model is disabled."
+    "modelUnavailable": "This channel or model is disabled.",
+    "credentialRequired": "The saved credential is missing. Enter a replacement and save explicitly.",
+    "credentialBinding": "The stored credential does not match this connection. Enter a replacement for this endpoint.",
+    "credentialReplacement": "Changing the endpoint or protocol requires a newly entered credential.",
+    "vaultDenied": "Secure storage access was denied. Your saved conversation remains available.",
+    "vaultUnavailable": "Secure storage is unavailable. No plaintext fallback is used.",
+    "helperBusy": "Secure storage validation is busy or timed out. Retry the action manually.",
+    "invalidEndpoint": "Enter a valid HTTPS endpoint without credentials, query or fragment. QA accepts only its owned endpoint.",
+    "invalidChannel": "Check the channel name and explicit text model configuration.",
+    "invalidCredential": "The credential is invalid for this preview. No credential was saved.",
+    "unsupportedEffort": "This model does not support the selected reasoning effort. Choose a supported setting.",
+    "revisionConflict": "The channel configuration changed. Reopen it before explicitly saving again.",
+    "mutationPending": "A previous save needs reconciliation. Retry the unchanged save, or reopen the preview before saving a new intent.",
+    "stageUncertain": "Credential staging could not be confirmed. Reopen the preview, inspect saved state, then save explicitly.",
+    "recoveryRequired": "A durable operation could not be confirmed. Reopen the preview to inspect recovered state.",
+    "storageLimit": "The bounded channel or credential capacity has been reached. No history was removed.",
+    "storeIo": "The configuration could not be saved. Your unsaved replacement remains in this form.",
+    "catalogUnavailable": "The model catalog could not be validated. No model turn was executed."
   }
 }

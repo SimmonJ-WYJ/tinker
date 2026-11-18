@@ -1,9 +1,10 @@
 /** 单 native listener、串行平台写入、按会话恢复屏障；不包含 Node 或 Electron。 */
+import { createCredentialTransport, isUncertainMutationFailure } from './credentials.ts'
 import { createQueueFrames } from './queue-frames.ts'
 import { createQueueControl, NativeQueueError } from './queue-control.ts'
 import { withDeadline } from './deadline.ts'
 import type { PlatformTransport } from '../preload/transport.ts'
-import type { ActiveRun, Bootstrap, NativeBridge, NativeEvent, PlatformSnapshot, RestoreBundle } from './protocol.ts'
+import type { ActiveRun, Bootstrap, LifecycleCapture, NativeBridge, NativeEvent, PlatformSnapshot, RestoreBundle } from './protocol.ts'
 import { MUTATION_CHANNELS, STREAM_CHANNELS } from './protocol.ts'
 
 export interface FormalTransport extends PlatformTransport {
@@ -11,6 +12,7 @@ export interface FormalTransport extends PlatformTransport {
   readonly revision: number
   command<T>(command: string, args?: Record<string, unknown>): Promise<T>
   quiesce(): Promise<void>
+  persistCapture(value: LifecycleCapture): Promise<number>
   setClosing(value: boolean): void
   onAction(callback: (action: 'close' | 'reload') => void): void
   dispose(): void
@@ -182,7 +184,14 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     const reply = await command<{value: unknown}>('invoke', {channel,args,expectedChainId})
     return reply.value
   }, track, translate, undefined, payload=>dispatchStream('agent:stream:complete',{...payload}))
-  async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
+  const credentials = bootstrap.credentialedChannels ? createCredentialTransport(command, () => cache.revision, code => new NativeQueueError(code, translate(code))) : undefined
+  let pendingCapture: {
+    value: LifecycleCapture
+    mutation: { mutationId: string; expectedRevision: number }
+  } | undefined
+  const isMutation = (channel: string) => MUTATION_CHANNELS.has(channel) || credentials?.handles(channel) === true
+  const usesLane = (channel: string) => isMutation(channel) || Boolean(credentials && ['channel:test','channel:test-direct','channel:fetch-models'].includes(channel))
+  async function invokeWithSignal<T>(signal: AbortSignal | undefined, channel: string, ...args: unknown[]): Promise<T> {
     if (closing && channel !== 'settings:update') throw new Error(translate('closing'))
     if (channel === 'agent:get-messages' || channel === 'agent:get-sdk-messages') {
       const bundle = await history(String(args[0]))
@@ -190,6 +199,8 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     }
     if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
     const execute = async (): Promise<T> => {
+      if (signal?.aborted) throw new NativeQueueError('probeCancelled', translate('probeCancelled'))
+      if (isMutation(channel) && pendingCapture) throw new NativeQueueError('mutationPending', translate('mutationPending'))
       // 原 UI 用显式 undefined 清除选择；JSON 省略前转换为成对空值。
       if (channel === 'settings:update' && args[0] && typeof args[0] === 'object') {
         const patch = args[0] as Record<string, unknown>
@@ -197,21 +208,80 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
           args = [{ ...patch, agentChannelId: '', agentModelId: '' }, ...args.slice(1)]
         }
       }
+      if (credentials?.handles(channel)) {
+        const reply = await credentials.invoke(channel, args)
+        if (reply.snapshot) snapshot(reply.snapshot)
+        return projectErrors(reply.value) as T
+      }
+      if (isMutation(channel)) credentials?.guard()
       const mutation = MUTATION_CHANNELS.has(channel) ? { mutationId: crypto.randomUUID(), expectedRevision: cache.revision } : undefined
       const reply = await command<{ value: T; snapshot?: PlatformSnapshot }>('invoke', { channel, args, ...(mutation ? { mutation } : {}) })
       if (reply.snapshot) snapshot(reply.snapshot)
+      credentials?.observe(channel, reply.value)
       return projectErrors(reply.value) as T
     }
-    const pending = MUTATION_CHANNELS.has(channel) ? lane.then(execute) : execute()
-    if (MUTATION_CHANNELS.has(channel)) lane = pending.catch(() => {})
+    const pending = usesLane(channel) ? lane.then(execute) : execute()
+    if (usesLane(channel)) lane = pending.catch(() => {})
     if (channel !== 'agent:send-message') { fast.add(pending); void pending.finally(() => fast.delete(pending)).catch(() => {}) }
     return pending
   }
+  async function persistCapture(value: LifecycleCapture): Promise<number> {
+    const keys = value && typeof value === 'object' ? Object.keys(value) : []
+    const allowed = ['tabState', 'sidebarProjectFilesExpandedByWorkspace', 'sessionDrafts']
+    if (!closing || disposed || keys.length !== allowed.length || !allowed.every(key => Object.hasOwn(value, key))) {
+      throw new NativeQueueError('invalidParams', translate('invalidParams'))
+    }
+    const captured = structuredClone(value)
+    const execute = async (): Promise<number> => {
+      if (!closing || disposed) throw new NativeQueueError('closing', translate('closing'))
+      const reconciled = await credentials?.reconcile()
+      if (reconciled?.snapshot) snapshot(reconciled.snapshot)
+
+      const commitCapture = async () => {
+        if (!pendingCapture) return
+        try {
+          const reply = await command<{ snapshot?: PlatformSnapshot }>('invoke', {
+            channel: 'settings:update',
+            args: [pendingCapture.value],
+            mutation: pendingCapture.mutation,
+          })
+          if (reply.snapshot) snapshot(reply.snapshot)
+          pendingCapture = undefined
+        } catch (error) {
+          if (!isUncertainMutationFailure(error)) pendingCapture = undefined
+          throw error
+        }
+      }
+      // 先核对本document先前的采集回执，再提交最新采集；不覆盖不确定事务。
+      await commitCapture()
+      const unchanged = Object.entries(captured).every(([key, item]) =>
+        JSON.stringify(cache.settings[key as keyof typeof cache.settings]) === JSON.stringify(item),
+      )
+      if (!unchanged) {
+        pendingCapture = {
+          value: captured,
+          mutation: {
+            mutationId: crypto.randomUUID(),
+            expectedRevision: cache.revision,
+          },
+        }
+        await commitCapture()
+      }
+      return cache.revision
+    }
+    const pending = lane.then(execute)
+    lane = pending.catch(() => {})
+    track(pending)
+    return pending
+  }
   return {
+    get credentialedChannels() { return bootstrap.credentialedChannels === true },
     get bootstrap() { return { ...bootstrap, platformSnapshot: cache } },
     get revision() { return cache.revision },
-    invoke,
+    invoke<T>(channel: string, ...args: unknown[]) { return invokeWithSignal<T>(undefined, channel, ...args) },
+    invokeWithSignal,
     command,
+    persistCapture,
     readSync<T>(channel: string, ...args: unknown[]): T {
       let result: unknown
       if (channel === 'theme:resolve') result = cache.theme
@@ -238,6 +308,6 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     async quiesce() { while (fast.size) await Promise.all([...fast]); await lane },
     setClosing(value) { closing = value },
     onAction(callback) { actionHandler = callback },
-    dispose() { frames.clear(); queue?.dispose(); disposed = true; unlisten(); callbacks.clear(); for (const resolve of readyWaiters) resolve(); readyWaiters.clear(); requested = false; void control(false, true).catch(() => {}) },
+    dispose() { pendingCapture = undefined; credentials?.dispose(); frames.clear(); queue?.dispose(); disposed = true; unlisten(); callbacks.clear(); for (const resolve of readyWaiters) resolve(); readyWaiters.clear(); requested = false; void control(false, true).catch(() => {}) },
   }
 }

@@ -36,12 +36,7 @@ impl Inner {
             let Some(b) = &c.initial else {
                 return Err(DesktopError("chainClosed"));
             };
-            if b.request != p
-                || self
-                    .profiles
-                    .get(&p.profile_id)
-                    .is_none_or(|v| v.config_revision != b.config_revision)
-            {
+            if b.request != p || !self.binding_revision_matches(b) {
                 return Err(DesktopError("requestConflict"));
             }
             return self.queue_snapshot(&p.session_id, &p.request_id, None);
@@ -72,11 +67,9 @@ impl Inner {
         for c in self.chains.values() {
             if let Some(m) = c.messages.iter().find(|m| m.input.uuid == p.uuid) {
                 if m.input != p
-                    || c.initial.as_ref().is_none_or(|b| {
-                        self.profiles
-                            .get(&b.request.profile_id)
-                            .is_none_or(|v| v.config_revision != b.config_revision)
-                    })
+                    || c.initial
+                        .as_ref()
+                        .is_none_or(|b| !self.binding_revision_matches(b))
                 {
                     return Err(DesktopError("requestConflict"));
                 }
@@ -90,13 +83,10 @@ impl Inner {
             .initial
             .as_ref()
             .ok_or(DesktopError("chainClosed"))?;
-        let profile = self
-            .profiles
-            .get(&initial.request.profile_id)
-            .ok_or(DesktopError("profileNotFound"))?;
-        if profile.config_revision != initial.config_revision {
-            return Err(DesktopError("requestConflict"));
+        if self.managed {
+            self.require_available(&initial.request.profile_id, &initial.request.model_id)?;
         }
+        let profile = self.bound_profile(initial)?;
         let provider =
             profile.provider(&initial.request.model_id, initial.request.effort.as_deref())?;
         provider.validate_tool_metadata(&json!(p))?;
@@ -303,13 +293,7 @@ impl Inner {
                 return Err(DesktopError("activeLimit"));
             }
             let initial = c.initial.as_ref().ok_or(DesktopError("corruptJournal"))?;
-            let profile = self
-                .profiles
-                .get(&initial.request.profile_id)
-                .ok_or(DesktopError("profileNotFound"))?;
-            if profile.config_revision != initial.config_revision {
-                return Err(DesktopError("requestConflict"));
-            }
+            let profile = self.bound_profile(initial)?;
             let provider =
                 profile.provider(&initial.request.model_id, initial.request.effort.as_deref())?;
             let entry = QueueEntry::Bind {

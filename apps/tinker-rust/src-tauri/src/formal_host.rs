@@ -9,7 +9,9 @@ use serde_json::Value;
 use std::{sync::Arc, time::Duration};
 pub struct FormalHost {
     agent: FormalAgentHost,
-    mock: OwnedMock,
+    mock: Option<OwnedMock>,
+    #[cfg(any(test, feature = "formal-native-qa"))]
+    owned_qa: Option<crate::credentialed_channels::qa::OwnedQa>,
 }
 impl FormalHost {
     pub fn open_tools(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
@@ -51,7 +53,12 @@ impl FormalHost {
         } else {
             FormalAgentHost::new(runtime, platform, root.clone())?
         };
-        Ok(Self { agent, mock })
+        Ok(Self {
+            agent,
+            mock: Some(mock),
+            #[cfg(any(test, feature = "formal-native-qa"))]
+            owned_qa: None,
+        })
     }
     pub fn open(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
         root.validate()?;
@@ -60,7 +67,101 @@ impl FormalHost {
         let platform = FormalPlatform::open(root, &profiles, environment)?;
         let runtime = Arc::new(DesktopRuntime::open(root.path(), profiles)?);
         let agent = FormalAgentHost::new(runtime, platform, root.clone())?;
-        Ok(Self { agent, mock })
+        Ok(Self {
+            agent,
+            mock: Some(mock),
+            #[cfg(any(test, feature = "formal-native-qa"))]
+            owned_qa: None,
+        })
+    }
+    #[cfg(any(test, feature = "formal-native-qa"))]
+    pub fn open_channels_owned_qa(
+        root: &TrustedRoot,
+        environment: HostEnvironment,
+    ) -> Result<Self> {
+        let server = crate::credentialed_channels::qa::OwnedQa::start(root)?;
+        let path = root.path().join("qa-vault");
+        if !path.exists() {
+            let mut builder = std::fs::DirBuilder::new();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
+            }
+            builder.create(&path)?;
+        }
+        let vault = crate::credentialed_channels::vault_fake::FakeVault::open(path)?;
+        let mut host = Self::open_channels_qa(root, environment, server.policy(), vault)?;
+        host.owned_qa = Some(server);
+        Ok(host)
+    }
+    pub fn open_channels(root: &TrustedRoot, environment: HostEnvironment) -> Result<Self> {
+        let vault: Arc<dyn crate::credentialed_channels::vault::CredentialVault> =
+            Arc::new(crate::credentialed_channels::vault::UnavailableVault);
+        #[cfg(target_os = "macos")]
+        let vault = if crate::credentialed_channels::process::is_native_role() {
+            Arc::new(crate::credentialed_channels::vault_host::HelperVault)
+                as Arc<dyn crate::credentialed_channels::vault::CredentialVault>
+        } else {
+            vault
+        };
+        Self::open_channels_with_vault(
+            root,
+            environment,
+            crate::credentialed_channels::catalog::EndpointPolicy::Https,
+            vault,
+        )
+    }
+    #[cfg(any(test, feature = "formal-native-qa"))]
+    pub fn open_channels_qa(
+        root: &TrustedRoot,
+        environment: HostEnvironment,
+        policy: crate::credentialed_channels::catalog::EndpointPolicy,
+        vault: crate::credentialed_channels::vault_fake::FakeVault,
+    ) -> Result<Self> {
+        if !matches!(
+            policy,
+            crate::credentialed_channels::catalog::EndpointPolicy::OwnedQa(_)
+        ) {
+            return Err(crate::desktop_runtime::protocol::DesktopError(
+                "invalidEndpoint",
+            ));
+        }
+        Self::open_channels_with_vault(root, environment, policy, Arc::new(vault))
+    }
+    fn open_channels_with_vault(
+        root: &TrustedRoot,
+        environment: HostEnvironment,
+        policy: crate::credentialed_channels::catalog::EndpointPolicy,
+        vault: Arc<dyn crate::credentialed_channels::vault::CredentialVault>,
+    ) -> Result<Self> {
+        use crate::credentialed_channels::worker;
+        let platform = Arc::new(
+            crate::formal_platform::credentialed::CredentialedPlatform::open(
+                root,
+                policy.clone(),
+                environment,
+            )?,
+        );
+        let known = Arc::new(std::sync::Mutex::new(std::collections::BTreeMap::new()));
+        let prepared = worker::profiles(
+            &platform.catalog()?,
+            &std::collections::BTreeMap::new(),
+            &known,
+            &policy,
+        )?;
+        let runtime = Arc::new(DesktopRuntime::open_managed_with_profiles(
+            root.path(),
+            prepared,
+        )?);
+        let agent =
+            FormalAgentHost::new_credentialed(runtime, platform, root.clone(), vault, policy)?;
+        Ok(Self {
+            agent,
+            mock: None,
+            #[cfg(any(test, feature = "formal-native-qa"))]
+            owned_qa: None,
+        })
     }
     pub fn command(&self, window: &str, value: Value) -> Result<PendingReply> {
         self.agent.command(window, value)
@@ -72,11 +173,20 @@ impl FormalHost {
         self.agent.next_event(timeout)
     }
     pub fn mock_records(&self) -> Vec<RequestMetadata> {
-        self.mock.records()
+        self.mock
+            .as_ref()
+            .map(OwnedMock::records)
+            .unwrap_or_default()
     }
     pub fn shutdown(&mut self) -> Result<()> {
         let result = self.agent.shutdown();
-        self.mock.shutdown();
+        if let Some(mock) = self.mock.as_mut() {
+            mock.shutdown();
+        }
+        #[cfg(any(test, feature = "formal-native-qa"))]
+        {
+            self.owned_qa.take();
+        }
         result
     }
 }
@@ -85,3 +195,7 @@ impl Drop for FormalHost {
         let _ = self.shutdown();
     }
 }
+
+#[cfg(test)]
+#[path = "credentialed_host_tests.rs"]
+mod credentialed_tests;
