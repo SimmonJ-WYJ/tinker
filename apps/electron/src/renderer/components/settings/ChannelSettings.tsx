@@ -2,6 +2,10 @@ import * as React from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { Plus, Trash2, Zap, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Switch } from '@/components/ui/switch'
 import { PROVIDER_LABELS } from '@asci/shared'
 import type { Channel } from '@asci/shared'
@@ -18,6 +22,11 @@ type ViewMode = 'list' | 'create' | 'edit'
 
 export function ChannelSettings(): React.ReactElement {
   const { t } = useT('settings')
+  const { t: tCommon } = useT('common')
+  const addButton = React.useRef<HTMLButtonElement>(null)
+  const restoreFocus = React.useRef<HTMLButtonElement | null>(null)
+  const deleteDescriptionId = React.useId()
+  const [pendingDelete, setPendingDelete] = React.useState<Channel | null>(null)
   const [channels, setChannels] = React.useState<Channel[]>([])
   const [viewMode, setViewMode] = React.useState<ViewMode>('list')
   const [editingChannel, setEditingChannel] = React.useState<Channel | null>(null)
@@ -48,8 +57,6 @@ export function ChannelSettings(): React.ReactElement {
 
   /** 删除渠道 */
   const handleDelete = async (channel: Channel): Promise<void> => {
-    if (!confirm(t('channels.deleteConfirm', { name: channel.name }))) return
-
     try {
       await window.electronAPI.deleteChannel(channel.id)
 
@@ -71,6 +78,16 @@ export function ChannelSettings(): React.ReactElement {
       await loadChannels()
     } catch (error) {
       console.error('[渠道设置] 删除渠道失败:', error)
+    }
+  }
+
+  const requestDelete = async (channel: Channel, trigger: HTMLButtonElement): Promise<void> => {
+    if (window.electronAPI.getChannelCredentialMode &&
+        await window.electronAPI.getChannelCredentialMode() === 'managed') {
+      restoreFocus.current = trigger
+      setPendingDelete(channel)
+    } else if (window.confirm(t('channels.deleteConfirm', { name: channel.name }))) {
+      await handleDelete(channel)
     }
   }
 
@@ -188,11 +205,36 @@ export function ChannelSettings(): React.ReactElement {
   // 列表视图
   return (
     <div className="space-y-5">
+      {pendingDelete && (
+        <AlertDialog open onOpenChange={(open) => { if (!open) setPendingDelete(null) }}>
+          <AlertDialogContent
+            aria-describedby={deleteDescriptionId}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              restoreFocus.current?.focus()
+            }}
+          >
+            <AlertDialogTitle>{t('channels.row.deleteAria', { name: pendingDelete.name })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span id={deleteDescriptionId}>{t('channels.deleteConfirm', { name: pendingDelete.name })}</span>
+            </AlertDialogDescription>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{tCommon('cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                restoreFocus.current = addButton.current
+                void handleDelete(pendingDelete)
+              }}>
+                {t('channels.row.deleteTitle')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <SettingsSectionHeader
         title={t('channels.section.title')}
         description={t('channels.section.description')}
         action={
-          <Button className="settings-channel-primary" size="sm" onClick={() => setViewMode('create')} data-spotlight-target="add-channel">
+          <Button ref={addButton} className="settings-channel-primary" size="sm" onClick={() => setViewMode('create')} data-spotlight-target="add-channel">
             <Plus size={16} />
             <span>{t('channels.addButton')}</span>
           </Button>
@@ -224,7 +266,7 @@ export function ChannelSettings(): React.ReactElement {
                       setEditingChannel(channel)
                       setViewMode('edit')
                     }}
-                    onDelete={() => handleDelete(channel)}
+                    onDelete={(trigger) => void requestDelete(channel, trigger)}
                     onToggle={() => handleToggle(channel)}
                   />
                 ))}
@@ -242,7 +284,7 @@ export function ChannelSettings(): React.ReactElement {
 interface ChannelRowProps {
   channel: Channel
   onEdit: () => void
-  onDelete: () => void
+  onDelete: (trigger: HTMLButtonElement) => void
   onToggle: () => void
 }
 
@@ -289,7 +331,7 @@ function ChannelRow({
       <Button
         variant="ghost"
         size="icon-sm"
-        onClick={onDelete}
+        onClick={(event) => onDelete(event.currentTarget)}
         className="text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 [&_svg]:size-3.5"
         title={t('channels.row.deleteTitle')}
         aria-label={t('channels.row.deleteAria', { name: channel.name })}
