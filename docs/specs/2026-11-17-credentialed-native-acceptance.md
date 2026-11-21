@@ -99,3 +99,13 @@ Before a live smoke test, identify the service and URL, model, exact synthetic r
 4. Complete reliable native deletion/old-history navigation and controlled credential-recovery checks. Then perform separately authorized OS-vault and bounded live-service smoke tests before production enablement.
 
 This report records a reviewable isolated migration increment. It does not declare the new stack or full MVP accepted.
+
+### Follow-up on November 22 — channel removal and Recent history
+
+The acceptance run used the macOS arm64 channels QA bundle built from the PR #27 merge tree plus the renderer fix in this change. The fixture used the owned loopback provider, test vault, and two synthetic conversations. A verified copy of that fixture was retained before testing deletion.
+
+- The original window validated the local catalog, saved its provider, and received a streamed reply in each conversation. Selecting the older Recent row restored its distinct prompt and completed reply. The original Delete action did not present an actionable confirmation in this window.
+- With the managed-channel fix, Delete opened an accessible dialog naming the provider, initially focused on Cancel. Esc preserved the row and returned focus to its Delete button. Opening the dialog again and confirming removed the row and focused Add provider.
+- After quitting and relaunching the fixed bundle with the same fixture, the composer reported no available model. Both synthetic prompts and their completed replies could still be read using Recent.
+- The focused component tests cover cancellation, confirmation, focus, and the legacy Electron confirmation path. The full Bun suite finished with 3,571 passes and five skips. Workspace typechecking, the Electron build, and the signed native QA bundle build succeeded. This follow-up changed renderer code and tests only, apart from this report and the normal package-version update.
+- The real Keychain, live model calls, abrupt process termination, lost IPC acknowledgments, and secure erasure were outside this native run. The production entry point remains the existing Electron app. This fix can be reverted independently.
