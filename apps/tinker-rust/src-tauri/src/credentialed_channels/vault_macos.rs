@@ -128,6 +128,7 @@ fn query(scope: &VaultScope, reference: Option<&str>) -> Result<Owned> {
 fn status(value: i32) -> Result<()> {
     match value {
         0 => Ok(()),
+        -34018 => Err(DesktopError("vaultMissingEntitlement")),
         -25300 => Err(DesktopError("credentialMissing")),
         -25299 => Err(DesktopError("credentialReferenceExists")),
         -25308 | -25293 | -128 => Err(DesktopError("vaultDenied")),
@@ -285,6 +286,7 @@ mod tests {
     use super::*;
     #[test]
     fn framework_status_is_static_and_fails_closed_without_calling_framework() {
+        assert_eq!(status(-34018), Err(DesktopError("vaultMissingEntitlement")));
         assert!(matches!(
             status(-25300),
             Err(DesktopError("credentialMissing"))

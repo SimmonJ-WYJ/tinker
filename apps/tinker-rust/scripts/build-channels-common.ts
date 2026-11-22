@@ -4,7 +4,9 @@ import { copyFileSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import ordinary from '../src-tauri/tauri.channels.conf.json'
 import nativeQA from '../src-tauri/tauri.channels-qa.conf.json'
 import { mkdtempSync, statfsSync } from 'node:fs'
-export function buildChannels(qa: boolean): void {
+export function buildChannels(qa: boolean, keychainAcceptance = false): void {
+  if (keychainAcceptance && (qa || process.platform !== 'darwin')) throw new Error('钥匙串验收仅支持独立 macOS 普通宿主')
+  const features = qa ? 'custom-protocol,formal-native-qa' : keychainAcceptance ? 'custom-protocol,keychain-acceptance' : 'custom-protocol,formal-preview'
   const config = qa ? nativeQA : ordinary
   const requireSpace = () => { const disk=statfsSync(resolve(import.meta.dir)); if(disk.bavail * disk.bsize < 4 * 1024 ** 3) throw new Error('可用空间低于 4 GiB，停止新构建') }
   requireSpace()
@@ -14,7 +16,7 @@ export function buildChannels(qa: boolean): void {
   const target = process.env.CARGO_TARGET_DIR ?? resolve(appRoot, 'src-tauri/target')
   const executable = resolve(target, `debug/${config.mainBinaryName}`)
   requireSpace()
-  const build = Bun.spawnSync(['cargo', 'build', '--offline', '--no-default-features', '--features', qa ? 'custom-protocol,formal-native-qa' : 'custom-protocol,formal-preview', '--bin', config.mainBinaryName], {
+  const build = Bun.spawnSync(['cargo', 'build', '--offline', '--no-default-features', '--features', features, '--bin', config.mainBinaryName], {
     cwd: resolve(appRoot, 'src-tauri'), stdout: 'inherit', stderr: 'inherit',
     env: { ...process.env, TAURI_CONFIG: JSON.stringify(config) },
   })
@@ -27,7 +29,8 @@ export function buildChannels(qa: boolean): void {
     if (architecture.exitCode !== 0 || architecture.stdout.toString().trim() !== (process.arch === 'x64' ? 'x86_64' : process.arch)) throw new Error('渠道包架构与构建宿主不匹配')
     // 新产物在系统 tmp 组装，避免 Documents 文件提供器反复添加 FinderInfo。
     const staging = mkdtempSync('/private/tmp/tinker-tauri-channels-package-')
-    const bundle = resolve(staging, `${config.productName}.app`)
+    const bundleName = keychainAcceptance ? 'Tinker Keychain Acceptance' : config.productName
+    const bundle = resolve(staging, `${bundleName}.app`)
     const contents = resolve(bundle, 'Contents')
     const macos = resolve(contents, 'MacOS')
     const resources = resolve(contents, 'Resources')
@@ -38,7 +41,7 @@ export function buildChannels(qa: boolean): void {
     const escapeXml = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     const values: Record<string, string> = {
       CFBundleExecutable: config.mainBinaryName, CFBundleIdentifier: config.identifier,
-      CFBundleName: config.productName, CFBundleDisplayName: config.productName,
+      CFBundleName: bundleName, CFBundleDisplayName: bundleName,
       CFBundlePackageType: 'APPL', CFBundleInfoDictionaryVersion: '6.0', CFBundleIconFile: 'icon.icns',
       CFBundleShortVersionString: config.version, CFBundleVersion: config.version,
       LSMinimumSystemVersion: config.bundle.macOS.minimumSystemVersion, NSPrincipalClass: 'NSApplication',

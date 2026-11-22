@@ -96,8 +96,41 @@ fn run_mode(
     validate_config(context.config(), expected_identifier)
         .expect("编译配置不匹配，拒绝创建窗口或数据");
     let channels_qa = expected_identifier == "com.tinker.channels-native-qa";
-    if channels && !channels_qa {
-        crate::credentialed_channels::process::enter_native_role();
+    if channels {
+        // 误选普通包或模拟包时，拒绝验收参数，不进入默认应用数据目录。
+        #[cfg(not(all(
+            target_os = "macos",
+            feature = "keychain-acceptance",
+            not(feature = "formal-native-qa")
+        )))]
+        if std::env::args_os()
+            .skip(1)
+            .any(|arg| arg == "--accept-synthetic-keychain")
+        {
+            eprintln!("This binary cannot run Keychain acceptance.");
+            std::process::exit(64);
+        }
+        if !channels_qa {
+            crate::credentialed_channels::process::enter_native_role();
+            #[cfg(feature = "keychain-acceptance")]
+            {
+                #[cfg(all(target_os = "macos", not(feature = "formal-native-qa")))]
+                if std::env::args_os()
+                    .skip(1)
+                    .eq([std::ffi::OsString::from("--accept-synthetic-keychain")])
+                {
+                    if let Err(error) = crate::credentialed_channels::acceptance::native() {
+                        eprintln!("Keychain acceptance incomplete: {error}");
+                        std::process::exit(1);
+                    }
+                    return;
+                }
+                eprintln!(
+                    "Use the dedicated macOS acceptance build with --accept-synthetic-keychain."
+                );
+                std::process::exit(64);
+            }
+        }
     }
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![formal_commands::formal_request, formal_commands::formal_window])
