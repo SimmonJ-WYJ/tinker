@@ -37,6 +37,7 @@ import { tabMinimapCacheAtom } from '@/atoms/tab-atoms'
 import { ScrollPositionManager } from '@/hooks/useScrollPositionMemory'
 import { cn } from '@/lib/utils'
 import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
+import { NativeSearchMessageLocation } from './NativeSearchMessageLocation'
 import './conversation-flow.css'
 import { ConversationSymbol } from './ConversationSymbol.tsx'
 import { RunningStatusText } from './RunningStatusText.tsx'
@@ -801,6 +802,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
     >
       <MessageReferenceNavigation sessionId={sessionId} targets={referenceTargets}>
       <ScrollPositionManager id={sessionId} ready={ready} />
+      {window.__TAURI_FORMAL__ && <NativeSearchMessageLocation sessionId={sessionId} ready={ready && messagesLoaded !== false} groups={allGroups} />}
       <ConversationContent className="conversation-column__messages">
         {/* 统一消息渲染（持久化 + 实时合并为一个列表，确保 system 消息位置正确） */}
         {useSDKRenderer ? (

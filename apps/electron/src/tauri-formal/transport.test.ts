@@ -219,3 +219,25 @@ test('初次 attach 确认迟到时 history 仍有期限，恢复不能越过原
   expect(f.calls.some((c) => c.command === 'restore')).toBe(false)
   t.dispose()
 })
+
+test('未完成的只读搜索不阻塞关闭；已释放窗口拒绝迟到结果', async () => {
+  const f = fixture()
+  const request = f.bridge.request
+  let finish!: () => void
+  f.bridge.request = async <T,>(command: Record<string, unknown>): Promise<T> => {
+    if (command.channel !== 'agent:search-messages') return request<T>(command)
+    await new Promise<void>(resolve => { finish = resolve })
+    return { value: [] } as T
+  }
+  const t = await createFormalTransport(f.bridge, code => code)
+  const search = t.invoke('agent:search-messages', 'hello')
+  try {
+    t.setClosing(true)
+    const drained = await Promise.race([t.quiesce().then(() => true), tick().then(() => false)])
+    expect(drained).toBe(true)
+  } finally {
+    t.dispose()
+    finish()
+    await expect(search).rejects.toThrow('staleGeneration')
+  }
+})

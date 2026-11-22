@@ -73,6 +73,7 @@
     "placeholder": "Search conversations...",
     "hint": "Type a keyword to search conversation titles and message content",
     "noResults": "No matches found",
+    "contentUnavailable": "Could not search conversation messages.",
     "groupTitleMatch": "Title matches",
     "groupContentMatch": "Message content matches",
     "footer": {

@@ -10,6 +10,8 @@
 
 import * as React from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { SearchDialog } from './SearchDialog'
+import { searchDialogOpenAtom } from '@/atoms/search-atoms'
 import { LeftSidebar } from './LeftSidebar'
 import { RightSidePanel } from './RightSidePanel'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
@@ -47,6 +49,10 @@ export function AppShell({ contextValue }: AppShellProps): React.ReactElement {
   const activeView = useAtomValue(activeViewAtom)
   const [narrow, setNarrow] = React.useState(() => window.matchMedia('(max-width: 1100px)').matches)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const searchOpen = useAtomValue(searchDialogOpenAtom)
+  React.useEffect(() => {
+    if (window.__TAURI_FORMAL__ && searchOpen) setDrawerOpen(false)
+  }, [searchOpen])
   React.useEffect(() => {
     const media = window.matchMedia('(max-width: 1100px)')
     const update = (): void => { setNarrow(media.matches); setDrawerOpen(false) }
@@ -192,13 +198,17 @@ export function AppShell({ contextValue }: AppShellProps): React.ReactElement {
         <Drawer.Portal>
           <Drawer.Overlay className="workspace-drawer-overlay" />
           <Drawer.Content className="workspace-drawer" aria-describedby={undefined}
-            onCloseAutoFocus={(event) => { event.preventDefault(); document.querySelector<HTMLElement>('[data-sidebar-toggle]')?.focus() }}>
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              if (!window.__TAURI_FORMAL__ || !searchOpen) document.querySelector<HTMLElement>('[data-sidebar-toggle]')?.focus()
+            }}>
             <Drawer.Title className="sr-only">{t('navigation.sidebar')}</Drawer.Title>
             <div className="workspace-drawer__toolbar titlebar-drag-region"><Drawer.Close asChild><Button variant="ghost" size="icon-sm" className="titlebar-no-drag" aria-label={t('sidebar.collapse')}><PanelLeft size={17} strokeWidth={1.5} /></Button></Drawer.Close></div>
             <div className="workspace-drawer__body" onClick={(event) => { if ((event.target as HTMLElement).closest('.home-sidebar__menu button, .home-projects__session, .home-projects__item, .home-recent-session')) setDrawerOpen(false) }}><LeftSidebar forceExpanded /></div>
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>}
+      {window.__TAURI_FORMAL__ && <SearchDialog />}
       <SpotlightOverlay />
       <ConceptSpotlightOverlay />
     </AppShellProvider>

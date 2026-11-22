@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useStore } from 'jotai'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -32,6 +32,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useT } from '@/hooks/useT'
+import { searchMessageTargetAtom } from '@/atoms/search-atoms'
 import { pendingQuoteAtom } from '@/atoms/text-selection-atoms'
 import { createAtMentionSuggestion } from '@/components/agent/at-mention-suggestion'
 import type { AtMentionStatus } from '@/components/agent/AtMentionPanel'
@@ -401,6 +402,7 @@ export function RichTextInput({
   const [isManuallyCollapsed, setIsManuallyCollapsed] = useState(false)
 
   // 监听 pendingQuote atom，插入引用到编辑器
+  const store = useStore()
   const [pendingQuote, setPendingQuote] = useAtom(pendingQuoteAtom)
   // 跟踪编辑器自己设置的值，用于区分外部设置和内部更新
   const lastEditorValueRef = useRef<string>('')
@@ -871,13 +873,16 @@ export function RichTextInput({
 
   // 自动聚焦：组件挂载时 + autoFocusTrigger 变化时
   useEffect(() => {
-    if (editor && !disabled) {
+    // 显式打开原生搜索结果时，历史加载与编辑器挂载的先后顺序不固定。
+    const searchOwnsFocus = (): boolean => Boolean(window.__TAURI_FORMAL__ &&
+      (store.get(searchMessageTargetAtom) || document.activeElement?.hasAttribute('data-search-located')))
+    if (editor && !disabled && !searchOwnsFocus()) {
       const timer = setTimeout(() => {
-        editor.commands.focus()
+        if (!searchOwnsFocus()) editor.commands.focus()
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [editor, disabled, autoFocusTrigger])
+  }, [editor, disabled, autoFocusTrigger, store])
 
   // #84 Windows IME 第二道兜底：Alt+Tab 切离整个 Electron 窗口时，
   // editor 自身 blur 不会触发（焦点仍在 window 内部），需要监听 window blur

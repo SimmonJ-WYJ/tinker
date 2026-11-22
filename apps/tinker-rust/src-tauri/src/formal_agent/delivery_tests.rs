@@ -494,3 +494,49 @@ fn channel_storage_uncertainty_freezes_new_sends_without_mutating_session_journa
 
 #[path = "channel_freeze_tests.rs"]
 mod channel_freeze_tests;
+
+#[test]
+fn replacing_search_bootstrap_and_close_settle_pending_reads() {
+    let (mut actor, _events, _mock, _sid) = setup();
+    let (first, old) = mpsc::sync_channel(1);
+    actor.start_search("first", &first).unwrap();
+    actor.poll_search();
+    let (second, new) = mpsc::sync_channel(1);
+    actor.start_search("second", &second).unwrap();
+    assert_eq!(old.try_recv().unwrap().unwrap_err().0, "staleGeneration");
+    actor.handle(Command::Bootstrap {}, &first).unwrap();
+    assert_eq!(new.try_recv().unwrap().unwrap_err().0, "staleGeneration");
+    actor.start_search("third", &second).unwrap();
+    actor
+        .handle(
+            Command::BeginClose {
+                generation: actor.generation.clone(),
+            },
+            &first,
+        )
+        .unwrap();
+    assert_eq!(new.try_recv().unwrap().unwrap_err().0, "closing");
+    assert_eq!(
+        actor.start_search("fourth", &second).unwrap_err().0,
+        "closing"
+    );
+    assert!(actor.search.is_none());
+}
+
+#[test]
+fn removing_a_session_between_search_pages_clears_a_collected_hit() {
+    let (mut actor, events, _mock, sid) = setup();
+    let pending = send(&mut actor, &sid, "completed", "marker content");
+    settle(&mut actor, &pending).unwrap();
+    while events.try_recv().is_ok() {}
+    let (reply, result) = mpsc::sync_channel(1);
+    actor.start_search("marker", &reply).unwrap();
+    actor.poll_search(); // 固定本次会话的日志上界。
+    actor.poll_search(); // 第一条正文已匹配，尚未交付。
+    assert!(result.try_recv().is_err());
+    actor
+        .invoke("agent:delete-session", vec![json!(sid)], None, &reply)
+        .unwrap();
+    actor.poll_search();
+    assert_eq!(result.try_recv().unwrap().unwrap()["value"], json!([]));
+}

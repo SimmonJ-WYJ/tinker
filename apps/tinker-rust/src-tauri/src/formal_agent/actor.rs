@@ -57,6 +57,7 @@ pub(super) struct Actor {
     pub runtime: Arc<DesktopRuntime>,
     pub probe_worker: Option<std::thread::JoinHandle<()>>,
     pub probe_epoch: Arc<std::sync::atomic::AtomicU64>,
+    pub search: Option<super::search::Search>,
     pub queueing: bool,
     #[cfg(test)]
     pub queue_after_begin: Option<fn(&Actor)>,
@@ -90,6 +91,7 @@ impl Actor {
             runtime,
             probe_worker: None,
             probe_epoch: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            search: None,
             queueing: false,
             #[cfg(test)]
             queue_after_begin: None,
@@ -115,7 +117,12 @@ impl Actor {
     }
     pub fn run(mut self, rx: Receiver<Message>) {
         loop {
-            match rx.recv_timeout(Duration::from_millis(10)) {
+            let timeout = if self.search.is_some() {
+                Duration::ZERO
+            } else {
+                Duration::from_millis(10)
+            };
+            match rx.recv_timeout(timeout) {
                 Ok(Message::Call(command, reply)) => {
                     let result = self.handle(command, &reply);
                     if self.draining {
@@ -168,6 +175,7 @@ impl Actor {
             self.gate.expire();
             self.poll_credential_work();
             self.poll();
+            self.poll_search();
             if self.draining {
                 self.reject_waiters();
                 return;
@@ -175,6 +183,7 @@ impl Actor {
         }
     }
     fn reject_waiters(&mut self) {
+        self.cancel_search("hostClosed");
         for entry in self.entries.values_mut() {
             for w in entry.waiters.drain(..) {
                 let _ = w.send(Err(DesktopError("hostClosed")));
@@ -245,6 +254,7 @@ impl Actor {
         }
         match command {
             Command::Bootstrap {} => {
+                self.cancel_search("staleGeneration");
                 self.cancel_credential_work();
                 self.cancel_probe();
                 if let Some(t) = self.ticket.take() {
@@ -409,6 +419,7 @@ impl Actor {
                 Ok(Some(Value::Null))
             }
             Command::BeginClose { .. } => {
+                self.cancel_search("closing");
                 self.cancel_credential_work();
                 self.cancel_probe();
                 let ticket = self
