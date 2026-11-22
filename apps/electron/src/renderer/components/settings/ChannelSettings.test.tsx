@@ -4,7 +4,7 @@
  * 首次无渠道时，页面应只保留 header 主 CTA，并展示保守收敛空态。
  */
 
-import { afterEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { setAppLanguage } from '@/lib/i18n'
 import { ChannelSettings } from './ChannelSettings.tsx'
@@ -80,4 +80,55 @@ test('按用途分组；启停渠道不会进入编辑，点击渠道可编辑�
   await screen.findByDisplayValue('fixture-key')
   fireEvent.click(screen.getByRole('button', { name: 'Back to providers' }))
   expect(await screen.findByRole('button', { name: 'Edit Image Relay' })).toBeInTheDocument()
+})
+
+test('托管渠道只在确认后删除，取消后可以重新发起', async () => {
+  await setAppLanguage('en')
+  const channel = { id: 'qa', name: 'QA Relay', provider: 'custom-openai', enabled: true, models: [] }
+  const deleteChannel = mock(async (_id: string) => undefined)
+  window.electronAPI = {
+    getChannelCredentialMode: async () => 'managed',
+    listChannels: async () => deleteChannel.mock.calls.length ? [] : [channel],
+    deleteChannel,
+    updateSettings: async () => ({}),
+  } as unknown as Window['electronAPI']
+
+  render(<ChannelSettings />)
+  const remove = await screen.findByRole('button', { name: 'Delete QA Relay' })
+  fireEvent.click(remove)
+  const prompt = await screen.findByRole('alertdialog', { name: /QA Relay/ })
+  expect(deleteChannel).not.toHaveBeenCalled()
+  fireEvent.click(within(prompt).getByRole('button', { name: 'Cancel' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  await waitFor(() => expect(document.activeElement === remove).toBe(true))
+  expect(deleteChannel).not.toHaveBeenCalled()
+  fireEvent.click(remove)
+  const retry = await screen.findByRole('alertdialog', { name: /QA Relay/ })
+  fireEvent.click(within(retry).getByRole('button', { name: 'Delete' }))
+  await screen.findByText('No model providers')
+  expect(deleteChannel.mock.calls).toEqual([['qa']])
+  await waitFor(() => expect(document.activeElement === screen.getByRole('button', { name: 'Add provider' })).toBe(true))
+})
+
+test('Electron 继续使用窗口确认，取消不删除，确认仅删除选中的渠道', async () => {
+  await setAppLanguage('en')
+  const channel = { id: 'legacy', name: 'Legacy Relay', provider: 'custom-openai', enabled: true, models: [] }
+  const deleteChannel = mock(async (_id: string) => undefined)
+  window.electronAPI = {
+    listChannels: async () => deleteChannel.mock.calls.length ? [] : [channel],
+    deleteChannel, updateSettings: async () => ({}),
+  } as unknown as Window['electronAPI']
+  const confirm = spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+  try {
+    render(<ChannelSettings />)
+    const remove = await screen.findByRole('button', { name: 'Delete Legacy Relay' })
+    fireEvent.click(remove)
+    expect(deleteChannel).not.toHaveBeenCalled()
+    fireEvent.click(remove)
+    await screen.findByText('No model providers')
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(deleteChannel.mock.calls).toEqual([['legacy']])
+  } finally {
+    confirm.mockRestore()
+  }
 })
