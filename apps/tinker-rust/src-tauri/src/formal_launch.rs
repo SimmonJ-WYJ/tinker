@@ -96,8 +96,37 @@ fn run_mode(
     validate_config(context.config(), expected_identifier)
         .expect("编译配置不匹配，拒绝创建窗口或数据");
     let channels_qa = expected_identifier == "com.tinker.channels-native-qa";
-    if channels && !channels_qa {
-        crate::credentialed_channels::process::enter_native_role();
+    if channels {
+        // 误选普通包或模拟包时，拒绝验收参数，不进入默认应用数据目录。
+        if !cfg!(all(
+            target_os = "macos",
+            feature = "keychain-acceptance",
+            not(feature = "formal-native-qa")
+        )) && std::env::args_os()
+            .skip(1)
+            .any(|arg| reserved_keychain_argument(&arg))
+        {
+            eprintln!("This binary cannot run Keychain acceptance.");
+            std::process::exit(64);
+        }
+        if !channels_qa {
+            crate::credentialed_channels::process::enter_native_role();
+            #[cfg(feature = "keychain-acceptance")]
+            {
+                #[cfg(all(target_os = "macos", not(feature = "formal-native-qa")))]
+                if let Some(result) = crate::credentialed_channels::acceptance::command() {
+                    if let Err(error) = result {
+                        eprintln!("Keychain acceptance incomplete: {error}");
+                        std::process::exit(1);
+                    }
+                    return;
+                }
+                eprintln!(
+                    "Use the dedicated macOS acceptance build with --accept-synthetic-keychain."
+                );
+                std::process::exit(64);
+            }
+        }
     }
     let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![formal_commands::formal_request, formal_commands::formal_window])
@@ -194,6 +223,10 @@ fn run_mode(
     });
 }
 
+fn reserved_keychain_argument(arg: &std::ffi::OsStr) -> bool {
+    arg == "--accept-synthetic-keychain" || arg == "--window-restart"
+}
+
 fn validate_config(config: &tauri::Config, expected_identifier: &str) -> Result<(), &'static str> {
     if config.identifier != expected_identifier || !config.app.windows.is_empty() {
         return Err("wrongNativeConfiguration");
@@ -203,6 +236,14 @@ fn validate_config(config: &tauri::Config, expected_identifier: &str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn either_diagnostic_flag_is_reserved_in_ordinary_window() {
+        assert!(reserved_keychain_argument("--window-restart".as_ref()));
+        assert!(reserved_keychain_argument(
+            "--accept-synthetic-keychain".as_ref()
+        ));
+        assert!(!reserved_keychain_argument("--unrelated".as_ref()));
+    }
     #[test]
     fn rejects_lab_or_cross_binary_configuration_before_window_creation() {
         let lab: tauri::Config = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();

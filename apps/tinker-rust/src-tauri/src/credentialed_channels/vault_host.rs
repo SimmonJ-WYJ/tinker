@@ -45,6 +45,8 @@ impl HelperVault {
             return Err(DesktopError(match error.as_str() {
                 Some("credentialMissing") => "credentialMissing",
                 Some("credentialBindingMismatch") => "credentialBindingMismatch",
+                #[cfg(all(feature = "keychain-acceptance", not(feature = "formal-native-qa")))]
+                Some("vaultMissingEntitlement") => "vaultMissingEntitlement",
                 Some("vaultDenied") => "vaultDenied",
                 Some("credentialReferenceExists") => "credentialReferenceExists",
                 Some("storageLimit") => "storageLimit",

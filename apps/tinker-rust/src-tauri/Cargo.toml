@@ -20,6 +20,7 @@ tokio = { version = "=1.51.0", features = ["rt", "time", "macros"] }
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 formal-preview = []
+keychain-acceptance = ["formal-preview"]
 formal-native-qa = ["formal-preview", "dep:objc2", "dep:block2", "dep:objc2-foundation", "dep:objc2-app-kit", "dep:objc2-web-kit"]
 
 [dev-dependencies]

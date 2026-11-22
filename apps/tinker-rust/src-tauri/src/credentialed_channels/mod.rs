@@ -21,3 +21,13 @@ pub(crate) mod worker;
 
 #[cfg(any(test, feature = "formal-native-qa"))]
 mod qa_observations;
+
+#[cfg(any(
+    all(test, unix),
+    all(
+        target_os = "macos",
+        feature = "keychain-acceptance",
+        not(feature = "formal-native-qa")
+    )
+))]
+pub(crate) mod acceptance;
