@@ -96,6 +96,13 @@ impl Actor {
             | "channel:test"
             | "channel:test-direct"
             | "channel:fetch-models" => return self.channel_discovery(c, &args, reply),
+            "agent:search-messages" => {
+                arity(&args, 1, 1)?;
+                return self.start_search(
+                    args[0].as_str().ok_or(DesktopError("invalidParams"))?,
+                    reply,
+                );
+            }
             "agent:list-sessions" => {
                 arity(&args, 0, 0)?;
                 json!(self
@@ -165,6 +172,9 @@ impl Actor {
                 self.stop(sid)?;
                 self.poll();
                 self.core("sessions.delete", json!({"sessionId":sid}))?;
+                if let Some(search) = &mut self.search {
+                    search.forget(sid);
+                }
                 // tombstone 后不再读 session；保留有界终态计划直到背压解除。
                 if let Some(entry) = self.entries.get_mut(sid) {
                     // 已删正文不可再访问；只保存精确身份，用空 snapshot 清理此 run。
@@ -274,7 +284,7 @@ impl Actor {
         };
         Ok(Some(json!({"value":value})))
     }
-    fn sessions(&self) -> Result<Vec<Value>> {
+    pub(super) fn sessions(&self) -> Result<Vec<Value>> {
         self.core("sessions.list", json!({}))?["sessions"]
             .as_array()
             .cloned()

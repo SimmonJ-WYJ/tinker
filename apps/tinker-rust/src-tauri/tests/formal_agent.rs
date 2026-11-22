@@ -849,3 +849,95 @@ fn control_enqueue_order_survives_delayed_ack_consumers_and_restore_uses_final_a
     call(&host, json!({"command":"detach","generation":generation}));
     assert_eq!(host.command("main", json!({"command":"restore","generation":generation,"sessionId":session,"observedDeliverySequence":0})).unwrap().wait(Duration::from_secs(2)).unwrap_err().0, "notReady");
 }
+
+#[test]
+fn search_returns_navigable_unicode_text_after_stop_and_reopen_without_provider_requests() {
+    let (root, mut host) = setup();
+    let g = bootstrap(&host);
+    let sid = create(&host, &g);
+    call(
+        &host,
+        json!({"command":"attach","generation":g,"observed":{}}),
+    );
+    let user_text = format!("{}😀NeEdLe🌱{}", "甲".repeat(48), "乙".repeat(48));
+    send(&host, &g, &sid, "search-a", &user_text)
+        .wait(Duration::from_secs(10))
+        .unwrap();
+    let restored = call(
+        &host,
+        json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0}),
+    );
+    let sdk = &restored["sdkMessages"];
+    call(
+        &host,
+        json!({"command":"resume","generation":g,"restoreToken":restored["restoreToken"]}),
+    );
+    let search =
+        |h: &FormalHost, g: &str, q: &str| invoke(h, g, "agent:search-messages", json!([q]));
+    assert_eq!(search(&host, &g, "x"), json!([]));
+    let found = search(&host, &g, "needle");
+    let hit = &found[0];
+    assert_eq!(hit["messageId"], sdk[0]["uuid"]);
+    assert_eq!(hit["role"], "user");
+    let snippet: Vec<_> = hit["snippet"].as_str().unwrap().encode_utf16().collect();
+    let start = hit["matchStart"].as_u64().unwrap() as usize;
+    let len = hit["matchLength"].as_u64().unwrap() as usize;
+    assert_eq!(
+        String::from_utf16(&snippet[start..start + len]).unwrap(),
+        "NeEdLe"
+    );
+    assert!(snippet.starts_with(&[46, 46, 46]));
+    assert_eq!(search(&host, &g, "你好")[0]["messageId"], sdk[1]["uuid"]);
+    let stopped = create(&host, &g);
+    let pending = send(&host, &g, &stopped, "stopped", "[slow] stop marker");
+    invoke(&host, &g, "agent:stop", json!([stopped]));
+    pending.wait(Duration::from_secs(5)).unwrap();
+    assert_eq!(search(&host, &g, "stop marker")[0]["sessionId"], stopped);
+    invoke(&host, &g, "agent:toggle-archive", json!([sid]));
+    host.shutdown().unwrap();
+    drop(host);
+    let host =
+        FormalHost::open(&root, HostEnvironment::new("darwin", false, false).unwrap()).unwrap();
+    let g = bootstrap(&host);
+    let after = search(&host, &g, "needle");
+    assert_eq!(after[0]["archived"], true);
+    assert_eq!(after[0]["messageId"], hit["messageId"]);
+    invoke(&host, &g, "agent:delete-session", json!([sid]));
+    assert_eq!(search(&host, &g, "needle"), json!([]));
+    assert!(host.mock_records().is_empty());
+}
+
+#[test]
+fn search_limits_to_thirty_recent_sessions_and_one_hit_per_session() {
+    let (_root, h) = setup();
+    let g = bootstrap(&h);
+    assert_eq!(
+        invoke(&h, &g, "agent:search-messages", json!(["absent"])),
+        json!([])
+    );
+    let mut ids = vec![];
+    for i in 0..31 {
+        let sid = create(&h, &g);
+        send(
+            &h,
+            &g,
+            &sid,
+            &format!("hit-{i}"),
+            "shared phrase shared phrase",
+        )
+        .wait(Duration::from_secs(5))
+        .unwrap();
+        ids.push(sid);
+    }
+    let got = invoke(&h, &g, "agent:search-messages", json!(["SHARED"]));
+    let expected = ids.iter().rev().take(30).collect::<Vec<_>>();
+    assert_eq!(
+        got.as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row["sessionId"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(h.mock_records().len(), 31);
+}

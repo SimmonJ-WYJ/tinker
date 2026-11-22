@@ -241,6 +241,15 @@ impl DesktopRuntime {
             inner: Mutex::new(inner),
         })
     }
+    /// 固定只读扫描上界。之后新绑定的 turn 属于下次搜索，不能使用旧链映射定位。
+    pub(crate) fn history_extent(&self, session_id: &str) -> Result<usize> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        inner.session(session_id)?;
+        Ok(inner.bindings.get(session_id).map_or(0, Vec::len))
+    }
     pub fn dispatch(&self, value: Value) -> Result<DesktopReply> {
         let wire_id = value
             .get("id")

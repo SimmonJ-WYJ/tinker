@@ -9,13 +9,13 @@
  */
 
 import * as React from 'react'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom, useStore } from 'jotai'
 import { Search, X, Bot, Archive, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { searchDialogOpenAtom } from '@/atoms/search-atoms'
-import { agentSessionsAtom } from '@/atoms/agent-atoms'
+import { searchDialogOpenAtom, searchMessageTargetAtom } from '@/atoms/search-atoms'
+import { agentSessionsAtom, currentAgentSessionIdAtom } from '@/atoms/agent-atoms'
 import { activeViewAtom } from '@/atoms/active-view'
 import { useOpenSession } from '@/hooks/useOpenSession'
 import { useT } from '@/hooks/useT'
@@ -29,6 +29,8 @@ interface TitleResult {
 }
 
 interface ContentResult {
+  query: string
+  messageId: string
   id: string
   title: string
   snippet: string
@@ -92,12 +94,21 @@ export function SearchDialog(): React.ReactElement {
   const agentSessions = useAtomValue(agentSessionsAtom)
   const setActiveView = useSetAtom(activeViewAtom)
   const openSession = useOpenSession()
+  const store = useStore()
+  React.useEffect(() => {
+    if (!window.__TAURI_FORMAL__) return
+    return store.sub(currentAgentSessionIdAtom, () => {
+      const target = store.get(searchMessageTargetAtom)
+      if (target && target.sessionId !== store.get(currentAgentSessionIdAtom)) store.set(searchMessageTargetAtom, null)
+    })
+  }, [store])
 
   const [query, setQuery] = React.useState('')
   const [searchQuery, setSearchQuery] = React.useState('')
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const [contentResults, setContentResults] = React.useState<ContentResult[]>([])
   const [contentLoading, setContentLoading] = React.useState(false)
+  const [contentSearchFailed, setContentSearchFailed] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
@@ -148,13 +159,15 @@ export function SearchDialog(): React.ReactElement {
   }, [searchQuery, agentSessions])
 
   React.useEffect(() => {
-    if (!searchQuery || searchQuery.length < 2) {
+    setContentSearchFailed(false)
+    if (!open || !searchQuery || searchQuery.length < 2) {
       setContentResults([])
       setContentLoading(false)
       return
     }
 
     setContentLoading(true)
+    if (window.__TAURI_FORMAL__) setContentResults([])
     let cancelled = false
 
     const timer = setTimeout(async () => {
@@ -168,6 +181,8 @@ export function SearchDialog(): React.ReactElement {
           .filter((r) => !titleIds.has(r.sessionId))
           .map((r) => ({
             id: r.sessionId,
+            messageId: r.messageId,
+            query: searchQuery,
             title: r.sessionTitle,
             snippet: r.snippet,
             matchStart: r.matchStart,
@@ -177,15 +192,17 @@ export function SearchDialog(): React.ReactElement {
 
         setContentResults(agentContent)
       } catch (error) {
+        if (cancelled) return
         console.error('[搜索] 内容搜索失败:', error)
-        if (!cancelled) setContentResults([])
+        setContentResults([])
+        setContentSearchFailed(Boolean(window.__TAURI_FORMAL__))
       } finally {
         if (!cancelled) setContentLoading(false)
       }
     }, 300)
 
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [searchQuery, titleResults])
+  }, [open, searchQuery, titleResults])
 
   const allResults = React.useMemo(
     () => [...titleResults, ...contentResults.map((c) => ({ ...c, updatedAt: 0 }))],
@@ -197,15 +214,22 @@ export function SearchDialog(): React.ReactElement {
   }, [searchQuery])
 
   const navigateToResult = React.useCallback((result: TitleResult | ContentResult) => {
+    // 输入与防抖查询之间的旧行仍可能收到 Enter 或点击。
+    if (window.__TAURI_FORMAL__ && (isComposingRef.current || query !== searchQuery ||
+      ('messageId' in result && result.query !== query))) return
     setOpen(false)
     setActiveView('conversations')
 
     const session = agentSessions.find((s) => s.id === result.id)
     const title = session?.title ?? result.title
     openSession('agent', result.id, title)
-  }, [setOpen, setActiveView, openSession, agentSessions])
+    if (window.__TAURI_FORMAL__) {
+      store.set(searchMessageTargetAtom, 'messageId' in result ? { sessionId: result.id, messageId: result.messageId } : null)
+    }
+  }, [setOpen, setActiveView, openSession, agentSessions, store, query, searchQuery])
 
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    if (window.__TAURI_FORMAL__ && (isComposingRef.current || e.nativeEvent.isComposing)) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setSelectedIndex((prev) => Math.min(prev + 1, allResults.length - 1))
@@ -229,6 +253,7 @@ export function SearchDialog(): React.ReactElement {
 
   React.useEffect(() => {
     if (open) {
+      if (window.__TAURI_FORMAL__) store.set(searchMessageTargetAtom, null)
       clearTimeout(commitTimerRef.current)
       setQuery('')
       setSearchQuery('')
@@ -237,7 +262,7 @@ export function SearchDialog(): React.ReactElement {
       setLockedTop(null)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
-  }, [open])
+  }, [open, store])
 
   // open 后等首帧渲染（仅 input + hint 占位）完成,以"假设垂直居中"为锚算出 top 像素并锁住,
   // 后续结果增加只改面板高度,不改 top。
@@ -312,7 +337,12 @@ export function SearchDialog(): React.ReactElement {
             </div>
           )}
 
-          {searchQuery && titleResults.length === 0 && contentResults.length === 0 && !contentLoading && (
+          {contentSearchFailed && (
+            <div role="status" className="py-4 px-2.5 text-sm text-muted-foreground">
+              {t('searchDialog.contentUnavailable')}
+            </div>
+          )}
+          {searchQuery && titleResults.length === 0 && contentResults.length === 0 && !contentLoading && !contentSearchFailed && (
             <div className="py-14 text-center text-sm text-muted-foreground">
               {t('searchDialog.noResults')}
             </div>

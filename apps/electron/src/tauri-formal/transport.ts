@@ -222,7 +222,8 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     }
     const pending = usesLane(channel) ? lane.then(execute) : execute()
     if (usesLane(channel)) lane = pending.catch(() => {})
-    if (channel !== 'agent:send-message') { fast.add(pending); void pending.finally(() => fast.delete(pending)).catch(() => {}) }
+    // 只读搜索由原生宿主在关闭时取消；不占用持久化和关闭的等待队列。
+    if (channel !== 'agent:send-message' && channel !== 'agent:search-messages') { fast.add(pending); void pending.finally(() => fast.delete(pending)).catch(() => {}) }
     return pending
   }
   async function persistCapture(value: LifecycleCapture): Promise<number> {

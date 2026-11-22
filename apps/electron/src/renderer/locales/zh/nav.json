@@ -73,6 +73,7 @@
     "placeholder": "搜索会话...",
     "hint": "输入关键词搜索会话标题和消息内容",
     "noResults": "未找到匹配结果",
+    "contentUnavailable": "无法搜索对话消息。",
     "groupTitleMatch": "标题匹配",
     "groupContentMatch": "消息内容匹配",
     "footer": {

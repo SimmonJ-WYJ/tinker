@@ -458,7 +458,7 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
 
         {deleteDialog}
   
-        <SearchDialog />
+        {!window.__TAURI_FORMAL__ && <SearchDialog />}
       </div>
     )
   }
@@ -495,7 +495,7 @@ export function LeftSidebar({ width, forceExpanded = false }: LeftSidebarProps):
           <span className="sidebar-account-chevron"><SidebarGlyph name="chevron" /></span>
         </Button></div>
       )}
-      {deleteDialog}<SearchDialog />
+      {deleteDialog}{!window.__TAURI_FORMAL__ && <SearchDialog />}
     </div>
   )
 }

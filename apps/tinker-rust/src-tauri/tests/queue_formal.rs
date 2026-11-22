@@ -287,6 +287,15 @@ fn full_outbox_stop_preserves_unexecuted_text_and_restart_makes_no_http() {
         .unwrap()
         .iter()
         .any(|m| m["_desktopQueueUuid"] == "b" && m["_desktopQueueDisposition"] == "abandoned"));
+    let hit = invoke(
+        &reopened,
+        g,
+        "agent:search-messages",
+        json!(["retained b"]),
+        None,
+    );
+    assert_eq!(hit[0]["messageId"], r#"native-queue:["a","b"]"#);
+    assert_eq!(hit[0]["role"], "user");
     assert!(reopened.mock_records().is_empty());
     reopened.shutdown().unwrap();
 }

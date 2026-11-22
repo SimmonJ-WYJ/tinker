@@ -12,6 +12,8 @@ pub mod protocol;
 mod queue_bridge;
 mod queue_frames;
 mod queue_projection;
+mod search;
+mod search_text;
 mod tool_projection;
 use crate::{
     desktop_runtime::{

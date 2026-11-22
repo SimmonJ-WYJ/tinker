@@ -2,7 +2,8 @@
 .workspace-shell .conversation-column:not([data-home-empty]) { max-width: calc(var(--conversation-content-width) + 48px); }
 .conversation-flow .conversation-column__messages { gap: var(--conversation-turn-gap); padding-top: var(--conversation-top-inset); padding-bottom: 32px; }
 .conversation-flow [data-message-id] { min-width: 0; border-radius: 12px; outline: none; scroll-margin-top: 24px; transition: background-color 180ms ease, box-shadow 180ms ease; }
-.conversation-flow [data-reference-highlighted='true'] { background: hsl(var(--primary) / .07); box-shadow: 0 0 0 2px hsl(var(--ring) / .25); }
+.conversation-flow [data-reference-highlighted='true'],
+.conversation-flow [data-search-located]:focus { background: hsl(var(--primary) / .07); box-shadow: 0 0 0 2px hsl(var(--ring) / .25); }
 .conversation-flow .conversation-assistant-turn { color: hsl(var(--conversation-body)); position: relative; padding: 0 0 0 36px; gap: 0; border-radius: 0; }
 .conversation-symbol { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; }
 .conversation-assistant-turn > .conversation-symbol { position: absolute; left: 0; top: 0; }
