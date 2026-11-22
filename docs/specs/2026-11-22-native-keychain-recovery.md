@@ -1,6 +1,6 @@
 # Isolated macOS Keychain recovery acceptance
 
-**Status** — The real helper reached the Data Protection Keychain. The locally signed build was denied a required entitlement during the first synthetic credential stage. Successful native item operations and full application relaunch with a real credential remain open. Baseline: PR #28, merge `5c9a24d`. Domain contract: [credentialed text preview](2026-11-17-credentialed-text-preview.md).
+**Status** — The Apple Development signed QA helper wrote, read and removed a synthetic credential in the real Data Protection Keychain. The ordinary preview started with that committed channel. Recovery of a manually selected second model in a new window process with that same credential remains open. Baseline: PR #28, merge `5c9a24d`. Domain contract: [credentialed text preview](2026-11-17-credentialed-text-preview.md).
 
 ## Reproduce on a Mac
 
@@ -19,12 +19,27 @@
 
 ## Evidence and remaining gates
 
-The November 22 macOS arm64 attempt used an ad-hoc bundle with identifier `com.tinker.channels-preview` and no TeamIdentifier. The empty-service preflight succeeded. The first stage returned `vaultMissingEntitlement` (Security.framework `-34018`) and the process exited 1. A read of only the disposable profile showed revision 0, zero channels and zero receipts. No successful native put, rotation, removal, or relaunch with a saved real-vault channel is claimed. Later changes to preserve a failed fixture and reject a wrong build were tested without repeating the entitlement-denied operation. [Apple error reference](https://developer.apple.com/documentation/security/errsecmissingentitlement).
+The November 22 macOS arm64 attempt used an ad-hoc bundle with identifier `com.tinker.channels-preview` and no TeamIdentifier. The empty-service preflight succeeded. The first stage returned `vaultMissingEntitlement` (Security.framework `-34018`) and the process exited 1. A read of only the disposable profile showed revision 0, zero channels and zero receipts. That ad-hoc attempt did not reach a successful write. The later entitled runs are documented below. Later changes to preserve a failed fixture and reject a wrong build were tested without repeating the entitlement-denied operation. [Apple error reference](https://developer.apple.com/documentation/security/errsecmissingentitlement).
 
-The reserved diagnostic flag and build feature are opt-in. The regular Electron entry, renderer, configuration paths, and profile schemas retain their existing behavior. Ordinary helper callers continue receiving the established safe error for a missing entitlement. Revert this change to remove the diagnostic. An authorized signed QA artifact is needed for the remaining native gates. A live model request, user data migration, and release signing are separate operations.
+The reserved diagnostic flag and build feature are opt-in. The regular Electron entry, renderer, configuration paths, and profile schemas retain their existing behavior. Ordinary helper callers continue receiving the established safe error for a missing entitlement. Revert this change to remove the diagnostic. The remaining joint gate requires the entitled window and diagnostic to share the same marked fixture for both window processes. A live model request, user data migration, and release signing are separate operations.
 
 ## Local checks on the delivery branch
 
 - Rust: 455 top-level tests passed, 0 failed, 2 ignored across 45 targets using `cargo test --offline --features formal-native-qa -- --test-threads=1`. The loopback host test observed no repeat request on reopen; fresh-process repair preserved the other synthetic key. Run the Lab, formal and native-QA frontend builds before compiling the full target set from a clean checkout.
 - Bun: 3,571 passed, five skipped and zero failed. Workspace typecheck, Electron build, Rust formatting, and Clippy with warnings denied for both the acceptance feature and all features passed. The repository ESLint configuration does not cover the two build scripts.
 - Ordinary and diagnostic arm64 bundles built and passed strict signature verification. The ordinary bundle rejected the diagnostic flag; the diagnostic bundle rejected an empty argument list. Both exited 64. These invocation checks did not perform a Keychain operation.
+
+## Joint window restart acceptance
+
+The diagnostic may prepare a committed fixture in a fresh marked root through the platform staging and commit APIs. Only the diagnostic owns its random secret and acknowledged reference. The ordinary window uses the same signed application identifier, opens that explicit fixture and selects the second model through the existing UI. Close the first process fully and start the same executable with the same root, then compare the displayed selection, process identities and helper-launch observations. A manual connection probe against the reserved invalid hostname provides a positive observation control. This exercises restart of a pre-existing catalog. Normal window creation of a channel still requires a successful HTTPS connection test.
+
+The new diagnostic mode must accept no root, key, endpoint or existing reference. It reads one byte from its owner after both windows have exited, validates the stored selection and the credential binding, then disposes only its one acknowledged reference. A failed check must not alter any existing application state or other service. This command is not a normal preview or production entry.
+
+### Observed results on macOS arm64
+
+- A prior Apple Development signed diagnostic exercised the real Keychain lifecycle. A separate native QA window test restored the saved channel and non-default model in a new process with a fake vault and loopback provider.
+- In this joint attempt the entitled diagnostic committed the channel and read its bound synthetic secret using the real helper. The ordinary entitled window started with the same disposable root (PID 10340). The observer registered three startup child-process notifications. Those notifications do not identify network requests.
+- The owner's 20-minute fixture window expired before it received verification from both window processes. The diagnostic reported `windowCheckAborted` and confirmed cleanup of its single acknowledged reference. The second-model selection across processes, the final binding read after relaunch and the request observer's positive control remain unverified on this fixture.
+- The final library suite with `--features keychain-acceptance` passed 181 tests, with one ignored. Tests inject failures before and after handoff, break the readiness output and verify that an unrelated reference survives cleanup. Format, Clippy with warnings denied and the dedicated macOS diagnostic build passed. The signed attempt preceded the final changes to failure-path cleanup and diagnostic-argument rejection.
+
+To reproduce, use the entitled diagnostic with `--accept-synthetic-keychain --window-restart` and keep its input pipe open. Start the entitled ordinary preview with `TINKER_CHANNELS_PREVIEW_ROOT` set to the fresh marked root printed by that diagnostic. Select **Restart Second**, quit, wait for its PID to exit, and relaunch the same ordinary executable with the same root. Check the restored channel and model. Record request observations and a positive control separately. Quit the second process before writing the byte `v` to the diagnostic. Closing the pipe aborts the check and cleans its acknowledged reference.

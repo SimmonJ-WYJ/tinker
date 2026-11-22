@@ -11,6 +11,7 @@ use crate::{
     },
 };
 use serde_json::json;
+mod window;
 
 fn fresh_root() -> Result<TrustedRoot> {
     let path = std::fs::canonicalize("/tmp")?.join(format!(
@@ -56,7 +57,7 @@ impl Run<'_> {
             version: 1,
             channel: op.into(),
             args: vec![
-                json!({"channel":{"id":id,"name":"Acceptance","protocol":"openai-chat","baseUrl":"https://keychain.invalid/v1","enabled":true,"models":[{"modelId":"synthetic","label":"Synthetic"}]},"credential":"keep"}),
+                json!({"channel":{"id":id,"name":"Acceptance","protocol":"openai-chat","baseUrl":"https://keychain.invalid/v1","enabled":true,"models":[{"modelId":"synthetic","label":"Synthetic"},{"modelId":"restart-second","label":"Restart Second"}]},"credential":"keep"}),
             ],
             mutation: Some(Mutation {
                 mutation_id: mutation.into(),
@@ -88,7 +89,8 @@ impl Run<'_> {
             self.owned.contains(&revision.credential_ref),
             "unownedReference",
         )?;
-        eprintln!("Read bound synthetic channel: {id}");
+        use std::io::Write;
+        let _ = writeln!(std::io::stderr(), "Read bound synthetic channel: {id}");
         let key = self.vault.acquire_bound(
             &self.scope,
             &revision.credential_ref,
@@ -234,7 +236,24 @@ fn exercise(
     feature = "keychain-acceptance",
     not(feature = "formal-native-qa")
 ))]
-pub(crate) fn native() -> Result<()> {
+pub(crate) fn command() -> Option<Result<()>> {
+    let mut args = std::env::args_os().skip(1);
+    if args.next().as_deref() != Some(std::ffi::OsStr::new("--accept-synthetic-keychain")) {
+        return None;
+    }
+    match (args.next(), args.next()) {
+        (None, None) => Some(native()),
+        (Some(mode), None) if mode == "--window-restart" => Some(window::native()),
+        _ => None,
+    }
+}
+
+#[cfg(all(
+    target_os = "macos",
+    feature = "keychain-acceptance",
+    not(feature = "formal-native-qa")
+))]
+fn native() -> Result<()> {
     let root = fresh_root()?;
     eprintln!("Synthetic profile: {}", root.path().display());
     let result = exercise(
@@ -254,7 +273,7 @@ pub(crate) fn native() -> Result<()> {
 mod tests {
     use super::*;
     use crate::credentialed_channels::vault_fake::{FakeVault, QA_SECRET_ONE, QA_SECRET_TWO};
-    fn fixture() -> (TrustedRoot, FakeVault) {
+    pub(super) fn fixture() -> (TrustedRoot, FakeVault) {
         let root = fresh_root().unwrap();
         let path = root.path().join("qa-vault");
         use std::os::unix::fs::DirBuilderExt;
