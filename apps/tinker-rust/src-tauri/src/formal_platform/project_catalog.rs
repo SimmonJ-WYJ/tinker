@@ -17,7 +17,7 @@ use std::{
 };
 const NAMESPACE: &str = "formal-project-platform-v1";
 pub(super) const MAX_PROJECTS: usize = 256;
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Binding {
     path: PathBuf,
@@ -99,7 +99,7 @@ impl WorkspaceRecord {
         out
     }
 }
-pub(super) fn validate_catalog(records: &[WorkspaceRecord]) -> Result<()> {
+pub(super) fn validate_catalog(records: &[WorkspaceRecord], managed: bool) -> Result<()> {
     let mut seen = BTreeSet::new();
     for record in records.iter().skip(1) {
         let w = &record.workspace;
@@ -127,7 +127,8 @@ pub(super) fn validate_catalog(records: &[WorkspaceRecord]) -> Result<()> {
                 .as_deref()
                 .is_some_and(|s| !valid_project_name(s))
             || w.directory_status.is_some()
-            || !["low", "medium", "high", "max"].contains(&record.effort.as_str())
+            || !(["low", "medium", "high", "max"].contains(&record.effort.as_str())
+                || managed && record.effort.is_empty())
             || record.binding.as_ref().is_some_and(|b| {
                 !b.path.is_absolute()
                     || b.path
@@ -142,7 +143,7 @@ pub(super) fn validate_catalog(records: &[WorkspaceRecord]) -> Result<()> {
 }
 impl Inner {
     fn commit_projects(&mut self, next: Persisted) -> Result<()> {
-        validate_catalog(&next.workspaces)?;
+        validate_catalog(&next.workspaces, false)?;
         let bytes = serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?;
         super::store::snapshot_budget(&bytes)?;
         if !self.project_mode {
@@ -174,201 +175,245 @@ impl Inner {
         Ok(())
     }
 }
-impl FormalPlatform {
-    pub(crate) fn import_projects(
+pub(crate) trait ProjectCatalog {
+    fn check_project_text(&self, text: &str) -> Result<()>;
+    fn edit_projects<T>(
+        &self,
+        edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &Path) -> Result<T>,
+    ) -> Result<T>;
+    fn import_projects(
         &self,
         projects: &[SourceProject],
         refs: &BTreeSet<String>,
     ) -> Result<ImportedProjects> {
-        let mut inner = self
+        self.edit_projects(|records, _| {
+            let mut result = ImportedProjects {
+                ids: BTreeMap::new(),
+                imported: 0,
+                updated: 0,
+                rejected: 0,
+            };
+            let sources: BTreeMap<_, _> = projects
+                .iter()
+                .map(|p| (p.source_project_id.clone(), p))
+                .collect();
+            if sources.len() != projects.len() {
+                return Err(DesktopError("invalidProject"));
+            }
+            let keys: BTreeSet<_> = sources.keys().chain(refs.iter()).collect();
+            for source in keys {
+                let detail = sources.get(source);
+                let valid = identifier(source).is_ok()
+                    && self.check_project_text(source).is_ok()
+                    && detail.is_none_or(|p| {
+                        valid_project_name(&p.name)
+                            && p.created_at <= p.updated_at
+                            && p.updated_at <= MAX_SAFE_INTEGER
+                            && self.check_project_text(&p.name).is_ok()
+                    });
+                if !valid {
+                    // 不返回被拒的标识、名称或路径。关联会话由调用方按缺失映射逐项跳过。
+                    result.rejected += 1;
+                    continue;
+                }
+                let id = project_id(source);
+                if let Some(record) = records.iter_mut().find(|w| w.workspace.id == id) {
+                    if record.source_project_id.as_deref() != Some(source.as_str()) {
+                        return Err(DesktopError("projectConflict"));
+                    }
+                    if let Some(p) = detail {
+                        let w = &mut record.workspace;
+                        if w.project_origin.as_deref() == Some("orphan")
+                            || p.updated_at > w.updated_at
+                        {
+                            w.name = p.name.clone();
+                            w.created_at = p.created_at;
+                            w.updated_at = p.updated_at;
+                            w.has_directory_hint = Some(p.has_directory_hint);
+                            w.project_origin = Some("imported".into());
+                            result.updated += 1;
+                        } else if p.updated_at == w.updated_at
+                            && w.has_directory_hint != Some(p.has_directory_hint)
+                        {
+                            w.has_directory_hint = Some(p.has_directory_hint);
+                            result.updated += 1;
+                        }
+                    }
+                } else {
+                    if records.len() > MAX_PROJECTS {
+                        return Err(DesktopError("projectLimit"));
+                    }
+                    records.push(WorkspaceRecord {
+                        workspace: Workspace {
+                            id: id.clone(),
+                            slug: id.clone(),
+                            name: detail
+                                .map_or("Recovered project", |p| p.name.as_str())
+                                .to_owned(),
+                            created_at: detail.map_or(0, |p| p.created_at),
+                            updated_at: detail.map_or(0, |p| p.updated_at),
+                            project_origin: Some(
+                                if detail.is_some() {
+                                    "imported"
+                                } else {
+                                    "orphan"
+                                }
+                                .into(),
+                            ),
+                            has_directory_hint: Some(detail.is_some_and(|p| p.has_directory_hint)),
+                            directory_status: None,
+                        },
+                        effort: "high".into(),
+                        source_project_id: Some(source.clone()),
+                        binding: None,
+                        local_name: None,
+                    });
+                    result.imported += 1;
+                }
+                result.ids.insert(source.clone(), id);
+            }
+            Ok(result)
+        })
+    }
+    fn create_project(&self, name: &str, from: Option<&str>) -> Result<Workspace> {
+        self.edit_projects(|records, _| {
+            if !valid_project_name(name) {
+                return Err(DesktopError("invalidProject"));
+            }
+            self.check_project_text(name)?;
+            if from.is_some_and(|from| !records.iter().any(|w| w.workspace.slug == from)) {
+                return Err(DesktopError("workspaceNotFound"));
+            }
+            if records
+                .iter()
+                .any(|w| w.local_name.as_ref().unwrap_or(&w.workspace.name) == name)
+            {
+                return Err(DesktopError("projectConflict"));
+            }
+            if records.len() > MAX_PROJECTS {
+                return Err(DesktopError("projectLimit"));
+            }
+            let id = format!(
+                "native-project-{}",
+                crate::credentialed_channels::catalog::random_reference()?
+            );
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|_| DesktopError("clockUnavailable"))?
+                .as_millis() as u64;
+            let record = WorkspaceRecord {
+                workspace: Workspace {
+                    id: id.clone(),
+                    slug: id,
+                    name: name.into(),
+                    created_at: now,
+                    updated_at: now,
+                    project_origin: Some("native".into()),
+                    directory_status: None,
+                    has_directory_hint: None,
+                },
+                source_project_id: None,
+                effort: "high".into(),
+                binding: None,
+                local_name: None,
+            };
+            let out = record.public();
+            records.push(record);
+            Ok(out)
+        })
+    }
+    fn rename_project(&self, id: &str, name: &str) -> Result<Workspace> {
+        self.edit_projects(|records, _| {
+            if !valid_project_name(name) {
+                return Err(DesktopError("invalidProject"));
+            }
+            self.check_project_text(name)?;
+            let index = records
+                .iter()
+                .position(|r| r.workspace.id == id && r.workspace.project_origin.is_some())
+                .ok_or(DesktopError("workspaceNotFound"))?;
+            let current = &records[index];
+            if current
+                .local_name
+                .as_ref()
+                .unwrap_or(&current.workspace.name)
+                == name
+            {
+                return Ok(current.public());
+            }
+            if records.iter().any(|r| {
+                r.workspace.id != id && r.local_name.as_ref().unwrap_or(&r.workspace.name) == name
+            }) {
+                return Err(DesktopError("projectConflict"));
+            }
+            let record = &mut records[index];
+            record.local_name = Some(name.to_owned());
+            let out = record.public();
+            Ok(out)
+        })
+    }
+    fn bind_project_folder(
+        &self,
+        id: &str,
+        path: &Path,
+        selected: (u64, u64),
+    ) -> Result<Workspace> {
+        self.edit_projects(|records, target| {
+            let path_text = path
+                .to_str()
+                .ok_or(DesktopError("projectDirectoryUnavailable"))?;
+            self.check_project_text(path_text)?;
+            if directory_identity(path)? != selected {
+                return Err(DesktopError("projectDirectoryUnavailable"));
+            }
+            let root_identity = directory_identity(target)?;
+            for (tree, forbidden) in [(target, selected), (path, root_identity)] {
+                for ancestor in tree.ancestors() {
+                    if directory_identity(ancestor)? == forbidden {
+                        return Err(DesktopError("unsafeImportPath"));
+                    }
+                }
+            }
+            let record = records
+                .iter_mut()
+                .skip(1)
+                .find(|w| w.workspace.id == id)
+                .ok_or(DesktopError("workspaceNotFound"))?;
+            record.binding = Some(Binding {
+                path: path.to_owned(),
+                device: selected.0,
+                inode: selected.1,
+            });
+            if directory_identity(path)? != selected {
+                return Err(DesktopError("projectDirectoryUnavailable"));
+            }
+            let out = record.public();
+            Ok(out)
+        })
+    }
+}
+
+impl ProjectCatalog for FormalPlatform {
+    fn check_project_text(&self, text: &str) -> Result<()> {
+        super::reject_credentials(&serde_json::json!(text), &self.known_keys)
+    }
+    fn edit_projects<T>(
+        &self,
+        edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &Path) -> Result<T>,
+    ) -> Result<T> {
+        let mut i = self
             .inner
             .lock()
             .map_err(|_| DesktopError("recoveryRequired"))?;
-        let mut next = inner.state.clone();
-        let mut result = ImportedProjects {
-            ids: BTreeMap::new(),
-            imported: 0,
-            updated: 0,
-            rejected: 0,
-        };
-        let sources: BTreeMap<_, _> = projects
-            .iter()
-            .map(|p| (p.source_project_id.clone(), p))
-            .collect();
-        if sources.len() != projects.len() {
-            return Err(DesktopError("invalidProject"));
-        }
-        let keys: BTreeSet<_> = sources.keys().chain(refs.iter()).collect();
-        for source in keys {
-            let detail = sources.get(source);
-            let valid = identifier(source).is_ok()
-                && super::reject_credentials(&serde_json::json!(source), &self.known_keys).is_ok()
-                && detail.is_none_or(|p| {
-                    valid_project_name(&p.name)
-                        && p.created_at <= p.updated_at
-                        && p.updated_at <= MAX_SAFE_INTEGER
-                        && super::reject_credentials(&serde_json::json!(p.name), &self.known_keys)
-                            .is_ok()
-                });
-            if !valid {
-                // 不返回被拒的标识、名称或路径。关联会话由调用方按缺失映射逐项跳过。
-                result.rejected += 1;
-                continue;
-            }
-            let id = project_id(source);
-            if let Some(record) = next.workspaces.iter_mut().find(|w| w.workspace.id == id) {
-                if record.source_project_id.as_deref() != Some(source.as_str()) {
-                    return Err(DesktopError("projectConflict"));
-                }
-                if let Some(p) = detail {
-                    let w = &mut record.workspace;
-                    if w.project_origin.as_deref() == Some("orphan") || p.updated_at > w.updated_at
-                    {
-                        w.name = p.name.clone();
-                        w.created_at = p.created_at;
-                        w.updated_at = p.updated_at;
-                        w.has_directory_hint = Some(p.has_directory_hint);
-                        w.project_origin = Some("imported".into());
-                        result.updated += 1;
-                    } else if p.updated_at == w.updated_at
-                        && w.has_directory_hint != Some(p.has_directory_hint)
-                    {
-                        w.has_directory_hint = Some(p.has_directory_hint);
-                        result.updated += 1;
-                    }
-                }
-            } else {
-                if next.workspaces.len() > MAX_PROJECTS {
-                    return Err(DesktopError("projectLimit"));
-                }
-                next.workspaces.push(WorkspaceRecord {
-                    workspace: Workspace {
-                        id: id.clone(),
-                        slug: id.clone(),
-                        name: detail
-                            .map_or("Recovered project", |p| p.name.as_str())
-                            .to_owned(),
-                        created_at: detail.map_or(0, |p| p.created_at),
-                        updated_at: detail.map_or(0, |p| p.updated_at),
-                        project_origin: Some(
-                            if detail.is_some() {
-                                "imported"
-                            } else {
-                                "orphan"
-                            }
-                            .into(),
-                        ),
-                        has_directory_hint: Some(detail.is_some_and(|p| p.has_directory_hint)),
-                        directory_status: None,
-                    },
-                    effort: "high".into(),
-                    source_project_id: Some(source.clone()),
-                    binding: None,
-                    local_name: None,
-                });
-                result.imported += 1;
-            }
-            result.ids.insert(source.clone(), id);
-        }
-        if result.imported + result.updated > 0 {
-            inner.commit_projects(next)?
+        let mut next = i.state.clone();
+        let result = edit(&mut next.workspaces, i.root.path())?;
+        if i.state.workspaces != next.workspaces {
+            i.commit_projects(next)?;
         }
         Ok(result)
     }
-    pub(crate) fn create_project(&self, name: &str, from: Option<&str>) -> Result<Workspace> {
-        if !valid_project_name(name) {
-            return Err(DesktopError("invalidProject"));
-        }
-        super::reject_credentials(&serde_json::json!(name), &self.known_keys)?;
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| DesktopError("recoveryRequired"))?;
-        if from.is_some_and(|from| {
-            !inner
-                .state
-                .workspaces
-                .iter()
-                .any(|w| w.workspace.slug == from)
-        }) {
-            return Err(DesktopError("workspaceNotFound"));
-        }
-        if inner
-            .state
-            .workspaces
-            .iter()
-            .any(|w| w.local_name.as_ref().unwrap_or(&w.workspace.name) == name)
-        {
-            return Err(DesktopError("projectConflict"));
-        }
-        if inner.state.workspaces.len() > MAX_PROJECTS {
-            return Err(DesktopError("projectLimit"));
-        }
-        let id = format!(
-            "native-project-{}",
-            crate::credentialed_channels::catalog::random_reference()?
-        );
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| DesktopError("clockUnavailable"))?
-            .as_millis() as u64;
-        let mut next = inner.state.clone();
-        let record = WorkspaceRecord {
-            workspace: Workspace {
-                id: id.clone(),
-                slug: id,
-                name: name.into(),
-                created_at: now,
-                updated_at: now,
-                project_origin: Some("native".into()),
-                directory_status: None,
-                has_directory_hint: None,
-            },
-            source_project_id: None,
-            effort: "high".into(),
-            binding: None,
-            local_name: None,
-        };
-        let out = record.public();
-        next.workspaces.push(record);
-        inner.commit_projects(next)?;
-        Ok(out)
-    }
-    pub(crate) fn rename_project(&self, id: &str, name: &str) -> Result<Workspace> {
-        if !valid_project_name(name) {
-            return Err(DesktopError("invalidProject"));
-        }
-        super::reject_credentials(&serde_json::json!(name), &self.known_keys)?;
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| DesktopError("recoveryRequired"))?;
-        let mut next = inner.state.clone();
-        let index = next
-            .workspaces
-            .iter()
-            .position(|r| r.workspace.id == id && r.workspace.project_origin.is_some())
-            .ok_or(DesktopError("workspaceNotFound"))?;
-        let current = &next.workspaces[index];
-        if current
-            .local_name
-            .as_ref()
-            .unwrap_or(&current.workspace.name)
-            == name
-        {
-            return Ok(current.public());
-        }
-        if next.workspaces.iter().any(|r| {
-            r.workspace.id != id && r.local_name.as_ref().unwrap_or(&r.workspace.name) == name
-        }) {
-            return Err(DesktopError("projectConflict"));
-        }
-        let record = &mut next.workspaces[index];
-        record.local_name = Some(name.to_owned());
-        let out = record.public();
-        inner.commit_projects(next)?;
-        Ok(out)
-    }
+}
+impl FormalPlatform {
     pub(crate) fn require_workspace(&self, key: super::workspace::WorkspaceKey<'_>) -> Result<()> {
         let inner = self
             .inner
@@ -396,50 +441,5 @@ impl FormalPlatform {
             .find(|w| w.workspace.id == id)
             .ok_or(DesktopError("workspaceNotFound"))?
             .public())
-    }
-    pub(crate) fn bind_project_folder(
-        &self,
-        id: &str,
-        path: &Path,
-        selected: (u64, u64),
-    ) -> Result<Workspace> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| DesktopError("recoveryRequired"))?;
-        let path_text = path
-            .to_str()
-            .ok_or(DesktopError("projectDirectoryUnavailable"))?;
-        super::reject_credentials(&serde_json::json!(path_text), &self.known_keys)?;
-        let target = inner.root.path();
-        if directory_identity(path)? != selected {
-            return Err(DesktopError("projectDirectoryUnavailable"));
-        }
-        let root_identity = directory_identity(target)?;
-        for (tree, forbidden) in [(target, selected), (path, root_identity)] {
-            for ancestor in tree.ancestors() {
-                if directory_identity(ancestor)? == forbidden {
-                    return Err(DesktopError("unsafeImportPath"));
-                }
-            }
-        }
-        let mut next = inner.state.clone();
-        let record = next
-            .workspaces
-            .iter_mut()
-            .skip(1)
-            .find(|w| w.workspace.id == id)
-            .ok_or(DesktopError("workspaceNotFound"))?;
-        record.binding = Some(Binding {
-            path: path.to_owned(),
-            device: selected.0,
-            inode: selected.1,
-        });
-        if directory_identity(path)? != selected {
-            return Err(DesktopError("projectDirectoryUnavailable"));
-        }
-        let out = record.public();
-        inner.commit_projects(next)?;
-        Ok(out)
     }
 }

@@ -27,6 +27,7 @@ export interface Bootstrap {
   nativeImageAssetReads?: boolean
   nativeImageTaskLifecycle?: boolean
   nativeTaskLifecycle?: boolean
+  nativeProjectTaskStatuses?: boolean
   nativeProjectBinding?: boolean
   nativeSessionImport?: boolean
   nativeImageFiles?: boolean

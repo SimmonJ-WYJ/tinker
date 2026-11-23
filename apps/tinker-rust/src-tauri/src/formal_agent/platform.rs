@@ -36,21 +36,6 @@ impl HostPlatform {
             Self::Credentialed(p) => p.require_workspace(key),
         }
     }
-    pub fn bind_project_folder(
-        &self,
-        id: &str,
-        path: &std::path::Path,
-        identity: (u64, u64),
-    ) -> Result<crate::formal_platform::workspace::Workspace> {
-        self.project_platform()?
-            .bind_project_folder(id, path, identity)
-    }
-    pub fn project_platform(&self) -> Result<&FormalPlatform> {
-        match self {
-            Self::Synthetic(p) => Ok(p),
-            _ => Err(DesktopError("unsupported")),
-        }
-    }
     pub fn channels(&self) -> Result<Value> {
         match self {
             Self::Synthetic(p) => p.channels(),
@@ -79,6 +64,27 @@ impl HostPlatform {
         match self {
             Self::Synthetic(p) => p.synthetic_connection(id),
             Self::Credentialed(_) => Err(DesktopError("unsupported")),
+        }
+    }
+}
+
+impl crate::formal_platform::project_catalog::ProjectCatalog for HostPlatform {
+    fn check_project_text(&self, text: &str) -> Result<()> {
+        match self {
+            Self::Synthetic(p) => p.check_project_text(text),
+            Self::Credentialed(p) => p.check_project_text(text),
+        }
+    }
+    fn edit_projects<T>(
+        &self,
+        edit: impl FnOnce(
+            &mut Vec<crate::formal_platform::workspace::WorkspaceRecord>,
+            &std::path::Path,
+        ) -> Result<T>,
+    ) -> Result<T> {
+        match self {
+            Self::Synthetic(p) => p.edit_projects(edit),
+            Self::Credentialed(p) => p.edit_projects(edit),
         }
     }
 }

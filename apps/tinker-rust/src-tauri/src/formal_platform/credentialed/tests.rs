@@ -474,3 +474,55 @@ fn snapshot_byte_capacity_refuses_put_without_freezing() {
     assert_eq!(vault.puts.load(Ordering::Relaxed), 0);
     assert!(!p.inner.lock().unwrap().frozen);
 }
+
+#[test]
+fn project_commit_cannot_be_overwritten_by_prepared_channel_and_effort_is_per_workspace() {
+    use crate::formal_platform::project_catalog::ProjectCatalog;
+    let f = Fixture::new();
+    let p = f.open();
+    let mut req = create_request("owned", 0);
+    req.args[0]["channel"]["models"][0]["supportedEfforts"] = json!(["low", "high"]);
+    let staged = p.stage(req, "doc-one", &secret(), &f.vault).unwrap();
+    let prepared = p.prepare(staged.clone(), "doc-one").unwrap();
+    let first = p.create_project("Synthetic A", None).unwrap();
+    assert_eq!(
+        p.commit(prepared, |_| panic!("stale catalog must not be installed"))
+            .err()
+            .unwrap()
+            .0,
+        "revisionConflict"
+    );
+    p.commit(p.prepare(staged, "doc-one").unwrap(), |_| Ok(()))
+        .unwrap();
+    let second = p.create_project("Synthetic B", None).unwrap();
+    let read = |platform: &CredentialedPlatform, slug: &str| {
+        platform
+            .read(PlatformRequest {
+                version: 1,
+                channel: "agent:get-reasoning-effort".into(),
+                args: vec![json!(slug)],
+                mutation: None,
+            })
+            .unwrap()
+            .value
+    };
+    let before = read(&p, &second.slug);
+    let effort = PlatformRequest {
+        version: 1,
+        channel: "agent:set-reasoning-effort".into(),
+        args: vec![json!(first.slug), json!("low")],
+        mutation: Some(protocol::Mutation {
+            mutation_id: "effort".into(),
+            expected_revision: 1,
+        }),
+    };
+    p.commit(p.prepare(effort, "doc-one").unwrap(), |_| Ok(()))
+        .unwrap();
+    assert_eq!(read(&p, &first.slug), "low");
+    assert_eq!(read(&p, &second.slug), before);
+    drop(p);
+    let p = f.open();
+    assert_eq!(read(&p, &first.slug), "low");
+    assert_eq!(read(&p, &second.slug), before);
+    assert_eq!(p.bootstrap().unwrap().workspaces.len(), 3);
+}

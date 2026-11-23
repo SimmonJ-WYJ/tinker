@@ -137,6 +137,14 @@ impl CloseGate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn begin_past_deadline(gate: &mut CloseGate, document: &str) -> CloseTicket {
+        let ticket = gate.begin(document, 1).unwrap();
+        let Phase::Preparing { started, .. } = &mut gate.phase else {
+            panic!("测试未进入准备关闭状态");
+        };
+        *started -= gate.timeout;
+        ticket
+    }
     #[test]
     fn only_matching_generation_token_and_latest_durable_revision_can_drain() {
         let mut g = CloseGate::new(Duration::from_secs(5)).unwrap();
@@ -153,8 +161,8 @@ mod tests {
     }
     #[test]
     fn expired_and_repeated_abort_confirm_the_same_transaction_is_open() {
-        let mut gate = CloseGate::new(Duration::from_nanos(1)).unwrap();
-        let ticket = gate.begin("document-1", 1).unwrap();
+        let mut gate = CloseGate::new(Duration::from_secs(1)).unwrap();
+        let ticket = begin_past_deadline(&mut gate, "document-1");
         assert!(gate.expire());
         gate.abort(&ticket.close_token).unwrap();
         gate.abort(&ticket.close_token).unwrap();
@@ -171,8 +179,8 @@ mod tests {
         assert_ne!(old.close_token, new.close_token);
         assert!(g.ready("doc-a", &old.close_token, 1, 1).is_err());
         g.abort(&new.close_token).unwrap();
-        let mut g = CloseGate::new(Duration::from_nanos(1)).unwrap();
-        let expired = g.begin("doc-a", 1).unwrap();
+        let mut g = CloseGate::new(Duration::from_secs(1)).unwrap();
+        let expired = begin_past_deadline(&mut g, "doc-a");
         assert_eq!(
             g.ready("doc-a", &expired.close_token, 1, 1).unwrap_err().0,
             "closeTimeout"

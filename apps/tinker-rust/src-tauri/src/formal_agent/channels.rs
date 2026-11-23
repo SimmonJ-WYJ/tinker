@@ -3,6 +3,7 @@ use super::{
     actor::{Actor, Entry},
     projection, Reply,
 };
+use crate::formal_platform::project_catalog::ProjectCatalog;
 use crate::{
     desktop_runtime::protocol::{DesktopError, Result},
     formal_platform::{protocol::Mutation, PlatformRequest},
@@ -133,7 +134,7 @@ impl Actor {
                     reply,
                 );
             }
-            "agent:update-workspace" if self.synthetic_projects() => {
+            "agent:update-workspace" if self.projects_supported() => {
                 arity(&args, 2, 2)?;
                 let id = string(&args, 0)?;
                 let patch = args[1]
@@ -144,16 +145,13 @@ impl Actor {
                     .get("name")
                     .and_then(Value::as_str)
                     .ok_or(DesktopError("invalidParams"))?;
-                json!(self.platform.project_platform()?.rename_project(id, name)?)
+                json!(self.platform.rename_project(id, name)?)
             }
-            "agent:create-workspace" if self.synthetic_projects() => {
+            "agent:create-workspace" if self.projects_supported() => {
                 arity(&args, 1, 2)?;
                 let name = string(&args, 0)?;
                 let from = optional(&args, 1)?;
-                json!(self
-                    .platform
-                    .project_platform()?
-                    .create_project(name, from.as_deref())?)
+                json!(self.platform.create_project(name, from.as_deref())?)
             }
             "agent:list-sessions" => {
                 arity(&args, 0, 0)?;

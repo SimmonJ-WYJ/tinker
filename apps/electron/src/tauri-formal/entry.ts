@@ -1,6 +1,6 @@
 /** bootstrap 成功后安装原 API，再导入同一正式 renderer/main.tsx。 */
 import { createDesktopApi } from '../preload/api.ts'
-import { parseProjectTaskStatuses } from './project-tasks'
+import { parseProjectTaskStatuses, supportsProjectTaskStatuses } from './project-tasks'
 import { createSessionImporter } from './session-import'
 import { createNativeImageAssets } from './image-assets'
 import { createNativeImageFiles } from './image-files'
@@ -47,7 +47,7 @@ try {
   window.__TAURI_FORMAL__ = {
     imageAssets,
     hydrated: persistence.hydrated,
-    projectTaskStatuses: transport.bootstrap.nativeTaskLifecycle && !transport.credentialedChannels ? async workspaceId => {
+    projectTaskStatuses: supportsProjectTaskStatuses(transport.bootstrap) ? async workspaceId => {
       const { value } = await transport.command<{ value: unknown }>('projectTaskStatuses', { workspaceId })
       return parseProjectTaskStatuses(value, transport.bootstrap.nativeImageTaskLifecycle === true)
     } : undefined,

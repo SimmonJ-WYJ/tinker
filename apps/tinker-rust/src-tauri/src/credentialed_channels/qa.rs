@@ -151,6 +151,30 @@ impl Drop for QaServer {
         }
     }
 }
+// 合成主线的上下文正反对照；不保存用户消息，也不接受只有最后提示词的错误续聊。
+fn has_upgrade_history(request: &serde_json::Value) -> bool {
+    let Some(messages) = request["messages"].as_array() else {
+        return false;
+    };
+    let historical = [
+        ("user", "A green northern ridge."),
+        ("assistant", "The ridge is green."),
+        ("user", "The alpine larch colour is amber."),
+        ("assistant", "Recorded the amber observation."),
+    ];
+    messages.len() == historical.len() + 1
+        && historical
+            .iter()
+            .zip(messages)
+            .all(|((role, text), message)| message["role"] == *role && message["content"] == *text)
+        && messages.last().is_some_and(|m| {
+            m["role"] == "user"
+                && m["content"]
+                    .as_str()
+                    .is_some_and(|s| s.contains("[qa:upgrade-context]"))
+        })
+}
+
 fn serve(
     s: &mut TcpStream,
     cancel: &AtomicBool,
@@ -267,6 +291,12 @@ fn serve(
                 .and_then(|a| a.last())
                 .and_then(|m| m["content"].as_str())
                 .unwrap_or("");
+            let rehearsal = last.contains("[qa:upgrade-context]");
+            if rehearsal && !has_upgrade_history(&request) {
+                evidence.phase = "text-invalid";
+                s.write_all(b"HTTP/1.1 422 Unprocessable Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
+                return Ok(());
+            }
             if last.contains("[qa:failure]") {
                 evidence.phase = "completed";
                 s.write_all(
@@ -282,7 +312,9 @@ fn serve(
             }
             let held = last.contains("[qa:hold]");
             let partial = last.contains("[qa:partial]");
-            let first = if held || partial {
+            let first = if rehearsal {
+                "Imported alpine context verified. ".into()
+            } else if held || partial {
                 "Owned QA visible streaming segment. ".repeat(6)
             } else {
                 "Owned QA ".into()

@@ -186,3 +186,22 @@ fn route_window_has_two_separate_sockets_and_keeps_both_on_restart() {
     drop(reopened);
     std::fs::remove_dir_all(root.path()).unwrap();
 }
+
+#[test]
+fn upgrade_probe_requires_the_four_turns_from_the_selected_project() {
+    let user = |text: &str| serde_json::json!({"role":"user","content":text});
+    let assistant = |text: &str| serde_json::json!({"role":"assistant","content":text});
+    let mut turns = vec![
+        user("A green northern ridge."),
+        assistant("The ridge is green."),
+        user("The alpine larch colour is amber."),
+        assistant("Recorded the amber observation."),
+        user("[qa:upgrade-context]"),
+    ];
+    let matches =
+        |turns: &[Value]| super::has_upgrade_history(&serde_json::json!({"messages": turns}));
+    assert!(matches(&turns));
+    assert!(!matches(&turns[4..]));
+    turns.insert(2, user("Coastal cypress shades the bay."));
+    assert!(!matches(&turns));
+}
