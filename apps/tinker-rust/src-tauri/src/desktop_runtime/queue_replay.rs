@@ -137,6 +137,7 @@ impl Inner {
                 request.user_message = m.input.user_message.clone();
                 request.started_at = m.receipt.accepted_at;
                 let binding = Binding {
+                    document_source: None,
                     request,
                     config_revision: initial.config_revision.clone(),
                     accepted_at,

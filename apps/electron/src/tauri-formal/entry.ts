@@ -1,6 +1,7 @@
 /** bootstrap 成功后安装原 API，再导入同一正式 renderer/main.tsx。 */
 import { createDesktopApi } from '../preload/api.ts'
 import { parseProjectTaskStatuses, supportsProjectTaskStatuses } from './project-tasks'
+import { createProjectDocuments } from './project-documents'
 import { createSessionImporter } from './session-import'
 import { createNativeImageAssets } from './image-assets'
 import { createNativeImageFiles } from './image-files'
@@ -45,6 +46,7 @@ try {
   const persistence = installPersistence(transport)
   const imageAssets = transport.bootstrap.nativeImageAssetReads ? createNativeImageAssets(transport.invoke) : undefined
   window.__TAURI_FORMAL__ = {
+    projectDocuments: transport.bootstrap.nativeProjectDocuments ? createProjectDocuments(transport.command) : undefined,
     imageAssets,
     hydrated: persistence.hydrated,
     projectTaskStatuses: supportsProjectTaskStatuses(transport.bootstrap) ? async workspaceId => {

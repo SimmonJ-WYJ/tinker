@@ -33,6 +33,9 @@ fn open_at(dir: &File, leaf: &CString, flags: i32) -> Result<File> {
     Ok(unsafe { File::from_raw_fd(fd) })
 }
 fn directory(path: &Path) -> Result<File> {
+    directory_outside(path, None)
+}
+fn directory_outside(path: &Path, excluded: Option<(u64, u64)>) -> Result<File> {
     let mut parts = path.components();
     if parts.next() != Some(Component::RootDir) {
         return Err(unavailable(()));
@@ -43,6 +46,12 @@ fn directory(path: &Path) -> Result<File> {
             return Err(unavailable(()));
         };
         dir = open_at(&dir, &name(leaf)?, libc::O_DIRECTORY | libc::O_RDONLY)?;
+        if let Some(identity) = excluded {
+            let meta = dir.metadata().map_err(unavailable)?;
+            if (meta.dev(), meta.ino()) == identity {
+                return Err(unavailable(()));
+            }
+        }
     }
     Ok(dir)
 }
@@ -56,32 +65,40 @@ fn split(path: &Path) -> Result<(&Path, &str)> {
     Ok((parent, leaf))
 }
 pub(super) fn read_selected(path: &Path) -> Result<(String, Vec<u8>)> {
+    let (leaf, file) = open_selected(path, None)?;
+    let bytes = read_bounded(file, crate::picked_image::MAX_PICKED_BYTES, "imageTooLarge")?;
+    Ok((leaf, bytes))
+}
+pub(super) fn open_selected(path: &Path, excluded: Option<(u64, u64)>) -> Result<(String, File)> {
     let (parent, leaf) = split(path)?;
-    let dir = directory(parent)?;
+    let dir = directory_outside(parent, excluded)?;
     let file = open_at(
         &dir,
         &name(OsStr::new(leaf))?,
         libc::O_RDONLY | libc::O_NONBLOCK,
     )?;
     let meta = file.metadata().map_err(unavailable)?;
-    if !meta.is_file() {
+    if !meta.is_file() || (excluded.is_some() && meta.nlink() != 1) {
         return Err(unavailable(()));
     }
-    let max = crate::picked_image::MAX_PICKED_BYTES;
+    Ok((leaf.to_owned(), file))
+}
+pub(super) fn read_bounded(file: File, max: usize, limit_error: &'static str) -> Result<Vec<u8>> {
+    let meta = file.metadata().map_err(unavailable)?;
     if meta.len() > max as u64 {
-        return Err(DesktopError("imageTooLarge"));
+        return Err(DesktopError(limit_error));
     }
     let mut bytes = Vec::with_capacity(meta.len() as usize);
     file.take(max as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(unavailable)?;
     if bytes.len() > max {
-        return Err(DesktopError("imageTooLarge"));
+        return Err(DesktopError(limit_error));
     }
     if bytes.len() as u64 != meta.len() {
         return Err(unavailable(()));
     }
-    Ok((leaf.to_owned(), bytes))
+    Ok(bytes)
 }
 pub(crate) struct StagedExport {
     dir: File,

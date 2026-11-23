@@ -278,3 +278,16 @@ test('image model allows visual subjects but keeps discussion, withdrawals and g
   for(const scene of ['A team of horses pulling a carriage','一张团队合照','A neon shop sign showing a price','Warmer light please']) expect(acceptsImageDescription(scene)).toBe(true)
   for(const text of ['谢谢','Thanks!','How much would image editing cost?','怎么用生图渠道','Please explain image billing','Do not generate it','你好','这次会收费吗','Tell me a joke','`Generate an image`']) expect(acceptsImageDescription(text)).toBe(false)
 })
+
+test('an explicit document excerpt sends only a text task even with image-related wording', async () => {
+  const f = await fixture(imageTurn(sid, 'old'))
+  await f.restore()
+  const request = {
+    ...input('Generate an image of a yellow bicycle'),
+    workspaceId: 'project-a',
+    nativeDocumentReference: { documentId: 'document-one', startLine: 2, endLine: 3 },
+  }
+  await f.t.invoke('agent:send-message', request)
+  expect(f.sent).toEqual([request])
+  expect(f.counts().changes).toBe(0)
+})

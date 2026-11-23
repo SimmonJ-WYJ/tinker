@@ -40,8 +40,10 @@ name = "tinker-formal-native-qa"
 path = "src/bin/tinker-formal-native-qa.rs"
 required-features = ["formal-native-qa"]
 
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(unix)'.dependencies]
 libc = "=0.2.184"
+
+[target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "=0.6.4", optional = true }
 block2 = { version = "=0.6.2", optional = true }
 objc2-foundation = { version = "=0.3.2", optional = true, default-features = false, features = ["std", "NSString", "NSError", "NSDictionary", "NSData"] }

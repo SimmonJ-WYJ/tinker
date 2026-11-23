@@ -18,6 +18,8 @@ pub struct Session {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Binding {
     pub request: Send,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_source: Option<super::document_send::DocumentSource>,
     pub config_revision: String,
     pub accepted_at: u64,
     pub parent_run_id: Option<String>,
@@ -56,6 +58,8 @@ pub struct Turn {
     pub effort: Option<String>,
     pub started_at: u64,
     pub user_message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document_source: Option<super::document_send::DocumentSource>,
     pub assistant_message: String,
     pub status: crate::session_lifecycle::RunStatus,
     pub sequence: u64,

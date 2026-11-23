@@ -2,6 +2,8 @@
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod directory_panel;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod document_panel;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
 pub(crate) mod image_disk;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod image_panel;
@@ -228,6 +230,13 @@ pub async fn formal_request<R: Runtime>(
     request: Value,
 ) -> Result<Value, WireError> {
     guard(&window)?;
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    if matches!(
+        request["command"].as_str(),
+        Some("pickProjectDocument" | "listProjectDocuments" | "readProjectDocument")
+    ) {
+        return document_panel::run(window, state.inner().clone(), request).await;
+    }
     #[cfg(all(target_os = "macos", feature = "formal-preview"))]
     if request["command"] == "bindProjectDirectory" {
         return project_panel::run(window, state.inner().clone(), request).await;

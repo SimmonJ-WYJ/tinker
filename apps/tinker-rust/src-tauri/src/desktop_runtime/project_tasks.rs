@@ -124,6 +124,7 @@ mod tests {
             .journal
             .append(Entry::Bind {
                 binding: Binding {
+                    document_source: None,
                     request: Send {
                         session_id: sid.clone(),
                         request_id: "bound-only".into(),

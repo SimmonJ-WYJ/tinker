@@ -8,6 +8,7 @@ import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
 
 export interface FormalLifecycleMarker {
+  projectDocuments?: import('./project-documents').NativeProjectDocuments
   imageAssets?: import('./image-assets').NativeImageAssets
   nativeImageTaskLifecycle?: boolean
   nativeTaskLifecycle?: {

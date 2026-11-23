@@ -1,6 +1,6 @@
 {
   "name": "@asci/shared",
-  "version": "0.1.157",
+  "version": "0.1.158",
   "license": "Apache-2.0",
   "description": "Shared types, configs and utilities for asci",
   "type": "module",

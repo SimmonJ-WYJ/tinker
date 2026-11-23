@@ -86,7 +86,11 @@ export function createNativeImageContexts() {
     ): Promise<T> {
       if (typeof input.sessionId !== 'string') return (await invoke(input)).value
       const sid = input.sessionId
-      let action = classifyNativeImageSend(input, sessions.get(sid)?.imageId)
+      const referencesDocument = input.nativeDocumentReference !== undefined
+      if (referencesDocument && (model?.capability === 'image' || input.imageEditReferenceId !== undefined)) {
+        throw invalid('modelCapabilityMismatch')
+      }
+      let action = referencesDocument ? undefined : classifyNativeImageSend(input, sessions.get(sid)?.imageId)
       if (model) {
         if (!model.enabled || model.capability === 'unsupported') throw invalid('modelUnavailable')
         if (model.capability === 'image') {
