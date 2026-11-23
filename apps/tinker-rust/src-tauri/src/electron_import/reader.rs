@@ -2,8 +2,8 @@
 use super::{fs::Dir, records, *};
 use crate::desktop_runtime::protocol::{id, MAX_SAFE_INTEGER};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
-const MAX_INDEX: usize = 1024 * 1024;
+use std::collections::HashSet;
+pub(super) const MAX_INDEX: usize = 1024 * 1024;
 const MAX_LOG: usize = 8 * 1024 * 1024;
 const MAX_TOTAL: usize = 32 * 1024 * 1024;
 pub(super) struct Budget {
@@ -106,26 +106,6 @@ fn history(
     }
     Ok(found)
 }
-fn workspaces(root: &Dir) -> HashMap<String, String> {
-    let mut result = HashMap::new();
-    if let Ok(Some(bytes)) = root.file("agent-workspaces.json", MAX_INDEX) {
-        if let Ok(value) = serde_json::from_slice::<Value>(&bytes) {
-            if matches!(value["version"].as_u64(), Some(1 | 2)) {
-                if let Some(rows) = value["workspaces"].as_array() {
-                    for row in rows.iter().take(1024) {
-                        if let (Some(key), Some(slug)) = (row["id"].as_str(), row["slug"].as_str())
-                        {
-                            if id(key).is_ok() && safe_name(slug) {
-                                result.insert(key.into(), slug.into());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    result
-}
 pub(super) fn read(root: &Path, expected: Option<(u64, u64)>) -> Result<ImportBatch> {
     let root = Dir::selected(root)?;
     if let Some(expected) = expected {
@@ -133,9 +113,15 @@ pub(super) fn read(root: &Path, expected: Option<(u64, u64)>) -> Result<ImportBa
             return Err(DesktopError("unsafeImportPath"));
         }
     }
-    let bytes = root
-        .file("agent-sessions.json", MAX_INDEX)?
-        .ok_or(DesktopError("invalidImportFolder"))?;
+    let mut result = ImportBatch::default();
+    let projects = projects::ProjectIndex::read(&root, &mut result);
+    let Some(bytes) = root.file("agent-sessions.json", MAX_INDEX)? else {
+        return if projects.valid {
+            Ok(result)
+        } else {
+            Err(DesktopError("invalidImportFolder"))
+        };
+    };
     let index: Value =
         serde_json::from_slice(&bytes).map_err(|_| DesktopError("invalidImportIndex"))?;
     let version = index["version"]
@@ -150,17 +136,11 @@ pub(super) fn read(root: &Path, expected: Option<(u64, u64)>) -> Result<ImportBa
     if rows.len() > 128 {
         return Err(DesktopError("importLimit"));
     }
-    let mut result = ImportBatch {
-        sessions: vec![],
-        warnings: vec![],
-        skipped: 0,
-    };
     let mut ids = HashSet::new();
     let mut budget = Budget {
         bytes: MAX_TOTAL,
         output: 16 * 1024 * 1024,
     };
-    let mut slugs = None;
     for row in rows {
         let Some(sid) = row["id"].as_str().filter(|sid| id(sid).is_ok()) else {
             result.skipped += 1;
@@ -188,13 +168,7 @@ pub(super) fn read(root: &Path, expected: Option<(u64, u64)>) -> Result<ImportBa
             }
             let history = history(&root, sid, row["sdkSessionId"].as_str(), &mut budget)?
                 .ok_or(DesktopError("missingHistory"))?;
-            let slug = match row["workspaceId"].as_str() {
-                Some(key) => slugs
-                    .get_or_insert_with(|| workspaces(&root))
-                    .get(key)
-                    .map(String::as_str),
-                None => Some("_no-workspace"),
-            };
+            let slug = projects.slug(&row["workspaceId"]);
             let mut s = SourceSession {
                 source_session_id: sid.into(),
                 title: title.into(),
@@ -214,10 +188,13 @@ pub(super) fn read(root: &Path, expected: Option<(u64, u64)>) -> Result<ImportBa
                 &mut budget,
                 &mut result.warnings,
             )?;
+            projects::associate(&row["workspaceId"], sid, &mut result)?;
             Ok(s)
         })();
         match outcome {
-            Ok(s) => result.sessions.push(s),
+            Ok(s) => {
+                result.sessions.push(s);
+            }
             Err(DesktopError("importLimit")) => return Err(DesktopError("importLimit")),
             Err(e) => {
                 let code = match e.0 {

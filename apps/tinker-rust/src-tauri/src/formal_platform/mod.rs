@@ -3,6 +3,7 @@ mod channels;
 pub mod close;
 pub mod credentialed;
 mod launch;
+pub(crate) mod project_catalog;
 mod receipt;
 use receipt::Receipt;
 pub mod protocol;
@@ -42,6 +43,8 @@ struct Persisted {
     credential_catalog: Option<crate::credentialed_channels::catalog::Catalog>,
 }
 struct Inner {
+    root: TrustedRoot,
+    project_mode: bool,
     store: store::Store,
     state: Persisted,
     environment: HostEnvironment,
@@ -124,7 +127,7 @@ impl FormalPlatform {
             .map(|profile| profile.key.clone())
             .collect::<Vec<_>>();
         let profiles = public_profiles(profiles)?;
-        let mut store = store::Store::open(root)?;
+        let (mut store, project_mode) = project_catalog::open_current(root)?;
         let state = if let Some(bytes) = store.bytes() {
             let value: Value =
                 serde_json::from_slice(bytes).map_err(|_| DesktopError("corruptSnapshot"))?;
@@ -135,6 +138,9 @@ impl FormalPlatform {
         } else {
             Persisted::initial(&profiles)
         };
+        if !project_mode && state.workspaces.len() != 1 {
+            return Err(DesktopError("corruptSnapshot"));
+        }
         state.validate(&profiles)?;
         reject_credentials(
             &serde_json::to_value(&state).map_err(|_| DesktopError("corruptSnapshot"))?,
@@ -147,6 +153,8 @@ impl FormalPlatform {
         }
         Ok(Self {
             inner: Mutex::new(Inner {
+                root: root.clone(),
+                project_mode,
                 store,
                 state,
                 environment,
@@ -299,17 +307,19 @@ impl Persisted {
         }
         if self.version != VERSION
             || self.revision > MAX_SAFE_INTEGER
-            || self.workspaces.len() != 1
+            || self.workspaces.is_empty()
+            || self.workspaces.len() > project_catalog::MAX_PROJECTS + 1
             || self.receipts.len() > MAX_RECEIPTS
             || self.revision != self.receipts.len() as u64
         {
             return Err(DesktopError("corruptSnapshot"));
         }
         self.settings
-            .validate(profiles)
+            .validate(profiles, &self.workspaces)
             .map_err(|_| DesktopError("corruptSnapshot"))?;
         validate_user(&self.user_profile).map_err(|_| DesktopError("corruptSnapshot"))?;
         self.workspaces[0].validate()?;
+        project_catalog::validate_catalog(&self.workspaces)?;
         let mut revisions = std::collections::HashSet::new();
         for (id, r) in &self.receipts {
             r.validate()?;
@@ -329,6 +339,12 @@ impl Persisted {
         let mut ordered: Vec<_> = self.receipts.values().collect();
         ordered.sort_by_key(|r| r.revision);
         let mut replay = Self::initial(profiles);
+        replay
+            .workspaces
+            .extend(self.workspaces.iter().skip(1).cloned().map(|mut record| {
+                record.effort = "high".into();
+                record
+            }));
         for receipt in ordered {
             replay
                 .apply(&receipt.request, profiles)
@@ -357,7 +373,7 @@ impl Persisted {
             workspaces: self
                 .workspaces
                 .iter()
-                .map(|w| w.workspace.clone())
+                .map(WorkspaceRecord::public)
                 .collect(),
             theme: ResolvedTheme {
                 mode: self.settings.theme.clone(),
@@ -400,7 +416,7 @@ impl Persisted {
                     return Err(DesktopError("invalidParams"));
                 }
                 let settings: settings::Settings = patch(&self.settings, &r.args[0])?;
-                settings.validate(profiles)?;
+                settings.validate(profiles, &self.workspaces)?;
                 if !self
                     .channel_overlay
                     .clone()
@@ -434,7 +450,12 @@ impl Persisted {
                 if !model.supported_efforts.iter().any(|s| s == effort) {
                     return Err(DesktopError("unsupportedEffort"));
                 }
-                self.workspaces[0].effort = effort.into();
+                let slug = r.args[0].as_str().ok_or(DesktopError("invalidParams"))?;
+                self.workspaces
+                    .iter_mut()
+                    .find(|w| w.workspace.slug == slug)
+                    .ok_or(DesktopError("workspaceNotFound"))?
+                    .effort = effort.into();
             }
             channel if channel.starts_with("onboarding-spotlight:") => {
                 self.settings.onboarding_spotlight.apply(channel, &r.args)?
@@ -488,6 +509,8 @@ impl Persisted {
     }
 }
 
+#[cfg(all(test, unix))]
+mod project_tests;
 #[cfg(test)]
 pub(crate) mod tests;
 

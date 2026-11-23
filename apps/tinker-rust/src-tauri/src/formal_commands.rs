@@ -1,8 +1,12 @@
 //! 正式窗口唯一 IPC 边界；阻塞等待与 owned mock join 全部离开 UI 线程。
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod directory_panel;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
 pub(crate) mod image_disk;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod image_panel;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod project_panel;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod session_panel;
 use crate::{formal_host::FormalHost, formal_platform::HostEnvironment};
@@ -224,6 +228,10 @@ pub async fn formal_request<R: Runtime>(
     request: Value,
 ) -> Result<Value, WireError> {
     guard(&window)?;
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    if request["command"] == "bindProjectDirectory" {
+        return project_panel::run(window, state.inner().clone(), request).await;
+    }
     #[cfg(all(target_os = "macos", feature = "formal-preview"))]
     if request["command"] == "importElectronSessions" {
         return session_panel::run(window, state.inner().clone(), request).await;

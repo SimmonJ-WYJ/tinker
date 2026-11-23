@@ -285,3 +285,35 @@ fn empty_selection_still_rejects_unsupported_effort_without_commit() {
     assert_eq!(boot["platformSnapshot"]["revision"], 1);
     assert_eq!(boot["platformSnapshot"]["settings"]["agentEffort"], "high");
 }
+
+#[test]
+fn global_and_project_drafts_are_disjoint_and_wrong_project_send_never_reaches_mock() {
+    let (root, mut host, generation) = setup("project-drafts");
+    let invoke = |channel, args| invoke(&host, &generation, channel, args);
+    let a = invoke("agent:create-workspace", json!(["Alpine"])).unwrap();
+    let b = invoke("agent:create-workspace", json!(["Coastal"])).unwrap();
+    let draft = |workspace: &Value| {
+        invoke(
+            "agent:get-or-create-draft-session",
+            json!(["local-mock", workspace]),
+        )
+        .unwrap()
+    };
+    let a_draft = draft(&a["id"]);
+    let b_draft = draft(&b["id"]);
+    let global = draft(&Value::Null);
+    assert_eq!(a_draft["workspaceId"], a["id"]);
+    assert_eq!(b_draft["workspaceId"], b["id"]);
+    assert!(global["workspaceId"].is_null());
+    assert_ne!(a_draft["id"], b_draft["id"]);
+    assert_ne!(a_draft["id"], global["id"]);
+    assert_eq!(draft(&a["id"])["id"], a_draft["id"]);
+    let wrong = invoke(
+        "agent:send-message",
+        json!([{"sessionId":a_draft["id"],"workspaceId":b["id"],"channelId":"local-mock","modelId":"local-mock-a","userMessage":"wrong project"}]),
+    );
+    assert_eq!(wrong.unwrap_err(), "workspaceMismatch");
+    assert!(host.mock_records().is_empty());
+    host.shutdown().unwrap();
+    std::fs::remove_dir_all(root.path()).unwrap();
+}

@@ -27,6 +27,30 @@ impl HostPlatform {
             Self::Credentialed(p) => p.bootstrap(),
         }
     }
+    pub fn require_workspace(
+        &self,
+        key: crate::formal_platform::workspace::WorkspaceKey<'_>,
+    ) -> Result<()> {
+        match self {
+            Self::Synthetic(p) => p.require_workspace(key),
+            Self::Credentialed(p) => p.require_workspace(key),
+        }
+    }
+    pub fn bind_project_folder(
+        &self,
+        id: &str,
+        path: &std::path::Path,
+        identity: (u64, u64),
+    ) -> Result<crate::formal_platform::workspace::Workspace> {
+        self.project_platform()?
+            .bind_project_folder(id, path, identity)
+    }
+    pub fn project_platform(&self) -> Result<&FormalPlatform> {
+        match self {
+            Self::Synthetic(p) => Ok(p),
+            _ => Err(DesktopError("unsupported")),
+        }
+    }
     pub fn channels(&self) -> Result<Value> {
         match self {
             Self::Synthetic(p) => p.channels(),

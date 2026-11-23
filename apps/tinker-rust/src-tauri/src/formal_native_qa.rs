@@ -108,6 +108,9 @@ pub(crate) fn image_panel_selection(save: bool) -> Option<Option<PathBuf>> {
 pub(crate) fn session_folder_selection() -> Option<Option<PathBuf>> {
     picker::session_folder()
 }
+pub(crate) fn project_folder_selection() -> Option<Option<PathBuf>> {
+    picker::project_folder()
+}
 pub fn hooks() -> crate::formal_launch::LaunchProbe {
     crate::formal_launch::LaunchProbe {
         initialization_script: include_str!("formal_native_qa_early.js"),
@@ -146,7 +149,12 @@ pub fn start(window: tauri::WebviewWindow) {
                 }
                 "image-picker-consumed" => picker::consumed(),
                 "arm-image-picker" => picker::arm(&command["choice"]),
-                "arm-session-folder" => picker::arm_session_folder(&command["choice"]),
+                "arm-session-folder" => {
+                    picker::arm_folder(&picker::SESSION_FOLDER, &command["choice"])
+                }
+                "arm-project-folder" => {
+                    picker::arm_folder(&picker::PROJECT_FOLDER, &command["choice"])
+                }
                 "menu-quit" => support::menu_quit(&window),
                 "eval" => evaluate(&window, command["script"].as_str().unwrap_or("").into()),
                 "snapshot" => snapshot(&window, dir.join(format!("snapshot-{sequence}.png"))),

@@ -316,6 +316,20 @@ impl Inner {
             .filter(|s| !s.deleted)
             .ok_or(DesktopError("sessionNotFound"))
     }
+    fn project_session(&self, session: &Session) -> Value {
+        let mut value = json!(session);
+        if let Some(workspace) = self
+            .imported
+            .get(&session.session_id)
+            .and_then(import::Seed::workspace)
+        {
+            value["workspaceId"] = json!(workspace);
+        }
+        if self.require_import_seed(&session.session_id).is_err() {
+            value["importError"] = json!("corruptImport");
+        }
+        value
+    }
     fn route(&mut self, method: &str, params: Value) -> Result<Value> {
         match method {
             "runtime.describe" => {
@@ -341,7 +355,7 @@ impl Inner {
             "sessions.list" => {
                 let _: Empty = decode(params)?;
                 Ok(
-                    json!({"sessions":self.sessions.values().filter(|s|!s.deleted).map(|s|{let mut v=json!(s);if self.require_import_seed(&s.session_id).is_err(){v["importError"]=json!("corruptImport");}v}).collect::<Vec<_>>()}),
+                    json!({"sessions":self.sessions.values().filter(|s|!s.deleted).map(|s|self.project_session(s)).collect::<Vec<_>>()}),
                 )
             }
             "sessions.create" => self.create(decode(params)?),
@@ -426,7 +440,7 @@ impl Inner {
         self.sessions.insert(session_id.clone(), session.clone());
         self.bindings.insert(session_id.clone(), Vec::new());
         self.controllers.insert(session_id, controller);
-        Ok(json!(session))
+        Ok(self.project_session(&session))
     }
     fn update(&mut self, p: Update) -> Result<Value> {
         let mut session = self.session(&p.session_id)?.clone();
@@ -445,7 +459,7 @@ impl Inner {
             session: session.clone(),
         })?;
         self.sessions.insert(p.session_id, session.clone());
-        Ok(json!(session))
+        Ok(self.project_session(&session))
     }
     fn delete(&mut self, p: SessionId) -> Result<Value> {
         let chains: Vec<_> = self
@@ -513,3 +527,6 @@ mod import_tests;
 
 #[cfg(test)]
 mod import_queue_tests;
+
+#[cfg(test)]
+mod import_workspace_tests;

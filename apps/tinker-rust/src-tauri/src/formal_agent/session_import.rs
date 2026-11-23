@@ -11,14 +11,32 @@ use std::{
 };
 
 pub(crate) enum ImportStep {
+    BeginBinding(String),
+    BindDirectory {
+        epoch: u64,
+        workspace_id: String,
+        path: PathBuf,
+        identity: (u64, u64),
+    },
     Begin,
     Check(u64),
+    Projects {
+        epoch: u64,
+        projects: Vec<crate::electron_import::SourceProject>,
+        refs: std::collections::BTreeSet<String>,
+    },
+    ProjectSession {
+        epoch: u64,
+        source: Box<SourceSession>,
+        workspace: String,
+    },
     Commit(u64, Box<SourceSession>),
 }
 pub(crate) enum ImportReply {
     Permit { destination: PathBuf, epoch: u64 },
     Valid,
     Committed(bool),
+    Projects(crate::formal_platform::project_catalog::ImportedProjects),
 }
 pub(super) struct ImportCall {
     generation: String,
@@ -63,6 +81,61 @@ impl Actor {
         self.root.validate()?;
         let now = self.gate.sequence();
         match step {
+            ImportStep::BeginBinding(workspace_id) => {
+                self.platform.require_workspace(
+                    crate::formal_platform::workspace::WorkspaceKey::Project(&workspace_id),
+                )?;
+                Ok(ImportReply::Permit {
+                    destination: self.root.path().to_owned(),
+                    epoch: now,
+                })
+            }
+            ImportStep::BindDirectory {
+                epoch,
+                workspace_id,
+                path,
+                identity,
+            } => {
+                if epoch != now {
+                    return Err(DesktopError("closing"));
+                }
+                self.platform
+                    .bind_project_folder(&workspace_id, &path, identity)?;
+                Ok(ImportReply::Valid)
+            }
+            ImportStep::Projects {
+                epoch,
+                projects,
+                refs,
+            } => {
+                if epoch != now {
+                    return Err(DesktopError("closing"));
+                }
+                Ok(ImportReply::Projects(
+                    self.platform
+                        .project_platform()?
+                        .import_projects(&projects, &refs)?,
+                ))
+            }
+            ImportStep::ProjectSession {
+                epoch,
+                source,
+                workspace,
+            } => {
+                if epoch != now {
+                    return Err(DesktopError("closing"));
+                }
+                self.platform.require_workspace(
+                    crate::formal_platform::workspace::WorkspaceKey::Project(&workspace),
+                )?;
+                let receipt = self.runtime.import_electron_session_in_workspace(
+                    &source,
+                    MOCK_PROFILE_ID,
+                    Some(&workspace),
+                    |dir| crate::legacy_attachments::stage_files(dir, &source.attachments),
+                )?;
+                Ok(ImportReply::Committed(receipt.imported))
+            }
             ImportStep::Begin => Ok(ImportReply::Permit {
                 destination: self.root.path().to_owned(),
                 epoch: now,

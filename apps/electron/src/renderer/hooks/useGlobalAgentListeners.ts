@@ -758,6 +758,8 @@ export function useGlobalAgentListeners(): void {
     // 此时 agentSessions / tabs 都还在异步加载，必须跳过否则会误创建 draft
     let startupRestoreSkipped = store.get(currentAgentWorkspaceIdAtom) !== null
     const cleanupWorkspaceSessionSub = store.sub(currentAgentWorkspaceIdAtom, () => {
+      // 原生项目有独立概览与新建入口，浏览项目本身不应创建或清理任何会话。
+      if (window.__TAURI_FORMAL__?.bindProjectDirectory) return
       if (!startupRestoreSkipped) {
         startupRestoreSkipped = true
         return

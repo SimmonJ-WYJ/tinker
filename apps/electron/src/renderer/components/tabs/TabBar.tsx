@@ -106,6 +106,9 @@ export function TabBar(): React.ReactElement {
     })
 
     const session = agentSessions.find((s) => s.id === tab.sessionId)
+    if (window.__TAURI_FORMAL__?.bindProjectDirectory && !session?.workspaceId) {
+      setCurrentAgentWorkspaceId(session ? null : tab.workspaceId ?? null)
+    }
     if (session?.workspaceId) {
       setCurrentAgentWorkspaceId(session.workspaceId)
       window.electronAPI.updateSettings({
@@ -142,16 +145,17 @@ export function TabBar(): React.ReactElement {
     if (isLastTab) {
       void (async () => {
         try {
+          const draftWorkspace = window.__TAURI_FORMAL__?.bindProjectDirectory ? undefined : currentWorkspaceId ?? undefined
           const meta = await window.electronAPI.getOrCreateDraftAgentSession(
             agentChannelId || undefined,
-            currentWorkspaceId || undefined,
+            draftWorkspace,
           )
           const newTab: TabItem = {
             id: meta.id,
             type: 'agent',
             sessionId: meta.id,
             title: meta.title,
-            workspaceId: meta.workspaceId ?? currentWorkspaceId ?? undefined,
+            workspaceId: meta.workspaceId ?? draftWorkspace,
           }
           // 原子替换：旧标签直接被草稿标签顶掉，渲染上不出现空态；
           // 只移除被关闭的 tab，保留其他工作区仍存活的 tab
@@ -165,6 +169,7 @@ export function TabBar(): React.ReactElement {
             return next
           })
           setCurrentAgentSessionId(meta.id)
+          if (window.__TAURI_FORMAL__?.bindProjectDirectory) setCurrentAgentWorkspaceId(meta.workspaceId ?? null)
           setActiveView('conversations')
           cleanupClosedTab(tabId)
         } catch (error) {
@@ -188,7 +193,7 @@ export function TabBar(): React.ReactElement {
     }
 
     cleanupClosedTab(tabId)
-  }, [tabs, visibleTabs, activeTabId, setTabs, setActiveTabId, cleanupClosedTab, syncActiveTabSideEffects, draftSessionIds, agentChannelId, currentWorkspaceId, setAgentSessions, setDraftSessionIds, setCurrentAgentSessionId, setActiveView])
+  }, [tabs, visibleTabs, activeTabId, setTabs, setActiveTabId, cleanupClosedTab, syncActiveTabSideEffects, draftSessionIds, agentChannelId, currentWorkspaceId, setAgentSessions, setDraftSessionIds, setCurrentAgentSessionId, setCurrentAgentWorkspaceId, setActiveView])
 
   const handleDragStart = React.useCallback((tabId: string, e: React.PointerEvent) => {
     if (e.button !== 0) return // 只处理左键

@@ -28,6 +28,8 @@ impl Actor {
             && (matches!(
                 c,
                 "agent:permission:respond"
+                    | "agent:create-workspace"
+                    | "agent:update-workspace"
                     | "agent:create-session"
                     | "agent:get-or-create-draft-session"
                     | "agent:update-title"
@@ -112,6 +114,28 @@ impl Actor {
                     args[0].as_str().ok_or(DesktopError("invalidParams"))?,
                     reply,
                 );
+            }
+            "agent:update-workspace" if self.images.is_some() => {
+                arity(&args, 2, 2)?;
+                let id = string(&args, 0)?;
+                let patch = args[1]
+                    .as_object()
+                    .filter(|p| p.len() == 1)
+                    .ok_or(DesktopError("invalidParams"))?;
+                let name = patch
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .ok_or(DesktopError("invalidParams"))?;
+                json!(self.platform.project_platform()?.rename_project(id, name)?)
+            }
+            "agent:create-workspace" if self.images.is_some() => {
+                arity(&args, 1, 2)?;
+                let name = string(&args, 0)?;
+                let from = optional(&args, 1)?;
+                json!(self
+                    .platform
+                    .project_platform()?
+                    .create_project(name, from.as_deref())?)
             }
             "agent:list-sessions" => {
                 arity(&args, 0, 0)?;
@@ -313,29 +337,14 @@ impl Actor {
     }
     fn workspace(&self, id: Option<&str>) -> Result<()> {
         if let Some(id) = id {
-            if !self
-                .platform
-                .bootstrap()?
-                .workspaces
-                .iter()
-                .any(|w| w.id == id)
-            {
-                return Err(DesktopError("workspaceNotFound"));
-            }
+            self.platform
+                .require_workspace(crate::formal_platform::workspace::WorkspaceKey::Id(id))?;
         }
         Ok(())
     }
     fn workspace_slug(&self, slug: &str) -> Result<()> {
-        if !self
-            .platform
-            .bootstrap()?
-            .workspaces
-            .iter()
-            .any(|w| w.slug == slug)
-        {
-            return Err(DesktopError("workspaceNotFound"));
-        }
-        Ok(())
+        self.platform
+            .require_workspace(crate::formal_platform::workspace::WorkspaceKey::Slug(slug))
     }
     fn stop(&mut self, sid: &str) -> Result<()> {
         self.session(sid)?;

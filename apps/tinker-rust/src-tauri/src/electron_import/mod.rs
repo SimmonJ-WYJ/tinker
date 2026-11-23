@@ -1,7 +1,7 @@
 //! 只从用户选择的 Electron 副本读取会话及其实际引用的附件。
 use crate::desktop_runtime::protocol::{DesktopError, Result};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SourceMessage {
@@ -38,7 +38,19 @@ pub struct ImportWarning {
     pub code: String,
     pub session_id: Option<String>,
 }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SourceProject {
+    pub source_project_id: String,
+    pub name: String,
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub has_directory_hint: bool,
+}
+#[derive(Default)]
 pub struct ImportBatch {
+    pub projects: Vec<SourceProject>,
+    pub session_projects: BTreeMap<String, String>,
     pub sessions: Vec<SourceSession>,
     pub warnings: Vec<ImportWarning>,
     pub skipped: usize,
@@ -47,6 +59,8 @@ pub struct ImportBatch {
 mod attachments;
 #[cfg(target_os = "macos")]
 mod fs;
+#[cfg(target_os = "macos")]
+mod projects;
 #[cfg(target_os = "macos")]
 mod reader;
 #[cfg(target_os = "macos")]

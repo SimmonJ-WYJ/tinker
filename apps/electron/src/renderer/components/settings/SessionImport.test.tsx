@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { createStore, Provider } from 'jotai'
 import type { AgentSessionMeta } from '@asci/shared'
 import type { SessionImporter, SessionImportReport } from '../../../tauri-formal/session-import'
-import { agentSessionsAtom, currentAgentSessionIdAtom } from '@/atoms/agent-atoms'
+import { agentSessionsAtom, agentWorkspacesAtom, currentAgentWorkspaceIdAtom, currentAgentSessionIdAtom } from '@/atoms/agent-atoms'
+import { tabsAtom, activeTabIdAtom, backfillTabWorkspaceIds, filterVisibleTabs } from '@/atoms/tab-atoms'
 import { setAppLanguage } from '@/lib/i18n'
 import { SessionImport } from './SessionImport'
 
@@ -115,4 +116,58 @@ test('a late refresh keeps sessions created, changed, or removed while it was in
   store.set(agentSessionsAtom, newer)
   await act(async () => { finish(sessions('deleted', 'renamed', 'imported')) })
   expect(store.get(agentSessionsAtom)).toEqual([...newer, ...sessions('imported')])
+})
+
+test('project-only imports and unchanged retries refresh authoritative project rows without changing the selected conversation', async () => {
+  const report = { ...empty, projectsImported: 2, projectsUpdated: 1 }
+  const { view, store } = setup(async () => report, async () => [])
+  window.__TAURI_FORMAL__!.bindProjectDirectory = async () => false
+  const projects = ['project-a', 'project-b'].map(id => ({ id, name: 'Shared name', slug: id, createdAt: 1, updatedAt: 1 }))
+  const list = mock(async () => projects)
+  window.electronAPI.listAgentWorkspaces = list
+  store.set(currentAgentSessionIdAtom, 'open-chat')
+  render(view())
+  fireEvent.click(screen.getByRole('button'))
+  expect(await screen.findByRole('status')).toHaveTextContent('Projects imported 2 · updated 1')
+  expect(store.get(agentWorkspacesAtom).map(workspace => workspace.id)).toEqual(['project-a', 'project-b'])
+  expect(store.get(currentAgentSessionIdAtom)).toBe('open-chat')
+  expect(list).toHaveBeenCalledTimes(1)
+})
+
+
+test.each([false, true])('reimport persists a newly linked active tab only while navigation is unchanged (switch=%s)', async switched => {
+  let finish!: (rows: AgentSessionMeta[]) => void
+  const list = mock(() => new Promise<AgentSessionMeta[]>(resolve => { finish = resolve }))
+  const { store, view } = setup(async () => ({ ...empty, unchanged: 1 }), list)
+  window.__TAURI_FORMAL__!.bindProjectDirectory = async () => false
+  const workspace = { id: 'project-b', name: 'B', slug: 'b', createdAt: 1, updatedAt: 1 }
+  window.electronAPI.listAgentWorkspaces = async () => [workspace]
+  let savedWorkspace: string | null = null
+  const save = mock(async (settings: { agentWorkspaceId?: string }) => {
+    savedWorkspace = settings.agentWorkspaceId ?? null
+    return settings
+  })
+  window.electronAPI.updateSettings = save
+  const legacy = { id: 'b', title: 'Previously global', createdAt: 1, updatedAt: 1 }
+  const tab = { id: 'b', sessionId: 'b', type: 'agent' as const, title: legacy.title }
+  store.set(tabsAtom, [tab])
+  store.set(activeTabIdAtom, 'b')
+  store.set(currentAgentSessionIdAtom, 'b')
+  store.set(agentSessionsAtom, [legacy])
+  render(view())
+  fireEvent.click(screen.getByRole('button'))
+  await waitFor(() => expect(list).toHaveBeenCalledTimes(1))
+  if (switched) store.set(currentAgentWorkspaceIdAtom, 'other-project')
+  await act(async () => { finish([{ ...legacy, workspaceId: workspace.id }]) })
+  expect(store.get(agentSessionsAtom)[0]?.workspaceId).toBe(workspace.id)
+  if (switched) {
+    expect(save).not.toHaveBeenCalled()
+    expect(store.get(currentAgentWorkspaceIdAtom)).toBe('other-project')
+  } else {
+    expect(save).toHaveBeenCalledWith({ agentWorkspaceId: workspace.id })
+    expect(store.get(currentAgentWorkspaceIdAtom)).toBe(workspace.id)
+    const reloadTabs = backfillTabWorkspaceIds(store.get(tabsAtom), store.get(agentSessionsAtom))
+    expect(filterVisibleTabs(reloadTabs, savedWorkspace).map(row => row.id)).toEqual(['b'])
+    expect(store.get(activeTabIdAtom)).toBe('b')
+  }
 })

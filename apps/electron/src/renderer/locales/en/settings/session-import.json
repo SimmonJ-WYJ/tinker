@@ -30,9 +30,16 @@
       "other": "Other import warnings",
       "corruptImport": "Imported copies that failed their integrity check",
       "importLimit": "Conversations over the import limit",
-      "importDeleted": "Previously deleted conversations"
+      "importDeleted": "Previously deleted conversations",
+      "unavailableProject": "Conversations skipped because their project could not be imported safely",
+      "invalidProjectIndex": "Project indexes that could not be read",
+      "invalidProject": "Invalid project entries",
+      "duplicateProject": "Duplicate project entries",
+      "missingProject": "Conversations with missing project metadata",
+      "invalidDirectoryHint": "Invalid folder references"
     },
     "errors": {
+      "invalidProjectImportFolder": "Choose the folder that contains agent-sessions.json or agent-workspaces.json.",
       "invalidImportFolder": "Choose the folder that contains agent-sessions.json.",
       "invalidImportIndex": "The session index could not be read. Choose a complete backup.",
       "unsupportedImportVersion": "This backup format is unsupported.",
@@ -44,6 +51,8 @@
       "unsupported": "This desktop build does not support importing conversations.",
       "failed": "The import result could not be confirmed. You can select the same folder again.",
       "refresh": "The import result is ready. Refresh the conversation list to see saved conversations."
-    }
+    },
+    "projectDescription": "Choose an Electron backup folder containing agent-sessions.json or agent-workspaces.json. Project conversations keep their project.",
+    "projectResult": "Projects imported {{imported}} · updated {{updated}}"
   }
 }

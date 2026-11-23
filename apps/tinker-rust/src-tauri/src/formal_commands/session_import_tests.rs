@@ -26,6 +26,8 @@ fn sample(id: &str) -> SourceSession {
 #[test]
 fn interrupted_commit_reports_confirmed_work_and_stops_without_exposing_source_ids() {
     let batch = ImportBatch {
+        projects: vec![],
+        session_projects: Default::default(),
         sessions: ["one", "two", "three", "four", "five"].map(sample).into(),
         warnings: vec![ImportWarning {
             code: "missingHistory".into(),
@@ -44,8 +46,30 @@ fn interrupted_commit_reports_confirmed_work_and_stops_without_exposing_source_i
     let report = serde_json::to_value(persist(batch, |_| results.next().unwrap())).unwrap();
     assert_eq!(
         report,
-        json!({"cancelled":false,"imported":1,"unchanged":1,"unconfirmed":1,"skipped":3,"warnings":{"missingHistory":2,"importConflict":1,"importUnconfirmed":1,"importStopped":1}})
+        json!({"cancelled":false,"projectsImported":0,"projectsUpdated":0,"imported":1,"unchanged":1,"unconfirmed":1,"skipped":3,"warnings":{"missingHistory":2,"importConflict":1,"importUnconfirmed":1,"importStopped":1}})
     );
+}
+#[test]
+fn skipped_project_session_does_not_prevent_later_global_session_import() {
+    let batch = ImportBatch {
+        projects: vec![],
+        session_projects: Default::default(),
+        sessions: ["invalid-owner", "global"].map(sample).into(),
+        warnings: vec![],
+        skipped: 0,
+    };
+    let result = persist(batch, |session| {
+        if session.source_session_id == "invalid-owner" {
+            Err(DesktopError("unavailableProject"))
+        } else {
+            Ok(true)
+        }
+    });
+    assert_eq!(
+        (result.imported, result.skipped, result.unconfirmed),
+        (1, 1, 0)
+    );
+    assert_eq!(result.warnings.get("unavailableProject"), Some(&1));
 }
 #[test]
 fn expired_host_grants_cannot_commit_even_if_quit_is_aborted() {

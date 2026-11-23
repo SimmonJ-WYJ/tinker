@@ -140,6 +140,7 @@
     }
   },
   "projectManage": {
+    "nativeDescription": "可重命名已创建或导入的项目。",
     "title": "管理项目",
     "description": "重命名、删除或拖拽排序。默认项目无法删除；切换和新建请使用标题栏入口。",
     "renameTooltip": "重命名",
@@ -151,6 +152,16 @@
       "cancel": "取消",
       "confirm": "删除"
     }
+  },
+  "projectDirectory": {
+    "unbound": "未选择文件夹",
+    "bound": "文件夹已连接",
+    "unavailable": "文件夹不可用",
+    "choose": "选择文件夹",
+    "chooseAnother": "重新选择文件夹",
+    "bindError": "无法连接文件夹，请重新选择。",
+    "readError": "未能核实文件夹状态。",
+    "unsafeDirectory": "请选择其他本地文件夹。"
   },
   "projectTree": {
     "expand": "展开 {{name}}",

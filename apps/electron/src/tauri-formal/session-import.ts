@@ -1,5 +1,6 @@
 /** 宿主只返回计数。未知警告归入同一栏，文件名、路径和会话内容不进入 UI。 */
 export const importWarningCodes = [
+  'invalidProjectIndex', 'invalidProject', 'unavailableProject', 'duplicateProject', 'missingProject', 'invalidDirectoryHint',
   'invalidSession', 'missingHistory', 'invalidHistory', 'unsupportedRecord',
   'missingAttachment', 'unsupportedAttachment', 'invalidAttachment', 'attachmentLimit',
   'unsafeSource', 'duplicateSession', 'ambiguousHistory', 'incompleteHistory', 'duplicateMessage',
@@ -11,6 +12,8 @@ export type ImportWarningCode = typeof importWarningCodes[number]
 export interface SessionImportReport {
   cancelled: boolean
   imported: number
+  projectsImported?: number
+  projectsUpdated?: number
   unchanged: number
   skipped: number
   unconfirmed: number
@@ -32,6 +35,8 @@ export function createSessionImporter(command: (name: string) => Promise<{ value
       || !isCount(report.unconfirmed) || !isCount(report.unchanged) || !isCount(report.skipped) || !report.warnings
       || typeof report.warnings !== 'object' || Array.isArray(report.warnings)) throw new Error('invalidImportReport')
 
+    if ((report.projectsImported !== undefined && !isCount(report.projectsImported))
+      || (report.projectsUpdated !== undefined && !isCount(report.projectsUpdated))) throw new Error('invalidImportReport')
     const warnings: SessionImportReport['warnings'] = {}
     for (const [code, count] of Object.entries(report.warnings)) {
       if (!isCount(count)) throw new Error('invalidImportReport')
@@ -40,7 +45,10 @@ export function createSessionImporter(command: (name: string) => Promise<{ value
       warnings[key] = (warnings[key] ?? 0) + count
     }
     const { cancelled, imported, unchanged, skipped, unconfirmed } = report
-    if (cancelled && (imported || unchanged || skipped || unconfirmed || Object.keys(warnings).length)) throw new Error('invalidImportReport')
-    return { cancelled, imported, unchanged, skipped, unconfirmed, warnings }
+    if (cancelled && (imported || unchanged || skipped || unconfirmed || report.projectsImported || report.projectsUpdated || Object.keys(warnings).length)) throw new Error('invalidImportReport')
+    return { cancelled, imported, unchanged, skipped, unconfirmed, warnings,
+      ...(report.projectsImported !== undefined && { projectsImported: report.projectsImported }),
+      ...(report.projectsUpdated !== undefined && { projectsUpdated: report.projectsUpdated }),
+    }
   }
 }

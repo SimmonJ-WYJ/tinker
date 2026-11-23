@@ -6,7 +6,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions, TryLockError},
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -366,8 +366,12 @@ impl RunStore {
             NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
         ));
         let result = (|| {
-            let mut file = options().write(true).create_new(true).open(&temp)?;
-            serde_json::to_writer(&mut file, snapshot).map_err(|_| RunError::StoreIo)?;
+            let file = options().write(true).create_new(true).open(&temp)?;
+            {
+                let mut writer = BufWriter::new(&file);
+                serde_json::to_writer(&mut writer, snapshot).map_err(|_| RunError::StoreIo)?;
+                writer.flush()?;
+            }
             file.sync_all()?;
             fs::rename(&temp, target)?;
             File::open(root)?.sync_all()?;

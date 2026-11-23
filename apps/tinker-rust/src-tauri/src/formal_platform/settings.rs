@@ -3,7 +3,7 @@ use super::{
     launch::PublicProfile,
     protocol::*,
     spotlight::{ConceptState, OnboardingState},
-    workspace::DEFAULT_WORKSPACE_ID,
+    workspace::{WorkspaceRecord, DEFAULT_WORKSPACE_ID},
 };
 use crate::desktop_runtime::protocol::{DesktopError, Result};
 use serde::{Deserialize, Serialize};
@@ -108,20 +108,31 @@ impl Settings {
             concept_spotlight: ConceptState::default(),
         }
     }
-    pub(crate) fn validate(&self, profiles: &[PublicProfile]) -> Result<()> {
-        self.validate_inner(profiles, false)
+    pub(crate) fn validate(
+        &self,
+        profiles: &[PublicProfile],
+        workspaces: &[WorkspaceRecord],
+    ) -> Result<()> {
+        self.validate_inner(profiles, false, |id| {
+            workspaces.iter().any(|w| w.workspace.id == id)
+        })
     }
     pub(crate) fn validate_managed(&self, profiles: &[PublicProfile]) -> Result<()> {
-        self.validate_inner(profiles, true)
+        self.validate_inner(profiles, true, |id| id == DEFAULT_WORKSPACE_ID)
     }
-    fn validate_inner(&self, profiles: &[PublicProfile], managed: bool) -> Result<()> {
+    fn validate_inner(
+        &self,
+        profiles: &[PublicProfile],
+        managed: bool,
+        knows_workspace: impl Fn(&str) -> bool,
+    ) -> Result<()> {
         let invalid = || DesktopError("invalidParams");
         if managed && !["", "low", "medium", "high", "max"].contains(&self.agent_effort.as_str()) {
             return Err(DesktopError("unsupportedEffort"));
         }
         if !["system", "light", "dark"].contains(&self.theme.as_str())
             || !["en", "zh"].contains(&self.language.as_str())
-            || self.agent_workspace_id != DEFAULT_WORKSPACE_ID
+            || !knows_workspace(&self.agent_workspace_id)
             || self.agent_permission_mode != "acceptEdits"
             || self.archive_after_days > 365
             || self.telemetry_consent.posthog_enabled
@@ -206,11 +217,10 @@ impl Settings {
         }
         let tabs = &self.tab_state;
         if tabs.tabs.len() > 128
-            || tabs.active_tab_id_by_workspace.len() > 1
             || self
                 .sidebar_project_files_expanded_by_workspace
                 .keys()
-                .any(|k| k != DEFAULT_WORKSPACE_ID)
+                .any(|k| !knows_workspace(k))
         {
             return Err(invalid());
         }
@@ -220,9 +230,7 @@ impl Settings {
             identifier(&t.session_id)?;
             if t.kind != "agent"
                 || t.title.len() > 1024
-                || t.workspace_id
-                    .as_ref()
-                    .is_some_and(|s| s != DEFAULT_WORKSPACE_ID)
+                || t.workspace_id.as_ref().is_some_and(|s| !knows_workspace(s))
                 || !seen.insert(&t.id)
             {
                 return Err(invalid());
@@ -237,7 +245,7 @@ impl Settings {
         }
         // 原 UI 关闭标签后仍保留工作区记忆；仅当前激活标签必须存在。
         for (workspace, id) in &tabs.active_tab_id_by_workspace {
-            if workspace != DEFAULT_WORKSPACE_ID {
+            if !knows_workspace(workspace) {
                 return Err(invalid());
             }
             identifier(id)?;
@@ -257,6 +265,106 @@ mod credentialed_empty_tests {
         assert!(settings.agent_channel_id.is_empty());
         assert!(settings.agent_model_id.is_empty());
         assert!(settings.agent_channel_ids.is_empty());
-        assert!(settings.validate(&[]).is_ok());
+        assert!(settings
+            .validate(&[], &[WorkspaceRecord::initial()])
+            .is_ok());
+    }
+}
+
+#[cfg(test)]
+mod project_settings_tests {
+    use super::*;
+    use crate::{
+        electron_import::SourceProject,
+        formal_platform::{local_mock_profiles, FormalPlatform, HostEnvironment, TrustedRoot},
+    };
+    use serde_json::{json, Value};
+
+    fn update(platform: &FormalPlatform, channel: &str, patch: Value) -> Result<()> {
+        let revision = platform.bootstrap()?.revision;
+        platform.invoke(PlatformRequest {
+            version: VERSION,
+            channel: channel.into(),
+            args: vec![patch],
+            mutation: Some(Mutation {
+                mutation_id: format!("prefs-{revision}"),
+                expected_revision: revision,
+            }),
+        })?;
+        Ok(())
+    }
+
+    #[test]
+    fn project_settings_accept_catalogued_ids_and_keep_global_tabs() {
+        let base = std::env::temp_dir().canonicalize().unwrap();
+        let tag = crate::credentialed_channels::catalog::random_reference().unwrap();
+        let path = base.join(format!("tinker-tauri-formal-preview-test-prefs-{tag}"));
+        let root = TrustedRoot::create_temporary(path.clone()).unwrap();
+        let profiles = local_mock_profiles("http://127.0.0.1:23456/v1/chat/completions").unwrap();
+        let open = || {
+            FormalPlatform::open(
+                &root,
+                &profiles,
+                HostEnvironment::new("darwin", false, false).unwrap(),
+            )
+            .unwrap()
+        };
+        let platform = open();
+        let native = platform.create_project("Same name", None).unwrap();
+        let src = SourceProject {
+            source_project_id: "project-a".into(),
+            name: "Same name".into(),
+            created_at: 1,
+            updated_at: 2,
+            has_directory_hint: false,
+        };
+        let catalog = platform
+            .import_projects(&[src], &["project-a".into()].into())
+            .unwrap();
+        let a = catalog.ids["project-a"].as_str();
+        let b = native.id.as_str();
+        let tabs = json!({
+            "tabs": [
+                {"id":"a","sessionId":"sa","title":"One","type":"agent","workspaceId":a},
+                {"id":"b","sessionId":"sb","title":"Two","type":"agent","workspaceId":b},
+                {"id":"g","sessionId":"sg","title":"Global","type":"agent"}
+            ],
+            "activeTabId":"b","activeTabIdByWorkspace":{(a):"a",(b):"b"}
+        });
+        update(
+            &platform,
+            "settings:update",
+            json!({"agentWorkspaceId":b,"tabState":tabs}),
+        )
+        .unwrap();
+        update(
+            &platform,
+            "settings:update-sync",
+            json!({"sidebarProjectFilesExpandedByWorkspace":{(a):false,(b):true}}),
+        )
+        .unwrap();
+        let before = platform.bootstrap().unwrap();
+        drop(platform);
+        let platform = open();
+        let restored = platform.bootstrap().unwrap();
+        assert_eq!(restored.revision, before.revision);
+        assert_eq!(restored.settings, before.settings);
+        assert_eq!(restored.settings.tab_state.tabs[2].workspace_id, None);
+        assert_eq!(restored.settings.agent_workspace_id, b);
+        assert!(restored
+            .settings
+            .validate_managed(&platform.profiles)
+            .is_err());
+        for patch in [
+            json!({"agentWorkspaceId":"other"}),
+            json!({"sidebarProjectFilesExpandedByWorkspace":{"other":true}}),
+            json!({"tabState":{"tabs":[],"activeTabId":null,"activeTabIdByWorkspace":{"other":"remembered-tab"}}}),
+            json!({"tabState":{"tabs":[{"id":"x","sessionId":"sx","type":"agent","title":"","workspaceId":"other"}],"activeTabId":"x"}}),
+        ] {
+            assert!(update(&platform, "settings:update", patch).is_err());
+            assert_eq!(platform.bootstrap().unwrap().settings, restored.settings);
+        }
+        drop(platform);
+        std::fs::remove_dir_all(path).unwrap();
     }
 }

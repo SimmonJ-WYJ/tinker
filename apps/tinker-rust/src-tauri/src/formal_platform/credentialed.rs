@@ -105,6 +105,19 @@ impl CredentialedPlatform {
             scope,
         })
     }
+    pub(crate) fn require_workspace(&self, key: workspace::WorkspaceKey<'_>) -> Result<()> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("recoveryRequired"))?;
+        inner
+            .state
+            .workspaces
+            .iter()
+            .any(|r| key.matches(&r.workspace))
+            .then_some(())
+            .ok_or(DesktopError("workspaceNotFound"))
+    }
     pub fn catalog(&self) -> Result<Catalog> {
         self.inner
             .lock()
