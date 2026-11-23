@@ -1,6 +1,8 @@
 //! 正式会话服务；stdio与Tauri共同调用，秘密仅由可信宿主注入。
 pub mod availability;
 mod execution;
+mod import;
+pub use import::ImportReceipt;
 pub(crate) mod profile;
 pub mod protocol;
 mod queue;
@@ -45,6 +47,7 @@ struct Inner {
     revisions: BTreeMap<(String, String), Profile>,
     tools: BTreeMap<String, TrustedToolBinding>,
     sessions: BTreeMap<String, Session>,
+    imported: BTreeMap<String, import::Seed>,
     bindings: BTreeMap<String, Vec<Binding>>,
     controllers: BTreeMap<String, RunController>,
 }
@@ -133,6 +136,7 @@ impl DesktopRuntime {
             revisions: BTreeMap::new(),
             tools,
             sessions: BTreeMap::new(),
+            imported: BTreeMap::new(),
             bindings: BTreeMap::new(),
             controllers: BTreeMap::new(),
         };
@@ -207,6 +211,16 @@ impl DesktopRuntime {
         for session_id in inner.sessions.keys() {
             store::existing_run_layout(&inner.journal.root.join(session_id))?;
         }
+        for session in inner.sessions.values() {
+            if session.session_id.starts_with(import::PREFIX) {
+                if let Ok(seed) = import::load(
+                    &inner.journal.root.join(&session.session_id),
+                    &session.session_id,
+                ) {
+                    inner.imported.insert(session.session_id.clone(), seed);
+                }
+            }
+        }
         let mut stores = BTreeMap::new();
         for session_id in inner.sessions.keys() {
             let mut run_store = RunStore::open(inner.journal.root.join(session_id))?;
@@ -248,7 +262,11 @@ impl DesktopRuntime {
             .lock()
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
         inner.session(session_id)?;
-        Ok(inner.bindings.get(session_id).map_or(0, Vec::len))
+        if inner.require_import_seed(session_id).is_err() {
+            return Ok(0);
+        }
+        Ok(inner.bindings.get(session_id).map_or(0, Vec::len)
+            + inner.imported.get(session_id).map_or(0, import::Seed::len))
     }
     pub fn dispatch(&self, value: Value) -> Result<DesktopReply> {
         let wire_id = value
@@ -323,7 +341,7 @@ impl Inner {
             "sessions.list" => {
                 let _: Empty = decode(params)?;
                 Ok(
-                    json!({"sessions":self.sessions.values().filter(|s|!s.deleted).collect::<Vec<_>>()}),
+                    json!({"sessions":self.sessions.values().filter(|s|!s.deleted).map(|s|{let mut v=json!(s);if self.require_import_seed(&s.session_id).is_err(){v["importError"]=json!("corruptImport");}v}).collect::<Vec<_>>()}),
                 )
             }
             "sessions.create" => self.create(decode(params)?),
@@ -366,6 +384,7 @@ impl Inner {
                     && !s.archived
                     && s.profile_id == p.profile_id
                     && s.workspace_id == p.workspace_id
+                    && !s.session_id.starts_with(import::PREFIX)
                     && self.bindings.get(&s.session_id).is_some_and(Vec::is_empty)
             }) {
                 return Ok(json!(s));
@@ -488,3 +507,9 @@ impl Drop for Inner {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod import_tests;
+
+#[cfg(test)]
+mod import_queue_tests;

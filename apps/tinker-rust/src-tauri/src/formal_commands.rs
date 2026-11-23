@@ -3,6 +3,8 @@
 pub(crate) mod image_disk;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod image_panel;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod session_panel;
 use crate::{formal_host::FormalHost, formal_platform::HostEnvironment};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -52,7 +54,25 @@ impl From<crate::desktop_runtime::protocol::DesktopError> for WireError {
         Self { code: error.0 }
     }
 }
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+struct OpenFileDialog(Arc<AtomicBool>);
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+impl Drop for OpenFileDialog {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
 impl FormalState {
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    fn acquire_file_dialog(&self) -> Result<OpenFileDialog, WireError> {
+        self.picker_open
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| WireError {
+                code: "imageDialogBusy",
+            })?;
+        Ok(OpenFileDialog(self.picker_open.clone()))
+    }
     pub fn new(host: FormalHost) -> Self {
         Self {
             host: Arc::new(Mutex::new(Some(host))),
@@ -204,6 +224,10 @@ pub async fn formal_request<R: Runtime>(
     request: Value,
 ) -> Result<Value, WireError> {
     guard(&window)?;
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    if request["command"] == "importElectronSessions" {
+        return session_panel::run(window, state.inner().clone(), request).await;
+    }
     #[cfg(all(target_os = "macos", feature = "formal-preview"))]
     if matches!(
         request["command"].as_str(),

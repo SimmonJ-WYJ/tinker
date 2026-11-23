@@ -67,6 +67,10 @@ impl Inner {
     pub(super) fn send_inner(&mut self, p: Send, begin: bool) -> Result<Value> {
         validate_send(&p)?;
         let session = self.session(&p.session_id)?;
+        self.require_import_seed(&p.session_id)?;
+        if self.imported.contains_key(&p.session_id) && self.tools.contains_key(&p.profile_id) {
+            return Err(DesktopError("contextUnsupported"));
+        }
         for bindings in self.bindings.values() {
             if let Some(b) = bindings
                 .iter()
@@ -135,6 +139,13 @@ impl Inner {
                     &tool.options,
                 )?;
         }
+        self.import_preflight(
+            &p.session_id,
+            &p.request_id,
+            parent.as_deref(),
+            &p.user_message,
+            &p.profile_id,
+        )?;
         let binding = Binding {
             request: p.clone(),
             config_revision: profile.config_revision.clone(),
@@ -175,6 +186,7 @@ impl Inner {
     }
     pub(super) fn history(&self, p: History, v2: bool) -> Result<Value> {
         self.session(&p.session_id)?;
+        self.require_import_seed(&p.session_id)?;
         if p.limit == 0 || p.limit > MAX_REQUESTS {
             return Err(DesktopError("invalidLimit"));
         }
@@ -182,22 +194,36 @@ impl Inner {
             .bindings
             .get(&p.session_id)
             .ok_or(DesktopError("sessionNotFound"))?;
-        if p.after > bindings.len() {
+        let seed = self.imported.get(&p.session_id);
+        let imported_len = seed.map_or(0, super::import::Seed::len);
+        let total = imported_len + bindings.len();
+        if p.after > total {
             return Err(DesktopError("invalidCursor"));
         }
         let mut turns = Vec::new();
         let mut next = p.after;
-        for b in bindings.iter().skip(p.after).take(p.limit) {
-            let t = self.turn_v2(b)?;
-            if !v2 && !t["toolState"].is_null() {
-                return Err(DesktopError("unsupportedVersion"));
-            }
-            turns.push(if v2 { t } else { json!(self.turn(b)?) });
-            if serde_json::to_vec(
-                &json!({"turns":turns,"nextAfter":next+1,"hasMore":next+1<bindings.len()}),
-            )
-            .map_err(|_| DesktopError("storeIo"))?
-            .len()
+        for index in p.after..total.min(p.after + p.limit) {
+            let t = if index < imported_len {
+                seed.ok_or(DesktopError("corruptImport"))?.turn(index)?
+            } else {
+                let b = &bindings[index - imported_len];
+                let mut turn = self.turn_v2(b)?;
+                if !v2 {
+                    // 文本 v1 与 v2 的唯一差异为 toolState。保持同一快照，避免再次读取整个流式日志。
+                    let tool_state = turn
+                        .as_object_mut()
+                        .ok_or(DesktopError("invalidReply"))?
+                        .remove("toolState");
+                    if tool_state.is_some_and(|state| !state.is_null()) {
+                        return Err(DesktopError("unsupportedVersion"));
+                    }
+                }
+                turn
+            };
+            turns.push(t);
+            if serde_json::to_vec(&json!({"turns":turns,"nextAfter":next+1,"hasMore":next+1<total}))
+                .map_err(|_| DesktopError("storeIo"))?
+                .len()
                 > MAX_PAGE_BYTES
             {
                 turns.pop();
@@ -205,10 +231,10 @@ impl Inner {
             }
             next += 1;
         }
-        if next == p.after && p.after < bindings.len() {
+        if next == p.after && p.after < total {
             return Err(DesktopError("pageLimit"));
         }
-        Ok(json!({"turns":turns,"nextAfter":next,"hasMore":next<bindings.len()}))
+        Ok(json!({"turns":turns,"nextAfter":next,"hasMore":next<total}))
     }
     pub(super) fn binding(&self, session: &str, request: &str) -> Result<&Binding> {
         self.session(session)?;

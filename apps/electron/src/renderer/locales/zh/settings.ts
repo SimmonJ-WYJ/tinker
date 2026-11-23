@@ -10,6 +10,7 @@ import general from './settings/general.json'
 import panel from './settings/panel.json'
 import profile from './settings/profile.json'
 import proxy from './settings/proxy.json'
+import sessionImport from './settings/session-import.json'
 import shortcuts from './settings/shortcuts.json'
 import updates from './settings/updates.json'
 import zotero from './settings/zotero.json'
@@ -22,6 +23,7 @@ export const settingsZh = {
   ...about,
   ...channels,
   ...proxy,
+  ...sessionImport,
   ...shortcuts,
   ...zotero,
   ...agent,

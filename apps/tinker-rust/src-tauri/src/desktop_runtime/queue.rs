@@ -86,6 +86,7 @@ impl Inner {
         if self.managed {
             self.require_available(&initial.request.profile_id, &initial.request.model_id)?;
         }
+        self.import_profile_guard(&p.session_id, &initial.request.profile_id)?;
         let profile = self.bound_profile(initial)?;
         let provider =
             profile.provider(&initial.request.model_id, initial.request.effort.as_deref())?;
@@ -293,9 +294,34 @@ impl Inner {
                 return Err(DesktopError("activeLimit"));
             }
             let initial = c.initial.as_ref().ok_or(DesktopError("corruptJournal"))?;
+            self.import_profile_guard(&p.session_id, &initial.request.profile_id)?;
             let profile = self.bound_profile(initial)?;
             let provider =
                 profile.provider(&initial.request.model_id, initial.request.effort.as_deref())?;
+            if self.imported.contains_key(&p.session_id) {
+                let checked = (|| {
+                    let controller = self
+                        .controllers
+                        .get(&p.session_id)
+                        .ok_or(DesktopError("sessionNotFound"))?;
+                    let context = controller.preflight_text_context_with_redirect(
+                        &m.input.uuid,
+                        Some(&p.expected_active_request_id),
+                        &m.input.user_message,
+                        redirected.then_some(t.sequence),
+                    )?;
+                    self.import_validate_context(&p.session_id, &context)
+                })();
+                if let Err(error) = checked {
+                    self.queue_commit(QueueEntry::Close {
+                        session_id: p.session_id.clone(),
+                        chain_id: p.chain_id.clone(),
+                        revision: c.revision + 1,
+                        reason: Closure::Failure,
+                    })?;
+                    return Err(error);
+                }
+            }
             let entry = QueueEntry::Bind {
                 session_id: p.session_id.clone(),
                 chain_id: p.chain_id.clone(),
@@ -405,6 +431,14 @@ impl Inner {
         provider: std::sync::Arc<dyn crate::run_provider::RunProvider>,
     ) -> Result<()> {
         let p = &b.request;
+        self.import_preflight(
+            &p.session_id,
+            &p.request_id,
+            b.parent_run_id.as_deref(),
+            &p.user_message,
+            &p.profile_id,
+        )?;
+        let provider = self.import_provider(&p.session_id, provider);
         let c = self
             .controllers
             .get(&p.session_id)

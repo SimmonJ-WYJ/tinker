@@ -8,6 +8,9 @@ pub fn active(turn: &Value) -> bool {
 }
 pub fn session(s: &Value) -> Value {
     let mut out = json!({"id":s["sessionId"],"title":s["title"],"channelId":s["profileId"],"pinned":s["pinned"],"archived":s["archived"],"createdAt":s["createdAt"],"updatedAt":s["updatedAt"]});
+    if s["importError"] == "corruptImport" {
+        out["importError"] = json!("corruptImport");
+    }
     if !s["workspaceId"].is_null() {
         out["workspaceId"] = s["workspaceId"].clone();
     }
@@ -25,6 +28,24 @@ pub fn history(turns: &[Value]) -> Value {
     let mut messages = Vec::new();
     let mut sdk = Vec::new();
     for t in turns {
+        if let Some(imported) = t["importedMessages"].as_array() {
+            for message in imported {
+                let text = message["message"]["content"]
+                    .as_array()
+                    .map(|blocks| {
+                        blocks
+                            .iter()
+                            .filter(|b| b["type"] == "text")
+                            .filter_map(|b| b["text"].as_str())
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    })
+                    .unwrap_or_default();
+                messages.push(json!({"id":message["uuid"],"role":message["type"],"content":text,"createdAt":message["_createdAt"]}));
+                sdk.push(message.clone());
+            }
+            continue;
+        }
         messages.push(json!({"id":t["userMessageId"],"role":"user","content":t["userMessage"],"createdAt":t["startedAt"]}));
         sdk.push(user_message(t));
         if !t["toolState"].is_null() {
@@ -66,4 +87,19 @@ pub fn snapshot(turn: &Value) -> Value {
 }
 pub fn active_run(turn: &Value) -> Value {
     json!({"sessionId":turn["sessionId"],"requestId":turn["requestId"],"startedAt":turn["startedAt"],"currentSnapshot":snapshot(turn),"cursor":turn["sequence"]})
+}
+
+#[cfg(test)]
+mod imported_tests {
+    use super::*;
+    #[test]
+    fn imported_single_role_is_projected_once_and_preserves_attachments() {
+        let m = json!({"uuid":"m2","type":"assistant","_createdAt":4,"message":{"content":[{"type":"text","text":"one"},{"type":"text","text":"two"}]},"_importedFiles":[{"id":"a1"}]});
+        let h = history(&[json!({"importedMessages":[m]})]);
+        assert_eq!(h["sdkMessages"], json!([m]));
+        assert_eq!(
+            h["messages"],
+            json!([{"id":"m2","role":"assistant","content":"one\ntwo","createdAt":4}])
+        );
+    }
 }

@@ -176,6 +176,15 @@ impl FormalHost {
     ) -> Result<std::sync::mpsc::Receiver<Result<crate::formal_agent::image_grant::Outcome>>> {
         self.agent.image_grant(generation, session, step)
     }
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    pub(crate) fn import_step(
+        &self,
+        generation: String,
+        step: crate::formal_agent::session_import::ImportStep,
+    ) -> Result<std::sync::mpsc::Receiver<Result<crate::formal_agent::session_import::ImportReply>>>
+    {
+        self.agent.import_step(generation, step)
+    }
     pub fn set_host_environment(&self, environment: HostEnvironment) -> Result<PendingReply> {
         self.agent.set_host_environment(environment)
     }

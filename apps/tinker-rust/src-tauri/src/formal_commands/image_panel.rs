@@ -11,10 +11,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc, Arc,
-    },
+    sync::mpsc,
 };
 #[cfg(feature = "formal-native-qa")]
 use tauri::Manager;
@@ -37,12 +34,6 @@ enum Request {
         session_id: String,
         filename: String,
     },
-}
-struct Busy(Arc<AtomicBool>);
-impl Drop for Busy {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release)
-    }
 }
 fn host_step(state: &FormalState, g: &str, sid: &str, step: Step) -> HostResult<Outcome> {
     let pending = state
@@ -137,16 +128,7 @@ pub(super) async fn run<R: Runtime>(
             code: "invalidParams",
         });
     }
-    if state
-        .picker_open
-        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .is_err()
-    {
-        return Err(WireError {
-            code: "imageDialogBusy",
-        });
-    }
-    let busy = Busy(state.picker_open.clone());
+    let busy = state.acquire_file_dialog()?;
     tauri::async_runtime::spawn_blocking(move || -> Result<Value, WireError> {
         let _busy = busy;
         let prepared = host_step(

@@ -1,5 +1,6 @@
 /** bootstrap 成功后安装原 API，再导入同一正式 renderer/main.tsx。 */
 import { createDesktopApi } from '../preload/api.ts'
+import { createSessionImporter } from './session-import'
 import { createNativeImageFiles } from './image-files'
 import { selectedImageUse } from './images.ts'
 import { createFormalTransport } from './transport.ts'
@@ -9,6 +10,7 @@ import { installPersistence } from './persistence.ts'
 import { i18n, setAppLanguage } from '../renderer/lib/i18n.ts'
 
 const credentialErrors: Partial<Record<string, keyof typeof import('../renderer/locales/en/errors.json').desktopRuntime>> = {
+ corruptImport: 'corruptImport',
  imageFileExists: 'imageFileExists',
  invalidImageFile: 'invalidImageFile',
  imageTooLarge: 'imageTooLarge',
@@ -39,6 +41,7 @@ try {
     hydrated: persistence.hydrated,
     nativeImages: transport.bootstrap.nativeImages === true,
     selectedImageUse: transport.bootstrap.nativeImages ? selectedImageUse : undefined,
+    importSessions: transport.bootstrap.nativeSessionImport ? createSessionImporter(transport.command) : undefined,
     imageFiles: transport.bootstrap.nativeImageFiles
       ? createNativeImageFiles(transport.command, path => window.electronAPI.readAttachment(path))
       : undefined,

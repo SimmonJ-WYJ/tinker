@@ -632,6 +632,12 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
     // 必须等消息加载完成，否则 messages=[] 会被误判为空对话
     if (messagesLoaded === false) return
 
+    // 后台 WKWebView 可能暂停动画帧。已恢复的数据仍需完成布局和搜索定位。
+    if (window.__TAURI_FORMAL__ && document.visibilityState === 'hidden') {
+      setReady(true)
+      return
+    }
+
     // 流式进行中且有实时内容 → 跳过 fade 直接显示
     if (streaming && liveMessages && liveMessages.length > 0) {
       setReady(true)

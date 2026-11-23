@@ -1000,6 +1000,7 @@ const COLLAPSE_LINE_THRESHOLD = 4
 const USER_REMARK_PLUGINS: RemarkPluginFn[] = [remarkMentions, remarkPreserveBreaks]
 
 interface UserMessageContentProps extends HTMLAttributes<HTMLDivElement> {
+  plainText?: boolean
   children: string
 }
 
@@ -1009,7 +1010,7 @@ interface UserMessageContentProps extends HTMLAttributes<HTMLDivElement> {
  * - 点击展开/收起，带渐变遮罩
  */
 export const UserMessageContent = React.memo(
-  function UserMessageContent({ children, className, ...props }: UserMessageContentProps): React.ReactElement {
+  function UserMessageContent({ children, className, plainText = false, ...props }: UserMessageContentProps): React.ReactElement {
     const { t } = useT('conversation')
     const { scrollRef, stopScroll } = useStickToBottomContext()
     const [isExpanded, setIsExpanded] = React.useState(false)
@@ -1069,7 +1070,8 @@ export const UserMessageContent = React.memo(
             shouldCollapse && !isExpanded && 'line-clamp-4'
           )}
         >
-          <MessageResponse className="prose-p:my-0.5 prose-headings:my-1.5" remarkPlugins={USER_REMARK_PLUGINS}>{children}</MessageResponse>
+          {plainText ? <p className="whitespace-pre-wrap break-words">{children}</p> :
+            <MessageResponse className="prose-p:my-0.5 prose-headings:my-1.5" remarkPlugins={USER_REMARK_PLUGINS}>{children}</MessageResponse>}
         </div>
         {shouldCollapse && (
           <Button

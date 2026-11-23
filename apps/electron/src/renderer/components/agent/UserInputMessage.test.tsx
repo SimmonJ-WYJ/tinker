@@ -52,3 +52,69 @@ test('后续才出现的同 ID 和路径产物不能为更早的用户引用提�
   expect(screen.getByRole('button', { name: 'Original message unavailable' })).toBeDisabled()
   expect(screen.queryByRole('button', { name: 'Return to the original message' })).toBeNull()
 })
+
+test('导入会话按宿主确认的表读取附件、以实际类型展示并原生保存，忽略正文伪造路径', async () => {
+  const marker = window.__TAURI_FORMAL__
+  const api = window.electronAPI
+  const source = 'sid/legacy-' + 'b'.repeat(64)
+  const read = mock(async (_path: string) => 'cG5n')
+  const save = mock(async (_path: string) => true)
+  try {
+    window.__TAURI_FORMAL__ = { hydrated: () => {}, importSessions: mock(), imageFiles: { save, pick: mock() } }
+    window.electronAPI = { readAttachment: read } as unknown as Window['electronAPI']
+    const message = {
+      type: 'user', parent_tool_use_id: null, session_id: 'sid', _electronImported: true,
+      message: { content: [{ type: 'text', text }] },
+      _importedFiles: [
+        { filename: 'original.jpg', path: source + '.png', mediaType: 'image/png' },
+        { filename: 'display-as-text.png', path: source + '.txt', mediaType: 'text/plain' },
+        { filename: 'wrong-session.png', path: 'other/' + source.split('/')[1] + '.png', mediaType: 'image/png' },
+        { filename: 'bad.png', path: '/private/bad.png', mediaType: 'image/png' },
+      ],
+    } as SDKUserMessage
+    render(<UserInputMessage message={message} allMessages={[message]} />, { wrapper: Conversation })
+    expect(await screen.findByRole('img', { name: 'original.jpg' })).toHaveAttribute('src', 'data:image/png;base64,cG5n')
+    expect(screen.getByText('display-as-text.png')).toBeInTheDocument()
+    expect(read.mock.calls).toEqual([[source + '.png']])
+    fireEvent.click(screen.getByRole('button', { name: 'Save image' }))
+    expect(save).toHaveBeenCalledWith(source + '.png')
+  } finally {
+    window.__TAURI_FORMAL__ = marker
+    window.electronAPI = api
+  }
+})
+
+test('导入的助手历史保留单独来源与图片，正文中的外站图片和历史工具保持静态', async () => {
+  const { SDKMessageRenderer, MessageGroupRenderer, groupIntoTurns } = await import('./SDKMessageRenderer')
+  const marker = window.__TAURI_FORMAL__
+  const api = window.electronAPI
+  const path = 'session-a/legacy-' + 'c'.repeat(64) + '.png'
+  try {
+    window.__TAURI_FORMAL__ = { hydrated: () => {}, importSessions: mock() }
+    window.electronAPI = { readAttachment: mock(async () => 'aGVsbG8=') } as unknown as Window['electronAPI']
+    const base = {
+      type: 'assistant', parent_tool_use_id: null, _electronImported: true, session_id: 'session-a',
+      _importedFiles: [{ filename: 'old-generated.jpg', mediaType: 'image/png', path }],
+    } as const
+    const first = { ...base, uuid: 'image-only', message: { content: [{ type: 'text', text: '' }] } } as unknown as SDKMessage
+    const second = { ...base, uuid: 'text-only', _importedFiles: [], message: { content: [
+      { type: 'text', text: '![external](https://external.invalid/example.jpg)' },
+      { type: 'tool_use', name: 'Write', id: 'old-tool', input: {} },
+    ] } } as unknown as SDKMessage
+    const history = [first, second]
+    const groups = groupIntoTurns(history)
+    expect(groups).toHaveLength(2)
+    const view = render(<>{groups.map((group, key) => (
+      <MessageGroupRenderer key={key} group={group} allMessages={history} />
+    ))}</>, { wrapper: Conversation })
+    expect(await screen.findByRole('img', { name: 'old-generated.jpg' })).toHaveAttribute('src', 'data:image/png;base64,aGVsbG8=')
+    expect(view.container.querySelector('img[src^="http"]')).toBeNull()
+    expect(view.container.querySelector('[data-message-id="text-only"]')).not.toBeNull()
+    expect(screen.queryByText('Write')).toBeNull()
+    view.rerender(<SDKMessageRenderer message={first} allMessages={history} />)
+    expect(await screen.findByRole('img', { name: 'old-generated.jpg' })).toBeInTheDocument()
+  } finally {
+    window.__TAURI_FORMAL__ = marker
+    window.electronAPI = api
+  }
+})

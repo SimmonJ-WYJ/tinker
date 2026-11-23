@@ -77,6 +77,16 @@ impl Actor {
         self.session(sid)?;
         match step {
             Step::CheckImport => Ok(Outcome::Ready),
+            Step::ReadExport(filename) if filename.starts_with("legacy-") => {
+                if !filename.ends_with(".png") {
+                    return Err(DesktopError("unsupportedImageFormat"));
+                }
+                let bytes = self
+                    .runtime
+                    .imported_file_bytes(sid, &filename)?
+                    .ok_or(DesktopError("imageNotFound"))?;
+                Ok(Outcome::Bytes(bytes))
+            }
             Step::ReadExport(filename) => Ok(Outcome::Bytes(
                 store.attachment(sid, &filename)?.read_bytes()?,
             )),
@@ -91,7 +101,17 @@ impl Actor {
                 ))
             }
             Step::Export { filename, staged } => {
-                store.attachment(sid, &filename)?;
+                if filename.starts_with("legacy-") {
+                    let owned = self.runtime.imported_files(sid)?.iter().any(|file| {
+                        file.media_type == "image/png"
+                            && crate::legacy_attachments::wire_name(file) == filename
+                    });
+                    if !owned {
+                        return Err(DesktopError("imageNotFound"));
+                    }
+                } else {
+                    store.attachment(sid, &filename)?;
+                }
                 staged.commit()?;
                 Ok(Outcome::Finished(json!({"value":true})))
             }

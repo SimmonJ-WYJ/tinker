@@ -38,6 +38,51 @@ impl RunController {
         Ok(())
     }
 
+    pub(crate) fn preflight_text_context(
+        &self,
+        request: &str,
+        parent: Option<&str>,
+        input: &str,
+    ) -> Result<RunContext, RunError> {
+        self.preflight_text_context_with_redirect(request, parent, input, None)
+    }
+    pub(crate) fn preflight_text_context_with_redirect(
+        &self,
+        request: &str,
+        parent: Option<&str>,
+        input: &str,
+        redirect_sequence: Option<u64>,
+    ) -> Result<RunContext, RunError> {
+        let mut inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        // 仅为已验证队列边的只读预算预检临时安装许可；返回前恢复，不发布执行权。
+        let prior = if let Some(sequence) = redirect_sequence {
+            let run_id = parent.ok_or(RunError::CorruptLog)?.to_owned();
+            Some(inner.store.redirects.insert(
+                request.to_owned(),
+                crate::run_context::ParentRunRef { run_id, sequence },
+            ))
+        } else {
+            None
+        };
+        let result = match parent {
+            Some(parent) => inner
+                .store
+                .continuation_for_child(request, parent, input)
+                .map(|(context, _)| context),
+            None => Ok(RunContext::single(input)),
+        };
+        if let Some(prior) = prior {
+            match prior {
+                Some(proof) => {
+                    inner.store.redirects.insert(request.to_owned(), proof);
+                }
+                None => {
+                    inner.store.redirects.remove(request);
+                }
+            }
+        }
+        result
+    }
     pub fn open(root: impl AsRef<Path>) -> Result<Self, RunError> {
         Self::from_store(RunStore::open(root)?)
     }

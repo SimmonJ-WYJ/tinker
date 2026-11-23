@@ -19,6 +19,8 @@ mod queue_frames;
 mod queue_projection;
 mod search;
 mod search_text;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+pub(crate) mod session_import;
 mod tool_projection;
 use crate::{
     desktop_runtime::{
@@ -66,6 +68,8 @@ type Reply = SyncSender<Result<Value>>;
 enum Message {
     #[cfg(all(target_os = "macos", feature = "formal-preview"))]
     ImageGrant(image_grant::Grant),
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    SessionImport(session_import::ImportCall),
     Call(Command, Reply),
     Environment(HostEnvironment, Reply),
     Shutdown(Reply),

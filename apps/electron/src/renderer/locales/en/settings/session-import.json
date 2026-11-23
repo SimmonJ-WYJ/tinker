@@ -1,0 +1,49 @@
+{
+  "sessionImport": {
+    "title": "Conversation history",
+    "label": "Import from Tinker Desktop",
+    "description": "Choose the folder containing agent-sessions.json from your previous Electron app or its backup. Find imported conversations in Recent or Archived.",
+    "button": "Import conversations",
+    "working": "Import in progress…",
+    "refresh": "Refresh conversations",
+    "result": "Imported {{imported}} · already imported {{unchanged}} · skipped {{skipped}}",
+    "unconfirmed": "Unconfirmed {{count}}. Select the same folder again to check. Previously imported conversations are recognized.",
+    "warningCount": "{{label}} ({{count}})",
+    "warnings": {
+      "invalidSession": "Invalid session entries",
+      "missingHistory": "Missing histories",
+      "invalidHistory": "Invalid histories",
+      "unsupportedRecord": "Unsupported history records",
+      "missingAttachment": "Missing attachments",
+      "unsupportedAttachment": "Unsupported attachments",
+      "invalidAttachment": "Invalid attachments",
+      "attachmentLimit": "Attachments over the limit",
+      "unsafeSource": "Untrusted source entries",
+      "duplicateSession": "Duplicate session entries",
+      "ambiguousHistory": "Ambiguous history sources",
+      "incompleteHistory": "Partial histories",
+      "duplicateMessage": "Duplicate messages",
+      "importUnconfirmed": "Writes awaiting confirmation",
+      "importStopped": "Conversations left to import",
+      "importConflict": "Changed copies of previously imported conversations",
+      "sessionLimit": "Conversations over the storage limit",
+      "other": "Other import warnings",
+      "corruptImport": "Imported copies that failed their integrity check",
+      "importLimit": "Conversations over the import limit",
+      "importDeleted": "Previously deleted conversations"
+    },
+    "errors": {
+      "invalidImportFolder": "Choose the folder that contains agent-sessions.json.",
+      "invalidImportIndex": "The session index could not be read. Choose a complete backup.",
+      "unsupportedImportVersion": "This backup format is unsupported.",
+      "importLimit": "This backup exceeds the import limit. Select a smaller backup.",
+      "unsafeImportPath": "The selected folder failed the import safety check. Choose a local backup folder.",
+      "importReadFailed": "The backup could not be read. Check that the folder is accessible.",
+      "dialogBusy": "Finish the other open file dialog, then try again.",
+      "closing": "Reopen the window and try again.",
+      "unsupported": "This desktop build does not support importing conversations.",
+      "failed": "The import result could not be confirmed. You can select the same folder again.",
+      "refresh": "The import result is ready. Refresh the conversation list to see saved conversations."
+    }
+  }
+}

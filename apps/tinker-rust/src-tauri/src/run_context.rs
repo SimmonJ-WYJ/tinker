@@ -36,6 +36,24 @@ pub struct RunContext {
     messages: Vec<ChatMessage>,
 }
 impl RunContext {
+    pub(crate) fn prepend(prefix: &[ChatMessage], context: &Self) -> Result<Self, RunError> {
+        let messages: Vec<_> = prefix
+            .iter()
+            .chain(context.messages.iter())
+            .cloned()
+            .collect();
+        if messages.iter().map(|m| m.content.len()).sum::<usize>() > MAX_CONTEXT_BYTES
+            || messages
+                .iter()
+                .filter(|m| m.role == ChatRole::User)
+                .count()
+                .saturating_sub(1)
+                > MAX_CONTEXT_ANCESTORS
+        {
+            return Err(RunError::ContextLimitExceeded);
+        }
+        Ok(Self { messages })
+    }
     pub fn single(input: &str) -> Self {
         Self {
             messages: vec![ChatMessage {

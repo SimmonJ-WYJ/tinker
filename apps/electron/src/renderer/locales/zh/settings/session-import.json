@@ -1,0 +1,49 @@
+{
+  "sessionImport": {
+    "title": "对话历史",
+    "label": "从 Tinker 桌面版导入",
+    "description": "请选择原 Electron 版或其备份中含 agent-sessions.json 的文件夹。导入后可在最近对话或已归档中查看。",
+    "button": "导入对话",
+    "working": "正在导入…",
+    "refresh": "刷新对话列表",
+    "result": "已导入 {{imported}} · 已导入过 {{unchanged}} · 已跳过 {{skipped}}",
+    "unconfirmed": "有 {{count}} 个结果尚未确认。可再次选择同一文件夹核对，已导入的对话会自动识别。",
+    "warningCount": "{{label}}（{{count}}）",
+    "warnings": {
+      "invalidSession": "无效的会话条目",
+      "missingHistory": "缺失的对话历史",
+      "invalidHistory": "无效的对话历史",
+      "unsupportedRecord": "不支持的历史记录",
+      "missingAttachment": "缺失的附件",
+      "unsupportedAttachment": "不支持的附件",
+      "invalidAttachment": "无效的附件",
+      "attachmentLimit": "超出限制的附件",
+      "unsafeSource": "未通过安全检查的来源",
+      "duplicateSession": "重复的会话条目",
+      "ambiguousHistory": "无法确定来源的历史记录",
+      "incompleteHistory": "不完整的对话历史",
+      "duplicateMessage": "重复的消息",
+      "importUnconfirmed": "待确认的写入",
+      "importStopped": "尚待导入的对话",
+      "importConflict": "与之前导入版本冲突的会话",
+      "sessionLimit": "超过存储上限的会话",
+      "other": "其他导入提醒",
+      "corruptImport": "未通过完整性检查的已导入副本",
+      "importLimit": "超过导入限制的会话",
+      "importDeleted": "先前已删除的会话"
+    },
+    "errors": {
+      "invalidImportFolder": "请选择包含 agent-sessions.json 的文件夹。",
+      "invalidImportIndex": "会话索引无效，请选择完整的备份。",
+      "unsupportedImportVersion": "暂不支持此版本的备份格式。",
+      "importLimit": "此备份超过导入限制，请选择较小的备份。",
+      "unsafeImportPath": "所选目录未通过安全检查，请选择本地备份文件夹。",
+      "importReadFailed": "无法读取备份，请检查文件夹是否可访问。",
+      "dialogBusy": "请先完成已打开的文件对话框，再试一次。",
+      "closing": "请重新打开窗口后再试一次。",
+      "unsupported": "当前桌面版本不支持导入对话。",
+      "failed": "未能确认导入结果，可再次选择同一文件夹。",
+      "refresh": "已收到导入结果，请刷新对话列表查看已保存的会话。"
+    }
+  }
+}

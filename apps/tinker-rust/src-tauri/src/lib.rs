@@ -58,3 +58,7 @@ pub mod credentialed_channels;
 pub mod formal_images;
 
 mod picked_image;
+
+pub mod electron_import;
+
+pub mod legacy_attachments;

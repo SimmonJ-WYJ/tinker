@@ -112,6 +112,7 @@ export function SearchDialog(): React.ReactElement {
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
+  const locatingNativeResult = React.useRef(false)
   const isComposingRef = React.useRef(false)
   const commitTimerRef = React.useRef<ReturnType<typeof setTimeout>>()
   // 弹层定位：默认状态(空查询)垂直居中；一旦有结果让面板向下扩张,顶端不动。
@@ -217,6 +218,7 @@ export function SearchDialog(): React.ReactElement {
     // 输入与防抖查询之间的旧行仍可能收到 Enter 或点击。
     if (window.__TAURI_FORMAL__ && (isComposingRef.current || query !== searchQuery ||
       ('messageId' in result && result.query !== query))) return
+    locatingNativeResult.current = Boolean(window.__TAURI_FORMAL__ && 'messageId' in result)
     setOpen(false)
     setActiveView('conversations')
 
@@ -286,8 +288,13 @@ export function SearchDialog(): React.ReactElement {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent
+      {(open || !locatingNativeResult.current) && <DialogContent
         ref={contentRef}
+        onCloseAutoFocus={event => {
+          // 原生正文命中将焦点交给消息，避免面板退出动画结束后又抢回侧栏。
+          if (locatingNativeResult.current) event.preventDefault()
+          locatingNativeResult.current = false
+        }}
         hideClose
         // lockedTop 一旦读到首帧 top(此时空状态垂直居中),覆盖默认的
         // top-[50%] + translateY(-50%):translate-y-0 让面板从锁定 y 向下延伸,
@@ -444,7 +451,7 @@ export function SearchDialog(): React.ReactElement {
             </span>
           </div>
         )}
-      </DialogContent>
+      </DialogContent>}
     </Dialog>
   )
 }

@@ -61,3 +61,35 @@ pub(super) fn selection(save: bool) -> Option<Option<PathBuf>> {
     });
     Some(path)
 }
+
+// 文件夹选择器独立于图片选择器。QA 仅允许固定的合成 Electron 目录，拒绝链接。
+static SESSION_FOLDER: Mutex<Option<bool>> = Mutex::new(None);
+
+pub(super) fn arm_session_folder(value: &Value) -> Result<Value, String> {
+    let pick = match value.as_str() {
+        Some("fixture") => true,
+        Some("cancel") => false,
+        _ => return Err("Unknown QA folder choice".into()),
+    };
+    let mut next = SESSION_FOLDER
+        .lock()
+        .map_err(|_| "QA folder picker unavailable")?;
+    if next.is_some() {
+        return Err("Previous QA folder choice was not consumed".into());
+    }
+    *next = Some(pick);
+    Ok(json!(true))
+}
+
+pub(super) fn session_folder() -> Option<Option<PathBuf>> {
+    match SESSION_FOLDER.lock() {
+        Err(_) => Some(None),
+        Ok(mut pending) => match pending.take()? {
+            false => Some(None),
+            true => Some(super::directory().ok().and_then(|root| {
+                let folder = root.join("qa-electron-copy");
+                folder.symlink_metadata().ok()?.is_dir().then_some(folder)
+            })),
+        },
+    }
+}
