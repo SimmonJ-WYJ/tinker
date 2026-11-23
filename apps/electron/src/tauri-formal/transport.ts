@@ -103,7 +103,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     try {
       const pending = native.request<T>({ command: name, generation, ...args })
       // 系统对话框允许用户自行决定停留多久；超时重试会重复打开或写入。
-      const result = ['closeWindow', 'pickImageFile', 'saveImageFile'].includes(name) ? await pending : await withDeadline(pending, name === 'restore' || name === 'resume' ? options.restoreTimeoutMs ?? 4500 : options.commandTimeoutMs ?? 130_000)
+      const result = ['closeWindow', 'pickImageFile', 'saveImageFile', 'importElectronSessions'].includes(name) ? await pending : await withDeadline(pending, name === 'restore' || name === 'resume' ? options.restoreTimeoutMs ?? 4500 : options.commandTimeoutMs ?? 130_000)
       if (disposed || generation !== bootstrap.generation) throw { code: 'staleGeneration' }
       return result
     } catch (error) {

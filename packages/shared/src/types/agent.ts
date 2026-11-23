@@ -188,8 +188,14 @@ export type SDKUserContentBlock =
   | SDKTextBlock
   | { type: string; [key: string]: unknown }
 
+/** 原生导入回放的可信附件清单，仅包含目标会话中已校验的文件。 */
+export interface ImportedMessageMetadata {
+  _electronImported?: boolean
+  _importedFiles?: { filename: string; path: string; mediaType: 'image/png' | 'text/plain' | 'text/markdown' }[]
+}
+
 /** SDK assistant 消息 */
-export interface SDKAssistantMessage {
+export interface SDKAssistantMessage extends ImportedMessageMetadata {
   /** Rust 宿主持久终态；不是 SDK 会话来源或 token 用量。 */
   _desktopRuntimeStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted'
   type: 'assistant'
@@ -228,7 +234,7 @@ export interface UserImageEditReference {
 }
 
 /** SDK user 消息 */
-export interface SDKUserMessage {
+export interface SDKUserMessage extends ImportedMessageMetadata {
   type: 'user'
   message?: {
     content?: SDKUserContentBlock[]

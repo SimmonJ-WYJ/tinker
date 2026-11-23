@@ -126,6 +126,10 @@ impl CloseGate {
         self.phase = Phase::Closed;
         Ok(())
     }
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    pub(crate) fn sequence(&self) -> u64 {
+        self.sequence
+    }
     pub fn allows_send(&self) -> bool {
         matches!(self.phase, Phase::Open)
     }

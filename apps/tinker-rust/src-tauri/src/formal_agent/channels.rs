@@ -92,6 +92,7 @@ impl Actor {
             | "agent:list-directory"
             | "agent:stat-file"
             | "agent:preview-read-binary"
+            | "agent:preview-read-text"
                 if self.images.is_some() =>
             {
                 self.image_file(c, &args)?

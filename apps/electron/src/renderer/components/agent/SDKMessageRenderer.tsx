@@ -3,7 +3,8 @@ import { HOST_TURN_STOPPED_SUBTYPE } from '@asci/shared'
 import { RESEARCH_UI_ENABLED } from '@/lib/product-surface'
 import { collectImageVersions } from './image-versions'
 import { GeneratedImage } from './GeneratedImage.tsx'
-import { UserInputMessage } from './UserInputMessage.tsx'
+import { isImportedConversationMessage } from './message-attachments'
+import { ImportedAssistantMessage, UserInputMessage } from './UserInputMessage.tsx'
 import { ConversationSymbol } from './ConversationSymbol.tsx'
 import { ImageGenerationStatus } from './ImageGenerationStatus.tsx'
 import { extractUserText } from './message-attachments.ts'
@@ -234,7 +235,7 @@ export function groupIntoTurns(messages: SDKMessage[], sessionModelId?: string):
       const userMsg = msg as SDKUserMessage
       if (isUserInputMessage(userMsg)) {
         const userContent = userMsg.message?.content
-        if (Array.isArray(userContent) && userContent.every(block => block.type === 'text') && userContent.map(block => (block as { text: string }).text).join('').trim() === '/compact') continue
+        if (!isImportedConversationMessage(userMsg) && Array.isArray(userContent) && userContent.every(block => block.type === 'text') && userContent.map(block => (block as { text: string }).text).join('').trim() === '/compact') continue
         // 真正的用户输入 → 结束当前 turn，开始新段落
         flushTurn()
         groups.push({ type: 'user', message: userMsg })
@@ -249,6 +250,12 @@ export function groupIntoTurns(messages: SDKMessage[], sessionModelId?: string):
       // 跳过重放消息
       if (aMsg.isReplay) continue
 
+      if (isImportedConversationMessage(aMsg)) {
+        // 每条导入消息保留独立搜索锚点和已校验的附件，不参与实时工具回合合并。
+        flushTurn()
+        groups.push({ type: 'assistant-turn', assistantMessages: [aMsg], turnMessages: [aMsg], createdAt: extractMeta(msg).createdAt })
+        continue
+      }
       if (!currentTurn) {
         // 开始新 turn
         const meta = extractMeta(msg)
@@ -303,7 +310,7 @@ function mergeAdjacentSameModelTurns(groups: MessageGroup[]): MessageGroup[] {
   const result: MessageGroup[] = []
 
   for (const group of groups) {
-    if (group.type !== 'assistant-turn') {
+    if (group.type !== 'assistant-turn' || isImportedConversationMessage(group.assistantMessages[0]!)) {
       result.push(group)
       continue
     }
@@ -315,7 +322,7 @@ function mergeAdjacentSameModelTurns(groups: MessageGroup[]): MessageGroup[] {
       if (prev.type === 'user') break // 真正的用户输入阻断合并
       if (prev.type === 'system' && (prev.message as SDKSystemMessage).subtype === 'compact_boundary') break // 压缩边界阻断合并
       if (prev.type === 'assistant-turn') {
-        if (prev.model === group.model) {
+        if (!isImportedConversationMessage(prev.assistantMessages[0]!) && prev.model === group.model) {
           mergeTargetIdx = i
         }
         break // 遇到第一个 assistant-turn 就停止（不跨越不同模型的 turn）
@@ -414,7 +421,13 @@ export interface AssistantTurnRendererProps {
   sessionModelId?: string
 }
 
-export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId: _sessionModelId, compactProcess = false }: AssistantTurnRendererProps): React.ReactElement | null {
+export function AssistantTurnRenderer(props: AssistantTurnRendererProps): React.ReactElement | null {
+  const first = props.turn.assistantMessages[0]
+  if (first && isImportedConversationMessage(first)) return <ImportedAssistantMessage message={first} />
+  return <LiveAssistantTurnRenderer {...props} />
+}
+
+function LiveAssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId: _sessionModelId, compactProcess = false }: AssistantTurnRendererProps): React.ReactElement | null {
   const { t: tConv } = useT('conversation')
   const imageSessionId = useAtomValue(currentAgentSessionIdAtom)
   const imageVersions = React.useMemo(() => collectImageVersions(allMessages, Boolean(window.__TAURI_FORMAL__?.imageFiles)), [allMessages])
@@ -1324,6 +1337,7 @@ export function SDKMessageRenderer({
   // assistant 消息：遍历内容块渲染
   if (msgType === 'assistant') {
     const aMsg = message as SDKAssistantMessage
+    if (isImportedConversationMessage(aMsg)) return <ImportedAssistantMessage message={aMsg} />
 
     // 跳过重放消息
     if (aMsg.isReplay) return null

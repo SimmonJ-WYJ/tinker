@@ -8,6 +8,7 @@ import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
 
 export interface FormalLifecycleMarker {
+  importSessions?: import('./session-import').SessionImporter
   imageFiles?: import('./image-files').NativeImageFiles
   nativeImages?: boolean
   selectedImageUse?(text: string, imageId: string): 'edit' | 'text' | 'inspect'

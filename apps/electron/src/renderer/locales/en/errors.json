@@ -70,6 +70,7 @@
   },
   "desktopRuntime": {
     "imageEditOnly": "This preview can edit a selected image. Remove the reference to send a text-only message.",
+    "corruptImport": "This imported conversation failed its integrity check and cannot be opened. Other conversations are still available.",
     "imageFileExists": "Choose a new filename. A file already exists at this location.",
     "invalidImageFile": "Choose a valid PNG or JPEG image.",
     "imageTooLarge": "This image exceeds the import size limit. Choose a smaller image.",

@@ -14,24 +14,22 @@ export function NativeSearchMessageLocation({ sessionId, ready, groups }: {
   const { scrollRef, stopScroll } = useStickToBottomContext()
   useEffect(() => {
     if (!ready || !target || target.sessionId !== sessionId) return
-    const frame = requestAnimationFrame(() => {
-      if (store.get(searchMessageTargetAtom) !== target) return
-      const group = groups.find(item => {
-        const messages = item.type === 'assistant-turn' ? item.assistantMessages : [item.message]
-        return messages.some(message => (nativeMessageIdentity(message) ?? message.uuid) === target.messageId)
-      })
-      const id = group ? getGroupId(group) : target.messageId
-      const message = Array.from(scrollRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])
-        .find(element => element.dataset.messageId === id)
-      store.set(searchMessageTargetAtom, null)
-      if (!message) return
-      stopScroll()
-      message.setAttribute('data-search-located', '')
-      message.addEventListener('blur', () => message.removeAttribute('data-search-located'), { once: true })
-      message.scrollIntoView({ block: 'center', behavior: 'instant' })
-      message.focus({ preventScroll: true })
+    if (store.get(searchMessageTargetAtom) !== target) return
+    const group = groups.find(item => {
+      const messages = item.type === 'assistant-turn' ? item.assistantMessages : [item.message]
+      return messages.some(message => (nativeMessageIdentity(message) ?? message.uuid) === target.messageId)
     })
-    return () => cancelAnimationFrame(frame)
+    const id = group ? getGroupId(group) : target.messageId
+    const message = Array.from(scrollRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])
+      .find(element => element.dataset.messageId === id)
+    // 会话切换期间先挂载空布局。等目标消息真正出现在这一批 groups 后再消费定位。
+    if (!message) return
+    store.set(searchMessageTargetAtom, null)
+    stopScroll()
+    message.setAttribute('data-search-located', '')
+    message.addEventListener('blur', () => message.removeAttribute('data-search-located'), { once: true })
+    message.scrollIntoView({ block: 'center', behavior: 'instant' })
+    message.focus({ preventScroll: true })
   }, [groups, ready, scrollRef, sessionId, stopScroll, store, target])
   return null
 }

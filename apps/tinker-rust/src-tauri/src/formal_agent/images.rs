@@ -163,7 +163,8 @@ impl Actor {
             let sid = session["sessionId"]
                 .as_str()
                 .ok_or(DesktopError("invalidReply"))?;
-            if session["profileId"] == profile
+            if session["importError"].is_null()
+                && session["profileId"] == profile
                 && session["workspaceId"].as_str() == workspace
                 && session["archived"] == false
                 && self.runtime.history_extent(sid)? == 0

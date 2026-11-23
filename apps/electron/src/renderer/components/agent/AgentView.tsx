@@ -457,8 +457,11 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   // 消息是否已完成首次加载（用于 auto-send 等待）
   const [messagesLoaded, setMessagesLoaded] = React.useState(false)
 
+  const [corruptImport, setCorruptImport] = React.useState(false)
+
   // 加载当前会话消息
   React.useEffect(() => {
+    let current = true
     // 流式运行中不重置 messagesLoaded，避免 streaming UI 消失后出现空窗闪烁
     const isCurrentlyStreaming = store.get(agentStreamingStatesAtom).get(sessionId)?.running ?? false
     if (!isCurrentlyStreaming) {
@@ -470,6 +473,8 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
     Promise.all([loadOldMessages, loadSDKMessages])
       .then(([msgs, sdkMsgs]) => {
+        if (!current) return
+        setCorruptImport(false)
         setMessages(msgs)
         setPersistedSDKMessages(sdkMsgs)
         setMessagesLoaded(true)
@@ -494,7 +499,15 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
           return map
         })
       })
-      .catch(console.error)
+      .catch(error => {
+        if (!current) return
+        if (window.__TAURI_FORMAL__?.importSessions && error?.code === 'corruptImport') {
+          setCorruptImport(true)
+          return
+        }
+        console.error(error)
+      })
+    return () => { current = false }
   }, [sessionId, refreshVersion, setStreamingStates, setLiveMessagesMap, store])
 
   // 自动发送 pending prompt（从快速任务窗口或设置页触发）
@@ -1547,6 +1560,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const canSend = (hasTextInput || pendingFiles.length > 0 || pendingMentions.length > 0) && agentChannelId !== null && hasAvailableModel && (!streaming || hasTextInput && !selectedImage)
 
   const imageGenerating = streaming && !!streamState?.toolActivities?.some(activity => activity.toolName === 'mcp__asci-image__generate_image' && !activity.done)
+  if (corruptImport) {
+    return <p role="alert" className="p-4 text-sm">{tErrors('desktopRuntime.corruptImport')}</p>
+  }
   return (
     <>
     <AgentSessionProvider sessionId={sessionId}>

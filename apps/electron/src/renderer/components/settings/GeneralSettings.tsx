@@ -41,6 +41,7 @@ import type { NotificationSoundId, NotificationSoundType, NotificationSoundSetti
 import { languageAtom, updateLanguage } from '@/atoms/language-atoms'
 import { themeAtom, updateTheme } from '@/atoms/theme-atoms'
 import { SUPPORTED_LOCALES } from '@/locales'
+import { SessionImport } from './SessionImport'
 import { useT } from '@/hooks/useT'
 
 export function GeneralSettings(): React.ReactElement {
@@ -200,6 +201,7 @@ export function GeneralSettings(): React.ReactElement {
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>
+      {window.__TAURI_FORMAL__?.importSessions && <SessionImport />}
     </div>
   )
 }
