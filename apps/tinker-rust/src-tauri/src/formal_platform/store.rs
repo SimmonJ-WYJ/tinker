@@ -41,7 +41,7 @@ pub(crate) fn directory(path: &Path, private: bool) -> Result<()> {
     }
     Ok(())
 }
-fn regular(path: &Path, max: usize) -> Result<Metadata> {
+pub(crate) fn regular(path: &Path, max: usize) -> Result<Metadata> {
     let m = fs::symlink_metadata(path)?;
     if !m.is_file() || m.file_type().is_symlink() {
         return Err(DesktopError("unsafePath"));

@@ -2,6 +2,7 @@
 import { createCredentialTransport, isUncertainMutationFailure } from './credentials.ts'
 import { createQueueFrames } from './queue-frames.ts'
 import { createQueueControl, NativeQueueError } from './queue-control.ts'
+import { createNativeImageContexts } from './images.ts'
 import { withDeadline } from './deadline.ts'
 import type { PlatformTransport } from '../preload/transport.ts'
 import type { ActiveRun, Bootstrap, LifecycleCapture, NativeBridge, NativeEvent, PlatformSnapshot, RestoreBundle } from './protocol.ts'
@@ -19,6 +20,7 @@ export interface FormalTransport extends PlatformTransport {
 }
 export async function createFormalTransport(native: NativeBridge, translate: (code: string) => string, options: { restoreTimeoutMs?: number; commandTimeoutMs?: number } = {}): Promise<FormalTransport> {
   const callbacks = new Map<string, Set<(value: unknown) => void>>()
+  const imageContexts = createNativeImageContexts()
   const observed: Record<string, number> = {}
   const watermarks = new Map<string, number>()
   const paused = new Set<string>()
@@ -153,12 +155,14 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     const existing = restores.get(sid)
     if (existing) return existing
     const restoreOwner=queue?.owner(sid)
+    const restoreImages = bootstrap.nativeImages ? imageContexts.restore(sid) : undefined
     const promise = Promise.resolve().then(async () => {
       paused.add(sid)
       frames.clear(sid)
       try {
         await ensureAttached()
         const bundle = await command<RestoreBundle>('restore', { sessionId: sid, observedDeliverySequence: observed[sid] ?? 0 })
+        restoreImages?.(bundle.sdkMessages)
         watermarks.set(sid, bundle.deliverySequence)
         const terminals=queue?.restoreStates((bundle.chainStates ?? []).filter(state=>state.sessionId===sid)) ?? []
         queue?.restore(bundle.activeSnapshot,restoreOwner)
@@ -174,7 +178,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
           })
         }, 0)
         return bundle
-      } catch (error) { restores.delete(sid); void recover(sid).catch(console.error); throw error }
+      } catch (error) { restoreImages?.(); restores.delete(sid); void recover(sid).catch(console.error); throw error }
     })
     restores.set(sid, promise)
     return promise
@@ -198,6 +202,12 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
       return projectErrors(channel === 'agent:get-messages' ? bundle.messages : bundle.sdkMessages) as T
     }
     if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
+    if (bootstrap.nativeImages && channel === 'agent:send-message' && args[0] && typeof args[0] === 'object') {
+      return imageContexts.send<T>(args[0] as Record<string, unknown>, input =>
+        command('invoke', { channel, args: [input] }),
+      () => new NativeQueueError('imageEditOnly', translate('imageEditOnly')),
+      () => publish('agent:workspace-files-changed', undefined))
+    }
     const execute = async (): Promise<T> => {
       if (signal?.aborted) throw new NativeQueueError('probeCancelled', translate('probeCancelled'))
       if (isMutation(channel) && pendingCapture) throw new NativeQueueError('mutationPending', translate('mutationPending'))
@@ -218,6 +228,7 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
       const reply = await command<{ value: T; snapshot?: PlatformSnapshot }>('invoke', { channel, args, ...(mutation ? { mutation } : {}) })
       if (reply.snapshot) snapshot(reply.snapshot)
       credentials?.observe(channel, reply.value)
+      if (channel === 'agent:delete-session' && typeof args[0] === 'string') imageContexts.forget(args[0])
       return projectErrors(reply.value) as T
     }
     const pending = usesLane(channel) ? lane.then(execute) : execute()

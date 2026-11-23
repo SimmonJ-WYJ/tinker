@@ -99,3 +99,21 @@ test('来源版本缺失仍显示必要提示和禁用对比，不因精简说�
  fireEvent.click(screen.getByRole('button',{name:'Edit from this image'}))
  expect(store.get(imageEditDraftsAtom).get('session-1')).toMatchObject({imageId:'child-version',baseImageId:'missing-parent',model:'configured-image',referenceCount:2})
 })
+
+test('原生预览保留可用的查看与编辑，未实现的附件导出不可点击', async () => {
+ const originalHost = window.__TAURI_FORMAL__
+ try {
+  window.__TAURI_FORMAL__ = { hydrated: () => {} }
+  await setAppLanguage('en')
+  window.electronAPI = { readAttachment: async () => 'cG5n' } as unknown as Window['electronAPI']
+  render(<GeneratedImage sessionId="s" result={JSON.stringify({ imageId: 'one', generatedImage: { localPath: 's/a.png', filename: 'a.png', mediaType: 'image/png' } })}/>)
+  const image = await screen.findByRole('img', { name: 'a.png' })
+  expect(screen.getByRole('button', {name:'Edit from this image'})).toBeEnabled()
+  expect(screen.getByRole('button', {name:'Save'})).toBeDisabled()
+  fireEvent.click(image)
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  expect(screen.queryByRole('button', {name:'Save image'})).toBeNull()
+ } finally {
+  window.__TAURI_FORMAL__ = originalHost
+ }
+})

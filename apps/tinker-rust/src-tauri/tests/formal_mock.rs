@@ -50,3 +50,57 @@ fn tools_partial_error_emits_real_text_then_disconnects_without_terminal_sse() {
     assert!(!response.contains("tool_calls"));
     assert_eq!(mock.records().len(), 1);
 }
+
+#[test]
+fn images_use_separate_operations_and_only_log_their_outcomes() {
+    let mock = OwnedMock::start().unwrap();
+    let call = |route: &str, payload: &serde_json::Value| {
+        let mut s = TcpStream::connect(mock.image_addr()).unwrap();
+        s.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let body = payload.to_string();
+        write!(s,"POST /v1/images/{route} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).unwrap();
+        let mut response = String::new();
+        s.read_to_string(&mut response).unwrap();
+        response
+    };
+    let mut body = json!({"model":"local-image","n":1,"response_format":"b64_json","prompt":"private-fixture"});
+    let created = call("generations", &body);
+    assert!(
+        created.starts_with("HTTP/1.1 200"),
+        "expected a generation response"
+    );
+    let bytes = |response: &str| {
+        let (_, body) = response.split_once("\r\n\r\n").unwrap();
+        serde_json::from_str::<serde_json::Value>(body).unwrap()["data"][0]["b64_json"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let source = bytes(&created);
+    assert!(source.starts_with("iVBOR"));
+    body["referenceImage"] = json!({"id":"img-111","b64_json":source});
+    let edited = call("edits", &body);
+    assert!(edited.starts_with("HTTP/1.1 200"));
+    assert_ne!(bytes(&edited), source);
+    body["prompt"] = json!("simulate [image-error]");
+    assert!(call("edits", &body).starts_with("HTTP/1.1 500"));
+    let meta = serde_json::to_string(&mock.records()).unwrap();
+    assert_eq!(
+        mock.records()
+            .iter()
+            .map(|r| r.scenario.as_str())
+            .collect::<Vec<_>>(),
+        ["image-generate", "image-edit", "image-edit-failed"]
+    );
+    assert!(!meta.contains("private-fixture") && !meta.contains(&source));
+
+    // 两个源图发送同一编辑指令，必须得到不同的图像。
+    body["prompt"] = json!("private-fixture");
+    let first_source_edit = bytes(&call("edits", &body));
+    let second_generation =
+        json!({"model":"local-image","prompt":"second palette","n":1,"response_format":"b64_json"});
+    body["referenceImage"]["b64_json"] = json!(bytes(&call("generations", &second_generation)));
+    assert_ne!(bytes(&call("edits", &body)), first_source_edit);
+    body["referenceImage"]["b64_json"] = json!("invalid PNG");
+    assert!(call("edits", &body).starts_with("HTTP/1.1 400"));
+}

@@ -69,6 +69,9 @@
     "providerSettings": "模型与渠道"
   },
   "desktopRuntime": {
+    "imageEditOnly": "此预览支持编辑选中的图片。如需发送纯文字，请先移除图片引用。",
+    "imageNotFound": "当前会话中找不到这张引用图片。",
+    "imageFailed": "图片请求失败，已有图片仍可使用。",
     "unsupported": "Rust 文本预览暂不支持此操作。",
     "failed": "Rust 回复未能完成，已有对话已保留。",
     "transport": "Rust 运行时已断开。重新打开预览可恢复对话。",

@@ -88,6 +88,15 @@ impl Actor {
             return result;
         }
         let value = match c {
+            "chat:read-attachment"
+            | "agent:list-directory"
+            | "agent:stat-file"
+            | "agent:preview-read-binary"
+                if self.images.is_some() =>
+            {
+                self.image_file(c, &args)?
+            }
+
             "channel:list" => {
                 arity(&args, 0, 0)?;
                 self.platform.channels()?
@@ -133,7 +142,11 @@ impl Actor {
                 });
                 let workspace = optional(&args, offset + 1)?;
                 self.workspace(workspace.as_deref())?;
-                projection::session(&self.core("sessions.create",json!({"title":title,"profileId":profile,"workspaceId":workspace,"reuseDraft":draft}))?)
+                let mut s=self.core("sessions.create",json!({"title":title,"profileId":profile,"workspaceId":workspace,"reuseDraft":draft}))?;
+                if draft && self.images.is_some() {
+                    s = self.reusable_image_aware_draft(s, &profile, workspace.as_deref())?;
+                }
+                projection::session(&s)
             }
             "agent:get-messages" => {
                 arity(&args, 1, 1)?;
@@ -167,6 +180,7 @@ impl Actor {
             "agent:delete-session" => {
                 arity(&args, 1, 1)?;
                 let sid = string(&args, 0)?;
+                self.finish_image_before_delete(sid);
                 self.reserve_deleted_delivery(sid)?;
                 self.delete_queue(sid)?;
                 self.stop(sid)?;
@@ -290,7 +304,7 @@ impl Actor {
             .cloned()
             .ok_or(DesktopError("invalidReply"))
     }
-    fn session(&self, sid: &str) -> Result<Value> {
+    pub(super) fn session(&self, sid: &str) -> Result<Value> {
         self.sessions()?
             .into_iter()
             .find(|s| s["sessionId"] == sid)
@@ -324,6 +338,7 @@ impl Actor {
     }
     fn stop(&mut self, sid: &str) -> Result<()> {
         self.session(sid)?;
+        self.interrupt_session_image(sid);
         if let Some(e) = self.entries.get(sid) {
             let request = e.turn["requestId"].clone();
             self.core("chat.cancel", json!({"sessionId":sid,"requestId":request}))?;
@@ -340,6 +355,7 @@ impl Actor {
             match key.as_str() {
                 "sessionId" | "userMessage" | "channelId" | "modelId" | "workspaceId"
                 | "startedAt" | "requestId" | "taskMode" | "effort" => {}
+                "nativeImageAction" | "imageEditReferenceId" if self.images.is_some() => {}
                 "additionalDirectories"
                 | "mentionedSkills"
                 | "mentionedMcpServers"
@@ -402,6 +418,20 @@ impl Actor {
                     format!("native-{now}-{}", self.token_seq)
                 }
             });
+        if input.get("nativeImageAction").is_some() {
+            return self.send_image(&input, sid, &request, started, reply);
+        }
+        if input.get("imageEditReferenceId").is_some() {
+            return Err(DesktopError("unsupported"));
+        }
+        if self.image_busy(sid) {
+            return Err(DesktopError("runBusy"));
+        }
+        if let Some(images) = &self.images {
+            if images.contains_request(sid, &request)? {
+                return Err(DesktopError("requestConflict"));
+            }
+        }
         let effort = input
             .get("effort")
             .filter(|v| !(self.credentialed.is_some() && v.as_str() == Some("")))

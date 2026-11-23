@@ -66,7 +66,8 @@ impl FormalHost {
         let profiles = mock.profiles()?;
         let platform = FormalPlatform::open(root, &profiles, environment)?;
         let runtime = Arc::new(DesktopRuntime::open(root.path(), profiles)?);
-        let agent = FormalAgentHost::new(runtime, platform, root.clone())?;
+        let agent =
+            FormalAgentHost::new_images(runtime, platform, root.clone(), mock.image_addr())?;
         Ok(Self {
             agent,
             mock: Some(mock),

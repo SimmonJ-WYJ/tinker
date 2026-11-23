@@ -14,6 +14,7 @@ struct Cursor {
     chains: VecDeque<String>,
     owners: BTreeMap<String, String>,
     queued_hit: Option<Value>,
+    image_turns: Option<std::vec::IntoIter<crate::formal_images::ImageTurn>>,
     after: u64,
     extent: usize,
 }
@@ -157,6 +158,20 @@ impl Search {
             return Ok(false);
         }
         if cursor.after as usize >= cursor.extent {
+            // 分批匹配原生图像会话中的用户正文，绝不读取 PNG 或搜索工具参数。
+            if let Some(images) = &actor.images {
+                if cursor.image_turns.is_none() {
+                    cursor.image_turns = Some(images.store.history(sid)?.into_iter());
+                }
+                if let Some(turn) = cursor.image_turns.as_mut().and_then(Iterator::next) {
+                    let user = super::image_projection::user_message(sid, &turn);
+                    if let Some(hit) = search_text::hit(&self.query, &user) {
+                        self.hits.insert(sid.to_owned(), hit);
+                        return Ok(true);
+                    }
+                    return Ok(false);
+                }
+            }
             if let Some(hit) = cursor.queued_hit.take() {
                 self.hits.insert(sid.to_owned(), hit);
             }

@@ -285,7 +285,7 @@ export interface AgentApi {
   // ===== Agent 文件系统操作 =====
 
   /** 获取 session 工作路径 */
-  getAgentSessionPath: (workspaceId: string, sessionId: string) => Promise<string | null>
+  getAgentSessionPath: (workspaceId: string | null, sessionId: string) => Promise<string | null>
 
   /** 列出目录内容 */
   listDirectory: (dirPath: string, options?: ListDirectoryOptions) => Promise<ListDirectoryResult>
@@ -662,7 +662,7 @@ export function createAgentApi(transport: PlatformTransport): AgentApi {
     },
 
     // Agent 文件系统操作
-    getAgentSessionPath: (workspaceId: string, sessionId: string) => {
+    getAgentSessionPath: (workspaceId: string | null, sessionId: string) => {
       return transport.invoke(AGENT_IPC_CHANNELS.GET_SESSION_PATH, workspaceId, sessionId)
     },
 

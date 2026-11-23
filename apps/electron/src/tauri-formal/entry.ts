@@ -1,5 +1,6 @@
 /** bootstrap 成功后安装原 API，再导入同一正式 renderer/main.tsx。 */
 import { createDesktopApi } from '../preload/api.ts'
+import { selectedImageUse } from './images.ts'
 import { createFormalTransport } from './transport.ts'
 import { nativeBridge, installWindowDrag } from './native.ts'
 import { seedCredentialedState, seedActiveRuns } from './bootstrap-state.ts'
@@ -7,6 +8,7 @@ import { installPersistence } from './persistence.ts'
 import { i18n, setAppLanguage } from '../renderer/lib/i18n.ts'
 
 const credentialErrors: Partial<Record<string, keyof typeof import('../renderer/locales/en/errors.json').desktopRuntime>> = {
+ imageEditOnly:'imageEditOnly',imageNotFound:'imageNotFound',imageProviderFailed:'imageFailed',imageProviderUnavailable:'imageFailed',invalidImageResponse:'imageFailed',
  probeCancelled:'invalid',credentialRequired:'credentialRequired',credentialMissing:'credentialRequired',credentialBindingMismatch:'credentialBinding',credentialBindingRequired:'credentialBinding',credentialReplacementRequired:'credentialReplacement',
  vaultDenied:'vaultDenied',vaultUnavailable:'vaultUnavailable',vaultWriteFailed:'vaultUnavailable',vaultWriteUncertain:'recoveryRequired',unsupportedPlatform:'vaultUnavailable',
  helperBusy:'helperBusy',helperTimeout:'helperBusy',helperUnavailable:'helperBusy',helperUnauthorized:'vaultDenied',
@@ -26,7 +28,7 @@ try {
   window.__DESKTOP_RUNTIME_PREVIEW__ = true
   window.__TAURI_QUEUEING__ = transport.bootstrap.queueing === true
   const persistence = installPersistence(transport)
-  window.__TAURI_FORMAL__ = { hydrated: persistence.hydrated }
+  window.__TAURI_FORMAL__ = { hydrated: persistence.hydrated, nativeImages: transport.bootstrap.nativeImages === true, selectedImageUse: transport.bootstrap.nativeImages ? selectedImageUse : undefined }
   seedCredentialedState(transport.bootstrap)
   seedActiveRuns(transport.bootstrap.activeRuns)
   await setAppLanguage(transport.bootstrap.platformSnapshot.settings.language ?? 'en')
