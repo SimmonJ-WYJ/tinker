@@ -25,6 +25,12 @@ pub(super) fn user_message(turn: &Value) -> Value {
     message
 }
 pub fn history(turns: &[Value]) -> Value {
+    project_history(turns, false)
+}
+pub(super) fn text_task_history(turns: &[Value]) -> Value {
+    project_history(turns, true)
+}
+fn project_history(turns: &[Value], text_task_identity: bool) -> Value {
     let mut messages = Vec::new();
     let mut sdk = Vec::new();
     for t in turns {
@@ -47,7 +53,11 @@ pub fn history(turns: &[Value]) -> Value {
             continue;
         }
         messages.push(json!({"id":t["userMessageId"],"role":"user","content":t["userMessage"],"createdAt":t["startedAt"]}));
-        sdk.push(user_message(t));
+        let mut user = user_message(t);
+        if text_task_identity && t["toolState"].is_null() {
+            user["_desktopTextTaskRequestId"] = t["requestId"].clone();
+        }
+        sdk.push(user);
         if !t["toolState"].is_null() {
             sdk.extend(super::tool_projection::messages(t));
             if !active(t) {
@@ -60,6 +70,9 @@ pub fn history(turns: &[Value]) -> Value {
         }
         messages.push(json!({"id":t["assistantMessageId"],"role":"assistant","content":t["assistantMessage"],"createdAt":t["startedAt"],"model":t["modelId"]}));
         let mut a = json!({"type":"assistant","uuid":t["assistantMessageId"],"message":{"content":[{"type":"text","text":t["assistantMessage"]}],"model":t["modelId"]},"parent_tool_use_id":null,"_createdAt":t["startedAt"],"_channelModelId":t["modelId"],"_desktopRuntimeStatus":t["status"]});
+        if text_task_identity {
+            a["_desktopTextTaskRequestId"] = t["requestId"].clone();
+        }
         if !matches!(t["status"].as_str(), Some("completed" | "cancelled")) {
             a["error"] = json!({"message":"responseFailed","errorType":t["errorCode"].as_str().unwrap_or("INTERRUPTED")});
         }

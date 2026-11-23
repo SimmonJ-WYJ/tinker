@@ -203,7 +203,9 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
       return projectErrors(channel === 'agent:get-messages' ? bundle.messages : bundle.sdkMessages) as T
     }
     if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
-    if (bootstrap.nativeImages && channel === 'agent:send-message' && args[0] && typeof args[0] === 'object') {
+    // 显式重试仅提交旧任务身份；即使宿主拒绝过期任务，也必须保留当前图像上下文。
+    if (bootstrap.nativeImages && channel === 'agent:send-message' && args[0] && typeof args[0] === 'object'
+      && !(bootstrap.nativeTaskLifecycle && 'retryOfRequestId' in args[0])) {
       return imageContexts.send<T>(args[0] as Record<string, unknown>, input =>
         command('invoke', { channel, args: [input] }),
       () => new NativeQueueError('imageEditOnly', translate('imageEditOnly')),

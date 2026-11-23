@@ -200,6 +200,8 @@ export interface ImportedMessageMetadata {
 
 /** SDK assistant 消息 */
 export interface SDKAssistantMessage extends ImportedMessageMetadata {
+  /** 仅原生普通文字任务持久化的请求身份；用于显式重试原始绑定。 */
+  _desktopTextTaskRequestId?: string
   /** Rust 宿主持久终态；不是 SDK 会话来源或 token 用量。 */
   _desktopRuntimeStatus?: 'completed' | 'failed' | 'cancelled' | 'interrupted'
   type: 'assistant'
@@ -239,6 +241,8 @@ export interface UserImageEditReference {
 
 /** SDK user 消息 */
 export interface SDKUserMessage extends ImportedMessageMetadata {
+  /** 与原生助手投影共享文字任务身份，替换尚无 SDK uuid 的乐观用户行。 */
+  _desktopTextTaskRequestId?: string
   type: 'user'
   message?: {
     content?: SDKUserContentBlock[]

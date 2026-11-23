@@ -287,7 +287,11 @@ fn serve(
         .last()
         .and_then(|v| v["content"].as_str())
         .unwrap_or("");
-    let scenario = if last.starts_with("[partial-error]") {
+    let mut scenario = if last.starts_with("[task-stream]") {
+        "task-stream"
+    } else if last.starts_with("[task-retry]") {
+        "task-retry-failed"
+    } else if last.starts_with("[partial-error]") {
         "partial-error"
     } else if last.starts_with("[error]") {
         "error"
@@ -301,6 +305,10 @@ fn serve(
     let users = messages.iter().filter(|v| v["role"] == "user").count();
     let assistants = messages.iter().filter(|v| v["role"] == "assistant").count();
     if let Ok(mut log) = records.lock() {
+        if scenario == "task-retry-failed" && log.iter().any(|r| r.scenario == "task-retry-failed")
+        {
+            scenario = "task-retry-completed";
+        }
         if log.len() < MAX_REQUESTS {
             log.push(RequestMetadata {
                 model: model.into(),
@@ -322,13 +330,19 @@ fn serve(
     )?;
     let label = if model == "local-mock-a" { "A" } else { "B" };
     let opening = format!("Local Mock {label} · 上下文 {users}/{assistants} · ");
-    let chunks = if matches!(scenario, "slow" | "backlog") {
-        300
+    let (chunks, cadence) = match scenario {
+        "slow" => (300, 10),
+        "backlog" => (300, 1),
+        "task-stream" => (40, 400),
+        _ => (4, 1),
+    };
+    let stream_deadline = if scenario == "task-stream" {
+        Instant::now() + Duration::from_secs(25)
     } else {
-        4
+        deadline
     };
     for i in 0..chunks {
-        if stop.load(Ordering::Acquire) || Instant::now() > deadline {
+        if stop.load(Ordering::Acquire) || Instant::now() > stream_deadline {
             return Ok(());
         }
         let text = match i {
@@ -343,14 +357,10 @@ fn serve(
             json!({"choices":[{"index":0,"delta":{"content":text},"finish_reason":null}]})
         )?;
         stream.flush()?;
-        if scenario == "partial-error" && i == 2 {
+        if matches!(scenario, "partial-error" | "task-retry-failed") && i == 2 {
             return Ok(());
         }
-        thread::sleep(Duration::from_millis(if scenario == "slow" {
-            10
-        } else {
-            1
-        }));
+        thread::sleep(Duration::from_millis(cadence));
     }
     write!(
         stream,

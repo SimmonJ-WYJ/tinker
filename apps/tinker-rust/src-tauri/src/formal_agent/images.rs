@@ -128,8 +128,13 @@ impl Actor {
             }
         }
     }
-    pub fn interrupt_session_image(&self, sid: &str) {
-        if let Some(job) = self.images.as_ref().and_then(|i| i.jobs.get(sid)) {
+    pub fn interrupt_session_image(&self, sid: &str, expected: Option<&str>) {
+        if let Some(job) = self
+            .images
+            .as_ref()
+            .and_then(|i| i.jobs.get(sid))
+            .filter(|j| expected.is_none_or(|id| j.id == id))
+        {
             job.cancel.store(true, Ordering::Release);
         }
     }
@@ -266,7 +271,7 @@ impl Actor {
         {
             return Err(DesktopError("hostBusy"));
         }
-        let mut history = projection::history(&text_turns);
+        let mut history = projection::text_task_history(&text_turns);
         ImageWorkflow::merge_turns(sid, &mut history, &turns, &imports)?;
         let history_bytes = serde_json::to_vec(&history)
             .map_err(|_| DesktopError("invalidReply"))?

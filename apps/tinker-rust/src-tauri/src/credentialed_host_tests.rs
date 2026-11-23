@@ -85,6 +85,7 @@ fn generation_cancels_pending_preparation_before_bind_or_http() {
         json!({"command":"invoke","generation":g,"channel":staged["channel"],"args":staged["args"],"mutation":staged["mutation"]}),
     );
     let session=call(&h,json!({"command":"invoke","generation":g,"channel":"agent:create-session","args":["Owned","channel"]}))["value"]["id"].clone();
+    let other=call(&h,json!({"command":"invoke","generation":g,"channel":"agent:create-session","args":["Other","channel"]}))["value"]["id"].clone();
     h.shutdown().unwrap();
     drop(h);
     let started = Arc::new(AtomicBool::new(false));
@@ -104,11 +105,27 @@ fn generation_cancels_pending_preparation_before_bind_or_http() {
     let g = call(&h, json!({"command":"bootstrap"}))["generation"].clone();
     let journal = root.path().join("desktop-runtime-v1/journal.jsonl");
     let before = std::fs::read(&journal).unwrap();
+    let retry = h.command("main",json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[{"sessionId":session,"requestId":"retry","startedAt":99,"retryOfRequestId":"unknown"}]})).unwrap().wait(Duration::from_secs(1));
+    assert_eq!(retry.unwrap_err().0, "unsupported");
+    assert!(
+        !started.load(Ordering::Acquire),
+        "非任务预览须在读取凭据前拒绝重试"
+    );
     let pending=h.command("main",json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[{"sessionId":session,"requestId":"late","startedAt":100,"channelId":"channel","modelId":"model","userMessage":"preserved"}]})).unwrap();
     let deadline = Instant::now() + Duration::from_secs(1);
     while !started.load(Ordering::Acquire) {
         assert!(Instant::now() < deadline);
         std::thread::sleep(Duration::from_millis(2));
+    }
+    for (owner, rid) in [(&other, "late"), (&session, "old")] {
+        call(
+            &h,
+            json!({"command":"invoke","generation":g,"channel":"agent:stop","args":[owner,rid]}),
+        );
+        assert!(
+            pending.try_result().is_none(),
+            "旧任务或其他会话不能取消本次准备"
+        );
     }
     let start = Instant::now();
     call(&h, json!({"command":"bootstrap"}));

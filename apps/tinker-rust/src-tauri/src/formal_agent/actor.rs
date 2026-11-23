@@ -240,10 +240,13 @@ impl Actor {
     }
     pub fn history(&self, session: &str) -> Result<Value> {
         let turns = self.turns(session)?;
+        self.history_from_turns(session, &turns)
+    }
+    fn history_from_turns(&self, session: &str, turns: &[Value]) -> Result<Value> {
         let mut h = if self.queueing {
-            self.queue_history(session, &turns)?
+            self.queue_history(session, turns)?
         } else {
-            projection::history(&turns)
+            projection::text_task_history(turns)
         };
         if let Some(images) = &self.images {
             images.merge_history(session, &mut h)?;
@@ -256,6 +259,9 @@ impl Actor {
             return Err(DesktopError("historyLimit"));
         }
         Ok(h)
+    }
+    pub(super) fn native_task_lifecycle(&self) -> bool {
+        cfg!(all(target_os = "macos", feature = "formal-preview")) && self.images.is_some()
     }
     fn handle(&mut self, command: Command, reply: &Reply) -> Result<Option<Value>> {
         if let Some(g) = command.generation() {
@@ -283,7 +289,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -347,6 +353,20 @@ impl Actor {
                     self.invoke(&channel, args, mutation, reply)
                 }
             }
+            Command::ProjectTaskStatuses { workspace_id, .. } => {
+                if !self.native_task_lifecycle() {
+                    return Err(DesktopError("unsupported"));
+                }
+                if self.draining {
+                    return Err(DesktopError("closing"));
+                }
+                self.platform.require_workspace(
+                    crate::formal_platform::workspace::WorkspaceKey::Id(&workspace_id),
+                )?;
+                Ok(Some(
+                    json!({"value": self.runtime.project_task_statuses(&workspace_id)?}),
+                ))
+            }
             Command::Restore {
                 session_id,
                 observed_delivery_sequence,
@@ -364,7 +384,7 @@ impl Actor {
                     }
                 }
                 let turns = self.turns(&session_id)?;
-                let history = self.history(&session_id)?;
+                let history = self.history_from_turns(&session_id, &turns)?;
                 self.token_seq += 1;
                 let token = format!("{}-restore-{}", self.generation, self.token_seq);
                 let turn = turns.last();
@@ -523,15 +543,30 @@ impl Actor {
         self.cancel_credential_work();
         self.cancel_probe();
         self.stop_all_queues("close")?;
-        let runs: Vec<_> = self
+        let mut failure = None;
+        for run in self
             .entries
             .values()
-            .filter(|e| projection::active(&e.turn))
-            .map(|e| json!({"sessionId":e.turn["sessionId"],"requestId":e.turn["requestId"]}))
-            .collect();
-        let mut failure = None;
-        for run in runs {
-            if let Err(e) = self.core("chat.cancel", run) {
+            .map(|e| &e.turn)
+            .filter(|t| projection::active(t))
+        {
+            let stopped = if run["toolState"].is_null() {
+                self.runtime.interrupt_text(
+                    run["sessionId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidReply"))?,
+                    run["requestId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidReply"))?,
+                )
+            } else {
+                self.core(
+                    "chat.cancel",
+                    json!({"sessionId":run["sessionId"],"requestId":run["requestId"]}),
+                )
+                .map(|_| ())
+            };
+            if let Err(e) = stopped {
                 failure = Some(e);
             }
         }

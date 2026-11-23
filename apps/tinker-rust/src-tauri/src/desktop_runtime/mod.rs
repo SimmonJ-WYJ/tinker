@@ -1,9 +1,11 @@
 //! 正式会话服务；stdio与Tauri共同调用，秘密仅由可信宿主注入。
 pub mod availability;
 mod execution;
+pub(crate) use execution::TextRetry;
 mod import;
 pub use import::ImportReceipt;
 pub(crate) mod profile;
+mod project_tasks;
 pub mod protocol;
 mod queue;
 mod queue_replay;
@@ -316,13 +318,15 @@ impl Inner {
             .filter(|s| !s.deleted)
             .ok_or(DesktopError("sessionNotFound"))
     }
-    fn project_session(&self, session: &Session) -> Value {
-        let mut value = json!(session);
-        if let Some(workspace) = self
-            .imported
+    fn session_workspace<'a>(&'a self, session: &'a Session) -> Option<&'a str> {
+        self.imported
             .get(&session.session_id)
             .and_then(import::Seed::workspace)
-        {
+            .or(session.workspace_id.as_deref())
+    }
+    fn project_session(&self, session: &Session) -> Value {
+        let mut value = json!(session);
+        if let Some(workspace) = self.session_workspace(session) {
             value["workspaceId"] = json!(workspace);
         }
         if self.require_import_seed(&session.session_id).is_err() {

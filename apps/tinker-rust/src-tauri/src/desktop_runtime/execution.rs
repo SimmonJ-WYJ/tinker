@@ -9,6 +9,89 @@ use crate::{
     session_lifecycle::RunStatus,
 };
 use serde_json::{json, Value};
+/// 重试只接受持久身份。本次输入、渠道、模型和 effort 均由原始 binding 决定。
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct TextRetry {
+    pub session_id: String,
+    pub request_id: String,
+    pub started_at: u64,
+    pub retry_of_request_id: String,
+}
+impl super::DesktopRuntime {
+    pub(crate) fn interrupt_text(&self, session: &str, request: &str) -> Result<()> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        inner.binding(session, request)?;
+        let controller = inner
+            .controllers
+            .get(session)
+            .ok_or(DesktopError("sessionNotFound"))?;
+        match controller.interrupt_text(request) {
+            Ok(_) | Err(RunError::RunNotFound) => Ok(()),
+            Err(error) => Err(error.into()),
+        }
+    }
+    pub(crate) fn superseded_request(&self, session: &str, request: &str) -> Result<bool> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        Ok(inner.bindings.get(session).is_some_and(|bindings| {
+            bindings
+                .last()
+                .is_some_and(|last| last.request.request_id != request)
+                && bindings.iter().any(|b| b.request.request_id == request)
+        }))
+    }
+    /// 返回完整的发送参数；新执行同时返回源时间，供宿主与图片时间线核对。
+    pub(crate) fn resolve_text_retry(&self, retry: TextRetry) -> Result<(Send, Option<u64>)> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        let source = inner.binding(&retry.session_id, &retry.retry_of_request_id)?;
+        let bindings = &inner.bindings[&retry.session_id];
+        if inner.queue_enabled
+            || inner.tools.contains_key(&source.request.profile_id)
+            || retry.request_id == retry.retry_of_request_id
+            || !matches!(
+                inner.turn(source)?.status,
+                RunStatus::Failed | RunStatus::Interrupted
+            )
+        {
+            return Err(DesktopError("requestConflict"));
+        }
+        let mut next = source.request.clone();
+        next.request_id = retry.request_id;
+        next.started_at = retry.started_at;
+        validate_send(&next)?;
+        // 已接受的相同请求只回读回执，后续会话活动、渠道变更均不得触发重发。
+        if let Some(index) = bindings
+            .iter()
+            .position(|b| b.request.request_id == next.request_id)
+        {
+            if index > 0
+                && bindings[index - 1].request.request_id == source.request.request_id
+                && bindings[index].request == next
+            {
+                return Ok((next, None));
+            }
+            return Err(DesktopError("requestConflict"));
+        }
+        if bindings.last() != Some(source)
+            || inner
+                .profiles
+                .get(&next.profile_id)
+                .is_none_or(|p| p.config_revision != source.config_revision)
+        {
+            return Err(DesktopError("requestConflict"));
+        }
+        Ok((next, Some(source.request.started_at)))
+    }
+}
 pub(super) fn validate_send(p: &Send) -> Result<()> {
     for value in [&p.request_id, &p.session_id, &p.profile_id] {
         id(value)?;
@@ -146,6 +229,10 @@ impl Inner {
             &p.user_message,
             &p.profile_id,
         )?;
+        self.controllers
+            .get(&p.session_id)
+            .ok_or(DesktopError("sessionNotFound"))?
+            .require_confirmed_storage()?;
         let binding = Binding {
             request: p.clone(),
             config_revision: profile.config_revision.clone(),

@@ -224,7 +224,7 @@ impl Actor {
             None => self.history(sid)?,
         };
         if e.terminal_stage == TerminalStage::SdkMessage {
-            let projected = projection::history(std::slice::from_ref(&e.turn));
+            let projected = projection::text_task_history(std::slice::from_ref(&e.turn));
             let messages = projected["sdkMessages"]
                 .as_array()
                 .ok_or(DesktopError("invalidReply"))?;

@@ -65,3 +65,30 @@ export function mergeToolRunMessages(persisted: SDKMessage[], live: SDKMessage[]
     return !liveReferences.has(message) && (id === undefined || !liveIds.has(id))
   }), ...live]
 }
+
+
+/** 用宿主的文字任务身份合并乐观、持久与实时副本；保留原位置和不同任务的相同正文。 */
+export function reconcileTextTaskMessages(messages: SDKMessage[]): SDKMessage[] {
+  const authoritative = new Map<string, SDKMessage>()
+  const key = (message: SDKMessage, id: string) => message.type + ':' + id
+  for (const message of messages) {
+    const id = (message as Record<string, unknown>)._desktopTextTaskRequestId
+    if (typeof id === 'string' && (message.type === 'user' || message.type === 'assistant')) {
+      authoritative.set(key(message, id), message)
+    }
+  }
+  if (!authoritative.size) return messages
+  const used = new Set<string>()
+  const result: SDKMessage[] = []
+  for (const message of messages) {
+    const record = message as Record<string, unknown>
+    const id = record._desktopTextTaskRequestId ?? (message.type === 'user' && !record.uuid ? record._agentRequestId : undefined)
+    const identity = typeof id === 'string' ? key(message, id) : undefined
+    const confirmed = identity && authoritative.get(identity)
+    if (identity && confirmed) {
+      if (!used.has(identity)) result.push(confirmed)
+      used.add(identity)
+    } else result.push(message)
+  }
+  return result
+}
