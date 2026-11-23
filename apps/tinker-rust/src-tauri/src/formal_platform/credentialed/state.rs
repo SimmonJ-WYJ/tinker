@@ -149,7 +149,7 @@ pub(super) fn apply(
                 }
             }
         }
-        settings.validate_managed(&p)?;
+        settings.validate_managed_workspaces(&p, &state.workspaces)?;
         if !selection_valid(&settings, c) {
             return Err(DesktopError("invalidParams"));
         }
@@ -158,13 +158,20 @@ pub(super) fn apply(
         return Ok(());
     }
     if r.channel == "agent:set-reasoning-effort" {
-        state.workspace(&r.args, 2)?;
+        let slug = state.workspace(&r.args, 2)?.workspace.slug.clone();
         let effort = r.args[1].as_str().ok_or(DesktopError("invalidParams"))?;
         let mut settings = state.settings.clone();
         settings.agent_effort = effort.into();
-        settings.validate_managed(&p)?;
-        state.workspaces[0].effort = effort.into();
-        state.settings = settings;
+        settings.validate_managed_workspaces(&p, &state.workspaces)?;
+        let record = state
+            .workspaces
+            .iter_mut()
+            .find(|r| r.workspace.slug == slug)
+            .ok_or(DesktopError("workspaceNotFound"))?;
+        record.effort = effort.into();
+        if slug == workspace::DEFAULT_WORKSPACE_SLUG {
+            state.settings = settings;
+        }
         return Ok(());
     }
     state.apply(r, &p)
@@ -178,13 +185,15 @@ pub(super) fn validate(s: &Persisted, policy: &EndpointPolicy) -> Result<()> {
     if s.version != VERSION
         || s.channel_overlay.is_some()
         || s.revision > MAX_SAFE_INTEGER
-        || s.workspaces.len() != 1
+        || (s.workspaces.is_empty() || s.workspaces.len() > project_catalog::MAX_PROJECTS + 1)
         || s.receipts.len() > MAX_RECEIPTS
         || s.revision != s.receipts.len() as u64
     {
         return Err(DesktopError("corruptSnapshot"));
     }
-    s.settings.validate_managed(&profiles(c))?;
+    project_catalog::validate_catalog(&s.workspaces, true)?;
+    s.settings
+        .validate_managed_workspaces(&profiles(c), &s.workspaces)?;
     validate_user(&s.user_profile)?;
     s.workspaces[0].validate_managed()?;
     if s.workspaces[0].effort != s.settings.agent_effort {
@@ -196,6 +205,7 @@ pub(super) fn validate(s: &Persisted, policy: &EndpointPolicy) -> Result<()> {
     let mut ordered: Vec<_> = s.receipts.iter().collect();
     ordered.sort_by_key(|(_, r)| r.revision);
     let mut replay = Persisted::initial(&[]);
+    replay.workspaces.extend_from_slice(&s.workspaces[1..]);
     replay.workspaces[0].effort.clear();
     replay.credential_catalog = Some(Catalog::empty(c.store_namespace.clone())?);
     for (index, (id, r)) in ordered.into_iter().enumerate() {
@@ -234,6 +244,24 @@ pub(super) fn reply(
                 .unwrap_or(Value::Null)
         }
         "channel:delete" => json!(true),
+        "agent:get-reasoning-effort" => {
+            let preference = &s.workspace(&r.args, 1)?.effort;
+            let catalog = s
+                .credential_catalog
+                .as_ref()
+                .ok_or(DesktopError("corruptCatalog"))?;
+            let supported = catalog
+                .current()
+                .find(|r| r.channel.id == s.settings.agent_channel_id)
+                .and_then(|r| {
+                    r.channel
+                        .models
+                        .iter()
+                        .find(|m| m.model_id == s.settings.agent_model_id)
+                })
+                .is_some_and(|m| m.supported_efforts.contains(preference));
+            json!(if supported { preference.as_str() } else { "" })
+        }
         _ => s.value(r, &snapshot)?,
     };
     Ok(PlatformReply {

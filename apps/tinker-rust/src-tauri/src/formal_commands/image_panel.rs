@@ -85,7 +85,7 @@ fn choose<R: Runtime>(
     filename: Option<String>,
 ) -> HostResult<Option<PathBuf>> {
     #[cfg(feature = "formal-native-qa")]
-    if window.app_handle().config().identifier == "com.tinker.formal-native-qa" {
+    if crate::formal_native_qa::accepts_fixture_panels(&window.app_handle().config().identifier) {
         if let Some(selection) = crate::formal_native_qa::image_panel_selection(filename.is_some())
         {
             return Ok(selection);

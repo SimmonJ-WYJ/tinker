@@ -13,6 +13,7 @@ struct Stage {
     ready: bool,
 }
 struct ManagedInner {
+    project_epoch: u64,
     store: store::Store,
     state: Persisted,
     environment: HostEnvironment,
@@ -20,12 +21,15 @@ struct ManagedInner {
     frozen: bool,
 }
 pub struct CredentialedPlatform {
+    pub(crate) known: crate::credentialed_channels::worker::Known,
+    root: TrustedRoot,
     inner: Mutex<ManagedInner>,
     stage_io: Mutex<()>,
     policy: EndpointPolicy,
     scope: VaultScope,
 }
 pub struct PreparedMutation {
+    project_epoch: u64,
     next: Persisted,
     request: PlatformRequest,
     base_revision: u64,
@@ -93,7 +97,10 @@ impl CredentialedPlatform {
                 .clone(),
         )?;
         Ok(Self {
+            root: root.clone(),
+            known: Default::default(),
             inner: Mutex::new(ManagedInner {
+                project_epoch: 0,
                 store,
                 state,
                 environment,
@@ -310,6 +317,7 @@ impl CredentialedPlatform {
                 next: i.state.clone(),
                 request,
                 base_revision: i.state.revision,
+                project_epoch: i.project_epoch,
                 replay: true,
             });
         }
@@ -342,6 +350,7 @@ impl CredentialedPlatform {
             next,
             request,
             base_revision: i.state.revision,
+            project_epoch: i.project_epoch,
             replay: false,
         })
     }
@@ -391,7 +400,7 @@ impl CredentialedPlatform {
         if prepared.catalog().store_namespace != self.scope.namespace() {
             return Err(DesktopError("stageMismatch"));
         }
-        if i.state.revision != prepared.base_revision {
+        if i.state.revision != prepared.base_revision || i.project_epoch != prepared.project_epoch {
             return Err(DesktopError("revisionConflict"));
         }
         if !prepared.replay {
@@ -466,5 +475,42 @@ fn contains_secret(value: &Value, key: &[u8]) -> bool {
             .iter()
             .any(|(k, v)| contains(k) || contains_secret(v, key)),
         _ => false,
+    }
+}
+
+impl project_catalog::ProjectCatalog for CredentialedPlatform {
+    fn check_project_text(&self, text: &str) -> Result<()> {
+        crate::credentialed_channels::worker::guard(&json!(text), &self.known)
+    }
+    fn edit_projects<T>(
+        &self,
+        edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &std::path::Path) -> Result<T>,
+    ) -> Result<T> {
+        let mut i = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("recoveryRequired"))?;
+        if i.frozen {
+            return Err(DesktopError("recoveryRequired"));
+        }
+        let mut next = i.state.clone();
+        let result = edit(&mut next.workspaces, self.root.path())?;
+        // A newly imported/native project starts with the selected model’s supported
+        // effort. Existing project preferences are preserved through reimports.
+        for record in next.workspaces.iter_mut().skip(i.state.workspaces.len()) {
+            record.effort = next.settings.agent_effort.clone();
+        }
+        if next.workspaces != i.state.workspaces {
+            project_catalog::validate_catalog(&next.workspaces, true)?;
+            let data = serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?;
+            store::snapshot_budget(&data)?;
+            if let Err(e) = i.store.write(data) {
+                i.frozen = true;
+                return Err(e);
+            }
+            i.state = next;
+            i.project_epoch += 1;
+        }
+        Ok(result)
     }
 }

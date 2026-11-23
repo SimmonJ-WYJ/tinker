@@ -240,3 +240,81 @@ fn session_import_can_restore_and_export_its_own_png() {
     host.shutdown().unwrap();
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn configured_host_imports_projects_without_a_channel_and_reopens_selected_workspace() {
+    let dir = std::env::temp_dir().canonicalize().unwrap().join(format!(
+        "tinker-tauri-channels-preview-managed-projects-{}",
+        crate::credentialed_channels::catalog::random_reference().unwrap()
+    ));
+    let root = TrustedRoot::create_channels_temporary(&dir).unwrap();
+    let open = || {
+        FormalHost::open_channels(&root, HostEnvironment::new("darwin", false, false).unwrap())
+            .unwrap()
+    };
+    let mut host = open();
+    let command = |h: &FormalHost, v| {
+        h.command("main", v)
+            .unwrap()
+            .wait(Duration::from_secs(2))
+            .unwrap()
+    };
+    let boot = command(&host, json!({"command":"bootstrap"}));
+    assert_eq!(boot["nativeSessionImport"], true);
+    assert_eq!(boot["nativeProjectBinding"], true);
+    assert_eq!(boot["nativeProjectTaskStatuses"], true);
+    let doc = boot["generation"].as_str().unwrap();
+    let step = |s| {
+        host.import_step(doc.into(), s)
+            .unwrap()
+            .recv()
+            .unwrap()
+            .unwrap()
+    };
+    let ImportReply::Permit { epoch, .. } = step(ImportStep::Begin) else {
+        panic!("missing import grant")
+    };
+    let project = crate::electron_import::SourceProject {
+        source_project_id: "p-a".into(),
+        name: "Synthetic project".into(),
+        created_at: 3,
+        updated_at: 5,
+        has_directory_hint: true,
+    };
+    let ImportReply::Projects(projects) = step(ImportStep::Projects {
+        epoch,
+        projects: vec![project],
+        refs: Default::default(),
+    }) else {
+        panic!("missing projects")
+    };
+    let id = projects.ids["p-a"].clone();
+    for expected in [true, false] {
+        assert!(
+            matches!(step(ImportStep::ProjectSession{epoch,workspace:id.clone(),source:Box::new(sample("old"))}),ImportReply::Committed(fresh) if fresh == expected)
+        );
+    }
+    command(
+        &host,
+        json!({"command":"invoke","generation":doc,"channel":"settings:update","args":[{"agentWorkspaceId":id}],"mutation":{"expectedRevision":0,"mutationId":"select-project"}}),
+    );
+    host.shutdown().unwrap();
+    drop(host);
+    let mut host = open();
+    let boot = command(&host, json!({"command":"bootstrap"}));
+    assert_eq!(boot["platformSnapshot"]["settings"]["agentWorkspaceId"], id);
+    assert!(boot["platformSnapshot"]["workspaces"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| p["id"] == id && p["directoryStatus"] == "unbound"));
+    let sessions = command(
+        &host,
+        json!({"command":"invoke","generation":boot["generation"],"channel":"agent:list-sessions","args":[]}),
+    );
+    let rows = sessions["value"].as_array().unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["workspaceId"], id);
+    host.shutdown().unwrap();
+    fs::remove_dir_all(dir).unwrap();
+}

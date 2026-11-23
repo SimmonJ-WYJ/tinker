@@ -1,3 +1,5 @@
+import type { Bootstrap } from './protocol'
+
 const statuses = ['queued', 'running', 'waitingInput', 'completed', 'cancelled', 'failed', 'interrupted'] as const
 export type TaskStatus = typeof statuses[number]
 export type ProjectTaskKind = 'text' | 'imageGenerate' | 'imageEdit'
@@ -25,4 +27,11 @@ export function parseProjectTaskStatuses(value: unknown, requireKind = false): P
     seen.add(row.sessionId)
     return { kind, sessionId: row.sessionId, requestId: row.requestId, status: row.status }
   })
+}
+
+/** 旧版合成预览已支持此查询，旧版渠道预览只支持会话内的任务状态。 */
+export function supportsProjectTaskStatuses(
+  bootstrap: Pick<Bootstrap, 'nativeProjectTaskStatuses' | 'nativeTaskLifecycle' | 'credentialedChannels'>,
+): boolean {
+  return bootstrap.nativeProjectTaskStatuses ?? (bootstrap.nativeTaskLifecycle === true && !bootstrap.credentialedChannels)
 }

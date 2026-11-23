@@ -1,3 +1,4 @@
+use super::project_catalog::ProjectCatalog;
 use super::*;
 use crate::electron_import::SourceProject;
 fn project(id: &str, name: &str) -> SourceProject {

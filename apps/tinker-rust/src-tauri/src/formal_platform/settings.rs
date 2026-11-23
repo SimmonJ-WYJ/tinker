@@ -117,8 +117,14 @@ impl Settings {
             workspaces.iter().any(|w| w.workspace.id == id)
         })
     }
-    pub(crate) fn validate_managed(&self, profiles: &[PublicProfile]) -> Result<()> {
-        self.validate_inner(profiles, true, |id| id == DEFAULT_WORKSPACE_ID)
+    pub(crate) fn validate_managed_workspaces(
+        &self,
+        profiles: &[PublicProfile],
+        records: &[WorkspaceRecord],
+    ) -> Result<()> {
+        self.validate_inner(profiles, true, |id| {
+            records.iter().any(|r| r.workspace.id == id)
+        })
     }
     fn validate_inner(
         &self,
@@ -273,6 +279,7 @@ mod credentialed_empty_tests {
 
 #[cfg(test)]
 mod project_settings_tests {
+    use super::super::project_catalog::ProjectCatalog;
     use super::*;
     use crate::{
         electron_import::SourceProject,
@@ -353,7 +360,7 @@ mod project_settings_tests {
         assert_eq!(restored.settings.agent_workspace_id, b);
         assert!(restored
             .settings
-            .validate_managed(&platform.profiles)
+            .validate_managed_workspaces(&platform.profiles, &[WorkspaceRecord::initial()])
             .is_err());
         for patch in [
             json!({"agentWorkspaceId":"other"}),

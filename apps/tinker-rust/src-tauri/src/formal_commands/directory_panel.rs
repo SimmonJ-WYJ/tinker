@@ -60,7 +60,7 @@ pub(super) fn choose<R: Runtime>(
     purpose: FolderPurpose,
 ) -> HostResult<Option<SelectedFolder>> {
     #[cfg(feature = "formal-native-qa")]
-    if window.app_handle().config().identifier == "com.tinker.formal-native-qa" {
+    if crate::formal_native_qa::accepts_fixture_panels(&window.app_handle().config().identifier) {
         let selection = match purpose {
             FolderPurpose::Backup => crate::formal_native_qa::session_folder_selection(),
             FolderPurpose::Project => crate::formal_native_qa::project_folder_selection(),

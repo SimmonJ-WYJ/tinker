@@ -21,7 +21,7 @@ use std::{
     collections::BTreeMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc, Arc, Mutex,
+        mpsc, Arc,
     },
     thread::JoinHandle,
 };
@@ -57,10 +57,10 @@ impl Credentialed {
         policy: EndpointPolicy,
     ) -> Self {
         Self {
+            known: platform.known.clone(),
             platform,
             vault,
             policy,
-            known: Arc::new(Mutex::new(BTreeMap::new())),
             job: None,
             bypass: false,
             image_preparation: None,

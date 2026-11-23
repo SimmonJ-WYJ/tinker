@@ -226,8 +226,8 @@ mod owned {
         let g = boot["generation"].as_str().unwrap().to_owned();
         call(&h, json!({"command":"attach","generation":g,"observed":{}})).unwrap();
         assert_eq!(boot["nativeImages"], true);
-        assert_eq!(boot["nativeSessionImport"], false);
-        assert_eq!(boot["nativeProjectBinding"], false);
+        assert_eq!(boot["nativeSessionImport"], true);
+        assert_eq!(boot["nativeProjectBinding"], true);
         let mut r = request(&f, "openai-chat", 0, "save-image");
         r["args"][0]["channel"]["models"] = json!([{"modelId":"model","label":"Text"},{"modelId":"shared-picture","label":"Picture","capability":"image"}]);
         let staged = invoke(

@@ -101,6 +101,14 @@ mod picker;
 #[path = "formal_native_qa_support.rs"]
 mod support;
 
+/// 仅这两个有固定 QA 身份的入口可以消费硬编码的临时选择。
+pub(crate) fn accepts_fixture_panels(identifier: &str) -> bool {
+    matches!(
+        identifier,
+        "com.tinker.formal-native-qa" | "com.tinker.channels-native-qa"
+    ) && directory().is_ok()
+}
+
 /// 仅供受独立 QA 身份限制的宿主调用。
 pub(crate) fn image_panel_selection(save: bool) -> Option<Option<PathBuf>> {
     picker::selection(save)

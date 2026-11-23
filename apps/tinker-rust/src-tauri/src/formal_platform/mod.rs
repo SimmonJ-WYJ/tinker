@@ -319,7 +319,7 @@ impl Persisted {
             .map_err(|_| DesktopError("corruptSnapshot"))?;
         validate_user(&self.user_profile).map_err(|_| DesktopError("corruptSnapshot"))?;
         self.workspaces[0].validate()?;
-        project_catalog::validate_catalog(&self.workspaces)?;
+        project_catalog::validate_catalog(&self.workspaces, false)?;
         let mut revisions = std::collections::HashSet::new();
         for (id, r) in &self.receipts {
             r.validate()?;
