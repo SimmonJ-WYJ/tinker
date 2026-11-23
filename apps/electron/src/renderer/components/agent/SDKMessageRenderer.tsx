@@ -417,7 +417,7 @@ export interface AssistantTurnRendererProps {
 export function AssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId: _sessionModelId, compactProcess = false }: AssistantTurnRendererProps): React.ReactElement | null {
   const { t: tConv } = useT('conversation')
   const imageSessionId = useAtomValue(currentAgentSessionIdAtom)
-  const imageVersions = React.useMemo(() => collectImageVersions(allMessages), [allMessages])
+  const imageVersions = React.useMemo(() => collectImageVersions(allMessages, Boolean(window.__TAURI_FORMAL__?.imageFiles)), [allMessages])
 
   // 收集所有 assistant 消息的内容块，保留 parent_tool_use_id 关联
   interface EnrichedBlock {

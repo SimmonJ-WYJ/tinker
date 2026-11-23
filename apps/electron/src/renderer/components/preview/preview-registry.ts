@@ -6,6 +6,7 @@ export type { PreviewTarget }
 export interface PreviewRendererProps {
   /** 文件绝对路径 */
   path: string
+  displayName?: string
   /** 文件大小（字节），用于 renderer 内部判断降级 */
   size: number
   /** 渲染失败时由 renderer 调用，上抛给 ErrorBoundary */

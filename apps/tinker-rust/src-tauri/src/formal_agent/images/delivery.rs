@@ -24,8 +24,8 @@ impl ImageWorkflow {
             let mut events = VecDeque::new();
             let result = turn.and_then(|turn| {
                 actor.core("sessions.update", json!({"sessionId":sid}))?;
-                let turns = self.store.history(&sid)?;
-                let (_, sdk) = project(&sid, &turn, &turns);
+                let (turns, imports) = self.store.snapshot(&sid)?;
+                let (_, sdk) = project(&sid, &turn, &turns, &imports);
                 for message in sdk {
                     let event = projection::stream(
                         &identity,

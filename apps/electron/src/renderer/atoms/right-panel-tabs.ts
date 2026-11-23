@@ -105,7 +105,7 @@ export function tabIdOfTarget(target: PreviewTarget): string {
 export function titleOfTarget(target: PreviewTarget): string {
   switch (target.kind) {
     case 'file':
-      return target.path.split('/').pop() ?? target.path
+      return target.displayName ?? target.path.split('/').pop() ?? target.path
     case 'paper':
       return sanitizeText(target.record.title)
     case 'paper-entry':

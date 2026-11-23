@@ -216,6 +216,8 @@ export interface SDKAssistantMessage {
 
 /** 用户编辑时选中的确定版本；独立于 prompt 保存，供历史消息显示原图。 */
 export interface UserImageEditReference {
+  /** 原生导入素材的原始显示名称；读取只用宿主确认的 localPath。 */
+  displayName?: string
   imageId: string
   /** 宿主根据确定图片产物验证的来源 SDK UUID；旧消息可缺省。 */
   sourceMessageId?: string
@@ -1370,6 +1372,8 @@ export interface AgentStreamCompletePayload {
 
 /** 文件/目录条目（用于文件浏览器树形视图） */
 export interface FileEntry {
+  /** 原生导入图片的展示名；路径与实际文件格式以 name/path 为准。 */
+  displayName?: string
   /** 文件/目录名称 */
   name: string
   /** 完整路径 */

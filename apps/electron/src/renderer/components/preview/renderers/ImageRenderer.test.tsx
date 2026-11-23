@@ -5,10 +5,13 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createStore, Provider } from 'jotai'
+import { imageEditDraftsAtom } from '@/atoms/image-edit-atoms'
 import ImageRenderer from './ImageRenderer.tsx'
 
 // 合成的 1×1 PNG，不读取用户文件。
 const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='
+const originalMarker = window.__TAURI_FORMAL__
 const originalAPI = window.electronAPI
 let fixtureDir: string
 let blobs: Blob[]
@@ -29,6 +32,7 @@ afterEach(async () => {
   cleanup()
   createUrl.mockRestore()
   revokeUrl.mockRestore()
+  window.__TAURI_FORMAL__ = originalMarker
   window.electronAPI = originalAPI
   await rm(fixtureDir, { recursive: true, force: true })
 })
@@ -137,4 +141,34 @@ describe('ImageRenderer 本地图片预览', () => {
     expect(onError).not.toHaveBeenCalled()
     expect(revokeUrl).toHaveBeenCalledTimes(1)
   })
+})
+
+
+it('原生侧栏从同一会话的 PNG 保存和复用导入图片，显示原文件名', async () => {
+  const imageId = 'ref-' + 'a'.repeat(32)
+  const relative = `session-one/${imageId}.png`
+  const store = createStore()
+  const save = mock(async () => true)
+  const read = mock(async (_path: string) => PNG_BASE64)
+  window.__TAURI_FORMAL__ = { imageFiles: { save, pick: async () => null }, hydrated: () => {} }
+  window.electronAPI = { previewReadBinary: read, readAttachment: read } as unknown as Window['electronAPI']
+  const path = '/isolated/deliverables/' + relative
+  render(<Provider store={store}><ImageRenderer path={path} displayName="original.jpg" size={68} onError={() => {}} /></Provider>)
+
+  const preview = await screen.findByRole('img', { name: 'original.jpg' })
+  fireEvent.load(preview)
+  fireEvent.click(preview)
+  const dialog = screen.getByRole('dialog')
+  const image = within(dialog).getByRole('img')
+  Object.defineProperties(image, { naturalWidth: { value: 1 }, naturalHeight: { value: 1 } })
+  fireEvent.load(image)
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save image' }))
+  expect(save).toHaveBeenCalledWith(relative)
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Edit from this image' }))
+  await waitFor(() => expect(store.get(imageEditDraftsAtom).get('session-one')).toMatchObject({
+    imageId,
+    displayName: 'original.jpg',
+    generatedImage: { localPath: relative, filename: imageId + '.png', mediaType: 'image/png' },
+  }))
+  expect(read.mock.calls.map(([value]) => value)).toEqual([path, relative])
 })

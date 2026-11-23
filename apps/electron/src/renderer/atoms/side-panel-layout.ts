@@ -24,6 +24,7 @@ import {
 export interface FilePreviewTarget {
   kind: 'file'
   path: string
+  displayName?: string
   ext: string        // 小写，不带点
   size: number       // 字节
 }

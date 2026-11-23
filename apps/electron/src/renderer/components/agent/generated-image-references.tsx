@@ -1,6 +1,7 @@
 /** 仅将当前回合、当前会话的明确生图引用交给附件桥接，不推断 cwd 中不存在的文件。 */
 import * as React from 'react'
 import type { SDKAssistantMessage, SDKMessage } from '@asci/shared'
+import { nativeImageSave } from './native-image-files'
 import { ImageLightbox } from '@/components/ui/image-lightbox'
 import { useT } from '@/hooks/useT'
 import { parseImageVersion, type ImageVersion } from './image-versions'
@@ -125,7 +126,7 @@ export function GeneratedImageReferenceProvider({
         onOpenChange={(isOpen) => {
           if (!isOpen) { requestRef.current++; setSelected(null) }
         }}
-        onSave={save}
+        onSave={window.__TAURI_FORMAL__ ? nativeImageSave(selected?.image.localPath) : save}
         returnFocus={() => { if (openerRef.current?.isConnected) openerRef.current.focus() }}
       />
     </GeneratedImageReferencesContext.Provider>

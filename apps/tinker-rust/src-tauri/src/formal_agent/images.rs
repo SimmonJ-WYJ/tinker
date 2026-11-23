@@ -2,7 +2,7 @@
 use super::{actor::Actor, image_projection::project, projection, Reply};
 use crate::{
     desktop_runtime::protocol::{id, DesktopError, Result},
-    formal_images::{ImageStatus, ImageStore, ImageTurn, LoopbackImageProvider},
+    formal_images::{ImageStatus, ImageStore, ImageTurn, ImportedImage, LoopbackImageProvider},
 };
 use serde_json::{json, Value};
 use std::{
@@ -44,15 +44,20 @@ impl ImageWorkflow {
         Ok(self.store.history(sid)?.iter().any(|t| t.request_id == id))
     }
     pub fn merge_history(&self, sid: &str, history: &mut Value) -> Result<()> {
-        let turns = self.store.history(sid)?;
-        Self::merge_turns(sid, history, &turns)
+        let (turns, imports) = self.store.snapshot(sid)?;
+        Self::merge_turns(sid, history, &turns, &imports)
     }
-    fn merge_turns(sid: &str, history: &mut Value, turns: &[ImageTurn]) -> Result<()> {
+    fn merge_turns(
+        sid: &str,
+        history: &mut Value,
+        turns: &[ImageTurn],
+        imports: &[ImportedImage],
+    ) -> Result<()> {
         if turns.is_empty() {
             return Ok(());
         }
         for t in turns {
-            let (plain, sdk) = project(sid, t, turns);
+            let (plain, sdk) = project(sid, t, turns, imports);
             history["messages"]
                 .as_array_mut()
                 .ok_or(DesktopError("invalidReply"))?
@@ -141,7 +146,11 @@ impl Actor {
     ) -> Result<Value> {
         let images = self.images.as_ref().ok_or(DesktopError("unsupported"))?;
         let occupied = |s: &str| -> Result<bool> {
-            Ok(images.jobs.contains_key(s) || !images.store.history(s)?.is_empty())
+            if images.jobs.contains_key(s) {
+                return Ok(true);
+            }
+            let (turns, imports) = images.store.snapshot(s)?;
+            Ok(!turns.is_empty() || !imports.is_empty())
         };
         if !occupied(
             original["sessionId"]
@@ -216,7 +225,7 @@ impl Actor {
             return Err(DesktopError("requestConflict"));
         }
         let images = self.images.as_mut().ok_or(DesktopError("unsupported"))?;
-        let turns = images.store.history(sid)?;
+        let (turns, imports) = images.store.snapshot(sid)?;
         let existing = turns.iter().find(|t| t.request_id == request);
         let base = if action == "edit" {
             let base = selected
@@ -257,7 +266,7 @@ impl Actor {
             return Err(DesktopError("hostBusy"));
         }
         let mut history = projection::history(&text_turns);
-        ImageWorkflow::merge_turns(sid, &mut history, &turns)?;
+        ImageWorkflow::merge_turns(sid, &mut history, &turns, &imports)?;
         let history_bytes = serde_json::to_vec(&history)
             .map_err(|_| DesktopError("invalidReply"))?
             .len();

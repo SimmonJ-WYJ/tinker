@@ -320,7 +320,7 @@ export function InlinePreview(): React.ReactElement | null {
 
   // File 目标走注册表
   const renderer = resolveRenderer(currentPreview)
-  const fileName = currentPreview.path.split('/').pop() ?? currentPreview.path
+  const fileName = currentPreview.displayName ?? currentPreview.path.split('/').pop() ?? currentPreview.path
   const badgeLabel = currentPreview.ext.toUpperCase() || 'FILE'
   const filePath = currentPreview.path
 
@@ -340,7 +340,7 @@ export function InlinePreview(): React.ReactElement | null {
         {/* key 绑定文件路径：切换文件时整个 ErrorBoundary + Renderer 重新挂载，清空上一个文件的错误 state */}
         <PreviewErrorBoundary key={filePath} filePath={filePath}>
           <React.Suspense fallback={<div className="p-4 text-xs text-muted-foreground">{tCommon('loading')}</div>}>
-            <RendererHost path={filePath} size={currentPreview.size} Renderer={Renderer} />
+            <RendererHost path={filePath} displayName={currentPreview.displayName} size={currentPreview.size} Renderer={Renderer} />
           </React.Suspense>
         </PreviewErrorBoundary>
       </div>
@@ -401,16 +401,18 @@ export function InlinePreview(): React.ReactElement | null {
  */
 function RendererHost({
   path,
+  displayName,
   size,
   Renderer,
 }: {
   path: string
   size: number
-  Renderer: React.FC<{ path: string; size: number; onError: (err: Error) => void }>
+  displayName?: string
+  Renderer: React.FC<import('./preview-registry').PreviewRendererProps>
 }): React.ReactElement {
   const [error, setError] = React.useState<Error | null>(null)
   // 路径变化时清空错误，让用户切到新文件时能重试
   React.useEffect(() => { setError(null) }, [path])
   if (error) throw error
-  return <Renderer path={path} size={size} onError={setError} />
+  return <Renderer path={path} displayName={displayName} size={size} onError={setError} />
 }

@@ -70,6 +70,12 @@
   },
   "desktopRuntime": {
     "imageEditOnly": "This preview can edit a selected image. Remove the reference to send a text-only message.",
+    "imageFileExists": "Choose a new filename. A file already exists at this location.",
+    "invalidImageFile": "Choose a valid PNG or JPEG image.",
+    "imageTooLarge": "This image exceeds the import size limit. Choose a smaller image.",
+    "unsupportedImageFormat": "Choose a PNG or JPEG image.",
+    "imageDialogBusy": "Finish the open file dialog first.",
+    "imageFileUnavailable": "The image could not be read or saved.",
     "imageNotFound": "The referenced image is unavailable in this session.",
     "imageFailed": "The image request failed. Existing images remain available.",
     "unsupported": "This operation is not available in the Rust text preview.",

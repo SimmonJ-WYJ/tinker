@@ -672,9 +672,13 @@ function FileTreeItem({
       const ext = entry.name.includes('.')
         ? entry.name.split('.').pop()?.toLowerCase() ?? ''
         : ''
+      const target = {
+        kind: 'file' as const, path: entry.path, ext,
+        ...(window.__TAURI_FORMAL__?.imageFiles && entry.displayName && { displayName: entry.displayName }),
+      }
       window.electronAPI.statFile(entry.path)
-        .then((info) => openInRightPanel({ kind: 'file', path: entry.path, ext, size: info.size }))
-        .catch(() => openInRightPanel({ kind: 'file', path: entry.path, ext, size: 0 }))
+        .then(info => openInRightPanel({ ...target, size: info.size }))
+        .catch(() => openInRightPanel({ ...target, size: 0 }))
     }
   }
 
@@ -823,7 +827,7 @@ function FileTreeItem({
             )}
           </div>
         ) : (
-          <span className="truncate text-xs flex-1">{entry.name}</span>
+          <span className="truncate text-xs flex-1">{(window.__TAURI_FORMAL__?.imageFiles && entry.displayName) || entry.name}</span>
         )}
 
         {/* 三点菜单按钮（始终占位避免行高跳动；hover/选中/菜单打开时可见） */}

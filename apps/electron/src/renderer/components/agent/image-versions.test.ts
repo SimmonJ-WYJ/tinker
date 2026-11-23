@@ -17,3 +17,11 @@ test('版本清单只认成功的宿主生图工具，保留确定父版本',()=
  ] as SDKMessage[]
  expect(collectImageVersions(messages).map(item=>[item.imageId,item.baseImageId])).toEqual([['child','parent']])
 })
+
+test('隔离预览可比较导入源图，普通 Electron 仍只收集生成结果', () => {
+ const id = 'ref-' + 'a'.repeat(32)
+ const reference = {imageId:id, localPath:'session-1/' + id + '.png', filename:id + '.png', mediaType:'image/png',displayName:'background.jpg'}
+ const history:SDKMessage[]=[{type:'user',parent_tool_use_id:null,imageEditReference:reference}]
+ expect(collectImageVersions(history)).toEqual([])
+ expect(collectImageVersions(history,true)).toEqual([{imageId:id,generatedImage:{localPath:reference.localPath,filename:reference.filename,mediaType:reference.mediaType}}])
+})

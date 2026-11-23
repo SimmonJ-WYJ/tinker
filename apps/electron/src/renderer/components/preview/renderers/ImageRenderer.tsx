@@ -1,4 +1,7 @@
 import * as React from 'react'
+import { useStore } from 'jotai'
+import { imageEditDraftsAtom } from '@/atoms/image-edit-atoms'
+import { applyPickedImage, nativeImageSave, reportImageFileError } from '@/components/agent/native-image-files'
 import { useT } from '@/hooks/useT'
 import { ImageLightbox } from '@/components/ui/image-lightbox'
 import type { PreviewRendererProps } from '../preview-registry'
@@ -15,12 +18,22 @@ interface ImageSource {
 }
 
 /** 复用预览二进制桥接，避免 file:// 的 URL 转义与 renderer 安全策略问题。 */
-export default function ImageRenderer({ path, onError }: PreviewRendererProps): React.ReactElement {
+export default function ImageRenderer({ path, displayName, onError }: PreviewRendererProps): React.ReactElement {
   const { t } = useT('preview')
   const { t: tCommon } = useT('common')
   const [image, setImage] = React.useState<ImageSource | null>(null)
   const [decoded, setDecoded] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
+  const store = useStore()
+  const openTarget = React.useRef<object | null>(null)
+  React.useLayoutEffect(() => {
+    openTarget.current = expanded ? {} : null
+    return () => { openTarget.current = null }
+  }, [path, expanded])
+  const nativePath = window.__TAURI_FORMAL__?.imageFiles
+    ? /\/deliverables\/([\w-]+)\/((?:img|ref)-[a-f0-9]{32})\.png$/.exec(path)
+    : null
+  const localPath = nativePath ? nativePath[1] + '/' + nativePath[2] + '.png' : undefined
   const currentImage = image?.path === path ? image : null
   const fileName = path.split(/[/\\]/).pop() || t('image.lightboxAlt')
 
@@ -70,6 +83,30 @@ export default function ImageRenderer({ path, onError }: PreviewRendererProps): 
     anchor.click()
   }
 
+  const editNativeImage = (): void => {
+    if (!nativePath || !localPath) return
+    const owner = nativePath[1]!
+    const imageId = nativePath[2]!
+    const previous = store.get(imageEditDraftsAtom).get(owner)
+    const token = openTarget.current
+    void applyPickedImage(
+      async () => {
+        const bytes = await window.electronAPI.readAttachment(localPath)
+        return {
+          imageId,
+          displayName,
+          generatedImage: { localPath, filename: fileName, mediaType: 'image/png' },
+          previewSrc: 'data:image/png;base64,' + bytes,
+        }
+      },
+      () => !!token && openTarget.current === token && store.get(imageEditDraftsAtom).get(owner) === previous,
+      image => {
+        store.set(imageEditDraftsAtom, drafts => new Map(drafts).set(owner, image))
+        setExpanded(false)
+      },
+    ).catch(reportImageFileError)
+  }
+
   return (
     <div className="flex items-center justify-center h-full overflow-auto bg-muted/10 p-4 scrollbar-thin">
       {currentImage ? (
@@ -83,7 +120,7 @@ export default function ImageRenderer({ path, onError }: PreviewRendererProps): 
           <img
             key={currentImage.url}
             src={currentImage.url}
-            alt={fileName}
+            alt={displayName ?? fileName}
             className="max-w-full max-h-full object-contain"
             onLoad={() => setDecoded(true)}
             onError={handleDecodeError}
@@ -94,10 +131,11 @@ export default function ImageRenderer({ path, onError }: PreviewRendererProps): 
       )}
       <ImageLightbox
         src={currentImage?.url ?? null}
-        alt={fileName}
+        alt={displayName ?? fileName}
         open={expanded && !!currentImage}
         onOpenChange={setExpanded}
-        onSave={handleSave}
+        onSave={window.__TAURI_FORMAL__ ? nativeImageSave(localPath) : handleSave}
+        onEdit={nativePath && localPath ? editNativeImage : undefined}
       />
     </div>
   )

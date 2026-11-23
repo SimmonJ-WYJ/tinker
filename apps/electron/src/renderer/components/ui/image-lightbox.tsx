@@ -1,7 +1,7 @@
 /** 原图查看器：适应窗口、按实际像素缩放，沿用宿主保存回调，不改图片或版本数据。 */
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Download, X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { Pencil, Download, X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/hooks/useT'
 interface ImageLightboxProps {
@@ -10,11 +10,12 @@ interface ImageLightboxProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave?: () => void
+  onEdit?: () => void
   returnFocus?: () => void
 }
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
-export function ImageLightbox({ src, alt, open, onOpenChange, onSave, returnFocus }: ImageLightboxProps): React.ReactElement | null {
+export function ImageLightbox({ src, alt, open, onOpenChange, onSave, onEdit, returnFocus }: ImageLightboxProps): React.ReactElement | null {
   const { t } = useT('common')
   const { t: tPreview } = useT('preview')
   const [natural, setNatural] = React.useState({ width: 0, height: 0 })
@@ -57,6 +58,7 @@ export function ImageLightbox({ src, alt, open, onOpenChange, onSave, returnFocu
           <div className="flex shrink-0 items-center justify-between gap-3">
             <DialogPrimitive.Title className="min-w-0 truncate text-sm font-medium">{alt || tPreview('image.lightboxAlt')}</DialogPrimitive.Title>
             <div className="flex shrink-0 items-center gap-2">
+              {onEdit && <Button type="button" variant="ghost" size="icon" onClick={onEdit} disabled={!loaded} aria-label={t('imageVersion.edit')} title={t('imageVersion.edit')}><Pencil className="size-5" aria-hidden="true" /></Button>}
               {onSave && <Button type="button" variant="ghost" size="icon" onClick={onSave} disabled={failed} aria-label={t('image.save')} title={t('image.save')}><Download className="size-5" aria-hidden="true" /></Button>}
               <DialogPrimitive.Close asChild><Button type="button" variant="ghost" size="icon" aria-label={t('close')} title={t('close')}><X className="size-5" aria-hidden="true" /></Button></DialogPrimitive.Close>
             </div>

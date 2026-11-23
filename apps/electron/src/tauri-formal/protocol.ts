@@ -24,6 +24,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  nativeImageFiles?: boolean
   nativeImages?: boolean
   credentialedChannels?: boolean
   queueing?: boolean
