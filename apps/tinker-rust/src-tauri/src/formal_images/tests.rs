@@ -163,6 +163,7 @@ fn restart_maps_an_uncertain_receipt_to_interrupted_without_sending() {
     let dir = store.session("session").unwrap();
     disk::private_dir(&dir).unwrap();
     let pending = ImageTurn {
+        route: None,
         request_id: "uncertain".into(),
         prompt: "still accepted".into(),
         base_image_id: None,
@@ -293,6 +294,7 @@ fn attachment_stat_only_reads_metadata_and_preview_checks_content_integrity() {
         content_sha256: digest(&bytes),
     };
     let t = ImageTurn {
+        route: None,
         request_id: "create".into(),
         prompt: "p".into(),
         base_image_id: None,
@@ -374,6 +376,7 @@ fn importing_then_editing_keeps_legacy_records_and_original_bytes() {
     let dir = store.session(sid).unwrap();
     disk::private_dir(&dir).unwrap();
     let prior = ImageTurn {
+        route: None,
         request_id: "previous".into(),
         prompt: "original receipt".into(),
         base_image_id: None,
@@ -566,6 +569,7 @@ fn legacy_and_downgraded_appends_survive_clock_rollback() {
     let dir = store.session("s").unwrap();
     disk::private_dir(&dir).unwrap();
     let legacy = |request: &str, created_at: u64| ImageTurn {
+        route: None,
         request_id: request.into(),
         prompt: "p".into(),
         created_at,
@@ -682,6 +686,7 @@ fn legacy_receipt_remains_read_only_and_new_image_records_its_own_admission() {
     let dir = store.session("s").unwrap();
     disk::private_dir(&dir).unwrap();
     let old = ImageTurn {
+        route: None,
         request_id: "legacy".into(),
         prompt: "p".into(),
         base_image_id: None,
@@ -713,6 +718,228 @@ fn legacy_receipt_remains_read_only_and_new_image_records_its_own_admission() {
             .unwrap()
             .text_head_at_admission,
         Some(Some("first-new-text".to_string()))
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+fn managed_route(action: ImageAction) -> ImageRoute {
+    ImageRoute {
+        channel_id: "synthetic".into(),
+        model_id: "qa-image-1".into(),
+        revision: "revision-demo".into(),
+        protocol: ImageProtocol::OpenaiImages,
+        action,
+    }
+}
+#[test]
+fn managed_image_restores_pinned_model_parent_and_downgrades_without_touching_legacy() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let flag = AtomicBool::new(false);
+    let ImageAdmission::New(old) = store
+        .admit("s", "mock", "old", None, 2, None, None)
+        .unwrap()
+    else {
+        panic!()
+    };
+    let source = old
+        .finish(Ok((pixel(1), 1, 1)), &flag)
+        .unwrap()
+        .asset
+        .unwrap();
+    let dir = store.session("s").unwrap();
+    let legacy_before =
+        ["turns.json", "task-order.json"].map(|p| std::fs::read(dir.join(p)).unwrap());
+    let route = managed_route(ImageAction::Edit);
+    let ImageAdmission::New(edit) = store
+        .admit_routed(
+            "s",
+            "edited",
+            "revise",
+            Some(&source.id),
+            1,
+            None,
+            Some("text"),
+            &route,
+        )
+        .unwrap()
+    else {
+        panic!()
+    };
+    assert_eq!(edit.turn().route(), Some(&route));
+    let receipt = edit
+        .execute_with(&flag, |prompt, reference, _| {
+            assert_eq!(prompt, "revise");
+            assert_eq!(reference, Some((source.id.as_str(), pixel(1))));
+            Ok((pixel(2), 1, 1))
+        })
+        .unwrap();
+    assert_eq!(receipt.asset.as_ref().unwrap().model, route.model_id);
+    assert_eq!(receipt.asset.as_ref().unwrap().channel_id, route.channel_id);
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    let turns = store.history("s").unwrap();
+    assert_eq!(turns.last().unwrap().route(), Some(&route));
+    assert_eq!(store.route_for("s", "edited").unwrap(), Some(route));
+    assert_eq!(
+        store.latest_task("s").unwrap().unwrap().request_id,
+        "edited"
+    );
+    assert_eq!(turns.len(), 2);
+    assert_eq!(
+        store
+            .attachment("s", &receipt.asset.unwrap().filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        pixel(2)
+    );
+    assert_eq!(
+        ["turns.json", "task-order.json"].map(|p| std::fs::read(dir.join(p)).unwrap()),
+        legacy_before
+    );
+    assert_eq!(disk::load_turns(&dir, "s", None).unwrap().len(), 1);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn managed_retry_rejects_changed_route_or_old_mock_and_replays_only_exact_receipt() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let route = managed_route(ImageAction::Generate);
+    let flag = AtomicBool::new(false);
+    let ImageAdmission::New(job) = store
+        .admit_routed("s", "a", "p", None, 1, None, None, &route)
+        .unwrap()
+    else {
+        panic!()
+    };
+    job.finish(Err(DesktopError("imageProviderFailed")), &flag)
+        .unwrap();
+    let mut other = route.clone();
+    other.revision = "revision-rotated".into();
+    assert!(store
+        .admit_routed("s", "b", "p", None, 2, Some("a"), None, &other)
+        .is_err());
+    assert!(store
+        .admit("s", "b", "p", None, 2, Some("a"), None)
+        .is_err());
+    let ImageAdmission::New(retry) = store
+        .admit_routed("s", "b", "p", None, 2, Some("a"), None, &route)
+        .unwrap()
+    else {
+        panic!()
+    };
+    let result = retry.finish(Ok((pixel(1), 1, 1)), &flag).unwrap();
+    assert!(result.route().is_some());
+    assert!(matches!(
+        store
+            .admit_routed("s", "b", "p", None, 2, Some("a"), None, &route)
+            .unwrap(),
+        ImageAdmission::Replay(_)
+    ));
+    assert!(store
+        .admit_routed("s", "b", "p", None, 2, Some("a"), None, &other)
+        .is_err());
+    assert!(store
+        .admit("s", "b", "p", None, 2, Some("a"), None)
+        .is_err());
+    let ImageAdmission::New(old) = store.admit("s", "old", "p", None, 3, None, None).unwrap()
+    else {
+        panic!()
+    };
+    old.finish(Err(DesktopError("imageProviderFailed")), &flag)
+        .unwrap();
+    assert!(store
+        .admit_routed("s", "fresh", "p", None, 4, Some("old"), None, &route)
+        .is_err());
+    assert!(store.route_for("s", "old").unwrap().is_none());
+    assert_eq!(store.history("s").unwrap().len(), 3);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn managed_execution_rejects_an_unrouted_receipt_before_provider_and_stop_drops_a_late_managed_result(
+) {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let flag = AtomicBool::new(false);
+    let ImageAdmission::New(legacy) = store
+        .admit("s", "legacy", "p", None, 1, None, None)
+        .unwrap()
+    else {
+        panic!()
+    };
+    assert!(legacy
+        .execute_with(&flag, |_, _, _| panic!("无路由不能打开外部提供方"))
+        .is_err());
+    let route = managed_route(ImageAction::Generate);
+    let ImageAdmission::New(job) = store
+        .admit_routed("s", "new", "q", None, 2, None, None, &route)
+        .unwrap()
+    else {
+        panic!()
+    };
+    store.stop("s", "new", &flag).unwrap();
+    assert!(job
+        .finish(Ok((pixel(1), 1, 1)), &flag)
+        .unwrap()
+        .user_stopped());
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    let turn = store.history("s").unwrap().pop().unwrap();
+    assert!(turn.user_stopped() && turn.asset.is_none());
+    assert_eq!(turn.route(), Some(&route));
+    assert!(store.retry_source("s", "new", "again").is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn downgrade_append_is_newer_than_any_legacy_receipt_before_routed_admission() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let dir = store.session("s").unwrap();
+    let img = store.import_png("s", "fixture.png", &pixel(1), 0).unwrap();
+    let old = ImageTurn {
+        route: None,
+        request_id: "old".into(),
+        prompt: "image".into(),
+        base_image_id: None,
+        created_at: 200,
+        status: ImageStatus::Interrupted,
+        asset: None,
+        error: None,
+    };
+    disk::save_turns(&dir, std::slice::from_ref(&old), false).unwrap();
+    let ImageAdmission::New(job) = store
+        .admit_routed(
+            "s",
+            "routed",
+            "later",
+            None,
+            10,
+            None,
+            None,
+            &managed_route(ImageAction::Generate),
+        )
+        .unwrap()
+    else {
+        panic!()
+    };
+    drop(job);
+    drop(store);
+    let mut last = old;
+    last.request_id = "rollback-edit".into();
+    last.base_image_id = Some(img.id);
+    last.created_at = 1;
+    disk::save_turns(&dir, &[last], true).unwrap();
+    let store = ImageStore::open(&root).unwrap();
+    let summary = store.latest_task("s").unwrap().unwrap();
+    assert_eq!(summary.request_id, "rollback-edit");
+    assert!(store.retry_source("s", "routed", "fresh").is_err());
+    assert_eq!(
+        store.history("s").unwrap().last().unwrap().request_id,
+        "rollback-edit"
     );
     std::fs::remove_dir_all(root).unwrap();
 }

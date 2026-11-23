@@ -206,6 +206,7 @@ interface NativeImageTaskIdentity {
 
 /** SDK assistant 消息 */
 export interface SDKAssistantMessage extends ImportedMessageMetadata, NativeImageTaskIdentity {
+  _desktopImageTaskError?: string
   _desktopImageTaskStatus?: 'running' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
   /** 宿主按提交顺序核实原始输入、绑定和源图后才允许重试。 */
   _desktopTaskRetryable?: boolean

@@ -39,9 +39,9 @@ impl ImageWorkflow {
                 }
                 terminal_result(&turn)
             });
-            if result.is_err() {
+            if let Err(code) = &result {
                 let mut error = identity.clone();
-                error["error"] = json!("responseFailed");
+                error["error"] = json!(code.0);
                 events.push_back(("agent:stream:error", error));
             }
             let mut complete = identity;

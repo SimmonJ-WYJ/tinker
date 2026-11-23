@@ -124,7 +124,7 @@ impl Actor {
                 terminal_history = Some(self.history(sid)?);
             }
             let outcome = if matches!(e.turn["status"].as_str(), Some("failed" | "interrupted")) {
-                Err(DesktopError("responseFailed"))
+                Err(DesktopError(projection::turn_error(&e.turn)))
             } else {
                 Ok(json!({"value":null}))
             };
@@ -254,7 +254,7 @@ impl Actor {
         }
         if e.terminal_stage == TerminalStage::Error {
             if matches!(e.turn["status"].as_str(), Some("failed" | "interrupted"))
-                && !self.emit("agent:stream:error", json!({"sessionId":sid,"requestId":e.turn["requestId"],"startedAt":e.turn["startedAt"],"error":"responseFailed"}))
+                && !self.emit("agent:stream:error", json!({"sessionId":sid,"requestId":e.turn["requestId"],"startedAt":e.turn["startedAt"],"error":projection::turn_error(&e.turn)}))
             {
                 return Ok(false);
             }

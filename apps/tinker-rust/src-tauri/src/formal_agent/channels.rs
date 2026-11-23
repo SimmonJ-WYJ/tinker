@@ -56,7 +56,12 @@ impl Actor {
             let retry = crate::desktop_runtime::protocol::decode(args[0].clone())?;
             return self.retry_task(retry, reply);
         }
-        if self.needs_credential_work(c, mutation.is_some()) {
+        let image_send = c == "agent:send-message"
+            && mutation.is_none()
+            && args
+                .first()
+                .is_some_and(|v| v.get("nativeImageAction").is_some());
+        if !image_send && self.needs_credential_work(c, mutation.is_some()) {
             return self.start_credential_work(c, args, mutation, reply);
         }
         if mutation.is_some() {
@@ -124,7 +129,7 @@ impl Actor {
                     reply,
                 );
             }
-            "agent:update-workspace" if self.images.is_some() => {
+            "agent:update-workspace" if self.synthetic_projects() => {
                 arity(&args, 2, 2)?;
                 let id = string(&args, 0)?;
                 let patch = args[1]
@@ -137,7 +142,7 @@ impl Actor {
                     .ok_or(DesktopError("invalidParams"))?;
                 json!(self.platform.project_platform()?.rename_project(id, name)?)
             }
-            "agent:create-workspace" if self.images.is_some() => {
+            "agent:create-workspace" if self.synthetic_projects() => {
                 arity(&args, 1, 2)?;
                 let name = string(&args, 0)?;
                 let from = optional(&args, 1)?;
@@ -406,6 +411,19 @@ impl Actor {
         if let Some(effort) = send.effort {
             input["effort"] = json!(effort);
         }
+        if is_new.is_some() && self.credentialed.as_ref().is_some_and(|c| !c.bypass) {
+            // The worker only prepares credentials. Re-enter with the original retry command
+            // so the actor rechecks the source revision and latest turn before binding.
+            let identity = json!({"sessionId":send.session_id, "requestId":send.request_id,
+                "startedAt":send.started_at,"retryOfRequestId":source});
+            return self.prepare_credential_invoke(
+                "agent:send-message",
+                vec![identity],
+                None,
+                reply,
+                Some(input),
+            );
+        }
         self.send(input, reply)
     }
     fn stop(&mut self, sid: &str, expected: Option<&str>) -> Result<()> {
@@ -436,6 +454,10 @@ impl Actor {
                 "sessionId" | "userMessage" | "channelId" | "modelId" | "workspaceId"
                 | "startedAt" | "requestId" | "taskMode" | "effort" => {}
                 "nativeImageAction" | "imageEditReferenceId" if self.images.is_some() => {}
+                "nativeImageReferenceInferred"
+                    if self.credentialed.is_some()
+                        && input["nativeImageAction"] == "edit"
+                        && value == true => {}
                 "additionalDirectories"
                 | "mentionedSkills"
                 | "mentionedMcpServers"
@@ -557,7 +579,7 @@ impl Actor {
         if superseded {
             // 旧请求的回执不能替换后续任务的流投递条目。
             return if matches!(turn["status"].as_str(), Some("failed" | "interrupted")) {
-                Err(DesktopError("responseFailed"))
+                Err(DesktopError(projection::turn_error(&turn)))
             } else {
                 Ok(Some(json!({"value":null})))
             };

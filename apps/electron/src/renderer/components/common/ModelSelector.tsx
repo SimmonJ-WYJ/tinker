@@ -37,7 +37,7 @@ function buildModelOptions(channels: Channel[], filterChannelId?: string, filter
     if (filterChannelIds && filterChannelIds.length > 0 && !filterChannelIds.includes(channel.id)) continue
 
     for (const model of channel.models) {
-      if (!model.enabled) continue
+      if (!model.enabled || model.capability === 'unsupported') continue
 
       options.push({
         channelId: channel.id,
@@ -45,6 +45,7 @@ function buildModelOptions(channels: Channel[], filterChannelId?: string, filter
         modelId: model.id,
         modelName: model.name,
         provider: channel.provider,
+        ...(model.capability && {capability:model.capability}),
       })
     }
   }
@@ -191,7 +192,7 @@ export function ModelSelector({
                 <span className="flex min-w-0 max-w-[260px] items-center">
                   {displayModelInfo ? (
                     <>
-                      <span className="min-w-0 truncate text-foreground">{displayModelInfo.modelName}</span>
+                      <span className="min-w-0 truncate text-foreground">{displayModelInfo.modelName}{displayModelInfo.capability === 'image' && ` · ${t('modelSelector.imageModel')}`}</span>
                       {!compactTrigger && <span className="ml-1 max-w-[100px] shrink-0 truncate text-muted-foreground">· {displayModelInfo.channelName}</span>}
                       {reasoning && (
                         <span className="text-muted-foreground ml-1">
@@ -253,7 +254,7 @@ export function ModelSelector({
             if (!first) return null
             return (
               <div key={channelId}>
-                <p className="px-2 pb-1 pt-2 text-sm text-muted-foreground">{first.channelName} · {t('modelSelector.chatChannel')}</p>
+                <p className="px-2 pb-1 pt-2 text-sm text-muted-foreground">{first.channelName}{options.every(option => option.capability !== 'image') && ` · ${t('modelSelector.chatChannel')}`}</p>
                 {options.map((option) => {
                   const isSelected =
                     selectedModel?.channelId === option.channelId &&
@@ -261,11 +262,13 @@ export function ModelSelector({
                   return (
                     <DropdownMenuItem
                       key={`${option.channelId}:${option.modelId}`}
+                      data-model-channel={option.channelId}
+                      data-model-id={option.modelId}
                       onSelect={() => handleSelect(option)}
                       className="justify-between rounded-md px-2 py-2 cursor-pointer"
                     >
                       <span className={cn('text-sm truncate', isSelected ? 'text-foreground' : 'text-foreground/85')}>
-                        {option.modelName}
+                        {option.modelName}{option.capability === 'image' && <span className="ml-2 text-xs text-muted-foreground">{t('modelSelector.imageModel')}</span>}
                       </span>
                       {isSelected && <Check className="size-4 flex-shrink-0 text-foreground" />}
                     </DropdownMenuItem>

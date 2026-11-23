@@ -92,6 +92,11 @@
       "managedKeyNotice": "已保存的密钥不会显示。“显示密钥”仅显示新输入的替换密钥；测试和刷新需手动操作，保存后才提交更改。"
     },
     "models": {
+      "usageLabel": "{{name}} 的模型用途",
+      "text": "文本",
+      "image": "生成图片",
+      "edit": "生成与编辑",
+      "unsupported": "暂不支持此输出",
       "emptyHint": "先获取模型，或手动添加一个模型 ID。",
       "fetch": "刷新清单",
       "fetchTooltipNeed": "请先填写 Base URL 和 API Key",

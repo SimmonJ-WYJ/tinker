@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { isNativeChannelError } from '@asci/shared'
 import type { SDKAssistantMessage, SDKMessage, SDKToolUseBlock, SDKUserMessage } from '@asci/shared'
 import { useT } from '@/hooks/useT'
 import chevron from '@/assets/conversation/chevron-down.svg'
@@ -20,6 +21,7 @@ interface Props {
 /** 状态仅依据真实生图工具调用及结果，不展示推理进度或虚构百分比。 */
 export function ImageGenerationStatus({ nativeTask, calls, allMessages, userMessage, streaming, stopped, children }: Props): React.ReactElement {
   const { t } = useT('common')
+  const { t: tErrors } = useT('errors')
   const { t: tNav } = useT('nav')
   const nativeStatus = nativeTask?._desktopImageTaskStatus
   const results = calls.map(call => findToolResultInMessages(call.id, allMessages))
@@ -40,7 +42,8 @@ export function ImageGenerationStatus({ nativeTask, calls, allMessages, userMess
       <RunningStatusText active={state === 'generating'} className="conversation-image-task__title">{nativeStatus
         ? `${tNav(nativeTask?._desktopImageTaskKind === 'edit' ? 'projectTask.kind.imageEdit' : 'projectTask.kind.imageGenerate')} · ${tNav(`projectTask.${nativeStatus}`)}`
         : t(`imageReference.${state}`)}</RunningStatusText>
-      <span className="conversation-image-task__detail"><span>{t(`imageReference.${description}`)} · {t('imageReference.steps', { count: calls.length })}</span><span className="conversation-image-task__chevron"><img src={chevron} alt="" /></span></span>
+      <span className="conversation-image-task__detail"><span>{nativeStatus === 'failed' && isNativeChannelError(nativeTask?._desktopImageTaskError)
+        ? tErrors(`desktopRuntime.${nativeTask._desktopImageTaskError}`) : t(`imageReference.${description}`)} · {t('imageReference.steps', { count: calls.length })}</span><span className="conversation-image-task__chevron"><img src={chevron} alt="" /></span></span>
     </summary>
     <div className="conversation-image-task__records">{children}</div>
   </details>

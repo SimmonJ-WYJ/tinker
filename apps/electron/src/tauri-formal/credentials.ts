@@ -109,6 +109,8 @@ export function createCredentialTransport(
       enabled: merged.enabled,
       models: merged.models?.map(model => ({
         modelId: model.id,
+        ...(model.capability && model.capability !== 'text' && { capability: model.capability }),
+        ...(model.supportsImageEdits !== undefined && { supportsImageEdits: model.supportsImageEdits }),
         label: model.name,
         supportedEfforts: model.supportedEfforts ?? [],
         enabled: model.enabled,
@@ -152,6 +154,10 @@ export function createCredentialTransport(
   }
 
   return {
+    model(channelId: unknown, modelId: unknown) {
+      if (typeof channelId !== 'string') return undefined
+      return channels.get(channelId)?.models.find(model => model.id === modelId)
+    },
     handles: (channel: string) => WRITES.has(channel),
     observe,
     guard(): void {

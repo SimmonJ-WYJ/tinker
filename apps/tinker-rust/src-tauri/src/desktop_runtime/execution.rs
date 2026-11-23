@@ -54,7 +54,15 @@ impl super::DesktopRuntime {
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
         let source = inner.binding(&retry.session_id, &retry.retry_of_request_id)?;
         let bindings = &inner.bindings[&retry.session_id];
-        if inner.queue_enabled
+        let queued = inner.chains.contains_key(&retry.retry_of_request_id)
+            || inner.chains.values().any(|chain| {
+                chain
+                    .messages
+                    .iter()
+                    .any(|message| message.input.uuid == retry.retry_of_request_id)
+            });
+        if (inner.queue_enabled && !inner.managed)
+            || queued
             || inner.tools.contains_key(&source.request.profile_id)
             || retry.request_id == retry.retry_of_request_id
             || !matches!(
@@ -81,13 +89,24 @@ impl super::DesktopRuntime {
             }
             return Err(DesktopError("requestConflict"));
         }
-        if bindings.last() != Some(source)
-            || inner
-                .profiles
-                .get(&next.profile_id)
-                .is_none_or(|p| p.config_revision != source.config_revision)
-        {
+        if bindings.last() != Some(source) {
             return Err(DesktopError("requestConflict"));
+        }
+        if inner
+            .profiles
+            .get(&next.profile_id)
+            .is_none_or(|p| p.config_revision != source.config_revision)
+            || inner.availability.as_ref().is_some_and(|available| {
+                available
+                    .get(&next.profile_id)
+                    .is_none_or(|models| !models.contains(&next.model_id))
+            })
+        {
+            return Err(DesktopError(if inner.managed {
+                "sourceChannelUnavailable"
+            } else {
+                "requestConflict"
+            }));
         }
         Ok((next, Some(source.request.started_at)))
     }

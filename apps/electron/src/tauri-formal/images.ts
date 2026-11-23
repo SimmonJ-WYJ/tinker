@@ -1,5 +1,5 @@
 /** 原生图片动作只来自当前用户请求。恢复 SDK 行时仅提取最近一轮的确定版本，不发起生成。 */
-import { requestsImage, visibleImageInstruction, type SDKMessage, type SDKUserMessage } from '@asci/shared'
+import { acceptsImageDescription, requestsImage, targetsImageForEdit, visibleImageInstruction, type ChannelModel, type SDKMessage, type SDKUserMessage } from '@asci/shared'
 import { collectImageVersions } from '../renderer/components/agent/image-versions.ts'
 
 export function restoredTurnImageId(messages: SDKMessage[], sessionId: string): string | undefined {
@@ -38,7 +38,8 @@ export function classifyNativeImageSend(input: Record<string, unknown>, previous
 }
 
 /** 讨论计费和授权时保留选图草稿，只发送用户文字；看图分析需要视觉模型。 */
-export function selectedImageUse(userMessage: string, imageId: string): 'edit' | 'text' | 'inspect' {
+export function selectedImageUse(userMessage: string, imageId: string, imageModel = false): 'edit' | 'text' | 'inspect' | 'switchToText' {
+  if (imageModel) return acceptsImageDescription(userMessage) ? 'edit' : 'switchToText'
   if (classifyNativeImageSend({ userMessage, imageEditReferenceId: imageId })) return 'edit'
   return /(?:计费|费用|收费|价格|多少钱|账单|权限|批准|教程|命令)|\b(?:cost|costs|pricing|price|billing|charge|charges|permission|approval|tutorial)\b/i.test(userMessage) ? 'text' : 'inspect'
 }
@@ -81,15 +82,34 @@ export function createNativeImageContexts() {
     },
     async send<T>(
       input: Record<string, unknown>, invoke: (input: Record<string, unknown>) => Promise<{value:T; imageId?:string}>,
-      invalidSelection: () => Error, changed: () => void,
+      invalid: (code: string) => Error, changed: () => void, model?: ChannelModel,
     ): Promise<T> {
       if (typeof input.sessionId !== 'string') return (await invoke(input)).value
       const sid = input.sessionId
-      const action = classifyNativeImageSend(input, sessions.get(sid)?.imageId)
+      let action = classifyNativeImageSend(input, sessions.get(sid)?.imageId)
+      if (model) {
+        if (!model.enabled || model.capability === 'unsupported') throw invalid('modelUnavailable')
+        if (model.capability === 'image') {
+          if (typeof input.userMessage !== 'string' || !acceptsImageDescription(input.userMessage)) throw invalid('imageModelDiscussion')
+          if (typeof input.imageEditReferenceId === 'string') action = {nativeImageAction:'edit', imageEditReferenceId:input.imageEditReferenceId}
+          if ((!action && targetsImageForEdit(input.userMessage))
+              || (action?.nativeImageAction === 'edit' && !action.imageEditReferenceId)) throw invalid('imageNotFound')
+          action ??= {nativeImageAction:'generate'}
+          if (action.nativeImageAction === 'edit' && !model.supportsImageEdits) throw invalid('modelCapabilityMismatch')
+        } else if (action) throw invalid('modelCapabilityMismatch')
+      }
       let outgoing = input
-      if (action) outgoing = { ...input, ...action }
+      if (action) {
+        outgoing = { ...input, ...action }
+        if (model?.capability === 'image') {
+          delete outgoing.effort
+          if (action.nativeImageAction === 'edit' && action.imageEditReferenceId && !input.imageEditReferenceId) {
+            outgoing.nativeImageReferenceInferred = true
+          }
+        }
+      }
       else if (typeof input.imageEditReferenceId === 'string') {
-        if (typeof input.userMessage !== 'string' || selectedImageUse(input.userMessage, input.imageEditReferenceId) !== 'text') throw invalidSelection()
+        if (typeof input.userMessage !== 'string' || selectedImageUse(input.userMessage, input.imageEditReferenceId) !== 'text') throw invalid('imageEditOnly')
         outgoing = { ...input }
         delete outgoing.imageEditReferenceId
       }

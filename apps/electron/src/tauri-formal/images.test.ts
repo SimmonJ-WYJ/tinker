@@ -239,3 +239,42 @@ test('a late successful image retry receipt cannot overwrite a newer confirmed s
   expect(sent[2]?.imageEditReferenceId).toBe('newer')
   t.dispose()
 })
+
+test('credentialed sends use the exact selected model for freeform prompts, image references and text', async () => {
+  const payloads: Record<string,unknown>[] = []
+  const bridge: NativeBridge = {
+    listen: async () => () => {},
+    async request<T>(r:Record<string,unknown>):Promise<T>{
+      if (r.command === 'bootstrap') return {generation:'g',credentialedChannels:true,nativeImages:true,platformSnapshot:{revision:0,settings:{}}} as T
+      if (r.channel === 'channel:list') return {value:[
+        {id:'A',models:[{id:'same',capability:'image',enabled:true,supportsImageEdits:true}]},
+        {id:'B',models:[{id:'same',capability:'text',enabled:true}]},
+      ]} as T
+      if (r.channel === 'agent:send-message') {
+        const payload=(r.args as Record<string,unknown>[])[0]!
+        payloads.push(payload)
+        return {value:null,imageId:payload.nativeImageAction?'version-1':undefined} as T
+      }
+      return {value:null} as T
+    },
+  }
+  const t=await createFormalTransport(bridge,c=>c)
+  await t.invoke('channel:list')
+  const send=(id:string,text:string,selected?:string)=>t.invoke('agent:send-message',{...input(text,selected),channelId:id,modelId:'same'})
+  await expect(send('A','Edit this image so the sky is blue')).rejects.toThrow('imageNotFound')
+  expect(payloads).toHaveLength(0)
+  await send('A','A kingfisher at dawn')
+  await send('A','Warmer light please','explicit-source')
+  await send('B','Describe a kingfisher')
+  expect(payloads.map(p=>p.nativeImageAction)).toEqual(['generate','edit',undefined])
+  expect(payloads[1]?.imageEditReferenceId).toBe('explicit-source')
+  await expect(send('B','Generate an image of a kingfisher')).rejects.toThrow('modelCapabilityMismatch')
+  expect(payloads).toHaveLength(3)
+  t.dispose()
+})
+
+test('image model allows visual subjects but keeps discussion, withdrawals and greetings out of the provider', async () => {
+  const {acceptsImageDescription} = await import('@asci/shared')
+  for(const scene of ['A team of horses pulling a carriage','一张团队合照','A neon shop sign showing a price','Warmer light please']) expect(acceptsImageDescription(scene)).toBe(true)
+  for(const text of ['谢谢','Thanks!','How much would image editing cost?','怎么用生图渠道','Please explain image billing','Do not generate it','你好','这次会收费吗','Tell me a joke','`Generate an image`']) expect(acceptsImageDescription(text)).toBe(false)
+})

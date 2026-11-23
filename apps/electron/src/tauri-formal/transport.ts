@@ -1,4 +1,5 @@
 /** 单 native listener、串行平台写入、按会话恢复屏障；不包含 Node 或 Electron。 */
+import { isNativeChannelError } from '@asci/shared'
 import { createCredentialTransport, isUncertainMutationFailure } from './credentials.ts'
 import { createQueueFrames } from './queue-frames.ts'
 import { createQueueControl, NativeQueueError } from './queue-control.ts'
@@ -56,7 +57,12 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
     if (Array.isArray(value)) return value.map(projectErrors)
     if (!value || typeof value !== 'object') return value
     const result: Record<string, unknown> = {}
-    for (const [key, v] of Object.entries(value)) result[key] = key === 'error' && typeof v === 'string' ? translate(v) : key === 'message' && (v === 'responseFailed' || v === 'catalogValidated') ? translate(v) : projectErrors(v)
+    const item = value as Record<string, unknown>
+    for (const [key, v] of Object.entries(item)) {
+      const statusMessage = key === 'message' && (v === 'responseFailed' || v === 'catalogValidated' || isNativeChannelError(v) && typeof item.errorType === 'string')
+      const failedTool = key === 'content' && item.type === 'tool_result' && item.is_error === true && isNativeChannelError(v)
+      result[key] = typeof v === 'string' && (key === 'error' || statusMessage || failedTool) ? translate(v) : projectErrors(v)
+    }
     return result
   }
   function snapshot(next: PlatformSnapshot, environment = false) {
@@ -215,7 +221,9 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
         }
         return (await send(input)).value
       }
-      return imageContexts.send(input, send, () => new NativeQueueError('imageEditOnly', translate('imageEditOnly')), changed)
+      const model = credentials?.model(input.channelId, input.modelId)
+      if (credentials && !model) throw new NativeQueueError('modelUnavailable', translate('modelUnavailable'))
+      return imageContexts.send(input, send, code => new NativeQueueError(code, translate(code)), changed, model)
     }
     const execute = async (): Promise<T> => {
       if (signal?.aborted) throw new NativeQueueError('probeCancelled', translate('probeCancelled'))

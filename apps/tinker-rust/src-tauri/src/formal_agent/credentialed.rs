@@ -32,6 +32,7 @@ pub(super) struct Credentialed {
     pub known: Known,
     job: Option<Job>,
     pub bypass: bool,
+    pub image_preparation: Option<super::credentialed_images::Preparation>,
 }
 struct Job {
     send_owner: Option<(String, Option<String>)>,
@@ -62,6 +63,7 @@ impl Credentialed {
             known: Arc::new(Mutex::new(BTreeMap::new())),
             job: None,
             bypass: false,
+            image_preparation: None,
         }
     }
 }
@@ -87,6 +89,16 @@ impl Actor {
         args: Vec<Value>,
         mutation: Option<Mutation>,
         reply: &Reply,
+    ) -> Result<Option<Value>> {
+        self.prepare_credential_invoke(c, args, mutation, reply, None)
+    }
+    pub(super) fn prepare_credential_invoke(
+        &mut self,
+        c: &str,
+        args: Vec<Value>,
+        mutation: Option<Mutation>,
+        reply: &Reply,
+        resolved_retry: Option<Value>,
     ) -> Result<Option<Value>> {
         if c == "agent:send-message" {
             if let (Some(sid), Some(rid)) = (
@@ -161,7 +173,10 @@ impl Actor {
                     let catalog = platform.catalog()?;
                     // 新执行仅要求选中渠道；其余可读取凭据仍用于防回显，缺失不阻断显式修复。
                     let required = if c == "agent:send-message" {
-                        args.first().and_then(|a| a["channelId"].as_str())
+                        resolved_retry
+                            .as_ref()
+                            .or(args.first())
+                            .and_then(|a| a["channelId"].as_str())
                     } else if matches!(
                         c.as_str(),
                         "channel:test" | "channel:test-direct" | "channel:fetch-models"
@@ -170,14 +185,59 @@ impl Actor {
                     } else {
                         None
                     };
-                    let keys = worker::hydrate(
-                        &catalog,
-                        &platform.vault_scope(),
-                        vault.as_ref(),
-                        &known,
-                        &token,
-                        required,
-                    )?;
+                    let keys = if c == "agent:send-message" {
+                        let id = required.ok_or(DesktopError("invalidParams"))?;
+                        let rev = catalog
+                            .current()
+                            .find(|rev| rev.channel.id == id && rev.channel.enabled)
+                            .ok_or(DesktopError(if resolved_retry.is_some() {
+                                "sourceChannelUnavailable"
+                            } else {
+                                "modelUnavailable"
+                            }))?;
+                        let input = resolved_retry
+                            .as_ref()
+                            .or(args.first())
+                            .ok_or(DesktopError("invalidParams"))?;
+                        let model_id = input["modelId"]
+                            .as_str()
+                            .ok_or(DesktopError("invalidParams"))?;
+                        let model = rev
+                            .channel
+                            .models
+                            .iter()
+                            .find(|m| m.enabled && m.model_id == model_id)
+                            .ok_or(DesktopError("modelUnavailable"))?;
+                        if model.capability(rev.channel.protocol)
+                            != crate::credentialed_channels::catalog::ModelCapability::Text
+                        {
+                            return Err(DesktopError("modelCapabilityMismatch"));
+                        }
+                        let scope = platform.vault_scope();
+                        let key = Arc::new(vault.acquire_bound_cancellable(
+                            &scope,
+                            &rev.credential_ref,
+                            &crate::credentialed_channels::vault::CredentialBinding::new(
+                                &scope,
+                                &rev.channel,
+                            ),
+                            &token,
+                        )?);
+                        worker::remember(&known, rev.credential_ref.clone(), key.clone())?;
+                        if let Some(input) = &resolved_retry {
+                            worker::guard(input, &known)?;
+                        }
+                        BTreeMap::from([(rev.credential_ref.clone(), key)])
+                    } else {
+                        worker::hydrate(
+                            &catalog,
+                            &platform.vault_scope(),
+                            vault.as_ref(),
+                            &known,
+                            &token,
+                            required,
+                        )?
+                    };
                     if cancelled() {
                         return Err(DesktopError("staleGeneration"));
                     }
@@ -361,11 +421,16 @@ impl Actor {
                     expected.is_none() && job.probe
                 }
             });
+        self.cancel_image_preparation(Some(sid), expected);
         if matches {
-            self.cancel_credential_work();
+            self.cancel_catalog_work();
         }
     }
     pub(super) fn cancel_credential_work(&mut self) {
+        self.cancel_image_preparation(None, None);
+        self.cancel_catalog_work();
+    }
+    fn cancel_catalog_work(&mut self) {
         if let Some(j) = self.credentialed.as_mut().and_then(|m| m.job.as_mut()) {
             if !j.cancel.swap(true, Ordering::AcqRel) {
                 let _ = j.reply.send(Err(DesktopError("staleGeneration")));

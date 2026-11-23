@@ -100,3 +100,14 @@ test('a native legacy status without a durable attempt identity cannot dispatch 
     streaming={false} onRetry={retry} onRetryInNewSession={retry}/></TooltipProvider></Provider>)
   expect(view.queryAllByRole('button',{name:/retry/i})).toHaveLength(0)
 })
+
+test.each([['en','HTTP 402'],['zh','余额不足']] as const)('restored image failures explain the safe channel status in %s', async (language, expected) => {
+  await setAppLanguage(language)
+  const {show,retry}=fixture()
+  const history=rows('failed-paid','failed',true,true)
+  const assistant=history.find(m=>m.type==='assistant')!
+  Object.assign(assistant,{_desktopImageTaskError:'channelPaymentRequired'})
+  const view=render(show(history))
+  expect(view.container.querySelector('[data-image-task-state="failed"] summary')).toHaveTextContent(expected)
+  expect(retry).not.toHaveBeenCalled()
+})

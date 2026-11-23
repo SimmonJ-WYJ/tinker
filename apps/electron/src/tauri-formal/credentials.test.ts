@@ -396,3 +396,28 @@ test('queued explicit probe rechecks local intent cancellation before any host G
   expect(f.calls.some(c => c.channel === 'channel:test')).toBe(false)
   t.dispose()
 })
+
+test('managed channel edits keep discovered model routes in the immutable revision', async () => {
+  const f = fixture()
+  const t = await createFormalTransport(f.bridge, c => c)
+  const api = createDesktopApi(t)
+  await api.listChannels()
+  await api.updateChannel('owned', {models:[{ id:'image-alias',name:'Art',enabled:true,capability:'image',supportsImageEdits:true }]})
+  expect(f.calls.find(call => call.channel === 'channel:update')?.args).toMatchObject([{channel:{
+    models:[{modelId:'image-alias',capability:'image',supportsImageEdits:true}]
+  }}])
+  t.dispose()
+})
+
+test('saving an old text-only channel keeps its v1 model shape after the host reports effective text capability', async () => {
+  const f=fixture()
+  const t=await createFormalTransport(f.bridge, code=>code)
+  const api=createDesktopApi(t)
+  await api.listChannels()
+  await api.updateChannel('owned', {name:'Retitled',models:[{id:'gpt-image-1',name:'Historic alias',enabled:true,capability:'text'}]})
+  const args=f.calls.find(call=>call.channel==='channel:update')?.args
+  expect(args).toMatchObject([{channel:{name:'Retitled',models:[{modelId:'gpt-image-1'}]}}])
+  expect(JSON.stringify(args)).not.toContain('capability')
+  expect(JSON.stringify(args)).not.toContain('supportsImageEdits')
+  t.dispose()
+})

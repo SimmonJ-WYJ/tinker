@@ -4,6 +4,7 @@ mod channel_discovery;
 mod channels;
 mod credentialed;
 mod credentialed_discovery;
+mod credentialed_images;
 mod delivery;
 mod image_files;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
@@ -100,7 +101,7 @@ impl FormalAgentHost {
         root: TrustedRoot,
         endpoint: std::net::SocketAddr,
     ) -> Result<Self> {
-        let images = images::ImageWorkflow::open(root.path(), endpoint)?;
+        let images = images::ImageWorkflow::open(root.path(), Some(endpoint))?;
         Self::new_mode(runtime, platform, root, false, Some(images))
     }
     fn new_mode(
@@ -135,6 +136,8 @@ impl FormalAgentHost {
         vault: Arc<dyn crate::credentialed_channels::vault::CredentialVault>,
         policy: crate::credentialed_channels::catalog::EndpointPolicy,
     ) -> Result<Self> {
+        root.validate_channels()?;
+        let images = images::ImageWorkflow::open(root.path(), None)?;
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
         let worker = thread::Builder::new()
@@ -146,6 +149,7 @@ impl FormalAgentHost {
                     root,
                     out,
                 );
+                actor.images = Some(images);
                 actor.credentialed = Some(credentialed::Credentialed::new(platform, vault, policy));
                 actor.run(rx);
             })

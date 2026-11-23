@@ -69,6 +69,14 @@
     "providerSettings": "Models & providers"
   },
   "desktopRuntime": {
+    "channelUnauthorized": "The channel rejected its API key (HTTP 401). Check the key in channel settings.",
+    "channelPaymentRequired": "The channel requires payment or a positive balance (HTTP 402). Check your balance and billing with the provider.",
+    "channelForbidden": "The channel denied access to this model (HTTP 403). Check the key’s model permissions.",
+    "channelRateLimited": "The channel reached its request limit (HTTP 429). Wait before retrying.",
+    "channelTimeout": "The channel timed out. Check the provider’s activity before retrying. It may already have received this request.",
+    "sourceChannelUnavailable": "The original channel or model is unavailable or has changed. Check its settings before starting a new request.",
+    "modelCapabilityMismatch": "Choose an image generation model to generate images, or an image editing model to use a reference.",
+    "imageModelDiscussion": "Choose a text model to discuss or analyze images.",
     "requestConflict": "This request no longer matches the saved task. Check the conversation and its channel before sending again.",
     "imageEditOnly": "This preview can edit a selected image. Remove the reference to send a text-only message.",
     "corruptImport": "This imported conversation failed its integrity check and cannot be opened. Other conversations are still available.",

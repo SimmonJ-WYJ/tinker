@@ -3,6 +3,7 @@ import { createDesktopApi } from '../preload/api.ts'
 import { parseProjectTaskStatuses } from './project-tasks'
 import { createSessionImporter } from './session-import'
 import { createNativeImageFiles } from './image-files'
+import { NATIVE_CHANNEL_ERROR_CODES } from '@asci/shared'
 import { selectedImageUse } from './images.ts'
 import { createFormalTransport } from './transport.ts'
 import { nativeBridge, installWindowDrag } from './native.ts'
@@ -11,6 +12,7 @@ import { installPersistence } from './persistence.ts'
 import { i18n, setAppLanguage } from '../renderer/lib/i18n.ts'
 
 const credentialErrors: Partial<Record<string, keyof typeof import('../renderer/locales/en/errors.json').desktopRuntime>> = {
+ ...Object.fromEntries(NATIVE_CHANNEL_ERROR_CODES.map(code => [code, code])),
  requestConflict: 'requestConflict',
  corruptImport: 'corruptImport',
  imageFileExists: 'imageFileExists',
@@ -41,7 +43,7 @@ try {
   const persistence = installPersistence(transport)
   window.__TAURI_FORMAL__ = {
     hydrated: persistence.hydrated,
-    projectTaskStatuses: transport.bootstrap.nativeTaskLifecycle ? async workspaceId => {
+    projectTaskStatuses: transport.bootstrap.nativeTaskLifecycle && !transport.credentialedChannels ? async workspaceId => {
       const { value } = await transport.command<{ value: unknown }>('projectTaskStatuses', { workspaceId })
       return parseProjectTaskStatuses(value, transport.bootstrap.nativeImageTaskLifecycle === true)
     } : undefined,

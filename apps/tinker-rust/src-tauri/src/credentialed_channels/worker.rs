@@ -21,7 +21,15 @@ use std::{
 pub(crate) type Known = Arc<Mutex<BTreeMap<String, Arc<Secret>>>>;
 pub(crate) fn remember(known: &Known, reference: String, secret: Arc<Secret>) -> Result<()> {
     let mut keys = known.lock().map_err(|_| DesktopError("recoveryRequired"))?;
-    if keys.len() >= 144 && !keys.contains_key(&reference) {
+    if let Some(original) = keys.get(&reference) {
+        // A rotation allocates a new reference. Never let a replaced value under an
+        // existing reference authorize a factory that still holds the old credential.
+        if !original.with_bytes(|old| secret.with_bytes(|new| old == new)) {
+            return Err(DesktopError("credentialUnavailable"));
+        }
+        return Ok(());
+    }
+    if keys.len() >= 144 {
         return Err(DesktopError("storageLimit"));
     }
     keys.insert(reference, secret);
@@ -136,7 +144,7 @@ pub(crate) fn profiles(
             rev.channel
                 .models
                 .iter()
-                .filter(|m| rev.channel.enabled && m.enabled)
+                .filter(|m| rev.channel.enabled && m.selectable())
                 .map(|m| m.model_id.clone())
                 .collect(),
         );
@@ -151,6 +159,13 @@ struct Factory {
 }
 impl ManagedProviderFactory for Factory {
     fn provider(&self, model: &str, effort: Option<&str>) -> Result<Arc<dyn RunProvider>> {
+        let channel = &self.revision.channel;
+        if !channel.models.iter().any(|m| {
+            m.model_id == model
+                && m.capability(channel.protocol) == super::catalog::ModelCapability::Text
+        }) {
+            return Err(DesktopError("modelCapabilityMismatch"));
+        }
         Ok(Arc::new(Provider {
             revision: self.revision.clone(),
             key: self.key.clone(),
@@ -310,5 +325,26 @@ mod tests {
         ));
         remember(&known, "0".repeat(32), secret).unwrap();
         assert_eq!(known.lock().unwrap().len(), 144);
+    }
+}
+
+#[cfg(test)]
+mod immutable_credential_tests {
+    use super::*;
+
+    #[test]
+    fn changed_secret_requires_a_new_reference() {
+        let known = Known::default();
+        let first = || Arc::new(Secret::new(b"fixture-one".to_vec()).unwrap());
+        let second = || Arc::new(Secret::new(b"fixture-two".to_vec()).unwrap());
+        remember(&known, "r1".into(), first()).unwrap();
+        remember(&known, "r1".into(), first()).unwrap();
+        assert_eq!(
+            remember(&known, "r1".into(), second()).unwrap_err().0,
+            "credentialUnavailable"
+        );
+        assert!(guard(&serde_json::json!("fixture-one"), &known).is_err());
+        remember(&known, "r2".into(), second()).unwrap();
+        assert!(guard(&serde_json::json!("fixture-two"), &known).is_err());
     }
 }

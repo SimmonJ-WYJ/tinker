@@ -84,6 +84,16 @@ pub fn run_channels(context: tauri::Context<tauri::Wry>, qa: bool) {
             "QA必须显式指定独立临时根"
         );
     }
+    #[cfg(all(target_os = "macos", feature = "formal-native-qa"))]
+    if qa && std::env::var_os("TINKER_NATIVE_QA_DIR").is_some() {
+        return run_mode(
+            context,
+            identity,
+            Some(crate::formal_native_qa::hooks()),
+            false,
+            true,
+        );
+    }
     run_mode(context, identity, None, false, true)
 }
 fn run_mode(

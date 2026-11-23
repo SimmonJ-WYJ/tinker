@@ -44,7 +44,7 @@ pub(super) fn validate_request(r: &PlatformRequest) -> Result<()> {
 fn selection_valid(s: &settings::Settings, c: &Catalog) -> bool {
     let active: Vec<_> = c
         .current()
-        .filter(|r| r.channel.enabled && r.channel.models.iter().any(|m| m.enabled))
+        .filter(|r| r.channel.enabled && r.channel.models.iter().any(|m| m.selectable()))
         .collect();
     s.agent_channel_ids
         .iter()
@@ -55,13 +55,13 @@ fn selection_valid(s: &settings::Settings, c: &Catalog) -> bool {
                     && r.channel
                         .models
                         .iter()
-                        .any(|m| m.enabled && m.model_id == s.agent_model_id)
+                        .any(|m| m.selectable() && m.model_id == s.agent_model_id)
             }))
 }
 fn reconcile(s: &mut settings::Settings, c: &Catalog) {
     let active: Vec<_> = c
         .current()
-        .filter(|r| r.channel.enabled && r.channel.models.iter().any(|m| m.enabled))
+        .filter(|r| r.channel.enabled && r.channel.models.iter().any(|m| m.selectable()))
         .collect();
     s.agent_channel_ids = active.iter().map(|r| r.channel.id.clone()).collect();
     let selected = active
@@ -74,8 +74,8 @@ fn reconcile(s: &mut settings::Settings, c: &Catalog) {
             .channel
             .models
             .iter()
-            .find(|m| m.enabled && m.model_id == s.agent_model_id)
-            .or_else(|| r.channel.models.iter().find(|m| m.enabled))
+            .find(|m| m.selectable() && m.model_id == s.agent_model_id)
+            .or_else(|| r.channel.models.iter().find(|m| m.selectable()))
             .expect("已筛选启用模型");
         s.agent_model_id = model.model_id.clone();
         if !model.supported_efforts.contains(&s.agent_effort) {
@@ -128,7 +128,27 @@ pub(super) fn apply(
         {
             return Err(DesktopError("invalidParams"));
         }
-        let settings: settings::Settings = patch(&state.settings, &r.args[0])?;
+        let mut settings: settings::Settings = patch(&state.settings, &r.args[0])?;
+        // 切换模型时，旧模型的专属档位不应使本次选模失败。
+        if (settings.agent_channel_id != state.settings.agent_channel_id
+            || settings.agent_model_id != state.settings.agent_model_id)
+            && r.args[0].get("agentEffort").is_none()
+        {
+            if let Some(model) = c
+                .current()
+                .find(|r| r.channel.id == settings.agent_channel_id)
+                .and_then(|r| {
+                    r.channel
+                        .models
+                        .iter()
+                        .find(|m| m.model_id == settings.agent_model_id)
+                })
+            {
+                if !model.supported_efforts.contains(&settings.agent_effort) {
+                    settings.agent_effort.clear();
+                }
+            }
+        }
         settings.validate_managed(&p)?;
         if !selection_valid(&settings, c) {
             return Err(DesktopError("invalidParams"));

@@ -110,25 +110,41 @@ pub(super) fn load_turns(
         {
             return Err(DesktopError("corruptImages"));
         }
-        match (&turn.status, &turn.asset, &turn.error) {
-            (ImageStatus::Succeeded, Some(asset), None)
-                if asset.id == image_id(session, &turn.request_id)
-                    && asset.filename == format!("{}.png", asset.id)
-                    && asset.base_image_id == turn.base_image_id
-                    && asset.reference_ids.iter().eq(turn.base_image_id.iter())
-                    && asset.prompt == turn.prompt
-                    && asset.model == provider::MODEL
-                    && asset.channel_id == provider::CHANNEL
-                    && asset.content_sha256.len() == 64 =>
-            {
-                ids.insert(asset.id.clone());
-            }
-            (ImageStatus::Failed, None, Some(_))
-            | (ImageStatus::Pending | ImageStatus::Interrupted, None, None) => {}
-            _ => return Err(DesktopError("corruptImages")),
+        validate_result(session, turn, provider::MODEL, provider::CHANNEL)?;
+        if let Some(a) = &turn.asset {
+            ids.insert(a.id.clone());
         }
     }
     Ok(catalog.turns)
+}
+
+pub(super) fn validate_result(
+    session: &str,
+    turn: &ImageTurn,
+    model: &str,
+    channel: &str,
+) -> Result<()> {
+    match (&turn.status, &turn.asset, &turn.error) {
+        (ImageStatus::Succeeded, Some(a), None)
+            if a.id == image_id(session, &turn.request_id)
+                && a.filename == format!("{}.png", a.id)
+                && a.base_image_id == turn.base_image_id
+                && a.reference_ids.iter().eq(turn.base_image_id.iter())
+                && a.prompt == turn.prompt
+                && a.model == model
+                && a.channel_id == channel
+                && a.width > 0
+                && a.height > 0
+                && provider::validate_pixel_count(a.width, a.height).is_ok()
+                && a.content_sha256.len() == 64
+                && a.content_sha256.bytes().all(|b| b.is_ascii_hexdigit()) =>
+        {
+            Ok(())
+        }
+        (ImageStatus::Failed, None, Some(_))
+        | (ImageStatus::Pending | ImageStatus::Interrupted, None, None) => Ok(()),
+        _ => Err(DesktopError("corruptImages")),
+    }
 }
 
 pub(super) fn save_turns(dir: &Path, turns: &[ImageTurn], derived: bool) -> Result<()> {

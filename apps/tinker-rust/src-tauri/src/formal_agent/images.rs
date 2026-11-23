@@ -3,7 +3,8 @@ use super::{actor::Actor, image_projection::project, projection, Reply};
 use crate::{
     desktop_runtime::protocol::{id, DesktopError, Result},
     formal_images::{
-        ImageAdmission, ImageStatus, ImageStore, ImageTurn, ImportedImage, LoopbackImageProvider,
+        ImageAction, ImageAdmission, ImageStatus, ImageStore, ImageTurn, ImportedImage,
+        LoopbackImageProvider,
     },
 };
 use serde_json::{json, Value};
@@ -20,25 +21,40 @@ use std::{
 
 pub(super) struct ImageWorkflow {
     pub store: ImageStore,
-    provider: LoopbackImageProvider,
+    provider: Option<LoopbackImageProvider>,
     jobs: BTreeMap<String, Job>,
     deliveries: BTreeMap<String, VecDeque<(&'static str, Value)>>,
 }
 struct Job {
     id: String,
+    model: String,
     started: u64,
     cancel: Arc<AtomicBool>,
     worker: JoinHandle<Result<ImageTurn>>,
     replies: Vec<Reply>,
 }
 impl ImageWorkflow {
-    pub fn open(path: &Path, endpoint: SocketAddr) -> Result<Self> {
+    pub fn open(path: &Path, endpoint: Option<SocketAddr>) -> Result<Self> {
         Ok(Self {
             store: ImageStore::open(path)?,
-            provider: LoopbackImageProvider::new(endpoint)?,
+            provider: endpoint.map(LoopbackImageProvider::new).transpose()?,
             jobs: BTreeMap::new(),
             deliveries: BTreeMap::new(),
         })
+    }
+    pub(super) fn join_replies(
+        &mut self,
+        sid: &str,
+        request: &str,
+        replies: impl Iterator<Item = Reply>,
+    ) {
+        if let Some(job) = self.jobs.get_mut(sid).filter(|job| job.id == request) {
+            job.replies.extend(replies);
+        } else {
+            for reply in replies {
+                let _ = reply.send(Err(DesktopError("hostUnavailable")));
+            }
+        }
     }
     pub fn has_delivery(&self, sid: &str) -> bool {
         self.deliveries.contains_key(sid)
@@ -90,7 +106,7 @@ impl ImageWorkflow {
         let identity = json!({"sessionId":sid,"requestId":job.id,"startedAt":job.started});
         Some(
             json!({"sessionId":sid,"requestId":job.id,"startedAt":job.started,"cursor":0,
-     "currentSnapshot":projection::stream(&identity,json!({"kind":"asci_event","event":{"type":"text_snapshot","text":"","model":"local-image"}}))}),
+     "currentSnapshot":projection::stream(&identity,json!({"kind":"asci_event","event":{"type":"text_snapshot","text":"","model":job.model}}))}),
         )
     }
     pub fn active_runs(&self) -> Vec<Value> {
@@ -169,9 +185,11 @@ impl Actor {
         }))
     }
     pub fn image_busy(&self, sid: &str) -> bool {
-        self.images
-            .as_ref()
-            .is_some_and(|i| i.jobs.contains_key(sid))
+        self.preparing_image(sid)
+            || self
+                .images
+                .as_ref()
+                .is_some_and(|i| i.jobs.contains_key(sid))
     }
     pub fn reusable_image_aware_draft(
         &self,
@@ -222,6 +240,20 @@ impl Actor {
         retry_of: Option<&str>,
         reply: &Reply,
     ) -> Result<Option<Value>> {
+        self.send_image_ready(input, sid, request, started, retry_of, None, reply)
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn send_image_ready(
+        &mut self,
+        input: &Value,
+        sid: &str,
+        request: &str,
+        started: u64,
+        retry_of: Option<&str>,
+        authorized: Option<super::credentialed_images::AuthorizedImage>,
+        reply: &Reply,
+    ) -> Result<Option<Value>> {
+        use super::credentialed_images::ImageCommand;
         id(request)?;
         let action = input["nativeImageAction"]
             .as_str()
@@ -245,6 +277,9 @@ impl Actor {
         let (turns, imports) = images.store.snapshot(sid)?;
         let existing = turns.iter().find(|t| t.request_id == request);
         let base = if action == "edit" {
+            if self.credentialed.is_some() && selected.is_none() && existing.is_none() {
+                return Err(DesktopError("imageNotFound"));
+            }
             let base = selected
                 .or_else(|| existing.and_then(|t| t.base_image_id.as_deref()))
                 .or_else(|| {
@@ -258,6 +293,92 @@ impl Actor {
         } else {
             None
         };
+        let action_kind = if action == "edit" {
+            ImageAction::Edit
+        } else {
+            ImageAction::Generate
+        };
+        let route = if let Some(managed) = &mut self.credentialed {
+            let stored = if let Some(source) = retry_of {
+                Some(
+                    images
+                        .store
+                        .route_for(sid, source)?
+                        .ok_or(DesktopError("sourceChannelUnavailable"))?,
+                )
+            } else if existing.is_some() {
+                Some(
+                    images
+                        .store
+                        .route_for(sid, request)?
+                        .ok_or(DesktopError("sourceChannelUnavailable"))?,
+                )
+            } else {
+                None
+            };
+            let (channel, model) = if retry_of.is_some() {
+                let source = stored
+                    .as_ref()
+                    .ok_or(DesktopError("sourceChannelUnavailable"))?;
+                (source.channel_id.as_str(), source.model_id.as_str())
+            } else {
+                (
+                    input["channelId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?,
+                    input["modelId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?,
+                )
+            };
+            if existing.is_some() {
+                let route = stored.ok_or(DesktopError("sourceChannelUnavailable"))?;
+                if retry_of.is_none()
+                    && (input["channelId"] != route.channel_id
+                        || input["modelId"] != route.model_id)
+                    || route.action != action_kind
+                {
+                    return Err(DesktopError("requestConflict"));
+                }
+                Some((route, None))
+            } else {
+                let (current, connection) = managed
+                    .image_route(channel, model, action_kind)
+                    .map_err(|e| {
+                        if stored.is_some() && e.0 == "modelCapabilityMismatch" {
+                            DesktopError("sourceChannelUnavailable")
+                        } else {
+                            e
+                        }
+                    })?;
+                if stored.as_ref().is_some_and(|original| original != &current)
+                    || authorized.as_ref().is_some_and(|p| p.route != current)
+                {
+                    return Err(DesktopError("sourceChannelUnavailable"));
+                }
+                if input["nativeImageReferenceInferred"] == true {
+                    let source = turns
+                        .iter()
+                        .find(|t| {
+                            t.asset
+                                .as_ref()
+                                .is_some_and(|a| Some(a.id.as_str()) == base.as_deref())
+                        })
+                        .and_then(ImageTurn::route);
+                    if !source.is_some_and(|r| {
+                        r.channel_id == current.channel_id
+                            && r.model_id == current.model_id
+                            && r.revision == current.revision
+                            && r.protocol == current.protocol
+                    }) {
+                        return Err(DesktopError("sourceChannelUnavailable"));
+                    }
+                }
+                Some((current, Some(connection)))
+            }
+        } else {
+            None
+        };
         if existing.is_none() {
             if self
                 .entries
@@ -267,25 +388,27 @@ impl Actor {
             {
                 return Err(DesktopError("runBusy"));
             }
-            let available = self.platform.availability()?;
-            let enabled = if retry_of.is_some() {
-                // 原图片服务固定由宿主控制，旧收据没有用于文字聊天的 UI 模型选择。
-                available
-                    .get(crate::formal_platform::MOCK_PROFILE_ID)
-                    .is_some_and(|models| !models.is_empty())
-            } else {
-                let channel = input["channelId"]
-                    .as_str()
-                    .ok_or(DesktopError("invalidParams"))?;
-                let model = input["modelId"]
-                    .as_str()
-                    .ok_or(DesktopError("invalidParams"))?;
-                available
-                    .get(channel)
-                    .is_some_and(|models| models.contains(model))
-            };
-            if !enabled {
-                return Err(DesktopError("modelUnavailable"));
+            if route.is_none() {
+                let available = self.platform.availability()?;
+                let enabled = if retry_of.is_some() {
+                    // 原图片服务固定由宿主控制，旧收据没有用于文字聊天的 UI 模型选择。
+                    available
+                        .get(crate::formal_platform::MOCK_PROFILE_ID)
+                        .is_some_and(|models| !models.is_empty())
+                } else {
+                    let channel = input["channelId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?;
+                    let model = input["modelId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?;
+                    available
+                        .get(channel)
+                        .is_some_and(|models| models.contains(model))
+                };
+                if !enabled {
+                    return Err(DesktopError("modelUnavailable"));
+                }
             }
             if images.jobs.len() >= crate::desktop_runtime::protocol::MAX_ACTIVE
                 || images.deliveries.contains_key(sid)
@@ -299,15 +422,46 @@ impl Actor {
                 .len();
             reserve_restore_capacity(bytes, prompt)?;
         }
-        let pending = match images.store.admit(
-            sid,
-            request,
-            prompt,
-            base.as_deref(),
-            started,
-            retry_of,
-            text_head.as_ref().map(|t| t.request_id.as_str()),
-        )? {
+        let head = text_head.as_ref().map(|t| t.request_id.as_str());
+        let admitted = if let Some((route, connection)) = route {
+            if let Some(connection) = connection.filter(|_| authorized.is_none()) {
+                let cmd = ImageCommand {
+                    session: sid.into(),
+                    request: request.into(),
+                    started,
+                    retry_of: retry_of.map(str::to_owned),
+                    input: input.clone(),
+                };
+                return self.credentialed.as_mut().expect("渠道宿主").prepare_image(
+                    cmd,
+                    route,
+                    connection,
+                    &self.generation,
+                    reply,
+                );
+            }
+            images.store.admit_routed(
+                sid,
+                request,
+                prompt,
+                base.as_deref(),
+                started,
+                retry_of,
+                head,
+                &route,
+            )?
+        } else {
+            images.store.admit(
+                sid,
+                request,
+                prompt,
+                base.as_deref(),
+                started,
+                retry_of,
+                head,
+            )?
+        };
+        let pending = match admitted {
             ImageAdmission::Replay(turn) => {
                 if let Some(job) = images.jobs.get_mut(sid).filter(|j| j.id == request) {
                     if job.replies.len() >= 32 {
@@ -321,18 +475,30 @@ impl Actor {
             ImageAdmission::New(pending) => pending,
         };
         let (_, messages) = project(sid, pending.turn(), &turns, &imports);
+        let model = pending
+            .turn()
+            .route()
+            .map_or("local-image", |r| r.model_id.as_str())
+            .to_owned();
         let identity = json!({"sessionId":sid,"requestId":request,"startedAt":started});
         let cancel = Arc::new(AtomicBool::new(false));
         let provider = images.provider.clone();
         let token = cancel.clone();
         let worker = thread::Builder::new()
             .name("native-image".into())
-            .spawn(move || pending.execute(&provider, &token))
+            .spawn(move || match (authorized, provider) {
+                (Some(bound), None) => pending.execute_with(&token, |prompt, source, cancel| {
+                    bound.provider.request(prompt, source, cancel)
+                }),
+                (None, Some(owned)) => pending.execute(&owned, &token),
+                _ => Err(DesktopError("sourceChannelUnavailable")),
+            })
             .map_err(|_| DesktopError("hostUnavailable"))?;
         images.jobs.insert(
             sid.into(),
             Job {
                 id: request.into(),
+                model,
                 started,
                 cancel,
                 worker,
@@ -357,16 +523,28 @@ impl Actor {
         Ok(None)
     }
     pub fn poll_images(&mut self) {
+        self.poll_image_preparation();
         if let Some(mut images) = self.images.take() {
             images.deliver_finished(self);
             self.images = Some(images);
         }
     }
 }
+pub(super) fn image_error(turn: &ImageTurn) -> &'static str {
+    match turn.error.as_deref() {
+        Some("channelUnauthorized") => "channelUnauthorized",
+        Some("channelForbidden") => "channelForbidden",
+        Some("channelRateLimited") => "channelRateLimited",
+        Some("channelTimeout") => "channelTimeout",
+        Some("channelPaymentRequired") => "channelPaymentRequired",
+        _ => "imageProviderFailed",
+    }
+}
 fn terminal_result(turn: &ImageTurn) -> Result<Value> {
     match (&turn.status, &turn.asset) {
         (ImageStatus::Succeeded, Some(asset)) => Ok(json!({"value":null,"imageId":asset.id})),
         _ if turn.user_stopped() => Ok(json!({"value":null})),
+        _ if turn.route().is_some() => Err(DesktopError(image_error(turn))),
         _ => Err(DesktopError("responseFailed")),
     }
 }

@@ -64,10 +64,19 @@ export const PROVIDER_LABELS: Record<ProviderType, string> = {
 /** 生图渠道协议，用户显式选择；不根据模型别名自动猜测。 */
 export type ImageProtocol = 'openai-images' | 'gemini-content' | 'gemini-interactions'
 
-/**
- * 渠道中的模型配置
- */
+/** 原生宿主可投影给用户的固定渠道错误。 */
+export const NATIVE_CHANNEL_ERROR_CODES = [
+  'channelUnauthorized', 'channelPaymentRequired', 'channelForbidden', 'channelRateLimited',
+  'channelTimeout', 'sourceChannelUnavailable', 'modelCapabilityMismatch', 'imageModelDiscussion',
+] as const
+export function isNativeChannelError(value: unknown): value is typeof NATIVE_CHANNEL_ERROR_CODES[number] {
+  return NATIVE_CHANNEL_ERROR_CODES.some(code => code === value)
+}
+
 export interface ChannelModel {
+  /** 受管渠道已验证的输出能力。旧记录继续使用文字路由。 */
+  capability?: 'text' | 'image' | 'unsupported'
+  supportsImageEdits?: boolean
   /** 原生宿主声明的推理能力；空列表表示不发送推理档位。 */
   supportedEfforts?: string[]
   /** 模型唯一标识（如 claude-sonnet-4-5-20250929） */
@@ -221,6 +230,7 @@ export interface FetchModelsResult {
  * 用于渲染进程的模型选择器下拉列表。
  */
 export interface ModelOption {
+  capability?: ChannelModel['capability']
   /** 渠道 ID */
   channelId: string
   /** 渠道名称 */

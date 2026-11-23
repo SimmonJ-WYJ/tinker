@@ -160,3 +160,29 @@ fn unauthorized_http_is_still_counted_without_recording_the_key() {
     assert!(!metadata.to_string().contains("invalid-owned-qa-key"));
     drop(qa);
 }
+
+#[test]
+fn route_window_has_two_separate_sockets_and_keeps_both_on_restart() {
+    let root = root();
+    let ports = || {
+        ["qa-endpoint.json", "qa-secondary-endpoint.json"].map(|file| {
+            let bytes = std::fs::read(root.path().join(file)).unwrap();
+            serde_json::from_slice::<Value>(&bytes).unwrap()["port"]
+                .as_u64()
+                .unwrap()
+        })
+    };
+    let qa = OwnedQa::start(&root).unwrap();
+    let first = ports();
+    assert_ne!(first[0], first[1]);
+    for port in first {
+        let base = format!("http://127.0.0.1:{port}/v1");
+        assert_eq!(qa.policy().normalize(&base).unwrap(), base);
+        assert!(qa.policy().normalize(&format!("{base}/other")).is_err());
+    }
+    drop(qa);
+    let reopened = OwnedQa::start(&root).unwrap();
+    assert_eq!(ports(), first);
+    drop(reopened);
+    std::fs::remove_dir_all(root.path()).unwrap();
+}

@@ -94,6 +94,24 @@ function withdrawsImageRequest(clauses: readonly string[]): boolean {
   })
 }
 
+/** 已选择图片模型时，画面描述本身即可生成。先排除整轮撤回、讨论、提问和闲聊。 */
+export function acceptsImageDescription(message: string): boolean {
+  const visible = visibleImageInstruction(message).trim()
+  if (!visible || withdrawsImageRequest(visible.split(/[，,。.!?？！？；;\n]/))) return false
+  if (/^(?:谢谢(?:你)?|多谢|你好|您好|好的|收到|再见|thanks?|thank you|hi|hello|okay|ok|bye)[。.!！\s]*$/i.test(visible)) return false
+  if (/[?？]|多少钱|怎么|如何|为什么|是否|能否|会不会|[吗么](?:[。！!\s]|$)/i.test(visible)) return false
+  const request = stripRequestPrefix(visible)
+  return !/^(?:(?:what|how|who|where|when|why|which|whether|explain|analy[sz]e|discuss|evaluate|summari[sz]e|tell me|write code|describe (?:the|this) (?:image|photo)|is it|does it|can i|do i)\b|(?:介绍|解释|讲解|分析|讨论|评估|总结|写(?:代码|脚本)|告诉我|请问))/i.test(request)
+    && !/^(?:(?:costs?|pricing|billing|charges?|permissions?|tutorials?)\b|(?:计费|费用|收费|账单|权限|教程))/i.test(request)
+}
+
+/** 明确指向图片的编辑指令必须有来源。 */
+export function targetsImageForEdit(message: string): boolean {
+  const request = stripRequestPrefix(visibleImageInstruction(message))
+  return /^(?:修改|调整|替换|重画|重做|翻译)(?:这|那|选中|当前|刚才|上一|原)?(?:张)?(?:图片|图像|图|海报)/.test(request)
+      || /^(?:change|edit|replace|translate|modify)\s+(?:(?:this|that|the|selected)\s+)?(?:image|picture|poster|photo)\b/i.test(request)
+}
+
 export function requestsImage(context: ImageAuthorizationContext): boolean {
   const visible = visibleImageInstruction(context.userMessage)
   const contextualDiscussion = /费用|多少钱|花费|权限|提示词|命令|教程|方法|是否|是不是|能否|可否|能不能|可不可以|好不好|行不行|合不合适|怎么|如何|为什么|为何|[吗么？?]|分析|解释|评估|群聊|好友|通讯录|数据库|名单|项目成员|团队|发送|删除|支付|购买|上传(?:图片|图像|照片)?(?:到|至)|(?:并|然后|再|同时|接着)\s*(?:把.{0,20})?上传|\b(?:cost|price|permission|prompt|command|tutorial|what|whether|how|why|analyze|analyse|explain|evaluate|chat|contact|database|team|guestlist|upload|send|email|delete|pay|buy)\b/i.test(visible)
@@ -110,8 +128,7 @@ export function requestsImage(context: ImageAuthorizationContext): boolean {
     const hasReference = Boolean(context.referenceImageIds?.length || context.referenceImagePaths?.length)
     const visualEdit = isContextualVisualEdit(request)
     if (contextual && hasReference && visualEdit && !contextualDiscussion) return true
-    const pictureTarget=/^(?:修改|调整|替换|重画|重做|翻译)(?:这|那|选中|当前|刚才|上一|原)?(?:张)?(?:图片|图像|图|海报)/.test(request)
-      || /^(?:change|edit|replace|translate|modify)\s+(?:(?:this|that|the|selected)\s+)?(?:image|picture|poster|photo)\b/i.test(request)
+    const pictureTarget = targetsImageForEdit(request)
     const selectedTransform=/^(?:换成|改成|改为)|^(?:change|translate)\s+(?:it\s+)?(?:to|into)\b/i.test(request)
     return !contextualDiscussion && Boolean((pictureTarget && (context.referenceImageIds?.length || context.referenceImagePaths?.length)) || (validSelection && selectedTransform))
   })

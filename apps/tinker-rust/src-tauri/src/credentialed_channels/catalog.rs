@@ -8,11 +8,24 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelCapability {
+    #[default]
+    Text,
+    Image,
+    Unsupported,
+}
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChannelModel {
     pub model_id: String,
     pub label: String,
+    // 旧版本原样序列化，保持历史修订和已提交回执一致。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability: Option<ModelCapability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_image_edits: Option<bool>,
     #[serde(default)]
     pub supported_efforts: Vec<String>,
     #[serde(default = "model_enabled")]
@@ -22,6 +35,21 @@ fn model_enabled() -> bool {
     true
 }
 impl ChannelModel {
+    pub fn capability(&self, protocol: HttpProtocol) -> ModelCapability {
+        match self.capability.unwrap_or_default() {
+            ModelCapability::Image if protocol != HttpProtocol::OpenaiChat => {
+                ModelCapability::Unsupported
+            }
+            capability => capability,
+        }
+    }
+    fn can_edit_image(&self) -> bool {
+        self.supports_image_edits == Some(true)
+            && !matches!(self.model_id.as_str(), "dall-e-3" | "openai/dall-e-3")
+    }
+    pub fn selectable(&self) -> bool {
+        self.enabled && self.capability != Some(ModelCapability::Unsupported)
+    }
     pub fn runtime_model(&self) -> Model {
         Model {
             model_id: self.model_id.clone(),
@@ -80,7 +108,7 @@ pub enum EndpointPolicy {
 }
 #[derive(Clone)]
 pub struct OwnedQaEndpoint {
-    base: String,
+    bases: Vec<String>,
 }
 impl EndpointPolicy {
     /// listener必须是本宿主仍持有的QA服务；renderer不能构造此能力。
@@ -92,8 +120,21 @@ impl EndpointPolicy {
             return Err(DesktopError("invalidEndpoint"));
         }
         Ok(Self::OwnedQa(OwnedQaEndpoint {
-            base: format!("http://{address}{path}"),
+            bases: vec![format!("http://{address}{path}")],
         }))
+    }
+    #[cfg(any(test, feature = "formal-native-qa"))]
+    pub fn combine_owned(&self, other: &Self) -> Result<Self> {
+        match (self, other) {
+            (Self::OwnedQa(a), Self::OwnedQa(b))
+                if a.bases.len() == 1 && b.bases.len() == 1 && a.bases != b.bases =>
+            {
+                Ok(Self::OwnedQa(OwnedQaEndpoint {
+                    bases: vec![a.bases[0].clone(), b.bases[0].clone()],
+                }))
+            }
+            _ => Err(DesktopError("invalidEndpoint")),
+        }
     }
     pub fn normalize(&self, base: &str) -> Result<String> {
         if base.len() > 2048 || base.chars().any(char::is_control) || base.trim() != base {
@@ -119,7 +160,7 @@ impl EndpointPolicy {
                     return Err(DesktopError("invalidEndpoint"));
                 }
             }
-            Self::OwnedQa(owned) if normalized == owned.base => {}
+            Self::OwnedQa(owned) if owned.bases.contains(&normalized) => {}
             _ => return Err(DesktopError("invalidEndpoint")),
         }
         Ok(normalized)
@@ -198,6 +239,15 @@ impl ChannelSpec {
                 || !ids.insert(&model.model_id)
             {
                 return Err(DesktopError("invalidChannel"));
+            }
+            if model.capability == Some(ModelCapability::Image)
+                && self.protocol != HttpProtocol::OpenaiChat
+                || model.capability != Some(ModelCapability::Image)
+                    && model.supports_image_edits.is_some()
+                || model.capability(self.protocol) != ModelCapability::Text
+                    && !model.supported_efforts.is_empty()
+            {
+                return Err(DesktopError("modelCapabilityMismatch"));
             }
             let mut efforts = std::collections::BTreeSet::new();
             if model.supported_efforts.iter().any(|e| {
@@ -333,7 +383,45 @@ impl Catalog {
             .filter(|r| !r.deleted)
             .filter_map(|r| self.revisions.get(&r.current_revision))
     }
+    pub fn image_revision(
+        &self,
+        channel: &str,
+        model: &str,
+        is_edit: bool,
+    ) -> Result<&ConnectionRevision> {
+        let revision = self
+            .current()
+            .find(|r| r.channel.id == channel && r.channel.enabled)
+            .ok_or(DesktopError("sourceChannelUnavailable"))?;
+        let selected = revision
+            .channel
+            .models
+            .iter()
+            .find(|m| m.model_id == model && m.enabled)
+            .ok_or(DesktopError("sourceChannelUnavailable"))?;
+        if selected.capability(revision.channel.protocol) != ModelCapability::Image
+            || is_edit && !selected.can_edit_image()
+        {
+            return Err(DesktopError("modelCapabilityMismatch"));
+        }
+        Ok(revision)
+    }
     pub fn public_list(&self) -> serde_json::Value {
-        serde_json::Value::Array(self.current().map(|r|serde_json::json!({"id":r.channel.id,"name":r.channel.name,"provider":match r.channel.protocol{HttpProtocol::OpenaiChat=>"custom-openai",HttpProtocol::AnthropicMessages=>"custom-anthropic"},"baseUrl":r.channel.base_url,"enabled":r.channel.enabled,"hasCredential":true,"apiKey":"","models":r.channel.models.iter().map(|m|serde_json::json!({"id":m.model_id,"name":m.label,"enabled":m.enabled,"supportedEfforts":m.supported_efforts})).collect::<Vec<_>>()})).collect())
+        use serde_json::json;
+        serde_json::Value::Array(self.current().map(|r| {
+            let channel = &r.channel;
+            let provider = match channel.protocol {
+                HttpProtocol::OpenaiChat => "custom-openai",
+                HttpProtocol::AnthropicMessages => "custom-anthropic",
+            };
+            let models: Vec<_> = channel.models.iter().map(|m| {
+                let mut row = json!({"id":m.model_id,"name":m.label,"enabled":m.enabled,
+                    "supportedEfforts":m.supported_efforts,"capability":m.capability(channel.protocol)});
+                if m.supports_image_edits.is_some() { row["supportsImageEdits"] = json!(m.can_edit_image()); }
+                row
+            }).collect();
+            json!({"id":channel.id,"name":channel.name,"provider":provider,"baseUrl":channel.base_url,
+                "enabled":channel.enabled,"hasCredential":true,"apiKey":"","models":models})
+        }).collect())
     }
 }
