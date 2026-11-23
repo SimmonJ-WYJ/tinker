@@ -93,6 +93,8 @@
   },
   "workspaceDefaultName": "默认项目",
   "imageReference": {
+    "localStopDetail": "Tinker 已在本机停止等待，服务商可能已经收到了这次图片请求。",
+    "nativeFailureDetail": "未保存结果图。点击重试会向服务商发送新的请求。",
     "title": "引用图片",
     "backToSource": "回到原消息",
     "sourceMissing": "原消息已不可用",

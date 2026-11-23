@@ -2,7 +2,9 @@
 use super::{actor::Actor, image_projection::project, projection, Reply};
 use crate::{
     desktop_runtime::protocol::{id, DesktopError, Result},
-    formal_images::{ImageStatus, ImageStore, ImageTurn, ImportedImage, LoopbackImageProvider},
+    formal_images::{
+        ImageAdmission, ImageStatus, ImageStore, ImageTurn, ImportedImage, LoopbackImageProvider,
+    },
 };
 use serde_json::{json, Value};
 use std::{
@@ -24,8 +26,6 @@ pub(super) struct ImageWorkflow {
 }
 struct Job {
     id: String,
-    prompt: String,
-    base: Option<String>,
     started: u64,
     cancel: Arc<AtomicBool>,
     worker: JoinHandle<Result<ImageTurn>>,
@@ -39,6 +39,9 @@ impl ImageWorkflow {
             jobs: BTreeMap::new(),
             deliveries: BTreeMap::new(),
         })
+    }
+    pub fn has_delivery(&self, sid: &str) -> bool {
+        self.deliveries.contains_key(sid)
     }
     pub fn contains_request(&self, sid: &str, id: &str) -> Result<bool> {
         Ok(self.store.history(sid)?.iter().any(|t| t.request_id == id))
@@ -128,15 +131,42 @@ impl Actor {
             }
         }
     }
-    pub fn interrupt_session_image(&self, sid: &str, expected: Option<&str>) {
-        if let Some(job) = self
-            .images
-            .as_ref()
-            .and_then(|i| i.jobs.get(sid))
-            .filter(|j| expected.is_none_or(|id| j.id == id))
-        {
-            job.cancel.store(true, Ordering::Release);
+    pub fn stop_session_image(&self, sid: &str, expected: Option<&str>) -> Result<()> {
+        if let Some(images) = &self.images {
+            if let Some(job) = images
+                .jobs
+                .get(sid)
+                .filter(|j| expected.is_none_or(|id| j.id == id))
+            {
+                images.store.stop(sid, &job.id, &job.cancel)?;
+            }
         }
+        Ok(())
+    }
+    /// 用接纳时的文字绑定身份确认跨类型顺序。没有因果证据的旧混排仍可浏览。
+    pub(super) fn latest_retryable_task(&self, sid: &str) -> Result<Option<String>> {
+        use crate::session_lifecycle::RunStatus;
+        let text = self.runtime.latest_text_task(sid)?;
+        let images = self.images.as_ref().ok_or(DesktopError("unsupported"))?;
+        let image = images.store.latest_task(sid)?;
+        let latest = if let Some(image) = image {
+            if image.text_head_at_admission.is_none() {
+                return Ok(None);
+            }
+            if self
+                .runtime
+                .image_follows_text(sid, text.as_ref(), &image)?
+            {
+                Some((image.request_id, image.status))
+            } else {
+                text.map(|t| (t.request_id, t.status))
+            }
+        } else {
+            text.map(|t| (t.request_id, t.status))
+        };
+        Ok(latest.and_then(|(request, status)| {
+            matches!(status, RunStatus::Failed | RunStatus::Interrupted).then_some(request)
+        }))
     }
     pub fn image_busy(&self, sid: &str) -> bool {
         self.images
@@ -189,6 +219,7 @@ impl Actor {
         sid: &str,
         request: &str,
         started: u64,
+        retry_of: Option<&str>,
         reply: &Reply,
     ) -> Result<Option<Value>> {
         id(request)?;
@@ -205,31 +236,11 @@ impl Actor {
         let prompt = input["userMessage"]
             .as_str()
             .ok_or(DesktopError("invalidParams"))?;
-        if self
-            .entries
-            .get(sid)
-            .is_some_and(|e| projection::active(&e.turn))
-        {
-            return Err(DesktopError("runBusy"));
-        }
-        let profile = input["channelId"]
-            .as_str()
-            .ok_or(DesktopError("invalidParams"))?;
-        let model = input["modelId"]
-            .as_str()
-            .ok_or(DesktopError("invalidParams"))?;
-        if !self
-            .platform
-            .availability()?
-            .get(profile)
-            .is_some_and(|m| m.contains(model))
-        {
-            return Err(DesktopError("modelUnavailable"));
-        }
         let text_turns = self.turns(sid)?;
         if text_turns.iter().any(|t| t["requestId"] == request) {
             return Err(DesktopError("requestConflict"));
         }
+        let text_head = self.runtime.latest_text_task(sid)?;
         let images = self.images.as_mut().ok_or(DesktopError("unsupported"))?;
         let (turns, imports) = images.store.snapshot(sid)?;
         let existing = turns.iter().find(|t| t.request_id == request);
@@ -247,71 +258,101 @@ impl Actor {
         } else {
             None
         };
-        if let Some(job) = images.jobs.get_mut(sid) {
-            if job.id != request {
+        if existing.is_none() {
+            if self
+                .entries
+                .get(sid)
+                .is_some_and(|e| projection::active(&e.turn))
+                || images.jobs.contains_key(sid)
+            {
                 return Err(DesktopError("runBusy"));
             }
-            if job.prompt != prompt || job.base != base || job.started != started {
-                return Err(DesktopError("requestConflict"));
+            let available = self.platform.availability()?;
+            let enabled = if retry_of.is_some() {
+                // 原图片服务固定由宿主控制，旧收据没有用于文字聊天的 UI 模型选择。
+                available
+                    .get(crate::formal_platform::MOCK_PROFILE_ID)
+                    .is_some_and(|models| !models.is_empty())
+            } else {
+                let channel = input["channelId"]
+                    .as_str()
+                    .ok_or(DesktopError("invalidParams"))?;
+                let model = input["modelId"]
+                    .as_str()
+                    .ok_or(DesktopError("invalidParams"))?;
+                available
+                    .get(channel)
+                    .is_some_and(|models| models.contains(model))
+            };
+            if !enabled {
+                return Err(DesktopError("modelUnavailable"));
             }
-            if job.replies.len() >= 32 {
+            if images.jobs.len() >= crate::desktop_runtime::protocol::MAX_ACTIVE
+                || images.deliveries.contains_key(sid)
+            {
                 return Err(DesktopError("hostBusy"));
             }
-            job.replies.push(reply.clone());
-            return Ok(None);
+            let mut history = projection::text_task_history(&text_turns);
+            ImageWorkflow::merge_turns(sid, &mut history, &turns, &imports)?;
+            let bytes = serde_json::to_vec(&history)
+                .map_err(|_| DesktopError("invalidReply"))?
+                .len();
+            reserve_restore_capacity(bytes, prompt)?;
         }
-        if let Some(t) = existing {
-            if t.prompt != prompt || t.base_image_id != base || t.created_at != started {
-                return Err(DesktopError("requestConflict"));
+        let pending = match images.store.admit(
+            sid,
+            request,
+            prompt,
+            base.as_deref(),
+            started,
+            retry_of,
+            text_head.as_ref().map(|t| t.request_id.as_str()),
+        )? {
+            ImageAdmission::Replay(turn) => {
+                if let Some(job) = images.jobs.get_mut(sid).filter(|j| j.id == request) {
+                    if job.replies.len() >= 32 {
+                        return Err(DesktopError("hostBusy"));
+                    }
+                    job.replies.push(reply.clone());
+                    return Ok(None);
+                }
+                return terminal_result(&turn).map(Some);
             }
-            return terminal_result(t).map(Some);
-        }
-        if images.jobs.len() >= crate::desktop_runtime::protocol::MAX_ACTIVE
-            || images.deliveries.contains_key(sid)
-        {
-            return Err(DesktopError("hostBusy"));
-        }
-        let mut history = projection::text_task_history(&text_turns);
-        ImageWorkflow::merge_turns(sid, &mut history, &turns, &imports)?;
-        let history_bytes = serde_json::to_vec(&history)
-            .map_err(|_| DesktopError("invalidReply"))?
-            .len();
-        reserve_restore_capacity(history_bytes, prompt)?;
+            ImageAdmission::New(pending) => pending,
+        };
+        let (_, messages) = project(sid, pending.turn(), &turns, &imports);
+        let identity = json!({"sessionId":sid,"requestId":request,"startedAt":started});
         let cancel = Arc::new(AtomicBool::new(false));
-        let store = images.store.clone();
         let provider = images.provider.clone();
-        let args = (
-            sid.to_owned(),
-            request.to_owned(),
-            prompt.to_owned(),
-            base.clone(),
-            cancel.clone(),
-        );
+        let token = cancel.clone();
         let worker = thread::Builder::new()
             .name("native-image".into())
-            .spawn(move || {
-                store.execute_cancellable(
-                    &args.0,
-                    &args.1,
-                    &args.2,
-                    args.3.as_deref(),
-                    started,
-                    &provider,
-                    &args.4,
-                )
-            })
+            .spawn(move || pending.execute(&provider, &token))
             .map_err(|_| DesktopError("hostUnavailable"))?;
         images.jobs.insert(
             sid.into(),
             Job {
                 id: request.into(),
-                prompt: prompt.into(),
-                base,
                 started,
                 cancel,
                 worker,
                 replies: vec![reply.clone()],
             },
+        );
+        images.deliveries.insert(
+            sid.into(),
+            messages
+                .into_iter()
+                .map(|message| {
+                    (
+                        "agent:stream:event",
+                        projection::stream(
+                            &identity,
+                            json!({"kind":"sdk_message","message":message}),
+                        ),
+                    )
+                })
+                .collect(),
         );
         Ok(None)
     }
@@ -325,6 +366,7 @@ impl Actor {
 fn terminal_result(turn: &ImageTurn) -> Result<Value> {
     match (&turn.status, &turn.asset) {
         (ImageStatus::Succeeded, Some(asset)) => Ok(json!({"value":null,"imageId":asset.id})),
+        _ if turn.user_stopped() => Ok(json!({"value":null})),
         _ => Err(DesktopError("responseFailed")),
     }
 }

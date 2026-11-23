@@ -250,6 +250,22 @@ impl Actor {
         };
         if let Some(images) = &self.images {
             images.merge_history(session, &mut h)?;
+            if self.native_task_lifecycle() {
+                let retryable = self.latest_retryable_task(session)?;
+                for message in h["sdkMessages"]
+                    .as_array_mut()
+                    .into_iter()
+                    .flatten()
+                    .filter(|m| m["type"] == "assistant")
+                {
+                    if let Some(id) = message["_desktopTextTaskRequestId"]
+                        .as_str()
+                        .or_else(|| message["_desktopImageTaskRequestId"].as_str())
+                    {
+                        message["_desktopTaskRetryable"] = json!(retryable.as_deref() == Some(id));
+                    }
+                }
+            }
         }
         if serde_json::to_vec(&h)
             .map_err(|_| DesktopError("invalidReply"))?
@@ -259,6 +275,30 @@ impl Actor {
             return Err(DesktopError("historyLimit"));
         }
         Ok(h)
+    }
+    fn project_task_statuses(&self, workspace: &str) -> Result<Value> {
+        let images = self.images.as_ref().ok_or(DesktopError("unsupported"))?;
+        let mut rows = Vec::new();
+        for (sid, text) in self.runtime.project_task_candidates(workspace)? {
+            if let Some(image) = images.store.latest_task(&sid)? {
+                if self
+                    .runtime
+                    .image_follows_text(&sid, text.as_ref(), &image)?
+                {
+                    let kind = if image.is_edit {
+                        "imageEdit"
+                    } else {
+                        "imageGenerate"
+                    };
+                    rows.push(json!({"sessionId":sid,"requestId":image.request_id,"status":image.status,"kind":kind}));
+                    continue;
+                }
+            }
+            if let Some(text) = text {
+                rows.push(json!({"sessionId":sid,"requestId":text.request_id,"status":text.status,"kind":"text"}));
+            }
+        }
+        Ok(json!({"value":rows}))
     }
     pub(super) fn native_task_lifecycle(&self) -> bool {
         cfg!(all(target_os = "macos", feature = "formal-preview")) && self.images.is_some()
@@ -289,7 +329,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -363,9 +403,7 @@ impl Actor {
                 self.platform.require_workspace(
                     crate::formal_platform::workspace::WorkspaceKey::Id(&workspace_id),
                 )?;
-                Ok(Some(
-                    json!({"value": self.runtime.project_task_statuses(&workspace_id)?}),
-                ))
+                Ok(Some(self.project_task_statuses(&workspace_id)?))
             }
             Command::Restore {
                 session_id,
@@ -391,7 +429,16 @@ impl Actor {
                 let active = turn.filter(|t| projection::active(t));
                 let mut bundle = json!({"restoreToken":token,"deliverySequence":self.sequence,"messages":history["messages"],"sdkMessages":history["sdkMessages"],"activeSnapshot":active.map(projection::active_run),"cursor":turn.map(|t|t["sequence"].clone()).unwrap_or(json!(0))});
                 if let Some(active) = self.images.as_ref().and_then(|i| i.active(&session_id)) {
-                    bundle["activeSnapshot"] = active;
+                    let running = bundle["sdkMessages"].as_array().is_some_and(|messages| {
+                        messages.iter().any(|m| {
+                            m["type"] == "assistant"
+                                && m["_desktopImageTaskRequestId"] == active["requestId"]
+                                && m["_desktopImageTaskStatus"] == "running"
+                        })
+                    });
+                    if running {
+                        bundle["activeSnapshot"] = active;
+                    }
                 }
                 if self.queueing {
                     self.queue_restore(&session_id, &turns, &mut bundle)?;

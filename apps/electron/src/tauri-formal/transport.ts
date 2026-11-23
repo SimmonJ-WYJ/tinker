@@ -203,13 +203,19 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
       return projectErrors(channel === 'agent:get-messages' ? bundle.messages : bundle.sdkMessages) as T
     }
     if (queue && ['agent:send-message','agent:queue-message','agent:stop'].includes(channel)) return queue.invoke(channel,args) as Promise<T>
-    // 显式重试仅提交旧任务身份；即使宿主拒绝过期任务，也必须保留当前图像上下文。
-    if (bootstrap.nativeImages && channel === 'agent:send-message' && args[0] && typeof args[0] === 'object'
-      && !(bootstrap.nativeTaskLifecycle && 'retryOfRequestId' in args[0])) {
-      return imageContexts.send<T>(args[0] as Record<string, unknown>, input =>
-        command('invoke', { channel, args: [input] }),
-      () => new NativeQueueError('imageEditOnly', translate('imageEditOnly')),
-      () => publish('agent:workspace-files-changed', undefined))
+    if (bootstrap.nativeImages && channel === 'agent:send-message' && args[0] && typeof args[0] === 'object') {
+      const input = args[0] as Record<string, unknown>
+      const send = (payload: Record<string, unknown>) =>
+        command<{ value: T; imageId?: string }>('invoke', { channel, args: [payload] })
+      const changed = () => publish('agent:workspace-files-changed', undefined)
+      if (bootstrap.nativeTaskLifecycle && 'retryOfRequestId' in input) {
+        // 宿主从旧任务解析渠道与原图，输入区当前引用不参与重试。
+        if (bootstrap.nativeImageTaskLifecycle && typeof input.sessionId === 'string') {
+          return imageContexts.retry(input.sessionId, () => send(input), changed)
+        }
+        return (await send(input)).value
+      }
+      return imageContexts.send(input, send, () => new NativeQueueError('imageEditOnly', translate('imageEditOnly')), changed)
     }
     const execute = async (): Promise<T> => {
       if (signal?.aborted) throw new NativeQueueError('probeCancelled', translate('probeCancelled'))

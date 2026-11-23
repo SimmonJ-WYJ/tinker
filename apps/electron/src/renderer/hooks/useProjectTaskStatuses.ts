@@ -1,9 +1,9 @@
 import * as React from 'react'
-import type { TaskStatus } from '../../tauri-formal/project-tasks'
+import type { ProjectTaskStatus } from '../../tauri-formal/project-tasks'
 
 interface ProjectTasks {
   workspaceId?: string
-  statuses?: Map<string, TaskStatus>
+  statuses?: Map<string, ProjectTaskStatus>
   unavailable?: boolean
 }
 
@@ -31,7 +31,7 @@ export function useProjectTaskStatuses(workspaceId: string | null | undefined, s
           try {
             const rows = await read(workspaceId)
             if (!mounted || dirty) continue
-            setSnapshot({ workspaceId, statuses: new Map(rows.map(row => [row.sessionId, row.status])) })
+            setSnapshot({ workspaceId, statuses: new Map(rows.map(row => [row.sessionId, row])) })
           } catch {
             if (mounted && !dirty) setSnapshot({ workspaceId, unavailable: true })
           }

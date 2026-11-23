@@ -1,5 +1,5 @@
 /** 工具 run 的纯恢复归并；身份使用显式 run 元数据与完整 ID，绝不按 UUID 前缀删除。 */
-import type { PermissionRequest, SDKMessage, ToolRunSnapshotEvent } from '@asci/shared'
+import type { PermissionRequest, SDKAssistantMessage, SDKMessage, ToolRunSnapshotEvent } from '@asci/shared'
 import type { ToolActivity } from '../atoms/agent-atoms.ts'
 export interface ToolSnapshotState {
   messages: SDKMessage[]
@@ -67,23 +67,43 @@ export function mergeToolRunMessages(persisted: SDKMessage[], live: SDKMessage[]
 }
 
 
-/** 用宿主的文字任务身份合并乐观、持久与实时副本；保留原位置和不同任务的相同正文。 */
-export function reconcileTextTaskMessages(messages: SDKMessage[]): SDKMessage[] {
+/** 同一图片调用可以从运行中变为终态；重复快照不能让终态重新运行。 */
+export function isImageTaskTerminalUpdate(previous: SDKMessage, next: SDKMessage): boolean {
+  if (previous.type !== 'assistant' || next.type !== 'assistant') return false
+  const old = previous as SDKAssistantMessage
+  const incoming = next as SDKAssistantMessage
+  return !!old._desktopImageTaskRequestId && old._desktopImageTaskRequestId === incoming._desktopImageTaskRequestId &&
+    !!old.uuid && old.uuid === incoming.uuid && old._desktopImageTaskStatus === 'running' &&
+    Boolean(incoming._desktopImageTaskStatus && incoming._desktopImageTaskStatus !== 'running')
+}
+
+function taskIdentity(message: SDKMessage, allowOptimistic: boolean): string | undefined {
+  const record = message as Record<string, unknown>
+  const id = record._desktopImageTaskRequestId ?? record._desktopTextTaskRequestId
+  if (typeof id === 'string') return message.type + ':' + id
+  if (message.type !== 'user' || typeof record._agentRequestId !== 'string') return
+  if (!record.uuid && allowOptimistic) return 'user:' + record._agentRequestId
+  if (typeof record.uuid === 'string' && blocks(message).some(block => block.type === 'tool_result')) {
+    return JSON.stringify(['result', record._agentRequestId, record.uuid])
+  }
+}
+
+/** 合并乐观、持久与实时副本，保留同文不同请求和已经确认的终态。 */
+export function reconcileNativeTaskMessages(messages: SDKMessage[]): SDKMessage[] {
   const authoritative = new Map<string, SDKMessage>()
-  const key = (message: SDKMessage, id: string) => message.type + ':' + id
   for (const message of messages) {
-    const id = (message as Record<string, unknown>)._desktopTextTaskRequestId
-    if (typeof id === 'string' && (message.type === 'user' || message.type === 'assistant')) {
-      authoritative.set(key(message, id), message)
+    const id = taskIdentity(message, false)
+    if (!id) continue
+    const previous = authoritative.get(id)
+    if (!previous || !(previous as Record<string, unknown>)._desktopImageTaskStatus || isImageTaskTerminalUpdate(previous, message)) {
+      authoritative.set(id, message)
     }
   }
   if (!authoritative.size) return messages
   const used = new Set<string>()
   const result: SDKMessage[] = []
   for (const message of messages) {
-    const record = message as Record<string, unknown>
-    const id = record._desktopTextTaskRequestId ?? (message.type === 'user' && !record.uuid ? record._agentRequestId : undefined)
-    const identity = typeof id === 'string' ? key(message, id) : undefined
+    const identity = taskIdentity(message, true)
     const confirmed = identity && authoritative.get(identity)
     if (identity && confirmed) {
       if (!used.has(identity)) result.push(confirmed)

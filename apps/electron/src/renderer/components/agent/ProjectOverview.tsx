@@ -39,11 +39,11 @@ export function ProjectOverview(): React.ReactElement {
       <label className="project-overview__search"><Search size={16} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('projectTree.search')} aria-label={t('projectTree.search')} /></label>
       {tasks.unavailable && <p role="status" className="text-sm text-muted-foreground">{t('projectTask.unavailable')}</p>}
       {items.length === 0 ? <p className="project-overview__empty">{t(query ? 'projectTree.noResults' : 'projectTree.empty')}</p> : <div className="project-overview__sessions">{items.map(item => {
-        const status = tasks.statuses?.get(item.id)
+        const task = tasks.statuses?.get(item.id)
         return <button key={item.id} type="button" onClick={() => { openSession('agent', item.id, item.title, id ?? undefined); setView('conversations') }}>
           <MessageSquare size={17} strokeWidth={1.5} /><span>{item.title}</span>
-          {status && <span data-task-status={status} title={t('projectTask.latest')} className="ml-auto text-xs text-muted-foreground">
-            <span className="sr-only">{t('projectTask.latest')} </span>{t(`projectTask.${status}`)}
+          {task && <span data-task-kind={task.kind} data-task-status={task.status} title={t('projectTask.latest')} className="ml-auto text-xs text-muted-foreground">
+            <span className="sr-only">{t('projectTask.latest')} </span>{t(`projectTask.kind.${task.kind}`)} · {t(`projectTask.${task.status}`)}
           </span>}
         </button>
       })}</div>}

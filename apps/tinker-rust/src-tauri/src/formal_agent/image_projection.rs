@@ -5,9 +5,16 @@ use serde_json::{json, Value};
 pub(super) fn attachment(sid: &str, asset: &ImageAsset) -> Value {
     json!({"localPath":format!("{sid}/{}",asset.filename),"filename":asset.filename,"mediaType":"image/png"})
 }
+fn image_kind(turn: &ImageTurn) -> &'static str {
+    if turn.base_image_id.is_some() {
+        "edit"
+    } else {
+        "generate"
+    }
+}
 pub(super) fn user_message(sid: &str, turn: &ImageTurn) -> Value {
     json!({"type":"user","uuid":format!("native-image-{sid}-{}-user", turn.request_id),
-        "parent_tool_use_id":null,"_createdAt":turn.created_at,"_agentRequestId":turn.request_id,
+        "parent_tool_use_id":null,"_createdAt":turn.created_at,"_agentRequestId":turn.request_id,"_desktopImageTaskRequestId":turn.request_id,"_desktopImageTaskKind":image_kind(turn),
         "message":{"content":[{"type":"text","text":turn.prompt}]}})
 }
 pub(super) fn project(
@@ -40,6 +47,11 @@ pub(super) fn project(
         json!({"id":user["uuid"],"role":"user","createdAt":turn.created_at,"content":turn.prompt}),
     ];
     let mut sdk = vec![user];
+    let mut input = json!({"prompt":turn.prompt});
+    if let Some(r) = &turn.base_image_id {
+        input["baseImageId"] = json!(r);
+    }
+    sdk.push(json!({"type":"assistant","uuid":assistant_id,"_desktopImageTaskRequestId":turn.request_id,"_desktopImageTaskKind":image_kind(turn),"_desktopImageTaskStatus":turn.task_status(),"parent_tool_use_id":null,"_createdAt":turn.created_at,"_agentRequestId":turn.request_id,"message":{"model":"local-image","content":[{"type":"tool_use","id":tool_id,"name":"mcp__asci-image__generate_image","input":input}]}}));
     if turn.status == ImageStatus::Pending {
         return (plain, sdk);
     }
@@ -47,12 +59,7 @@ pub(super) fn project(
    Some(a)=>(json!({"imageId":a.id,"baseImageId":turn.base_image_id,"model":a.model,"channelName":a.channel_id,"referenceCount":a.reference_ids.len(),"width":a.width,"height":a.height,"generatedImage":attachment(sid,a)}).to_string(),false),
    None=>(turn.error.as_deref().unwrap_or("imageInterrupted").into(),true),
  };
-    let mut input = json!({"prompt":turn.prompt});
-    if let Some(r) = &turn.base_image_id {
-        input["baseImageId"] = json!(r);
-    }
-    sdk.push(json!({"type":"assistant","uuid":assistant_id,"parent_tool_use_id":null,"_createdAt":turn.created_at,"_agentRequestId":turn.request_id,"message":{"model":"local-image","content":[{"type":"tool_use","id":tool_id,"name":"mcp__asci-image__generate_image","input":input}]}}));
-    sdk.push(json!({"type":"user","uuid":format!("{id}-result"),"parent_tool_use_id":null,"_createdAt":turn.created_at,"message":{"content":[{"type":"tool_result","tool_use_id":tool_id,"is_error":error,"content":result}]}}));
+    sdk.push(json!({"type":"user","uuid":format!("{id}-result"),"_agentRequestId":turn.request_id,"parent_tool_use_id":null,"_createdAt":turn.created_at,"message":{"content":[{"type":"tool_result","tool_use_id":tool_id,"is_error":error,"content":result}]}}));
     plain.push(json!({"id":assistant_id,"role":"assistant","model":"local-image","createdAt":turn.created_at,"content":""}));
     (plain, sdk)
 }

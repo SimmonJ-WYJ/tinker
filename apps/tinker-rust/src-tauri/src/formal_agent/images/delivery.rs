@@ -17,27 +17,27 @@ impl ImageWorkflow {
                 .join()
                 .unwrap_or(Err(DesktopError("hostUnavailable")));
             let identity = json!({"sessionId":sid,"requestId":job.id,"startedAt":job.started});
-            let stopped = turn
-                .as_ref()
-                .is_ok_and(|t| t.status == ImageStatus::Interrupted)
-                && job.cancel.load(Ordering::Acquire);
+            let stopped = turn.as_ref().is_ok_and(ImageTurn::user_stopped);
             let mut events = VecDeque::new();
             let result = turn.and_then(|turn| {
                 actor.core("sessions.update", json!({"sessionId":sid}))?;
                 let (turns, imports) = self.store.snapshot(&sid)?;
                 let (_, sdk) = project(&sid, &turn, &turns, &imports);
-                for message in sdk {
+                for mut message in sdk {
+                    if message["type"] == "assistant" {
+                        message["_desktopTaskRetryable"] = json!(matches!(
+                            turn.task_status(),
+                            crate::session_lifecycle::RunStatus::Failed
+                                | crate::session_lifecycle::RunStatus::Interrupted
+                        ));
+                    }
                     let event = projection::stream(
                         &identity,
                         json!({"kind":"sdk_message","message":message}),
                     );
                     events.push_back(("agent:stream:event", event));
                 }
-                if stopped {
-                    Ok(json!({"value":null}))
-                } else {
-                    terminal_result(&turn)
-                }
+                terminal_result(&turn)
             });
             if result.is_err() {
                 let mut error = identity.clone();

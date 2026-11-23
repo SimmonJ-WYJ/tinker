@@ -1,3 +1,4 @@
+import { isImageTaskTerminalUpdate } from './tool-run-snapshot'
 /**
  * useGlobalAgentListeners — 全局 Agent IPC 监听器
  *
@@ -139,8 +140,12 @@ export function useGlobalAgentListeners(): void {
 
               // UUID 去重：队列消息已被乐观注入，SDK 再次推送时跳过
               const incomingUuid = msgRecord.uuid as string | undefined
-              if (incomingUuid && current.some((m) => (m as Record<string, unknown>).uuid === incomingUuid)) {
-                return prev
+              const index = incomingUuid ? current.findIndex(m => (m as Record<string, unknown>).uuid === incomingUuid) : -1
+              if (index >= 0) {
+                if (!window.__TAURI_FORMAL__?.nativeImageTaskLifecycle || !isImageTaskTerminalUpdate(current[index]!, payload.message)) return prev
+                const updated = [...current]
+                updated[index] = payload.message
+                return map.set(sessionId, updated)
               }
 
               map.set(sessionId, [...current, payload.message])

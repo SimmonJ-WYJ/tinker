@@ -54,7 +54,7 @@ impl Actor {
             }
             arity(&args, 1, 1)?;
             let retry = crate::desktop_runtime::protocol::decode(args[0].clone())?;
-            return self.send(self.retry_input(retry)?, reply);
+            return self.retry_task(retry, reply);
         }
         if self.needs_credential_work(c, mutation.is_some()) {
             return self.start_credential_work(c, args, mutation, reply);
@@ -360,25 +360,53 @@ impl Actor {
         self.platform
             .require_workspace(crate::formal_platform::workspace::WorkspaceKey::Slug(slug))
     }
-    fn retry_input(&self, retry: crate::desktop_runtime::TextRetry) -> Result<Value> {
-        let (send, source_started) = self.runtime.resolve_text_retry(retry)?;
-        if let (Some(images), Some(started)) = (&self.images, source_started) {
-            if self.image_busy(&send.session_id)
-                || images
+    fn retry_task(
+        &mut self,
+        retry: crate::desktop_runtime::TextRetry,
+        reply: &Reply,
+    ) -> Result<Option<Value>> {
+        if !self.gate.allows_send() {
+            return Err(DesktopError("closing"));
+        }
+        let sid = &retry.session_id;
+        self.session(sid)?;
+        let images = self.images.as_ref().ok_or(DesktopError("unsupported"))?;
+        if images.contains_request(sid, &retry.retry_of_request_id)? {
+            let source =
+                images
                     .store
-                    .history(&send.session_id)?
-                    .iter()
-                    .any(|image| image.created_at >= started)
+                    .retry_source(sid, &retry.retry_of_request_id, &retry.request_id)?;
+            if !images.contains_request(sid, &retry.request_id)?
+                && self.latest_retryable_task(sid)?.as_deref() != Some(&source.request_id)
             {
                 return Err(DesktopError("requestConflict"));
             }
+            let mut input = json!({"userMessage":source.prompt,"nativeImageAction": if source.base_image_id.is_some() {"edit"} else {"generate"}});
+            if let Some(base) = source.base_image_id {
+                input["imageEditReferenceId"] = json!(base);
+            }
+            return self.send_image(
+                &input,
+                sid,
+                &retry.request_id,
+                retry.started_at,
+                Some(&retry.retry_of_request_id),
+                reply,
+            );
+        }
+        let source = retry.retry_of_request_id.clone();
+        let (send, is_new) = self.runtime.resolve_text_retry(retry)?;
+        if is_new.is_some()
+            && self.latest_retryable_task(&send.session_id)?.as_deref() != Some(&source)
+        {
+            return Err(DesktopError("requestConflict"));
         }
         let mut input = json!({"sessionId":send.session_id, "requestId":send.request_id, "startedAt":send.started_at,
             "userMessage":send.user_message, "channelId":send.profile_id, "modelId":send.model_id});
         if let Some(effort) = send.effort {
             input["effort"] = json!(effort);
         }
-        Ok(input)
+        self.send(input, reply)
     }
     fn stop(&mut self, sid: &str, expected: Option<&str>) -> Result<()> {
         self.session(sid)?;
@@ -386,7 +414,7 @@ impl Actor {
             crate::desktop_runtime::protocol::id(id)?;
         }
         self.cancel_credential_send(sid, expected);
-        self.interrupt_session_image(sid, expected);
+        self.stop_session_image(sid, expected)?;
         if let Some(e) = self
             .entries
             .get(sid)
@@ -471,18 +499,10 @@ impl Actor {
                 }
             });
         if input.get("nativeImageAction").is_some() {
-            return self.send_image(&input, sid, &request, started, reply);
+            return self.send_image(&input, sid, &request, started, None, reply);
         }
         if input.get("imageEditReferenceId").is_some() {
             return Err(DesktopError("unsupported"));
-        }
-        if self.image_busy(sid) {
-            return Err(DesktopError("runBusy"));
-        }
-        if let Some(images) = &self.images {
-            if images.contains_request(sid, &request)? {
-                return Err(DesktopError("requestConflict"));
-            }
         }
         let effort = input
             .get("effort")
@@ -492,7 +512,30 @@ impl Actor {
         if self.queueing {
             return self.begin_queue(json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort}));
         }
-        let superseded = self.runtime.superseded_request(sid, &request)?;
+        let mut superseded = self.runtime.superseded_request(sid, &request)?;
+        if let Some(images) = &self.images {
+            if images.contains_request(sid, &request)? {
+                return Err(DesktopError("requestConflict"));
+            }
+            let text = self.runtime.latest_text_task(sid)?;
+            let already_bound =
+                superseded || text.as_ref().is_some_and(|t| t.request_id == request);
+            if !already_bound && self.image_busy(sid) {
+                return Err(DesktopError("runBusy"));
+            }
+            if !already_bound && images.has_delivery(sid) {
+                return Err(DesktopError("hostBusy"));
+            }
+            if already_bound {
+                if let Some(image) = images.store.latest_task(sid)? {
+                    superseded |= self
+                        .runtime
+                        .image_follows_text(sid, text.as_ref(), &image)?
+                        || self.image_busy(sid)
+                        || images.has_delivery(sid);
+                }
+            }
+        }
         let existing = self.entries.get(sid);
         if !superseded
             && existing

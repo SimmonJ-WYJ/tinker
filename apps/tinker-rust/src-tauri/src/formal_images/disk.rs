@@ -174,6 +174,25 @@ pub(super) fn png(dir: &Path, filename: &str, sha256: &str) -> Result<Vec<u8>> {
 }
 pub(super) fn put(dir: &Path, name: &str, bytes: &[u8]) -> Result<()> {
     directory(dir, true)?;
-    write_new(&dir.join(name), bytes)?;
+    use std::io::Write;
+    let path = dir.join(name);
+    let mut file = options().write(true).create_new(true).open(&path)?;
+    if let Err(error) = file
+        .write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(DesktopError::from)
+        .and_then(|()| sync_dir(dir))
+    {
+        // create_new 已证明本次创建了文件；保留目录中预先存在的任何版本。
+        fs::remove_file(path)?;
+        sync_dir(dir)?;
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub(super) fn discard_uncommitted(dir: &Path, asset: &ImageAsset) -> Result<()> {
+    png(dir, &asset.filename, &asset.content_sha256)?;
+    fs::remove_file(dir.join(&asset.filename))?;
     sync_dir(dir)
 }
