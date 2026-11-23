@@ -91,6 +91,9 @@ pub(crate) struct StagedExport {
     active: bool,
 }
 pub(super) fn stage_export(path: &Path, bytes: &[u8]) -> Result<StagedExport> {
+    if bytes.len() > crate::formal_images::MAX_PNG {
+        return Err(DesktopError("imageTooLarge"));
+    }
     let (parent, leaf) = split(path)?;
     if !path
         .extension()
@@ -178,6 +181,14 @@ mod tests {
         symlink(&file, &alias).unwrap();
         assert!(read_selected(&alias).is_err());
         let target = root.join("export.png");
+        assert_eq!(
+            stage_export(&target, &vec![0; crate::formal_images::MAX_PNG + 1])
+                .err()
+                .unwrap()
+                .0,
+            "imageTooLarge"
+        );
+        assert!(!target.exists());
         let staged = stage_export(&target, b"first").unwrap();
         assert!(!target.exists());
         fs::write(&target, b"other").unwrap();

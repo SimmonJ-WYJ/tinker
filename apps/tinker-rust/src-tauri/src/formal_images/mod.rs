@@ -7,10 +7,12 @@ mod provider;
 mod routes;
 pub(crate) use routes::{ImageAction, ImageProtocol, ImageRoute};
 mod tasks;
+mod thumbnail;
 use crate::session_lifecycle::RunStatus;
 pub use imports::ImportedImage;
 use imports::SessionImages;
 pub(crate) use tasks::{ImageAdmission, ImageTaskSummary};
+pub(crate) use thumbnail::MAX_THUMBNAIL_BYTES;
 #[cfg(test)]
 mod tests;
 
@@ -84,10 +86,20 @@ struct Active {
     requests: HashSet<(String, String)>,
     summaries: HashMap<String, Option<ImageTaskSummary>>,
 }
+impl Active {
+    fn reserved_bytes(&self, session: &str) -> usize {
+        if self.requests.iter().any(|(s, _)| s == session) {
+            MAX_PNG
+        } else {
+            0
+        }
+    }
+}
 struct Store {
     dir: PathBuf,
     _lock: File,
     active: Mutex<Active>,
+    thumbnail_worker: Mutex<()>,
 }
 #[derive(Clone)]
 pub struct ImageStore(Arc<Store>);
@@ -98,6 +110,7 @@ impl ImageStore {
             dir,
             _lock: lock,
             active: Mutex::default(),
+            thumbnail_worker: Mutex::default(),
         })))
     }
     fn guard(&self) -> Result<MutexGuard<'_, Active>> {
@@ -143,6 +156,8 @@ impl ImageStore {
             .find(|(_, name, _, _)| *name == filename)
             .ok_or(DesktopError("imageNotFound"))?;
         Ok(ImageFile {
+            store: self.clone(),
+            session: session.into(),
             dir,
             filename: name.into(),
             sha256: hash.into(),
@@ -201,11 +216,16 @@ impl ImageStore {
 }
 /// 由当前会话索引解析的不可变版本，调用方不能提供本机路径。
 pub(crate) struct ImageFile {
+    store: ImageStore,
+    session: String,
     dir: PathBuf,
     filename: String,
     sha256: String,
 }
 impl ImageFile {
+    pub(crate) fn sha256(&self) -> &str {
+        &self.sha256
+    }
     pub(crate) fn size(&self) -> Result<u64> {
         use crate::formal_platform::store::{directory, regular};
         directory(&self.dir, true)?;

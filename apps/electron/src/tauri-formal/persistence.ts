@@ -8,6 +8,7 @@ import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
 
 export interface FormalLifecycleMarker {
+  imageAssets?: import('./image-assets').NativeImageAssets
   nativeImageTaskLifecycle?: boolean
   nativeTaskLifecycle?: {
     retry(input: { sessionId: string; requestId: string; startedAt: number; retryOfRequestId: string }): Promise<void>

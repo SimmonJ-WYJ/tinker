@@ -32,6 +32,8 @@ pub mod formal_platform;
 pub mod formal_agent;
 pub mod formal_host;
 pub mod formal_mock;
+#[cfg(any(feature = "formal-native-qa", test))]
+mod qa_large_image;
 
 pub mod formal_commands;
 pub mod formal_menu;

@@ -181,6 +181,7 @@ impl Actor {
             }
             self.gate.expire();
             self.poll_images();
+            self.poll_thumbnail();
             self.poll_credential_work();
             self.poll();
             self.poll_search();
@@ -314,6 +315,10 @@ impl Actor {
         }
         match command {
             Command::Bootstrap {} => {
+                if let Some(images) = &mut self.images {
+                    images.originals.clear();
+                    images.thumbnails.cancel("staleGeneration");
+                }
                 self.cancel_search("staleGeneration");
                 self.cancel_credential_work();
                 self.cancel_probe();
@@ -332,7 +337,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.synthetic_projects(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.synthetic_projects(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeImageAssetReads":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.synthetic_projects(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.synthetic_projects(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {

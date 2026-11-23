@@ -24,6 +24,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  nativeImageAssetReads?: boolean
   nativeImageTaskLifecycle?: boolean
   nativeTaskLifecycle?: boolean
   nativeProjectBinding?: boolean

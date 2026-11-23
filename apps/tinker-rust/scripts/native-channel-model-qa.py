@@ -73,18 +73,16 @@ def input_value(w, selector, value):
         i.dispatchEvent(new Event('input',{{bubbles:true}}));return true;""","enter visible channel field")
 
 
-def open_menu(w, selector):
-    w.wait(f"""const b=document.querySelector({json.dumps(selector)});if(!b||b.disabled)return false;
-        b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{{key:'ArrowDown',bubbles:true}}));return true;""",
-        "open native renderer selector")
-
-
 def add_provider(w,name,base,slot):
     choose(w,'[data-spotlight-target=add-channel]',"add provider")
-    open_menu(w,'[role=dialog] button[role=combobox]')
-    w.wait("""const o=[...document.querySelectorAll('[role=option]')].find(el=>el.textContent.includes('Custom relay · OpenAI'));
-        if(!o)return false;o.focus();o.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return true;""",
-        "choose OpenAI-compatible relay")
+    w.wait("""const label='Custom relay · OpenAI';
+        const b=document.querySelector('[role=dialog] button[role=combobox]');
+        if(!b||b.disabled)return false;
+        if(b.textContent.includes(label) && b.getAttribute('aria-expanded')!=='true')return true;
+        const o=[...document.querySelectorAll('[role=option]')].find(el=>el.textContent.includes(label));
+        if(o){o.focus();o.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));}
+        else if(b.getAttribute('aria-expanded')!=='true'){b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));}
+        return false;""","select OpenAI-compatible relay and wait for the selected value")
     input_value(w,'input[placeholder="e.g. My Anthropic"]',name)
     input_value(w,'input[placeholder="e.g. https://api.example.com"]',base)
     assert w.command("type-owned-key",slot=slot) is True

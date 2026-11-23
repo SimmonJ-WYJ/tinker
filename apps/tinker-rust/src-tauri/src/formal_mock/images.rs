@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 
-pub(super) const MAX_BODY: usize = 704 * 1024;
+pub(super) const MAX_BODY: usize = crate::formal_images::MAX_PNG.div_ceil(3) * 4 + 16 * 1024;
 const WIDTH: usize = 192;
 const HEIGHT: usize = 128;
 
@@ -31,6 +31,13 @@ pub(super) fn operation(request_line: &str) -> Option<Operation> {
 }
 
 fn render(op: Operation, reference: Option<&Value>, prompt: &str) -> Option<Vec<u8>> {
+    #[cfg(any(feature = "formal-native-qa", test))]
+    if matches!(op, Operation::Generate)
+        && reference.is_none()
+        && prompt.contains(crate::qa_large_image::MARKER)
+    {
+        return Some(crate::qa_large_image::png(false).to_vec());
+    }
     let color = Sha256::digest(prompt.as_bytes());
     match op {
         Operation::Generate if reference.is_none() => {
@@ -95,6 +102,9 @@ pub(super) fn respond(
     records: &Mutex<Vec<RequestMetadata>>,
     stop: &AtomicBool,
 ) -> io::Result<()> {
+    // 已接受的 socket 在 macOS 可继承 listener 的非阻塞状态；大响应必须完整写回或超时。
+    stream.set_nonblocking(false)?;
+    stream.set_write_timeout(Some(Duration::from_secs(2)))?;
     let invalid = b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     let Some(prompt) = body["prompt"]
         .as_str()
@@ -175,6 +185,40 @@ pub(super) fn respond(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepted_nonblocking_socket_delivers_the_whole_large_image() {
+        use std::io::Read;
+        use std::net::TcpListener;
+        let expected = crate::qa_large_image::png(false);
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut accepted, _) = listener.accept().unwrap();
+        accepted.set_nonblocking(true).unwrap();
+        let worker = std::thread::spawn(move || {
+            let body = json!({"prompt":crate::qa_large_image::MARKER,"model":"local-image","n":1,"response_format":"b64_json"});
+            respond(
+                &mut accepted,
+                Operation::Generate,
+                &body,
+                &Mutex::default(),
+                &AtomicBool::new(false),
+            )
+        });
+        // 在内核发送缓冲区填满后才继续读取，覆盖小 PNG 不会触发的短写。
+        std::thread::sleep(Duration::from_millis(250));
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).unwrap();
+        worker.join().unwrap().unwrap();
+        let body = response.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
+        let parsed: Value = serde_json::from_slice(&response[body..]).unwrap();
+        assert_eq!(
+            STANDARD
+                .decode(parsed["data"][0]["b64_json"].as_str().unwrap())
+                .unwrap(),
+            expected
+        );
+    }
 
     #[test]
     fn edits_imported_png_dimensions_and_preserves_alpha() {

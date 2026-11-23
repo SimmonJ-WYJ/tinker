@@ -6,7 +6,7 @@ import type { SelectedImageVersion } from '@/atoms/image-edit-atoms'
 export function reportImageFileError(error: unknown): void {
   const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
   const keys = [
-    'imageFileExists', 'invalidImageFile', 'imageTooLarge', 'unsupportedImageFormat',
+    'imageFileExists', 'invalidImageFile', 'imageTooLarge', 'imageStorageLimit', 'unsupportedImageFormat',
     'imageDialogBusy', 'imageFileUnavailable', 'imageNotFound',
   ] as const
   const known = keys.find(key => key === code)

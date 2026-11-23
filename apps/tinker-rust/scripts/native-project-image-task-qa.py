@@ -161,11 +161,7 @@ def compare_painted(w, parent, child):
     w.wait(f"""const img=[...document.querySelectorAll({json.dumps(CARD)})].find(i=>i.alt==={json.dumps(child)});
         const b=[...(img?.closest('[data-generated-image]')?.querySelectorAll('button')??[])].find(b=>/Compare versions/i.test(b.innerText));
         if(!b||b.disabled)return false; b.click();return true;""","open comparison of exact source and retried result")
-    w.wait(f"""const modal=document.querySelector('[role=dialog][data-state=open]');
-        const compared=[...(modal?.querySelectorAll('figure img')??[])];
-        const cards=[...document.querySelectorAll({json.dumps(CARD)})];
-        return compared.length===2 && {json.dumps([parent,child])}.every((f,i)=>compared[i].naturalWidth===192&&
-            compared[i].src===cards.find(n=>n.alt===f)?.src);""", "comparison displays both saved files")
+    w.compared_small_images(parent,child)
     proof=painted(w,["Compare versions","Source version","This version"])
     # Compare a point inside each decoded source with the composited screenshot.
     samples=w.js("""return [...document.querySelectorAll('[role=dialog][data-state=open] figure img')].map(i=>{

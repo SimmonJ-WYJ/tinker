@@ -94,7 +94,7 @@ impl Files<'_> {
             .charge(bytes.len())
             .map_err(|_| "attachmentLimit")?;
         let bytes = if media == "image/png" {
-            crate::picked_image::normalize_picked(&bytes, &extension)
+            crate::picked_image::normalize_legacy_preview(&bytes, &extension)
                 .map_err(|_| "invalidAttachment")?
         } else {
             if std::str::from_utf8(&bytes).is_err()

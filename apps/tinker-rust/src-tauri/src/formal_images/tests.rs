@@ -943,3 +943,196 @@ fn downgrade_append_is_newer_than_any_legacy_receipt_before_routed_admission() {
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn thumbnail_cache_is_scoped_repairable_and_never_substitutes_for_original() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let mut original = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut original, 1024, 512);
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut pixels = vec![0; 1024 * 512 * 3];
+        let mut state = 929u32;
+        for p in &mut pixels {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            *p = state as u8;
+        }
+        enc.write_header()
+            .unwrap()
+            .write_image_data(&pixels)
+            .unwrap();
+    }
+    assert!(original.len() > 512 * 1024);
+    let reference = store.import_png("sid", "source.png", &original, 1).unwrap();
+    let file = store.attachment("sid", &reference.filename).unwrap();
+    assert_eq!(file.sha256(), digest(&original));
+    let thumbnail = file.read_thumbnail().unwrap();
+    assert_eq!(dimensions(&thumbnail).unwrap(), (256, 128));
+    assert_ne!(thumbnail, original);
+    let cache = file.dir.join(format!("{}.thumbnail-v1", file.filename));
+    assert!(cache.exists());
+    std::fs::write(&cache, b"truncated").unwrap();
+    assert_eq!(file.read_thumbnail().unwrap(), thumbnail);
+    assert!(std::fs::metadata(&cache).unwrap().len() > thumbnail.len() as u64);
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&cache)
+        .unwrap()
+        .set_len((MAX_THUMBNAIL_BYTES + 40) as u64)
+        .unwrap();
+    assert_eq!(file.read_thumbnail().unwrap(), thumbnail);
+    assert_eq!(file.read_bytes().unwrap(), original);
+    std::fs::remove_file(&cache).unwrap();
+    std::os::unix::fs::symlink(file.dir.join(&file.filename), &cache).unwrap();
+    assert_eq!(
+        file.read_thumbnail().unwrap_err(),
+        DesktopError("unsafePath")
+    );
+    assert!(cache.symlink_metadata().unwrap().is_symlink());
+    std::fs::remove_file(&cache).unwrap();
+    assert!(store.attachment("other", &reference.filename).is_err());
+    assert!(store
+        .attachment("sid", cache.file_name().unwrap().to_str().unwrap())
+        .is_err());
+    drop(file);
+    drop(store);
+    let reopened = ImageStore::open(&root).unwrap();
+    let file = reopened.attachment("sid", &reference.filename).unwrap();
+    assert_eq!(file.read_thumbnail().unwrap(), thumbnail);
+    let original_path = file.dir.join(&file.filename);
+    let mut tampered = original.clone();
+    tampered[50] ^= 1;
+    std::fs::write(&original_path, tampered).unwrap();
+    assert!(file.read_thumbnail().is_err());
+    assert!(file.read_bytes().is_err());
+    std::fs::remove_file(original_path).unwrap();
+    assert!(file.read_thumbnail().is_err());
+    drop(file);
+    drop(reopened);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn session_quota_rejects_new_requests_and_imports_but_keeps_existing_pixels_readable() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let original = pixel(3);
+    let imported = store.import_png("sid", "existing", &original, 1).unwrap();
+    let dir = store.session("sid").unwrap();
+    // Sparse, private PNG-sized files simulate interrupted writes without allocating 128 MiB.
+    for n in 0..16 {
+        let path = dir.join(format!("img-{n:032x}.png"));
+        crate::formal_platform::store::options()
+            .create_new(true)
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_len(8 * 1024 * 1024)
+            .unwrap();
+    }
+    assert!(matches!(
+        store.admit("sid", "req", "create", None, 2, None, None),
+        Err(DesktopError("imageStorageLimit"))
+    ));
+    assert!(matches!(
+        store.import_png("sid", "new", &pixel(12), 2),
+        Err(DesktopError("imageStorageLimit"))
+    ));
+    assert!(store.history("sid").unwrap().is_empty());
+    assert_eq!(store.imports("sid").unwrap().len(), 1);
+    let file = store.attachment("sid", &imported.filename).unwrap();
+    assert_eq!(file.read_bytes().unwrap(), original);
+    assert_eq!(dimensions(&file.read_thumbnail().unwrap()).unwrap(), (1, 1));
+    assert!(store.import_png("other", "new", &pixel(12), 2).is_ok());
+    drop(file);
+    drop(store);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn session_quota_reserves_active_generation_before_during_and_after_import() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let original = pixel(249);
+    let imported = store.import_png("sid", "existing", &original, 1).unwrap();
+    let dir = store.session("sid").unwrap();
+    // Leave exactly one full-size provider reservation, counting an abandoned stage.
+    for i in 0..15 {
+        let path = dir.join(format!("img-{i:032x}.png.next"));
+        let len = MAX_PNG - if i == 0 { original.len() } else { 0 };
+        crate::formal_platform::store::options()
+            .create_new(true)
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_len(len as u64)
+            .unwrap();
+    }
+    let ImageAdmission::New(job) = store
+        .admit("sid", "req", "make", None, 2, None, None)
+        .unwrap()
+    else {
+        panic!()
+    };
+    assert!(matches!(
+        store.import_png("sid", "new", &original, 3),
+        Err(DesktopError("imageStorageLimit"))
+    ));
+    assert_eq!(
+        store
+            .import_png("sid", "existing", &original, 3)
+            .unwrap()
+            .id,
+        imported.id
+    );
+    let file = store.attachment("sid", &imported.filename).unwrap();
+    assert!(!file.read_thumbnail().unwrap().is_empty());
+    assert!(!dir.join(format!("{}.thumbnail-v1", file.filename)).exists());
+    let turn = job
+        .finish(Ok((pixel(31), 1, 1)), &AtomicBool::new(false))
+        .unwrap();
+    assert_eq!(turn.status, ImageStatus::Succeeded);
+    assert!(store.import_png("sid", "new", &original, 3).is_ok());
+    assert!(matches!(
+        store
+            .admit("sid", "req", "make", None, 2, None, None)
+            .unwrap(),
+        ImageAdmission::Replay(_)
+    ));
+    drop(file);
+    drop(store);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn import_index_write_failure_discards_only_the_uncommitted_original() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let dir = store.session("sid").unwrap();
+    let original = pixel(126);
+    let keep = store.import_png("sid", "keep", &original, 1).unwrap();
+    // Deny the index transaction *before* rename, independently of permissions/root.
+    std::fs::create_dir(dir.join("imports.json.next")).unwrap();
+    assert!(store.import_png("sid", "rejected", &pixel(111), 2).is_err());
+    assert_eq!(store.imports("sid").unwrap().len(), 1);
+    let all_png = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .filter(|n| n.to_str().unwrap().ends_with(".png"))
+        .count();
+    assert_eq!(all_png, 1);
+    assert_eq!(
+        store
+            .attachment("sid", &keep.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        original
+    );
+    drop(store);
+    std::fs::remove_dir_all(root).unwrap();
+}

@@ -22,6 +22,7 @@ mod search;
 mod search_text;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 pub(crate) mod session_import;
+mod thumbnail_reads;
 mod tool_projection;
 use crate::{
     desktop_runtime::{

@@ -75,6 +75,9 @@ fn edit_prompt<'a>(headers: &str, body: &'a [u8]) -> Option<&'a str> {
     let png = image?;
     let prompt = prompt.filter(|v| !v.trim().is_empty())?;
     // 此跨渠道验收指令必须真的携带第一个监听器的原始生成图。
+    if prompt.contains(crate::qa_large_image::MARKER) {
+        return (png == crate::qa_large_image::png(false)).then_some(prompt);
+    }
     if prompt.contains("[qa:image-retry]") {
         return fixture(1, false).is_ok_and(|v| v == png).then_some(prompt);
     }
@@ -115,10 +118,13 @@ pub(super) fn respond(
         s.write_all(b"HTTP/1.1 503 Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
         return Ok("image-edit-failed");
     }
-    let data = serde_json::to_vec(
-        &json!({"data":[{"b64_json":STANDARD.encode(fixture(provider,edit)?)}]}),
-    )
-    .map_err(|_| DesktopError("qaRequestInvalid"))?;
+    let image = if prompt.contains(crate::qa_large_image::MARKER) {
+        STANDARD.encode(crate::qa_large_image::png(edit))
+    } else {
+        STANDARD.encode(fixture(provider, edit)?)
+    };
+    let data = serde_json::to_vec(&json!({"data":[{"b64_json":image}]}))
+        .map_err(|_| DesktopError("qaRequestInvalid"))?;
     write!(s,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",data.len())?;
     s.write_all(&data)?;
     Ok(if edit {

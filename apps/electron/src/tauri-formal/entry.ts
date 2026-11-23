@@ -2,6 +2,7 @@
 import { createDesktopApi } from '../preload/api.ts'
 import { parseProjectTaskStatuses } from './project-tasks'
 import { createSessionImporter } from './session-import'
+import { createNativeImageAssets } from './image-assets'
 import { createNativeImageFiles } from './image-files'
 import { NATIVE_CHANNEL_ERROR_CODES } from '@asci/shared'
 import { selectedImageUse } from './images.ts'
@@ -18,6 +19,7 @@ const credentialErrors: Partial<Record<string, keyof typeof import('../renderer/
  imageFileExists: 'imageFileExists',
  invalidImageFile: 'invalidImageFile',
  imageTooLarge: 'imageTooLarge',
+ imageStorageLimit: 'imageStorageLimit',
  unsupportedImageFormat: 'unsupportedImageFormat',
  imageDialogBusy: 'imageDialogBusy',
  imageFileUnavailable: 'imageFileUnavailable',
@@ -41,7 +43,9 @@ try {
   window.__DESKTOP_RUNTIME_PREVIEW__ = true
   window.__TAURI_QUEUEING__ = transport.bootstrap.queueing === true
   const persistence = installPersistence(transport)
+  const imageAssets = transport.bootstrap.nativeImageAssetReads ? createNativeImageAssets(transport.invoke) : undefined
   window.__TAURI_FORMAL__ = {
+    imageAssets,
     hydrated: persistence.hydrated,
     projectTaskStatuses: transport.bootstrap.nativeTaskLifecycle && !transport.credentialedChannels ? async workspaceId => {
       const { value } = await transport.command<{ value: unknown }>('projectTaskStatuses', { workspaceId })
@@ -61,7 +65,7 @@ try {
     } : undefined,
     importSessions: transport.bootstrap.nativeSessionImport ? createSessionImporter(transport.command) : undefined,
     imageFiles: transport.bootstrap.nativeImageFiles
-      ? createNativeImageFiles(transport.command, path => window.electronAPI.readAttachment(path))
+      ? createNativeImageFiles(transport.command, path => imageAssets ? imageAssets.thumbnail(path) : window.electronAPI.readAttachment(path))
       : undefined,
   }
   seedCredentialedState(transport.bootstrap)

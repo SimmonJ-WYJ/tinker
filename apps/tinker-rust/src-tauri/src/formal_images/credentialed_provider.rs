@@ -1,5 +1,5 @@
 //! 认证图片协议；只使用宿主绑定秘密，禁止结果URL、代理、重定向与重试。
-use super::{dimensions, MAX_PNG};
+use super::{dimensions, provider::MAX_RESPONSE};
 use crate::{
     credentialed_channels::{catalog::EndpointPolicy, endpoint, vault::Secret},
     desktop_runtime::protocol::{DesktopError, Result},
@@ -14,7 +14,6 @@ use std::{
 };
 // 与Electron image-generation-tool的180_000ms总预算保持一致；连接独立限5秒。
 const IMAGE_TIMEOUT: Duration = Duration::from_secs(180);
-const MAX_RESPONSE: usize = 704 * 1024;
 pub(crate) struct CredentialedImageProvider {
     policy: EndpointPolicy,
     base: String,
@@ -76,7 +75,7 @@ impl CredentialedImageProvider {
             .build()?;
         runtime.block_on(async {
             let started = std::time::Instant::now();
-            let work = self.fetch(prepared, prompt, source);
+            let work = self.fetch(prepared, prompt, source, cancelled);
             tokio::pin!(work);
             let deadline = tokio::time::sleep(self.timeout);
             tokio::pin!(deadline);
@@ -100,6 +99,7 @@ impl CredentialedImageProvider {
         prepared: endpoint::PreparedEndpoint,
         prompt: &str,
         source: Option<(&str, Vec<u8>)>,
+        cancelled: &AtomicBool,
     ) -> Result<(Vec<u8>, u32, u32)> {
         let mut builder = reqwest::Client::builder()
             .no_proxy()
@@ -210,70 +210,33 @@ impl CredentialedImageProvider {
         }
         if self
             .key
-            .with_bytes(|key| bytes.windows(key.len()).any(|w| w == key))
+            .with_bytes(|key| super::provider::response_has_secret(&bytes, cancelled, key))?
         {
             return Err(DesktopError("invalidImageResponse"));
         }
-        let value: serde_json::Value =
-            serde_json::from_slice(&bytes).map_err(|_| DesktopError("invalidImageResponse"))?;
-        let data = value
-            .get("data")
-            .and_then(|v| v.as_array())
-            .filter(|v| v.len() == 1)
-            .ok_or(DesktopError("invalidImageResponse"))?;
-        let encoded = data[0]
-            .get("b64_json")
-            .and_then(|v| v.as_str())
-            .ok_or(DesktopError("invalidImageResponse"))?;
-        let png = STANDARD
-            .decode(encoded)
-            .map_err(|_| DesktopError("invalidImageResponse"))?;
-        let (w, h) = dimensions(&png)?;
-        let mut decoder = png::Decoder::new(png.as_slice());
-        decoder.set_limits(png::Limits {
-            bytes: 32 * 1024 * 1024,
-        });
-        decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
-        decoder.set_ignore_text_chunk(true);
-        decoder.set_ignore_iccp_chunk(true);
-        let mut reader = decoder
-            .read_info()
-            .map_err(|_| DesktopError("invalidImageResponse"))?;
-        let mut pixels = vec![0; reader.output_buffer_size()];
-        let info = reader
-            .next_frame(&mut pixels)
-            .map_err(|_| DesktopError("invalidImageResponse"))?;
-        pixels.truncate(info.buffer_size());
-        if self.key.with_bytes(|key| {
-            !key.is_empty()
-                && [png.as_slice(), pixels.as_slice()]
-                    .iter()
-                    .any(|b| b.windows(key.len()).any(|v| v == key))
-        }) {
-            return Err(DesktopError("invalidImageResponse"));
+        drop(response);
+        // 常规base64借用HTTP缓冲，只有JSON转义字符串才拥有副本；固定1个结果。
+        #[derive(serde::Deserialize)]
+        struct Envelope<'a> {
+            #[serde(borrow)]
+            data: [Item<'a>; 1],
         }
-        let mut clean = Vec::new();
-        {
-            let mut encoder = png::Encoder::new(&mut clean, w, h);
-            encoder.set_color(info.color_type);
-            encoder.set_depth(info.bit_depth);
-            let mut writer = encoder
-                .write_header()
+        #[derive(serde::Deserialize)]
+        struct Item<'a> {
+            #[serde(borrow)]
+            b64_json: std::borrow::Cow<'a, str>,
+        }
+        let png = {
+            let Envelope { data: [item] } = serde_json::from_slice::<Envelope<'_>>(&bytes)
                 .map_err(|_| DesktopError("invalidImageResponse"))?;
-            writer
-                .write_image_data(&pixels)
-                .map_err(|_| DesktopError("invalidImageResponse"))?;
-        }
-        if self
-            .key
-            .with_bytes(|key| clean.windows(key.len()).any(|w| w == key))
-        {
-            return Err(DesktopError("invalidImageResponse"));
-        }
-        if clean.len() > MAX_PNG {
-            return Err(DesktopError("imageTooLarge"));
-        }
-        Ok((clean, w, h))
+            STANDARD
+                .decode(item.b64_json.as_bytes())
+                .map_err(|_| DesktopError("invalidImageResponse"))?
+        };
+        // JSON及HTTP缓冲在展开像素前释放；PNG所有权交给原地辅助块清理。
+        drop(bytes);
+        self.key
+            .with_bytes(|key| super::provider::vendor_png(png, cancelled, key))
     }
 }
 

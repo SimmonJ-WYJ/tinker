@@ -1,6 +1,7 @@
 /** 仅将当前回合、当前会话的明确生图引用交给附件桥接，不推断 cwd 中不存在的文件。 */
 import * as React from 'react'
 import type { SDKAssistantMessage, SDKMessage } from '@asci/shared'
+import { nativeImageAssets } from '@/lib/image-asset-reads'
 import { nativeImageSave } from './native-image-files'
 import { ImageLightbox } from '@/components/ui/image-lightbox'
 import { useT } from '@/hooks/useT'
@@ -90,6 +91,7 @@ export function GeneratedImageReferenceProvider({
     openerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null)
     setFailed(false)
     setSelected({ image, request, src: null, open: true })
+    if (nativeImageAssets(image.localPath)) return
     void window.electronAPI.readAttachment(image.localPath).then((base64) => {
       if (requestRef.current !== request) return
       setSelected({ image, request, src: `data:${image.mediaType};base64,${base64}`, open: true })
@@ -116,13 +118,14 @@ export function GeneratedImageReferenceProvider({
   return (
     <GeneratedImageReferencesContext.Provider value={context}>
       {children}
-      {selected?.open && !selected.src && <p role="status" className="text-sm text-muted-foreground">{tCommon('loading')}</p>}
+      {selected?.open && !selected.src && !nativeImageAssets(selected.image.localPath) && <p role="status" className="text-sm text-muted-foreground">{tCommon('loading')}</p>}
       {failed && <p role="alert" className="text-sm text-muted-foreground">{t('image.loadFailed')}</p>}
       <ImageLightbox
         key={selected?.request}
         src={selected?.src ?? null}
+        localPath={selected?.image.localPath}
         alt={selected?.image.filename}
-        open={!!selected?.src && selected.open}
+        open={!!selected?.open && Boolean(selected.src || nativeImageAssets(selected.image.localPath))}
         onOpenChange={(isOpen) => {
           if (!isOpen) { requestRef.current++; setSelected(null) }
         }}

@@ -104,6 +104,10 @@ impl Actor {
             return result;
         }
         let value = match c {
+            "agent:read-image-thumbnail" if self.images.is_some() => {
+                return self.queue_thumbnail(&args, reply);
+            }
+            "agent:read-image-range" if self.images.is_some() => self.read_image_range(&args)?,
             "chat:read-attachment"
             | "agent:list-directory"
             | "agent:stat-file"

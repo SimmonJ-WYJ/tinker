@@ -1,3 +1,4 @@
+import { readImageThumbnail } from '@/lib/image-asset-reads'
 import * as React from 'react'
 import type { UserImageEditReference } from '@asci/shared'
 import { useSetAtom } from 'jotai'
@@ -28,7 +29,7 @@ export function SentImageReference({ reference, sourceMessageId }: { reference: 
     setSrc('')
     setFailed(false)
     setOpen(false)
-    void window.electronAPI.readAttachment(reference.localPath)
+    void readImageThumbnail(reference.localPath)
       .then(data => { if (active) setSrc(`data:${reference.mediaType};base64,${data}`) })
       .catch(() => { if (active) setFailed(true) })
     return () => { active = false }
@@ -65,7 +66,7 @@ export function SentImageReference({ reference, sourceMessageId }: { reference: 
         )}
         {failed && <span role="alert" className="conversation-reference__error">{t('imageReference.loadFailed')}</span>}
       </div>
-      <ImageLightbox src={src} alt={reference.displayName ?? reference.filename} open={open && !failed} onOpenChange={setOpen}
+      <ImageLightbox localPath={reference.localPath} src={src} alt={reference.displayName ?? reference.filename} open={open && !failed} onOpenChange={setOpen}
         onSave={window.__TAURI_FORMAL__ ? nativeImageSave(reference.localPath) : () => { void window.electronAPI.saveImageAs(reference.localPath, reference.filename) }} returnFocus={() => trigger.current?.focus()} />
     </div>
   )
