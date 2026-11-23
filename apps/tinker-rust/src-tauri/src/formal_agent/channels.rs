@@ -44,8 +44,17 @@ impl Actor {
         if self.credentialed.is_some() && c == "channel:decrypt-key" {
             return Err(DesktopError("unsupported"));
         }
-        if self.credentialed.is_some() && c == "agent:stop" {
-            self.cancel_credential_work();
+        if c == "agent:send-message"
+            && args
+                .first()
+                .is_some_and(|v| v.get("retryOfRequestId").is_some())
+        {
+            if !self.native_task_lifecycle() || mutation.is_some() {
+                return Err(DesktopError("unsupported"));
+            }
+            arity(&args, 1, 1)?;
+            let retry = crate::desktop_runtime::protocol::decode(args[0].clone())?;
+            return self.send(self.retry_input(retry)?, reply);
         }
         if self.needs_credential_work(c, mutation.is_some()) {
             return self.start_credential_work(c, args, mutation, reply);
@@ -208,7 +217,7 @@ impl Actor {
                 self.finish_image_before_delete(sid);
                 self.reserve_deleted_delivery(sid)?;
                 self.delete_queue(sid)?;
-                self.stop(sid)?;
+                self.stop(sid, None)?;
                 self.poll();
                 self.core("sessions.delete", json!({"sessionId":sid}))?;
                 if let Some(search) = &mut self.search {
@@ -231,8 +240,13 @@ impl Actor {
                 return self.send(args[0].clone(), reply);
             }
             "agent:stop" => {
-                arity(&args, 1, 1)?;
-                self.stop(string(&args, 0)?)?;
+                arity(&args, 1, 2)?;
+                let expected = if args.len() == 2 {
+                    Some(string(&args, 1)?)
+                } else {
+                    None
+                };
+                self.stop(string(&args, 0)?, expected)?;
                 Value::Null
             }
             "agent:get-session-path" => {
@@ -346,10 +360,38 @@ impl Actor {
         self.platform
             .require_workspace(crate::formal_platform::workspace::WorkspaceKey::Slug(slug))
     }
-    fn stop(&mut self, sid: &str) -> Result<()> {
+    fn retry_input(&self, retry: crate::desktop_runtime::TextRetry) -> Result<Value> {
+        let (send, source_started) = self.runtime.resolve_text_retry(retry)?;
+        if let (Some(images), Some(started)) = (&self.images, source_started) {
+            if self.image_busy(&send.session_id)
+                || images
+                    .store
+                    .history(&send.session_id)?
+                    .iter()
+                    .any(|image| image.created_at >= started)
+            {
+                return Err(DesktopError("requestConflict"));
+            }
+        }
+        let mut input = json!({"sessionId":send.session_id, "requestId":send.request_id, "startedAt":send.started_at,
+            "userMessage":send.user_message, "channelId":send.profile_id, "modelId":send.model_id});
+        if let Some(effort) = send.effort {
+            input["effort"] = json!(effort);
+        }
+        Ok(input)
+    }
+    fn stop(&mut self, sid: &str, expected: Option<&str>) -> Result<()> {
         self.session(sid)?;
-        self.interrupt_session_image(sid);
-        if let Some(e) = self.entries.get(sid) {
+        if let Some(id) = expected {
+            crate::desktop_runtime::protocol::id(id)?;
+        }
+        self.cancel_credential_send(sid, expected);
+        self.interrupt_session_image(sid, expected);
+        if let Some(e) = self
+            .entries
+            .get(sid)
+            .filter(|e| expected.is_none_or(|id| e.turn["requestId"] == id))
+        {
             let request = e.turn["requestId"].clone();
             self.core("chat.cancel", json!({"sessionId":sid,"requestId":request}))?;
         }
@@ -450,8 +492,12 @@ impl Actor {
         if self.queueing {
             return self.begin_queue(json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort}));
         }
+        let superseded = self.runtime.superseded_request(sid, &request)?;
         let existing = self.entries.get(sid);
-        if existing.is_some_and(|e| projection::active(&e.turn) && e.turn["requestId"] != request) {
+        if !superseded
+            && existing
+                .is_some_and(|e| projection::active(&e.turn) && e.turn["requestId"] != request)
+        {
             return Err(DesktopError("runBusy"));
         }
         if self
@@ -465,6 +511,14 @@ impl Actor {
         }
         let turn=self.core("chat.send",json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort}))?;
 
+        if superseded {
+            // 旧请求的回执不能替换后续任务的流投递条目。
+            return if matches!(turn["status"].as_str(), Some("failed" | "interrupted")) {
+                Err(DesktopError("responseFailed"))
+            } else {
+                Ok(Some(json!({"value":null})))
+            };
+        }
         if let Some(e) = self.entries.get_mut(sid) {
             if e.turn["requestId"] == request {
                 e.waiters.push(reply.clone());
@@ -472,7 +526,8 @@ impl Actor {
                 return Ok(None);
             }
         }
-        let user = projection::history(std::slice::from_ref(&turn))["sdkMessages"][0].clone();
+        let user =
+            projection::text_task_history(std::slice::from_ref(&turn))["sdkMessages"][0].clone();
         self.emit(
             "agent:stream:event",
             projection::stream(&turn, json!({"kind":"sdk_message","message":user})),

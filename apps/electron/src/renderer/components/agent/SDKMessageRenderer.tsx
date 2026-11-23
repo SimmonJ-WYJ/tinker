@@ -1452,6 +1452,7 @@ function ErrorMessage({ message }: { message: SDKAssistantMessage }): React.Reac
 // ===== MessageGroup 渲染器（统一入口，同时支持 turn 和单条消息） =====
 
 export interface MessageGroupRendererProps {
+  children?: React.ReactNode
   group: MessageGroup
   allMessages: SDKMessage[]
   basePath?: string
@@ -1538,7 +1539,7 @@ export function getGroupPreview(
   return texts.join(' ').slice(0, 200)
 }
 
-export function MessageGroupRenderer({ group, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId, compactProcess }: MessageGroupRendererProps): React.ReactElement | null {
+export function MessageGroupRenderer({ children, group, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId, compactProcess }: MessageGroupRendererProps): React.ReactElement | null {
   const groupId = getGroupId(group)
 
   if (group.type === 'user') {
@@ -1570,6 +1571,7 @@ export function MessageGroupRenderer({ group, allMessages, basePath, onFork, onR
         stoppedByUser={stoppedByUser}
         sessionModelId={sessionModelId}
       />
+      {children}
     </div>
   )
 }

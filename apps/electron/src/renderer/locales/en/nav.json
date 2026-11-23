@@ -163,6 +163,17 @@
     "readError": "Folder status could not be checked.",
     "unsafeDirectory": "Choose a different local folder."
   },
+  "projectTask": {
+    "latest": "Latest text task",
+    "queued": "Queued",
+    "running": "Running",
+    "waitingInput": "Waiting for input",
+    "completed": "Completed",
+    "cancelled": "Stopped",
+    "failed": "Failed",
+    "interrupted": "Interrupted",
+    "unavailable": "Task status is unavailable."
+  },
   "projectTree": {
     "expand": "Expand {{name}}",
     "empty": "No sessions in project",

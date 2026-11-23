@@ -132,3 +132,57 @@ fn startup_root_sync_failure_retries_root_and_parent_before_namespace() {
         fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[test]
+fn retry_of_unconfirmed_failure_preserves_the_original_binding_and_skips_http() {
+    use crate::{formal_mock::OwnedMock, run_controller::ActiveRun, session_lifecycle::RunStatus};
+    let root = std::env::temp_dir().canonicalize().unwrap().join(format!(
+        "desktop-text-retry-fault-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&root).unwrap();
+    let mock = OwnedMock::start().unwrap();
+    let runtime = DesktopRuntime::open(&root, mock.profiles().unwrap()).unwrap();
+    let mut inner = runtime.inner.lock().unwrap();
+    let sid = inner
+        .route(
+            "sessions.create",
+            json!({"title":"Fault","profileId":"local-mock","workspaceId":null,"reuseDraft":false}),
+        )
+        .unwrap()["sessionId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mut request = Send {
+        request_id: "uncertain".into(),
+        session_id: sid.clone(),
+        profile_id: "local-mock".into(),
+        model_id: "local-mock-a".into(),
+        user_message: "[error] synthetic".into(),
+        started_at: 1,
+        effort: None,
+    };
+    inner.send(request.clone()).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while inner.turn(&inner.bindings[&sid][0]).unwrap().status != RunStatus::Failed {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    // 重现未确认磁盘写入时 mark_storage_failure 的准确内存状态。
+    let mut controller = inner.controllers[&sid].inner.lock().unwrap();
+    controller.blocked = true;
+    let Some(ActiveRun::Text(run)) = controller.current.as_mut() else {
+        panic!("缺少测试执行")
+    };
+    run.snapshot.recovery_required = true;
+    drop(controller);
+    let journal = root.join("desktop-runtime-v1/journal.jsonl");
+    let before = fs::read(&journal).unwrap();
+    request.request_id = "retry".into();
+    request.started_at += 1;
+    assert_eq!(inner.send(request).unwrap_err().0, "recoveryRequired");
+    assert_eq!(fs::read(journal).unwrap(), before, "恢复前不可写入新的绑定");
+    assert_eq!(inner.bindings[&sid].len(), 1);
+    assert_eq!(mock.records().len(), 1);
+}

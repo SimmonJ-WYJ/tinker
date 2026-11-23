@@ -25,7 +25,7 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import type { MinimapItem } from '@/components/ai-elements/scroll-minimap'
-import { mergeToolRunMessages } from '@/hooks/tool-run-snapshot.ts'
+import { mergeToolRunMessages, reconcileTextTaskMessages } from '@/hooks/tool-run-snapshot.ts'
 import { useSmoothStream } from '@asci/ui'
 import { CopyButton } from '@/components/common/CopyButton'
 import { formatMessageTime } from '@/components/common/format-message-time'
@@ -40,6 +40,7 @@ import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
 import { NativeSearchMessageLocation } from './NativeSearchMessageLocation'
 import './conversation-flow.css'
 import { ConversationSymbol } from './ConversationSymbol.tsx'
+import { NativeTextTaskOutcome } from './NativeTextTaskOutcome'
 import { RunningStatusText } from './RunningStatusText.tsx'
 import { getToolPhrase } from './tool-phrase'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -615,8 +616,10 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   const userProfile = useAtomValue(userProfileAtom)
   const queuedMessages = useAtomValue(queuedMessageUuidsAtom).get(sessionId)
   const setMinimapCache = useSetAtom(tabMinimapCacheAtom)
-  /** 淡入控制：切换会话时先隐藏，等布局完成后再显示。 */
-  const [ready, setReady] = React.useState(false)
+  const nativeTasks = Boolean(window.__TAURI_FORMAL__?.nativeTaskLifecycle)
+  /** 原生恢复完成即可展示；原有界面继续等待布局后淡入。 */
+  const [animationReady, setReady] = React.useState(false)
+  const ready = nativeTasks ? messagesLoaded !== false : animationReady
   const prevSessionIdRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
@@ -627,7 +630,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   }, [sessionId])
 
   React.useEffect(() => {
-    if (ready) return
+    if (nativeTasks || ready) return
 
     // 必须等消息加载完成，否则 messages=[] 会被误判为空对话
     if (messagesLoaded === false) return
@@ -653,7 +656,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
       if (!cancelled) setReady(true)
     })
     return () => { cancelled = true }
-  }, [messages, streaming, liveMessages, persistedSDKMessages, messagesLoaded])
+  }, [messages, streaming, liveMessages, persistedSDKMessages, messagesLoaded, nativeTasks])
 
   // 从 streamState 属性中计算派生值
   const streamingContent = streamState?.content ?? ''
@@ -665,10 +668,12 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   // 终态来自宿主信号，不能等待延迟的 streaming prop 才停掉视觉运行状态。
   const statusRunning = streaming && streamState?.running !== false && !stoppedByUser && !retrying?.failed
 
-  const { displayedContent: smoothContent } = useSmoothStream({
-    content: streamingContent,
-    isStreaming: streaming,
+  const { displayedContent } = useSmoothStream({
+    content: nativeTasks ? '' : streamingContent,
+    isStreaming: !nativeTasks && streaming,
   })
+  // 切换项目后 WKWebView 可能暂停动画帧；直接展示 Rust 已交付的累计文本。
+  const smoothContent = nativeTasks ? streamingContent : displayedContent
 
   /**
    * 流式完成过渡：streaming 结束到持久化消息加载完成之间，
@@ -706,8 +711,9 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   const allSDKMessages = React.useMemo(() => {
     const persisted = persistedSDKMessages ?? []
     const live = liveMessages ?? []
-    return mergeToolRunMessages(persisted, live)
-  }, [persistedSDKMessages, liveMessages])
+    const merged = mergeToolRunMessages(persisted, live)
+    return nativeTasks ? reconcileTextTaskMessages(merged) : merged
+  }, [persistedSDKMessages, liveMessages, nativeTasks])
 
   // 压缩流程进行中（含收尾窗口：compact_boundary 已到但 result 未到）
   // → 一律抑制 AgentRunningIndicator，避免压缩分隔符切换期间闪烁。
@@ -804,7 +810,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   return (
     <Conversation
       resize={ready && !transitioning && !justPromoted ? 'smooth' : 'instant'}
-      className={cn('conversation-flow', ready ? 'opacity-100 transition-opacity duration-200' : 'opacity-0')}
+      className={cn('conversation-flow', !nativeTasks && (ready ? 'opacity-100 transition-opacity duration-200' : 'opacity-0'))}
     >
       <MessageReferenceNavigation sessionId={sessionId} targets={referenceTargets}>
       <ScrollPositionManager id={sessionId} ready={ready} />
@@ -818,6 +824,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
             const isLastAssistantTurn = !statusRunning && stoppedByUser
               && group.type === 'assistant-turn'
               && idx === allGroups.findLastIndex((g) => g.type === 'assistant-turn')
+            const outcome = group.type === 'assistant-turn' && group.assistantMessages.at(-1)
             return (
               <MessageGroupRenderer
                 key={getGroupId(group)}
@@ -830,7 +837,11 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
                 isStreaming={statusRunning && group === activeAssistantGroup || undefined}
                 stoppedByUser={isLastAssistantTurn || undefined}
                 sessionModelId={sessionModelId}
-              />
+              >
+                {window.__TAURI_FORMAL__?.nativeTaskLifecycle && outcome && outcome._desktopTextTaskRequestId &&
+                  <NativeTextTaskOutcome message={outcome} sessionId={sessionId}
+                    canRetry={messagesLoaded === true && !streaming && idx === allGroups.length - 1} />}
+              </MessageGroupRenderer>
             )
           })
         ) : (

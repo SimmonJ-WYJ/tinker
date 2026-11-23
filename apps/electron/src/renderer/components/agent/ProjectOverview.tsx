@@ -4,6 +4,7 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { Folder, Search, Settings2, MessageSquare } from 'lucide-react'
 import { agentWorkspacesAtom, currentAgentWorkspaceIdAtom, agentSessionsAtom } from '@/atoms/agent-atoms'
 import { activeViewAtom } from '@/atoms/active-view'
+import { useProjectTaskStatuses } from '@/hooks/useProjectTaskStatuses'
 import { useOpenSession } from '@/hooks/useOpenSession'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { useT } from '@/hooks/useT'
@@ -26,6 +27,7 @@ export function ProjectOverview(): React.ReactElement {
   const workspace = workspaces.find(item => item.id === id)
   const name = workspace?.slug === 'default' ? tConv('projectSwitcher.defaultName') : workspace?.name
   const all = sessions.filter(item => item.workspaceId === id && !item.archived && !drafts.has(item.id))
+  const tasks = useProjectTaskStatuses(id, all.map(session => session.id))
   const items = all.filter(item => item.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).sort((a, b) => b.updatedAt - a.updatedAt)
   return <section className="project-overview titlebar-no-drag">
     <header className="project-overview__header"><span>{name}</span><Button variant="ghost" size="icon-sm" aria-label={t('projectTree.open')} onClick={() => setManage(true)}><Settings2 size={18} /></Button></header>
@@ -35,7 +37,16 @@ export function ProjectOverview(): React.ReactElement {
       {workspace?.directoryStatus && window.__TAURI_FORMAL__?.bindProjectDirectory &&
         <ProjectDirectory key={workspace.id} workspace={workspace} />}
       <label className="project-overview__search"><Search size={16} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('projectTree.search')} aria-label={t('projectTree.search')} /></label>
-      {items.length === 0 ? <p className="project-overview__empty">{t(query ? 'projectTree.noResults' : 'projectTree.empty')}</p> : <div className="project-overview__sessions">{items.map(item => <button key={item.id} type="button" onClick={() => { openSession('agent', item.id, item.title, id ?? undefined); setView('conversations') }}><MessageSquare size={17} strokeWidth={1.5} /><span>{item.title}</span></button>)}</div>}
+      {tasks.unavailable && <p role="status" className="text-sm text-muted-foreground">{t('projectTask.unavailable')}</p>}
+      {items.length === 0 ? <p className="project-overview__empty">{t(query ? 'projectTree.noResults' : 'projectTree.empty')}</p> : <div className="project-overview__sessions">{items.map(item => {
+        const status = tasks.statuses?.get(item.id)
+        return <button key={item.id} type="button" onClick={() => { openSession('agent', item.id, item.title, id ?? undefined); setView('conversations') }}>
+          <MessageSquare size={17} strokeWidth={1.5} /><span>{item.title}</span>
+          {status && <span data-task-status={status} title={t('projectTask.latest')} className="ml-auto text-xs text-muted-foreground">
+            <span className="sr-only">{t('projectTask.latest')} </span>{t(`projectTask.${status}`)}
+          </span>}
+        </button>
+      })}</div>}
     </div>
     <ProjectManageDialog open={manage} onOpenChange={setManage} />
   </section>

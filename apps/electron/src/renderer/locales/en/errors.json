@@ -69,6 +69,7 @@
     "providerSettings": "Models & providers"
   },
   "desktopRuntime": {
+    "requestConflict": "This request no longer matches the saved task. Check the conversation and its channel before sending again.",
     "imageEditOnly": "This preview can edit a selected image. Remove the reference to send a text-only message.",
     "corruptImport": "This imported conversation failed its integrity check and cannot be opened. Other conversations are still available.",
     "imageFileExists": "Choose a new filename. A file already exists at this location.",

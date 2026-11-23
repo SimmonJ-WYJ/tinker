@@ -34,6 +34,8 @@ pub(super) struct Credentialed {
     pub bypass: bool,
 }
 struct Job {
+    send_owner: Option<(String, Option<String>)>,
+    probe: bool,
     generation: String,
     revision: u64,
     cancel: Arc<AtomicBool>,
@@ -120,6 +122,20 @@ impl Actor {
         let token = cancel.clone();
         let (tx, rx) = mpsc::sync_channel(1);
         let c = c.to_string();
+        let send_owner = if c == "agent:send-message" {
+            args.first().and_then(|a| {
+                Some((
+                    a["sessionId"].as_str()?.to_owned(),
+                    a["requestId"].as_str().map(str::to_owned),
+                ))
+            })
+        } else {
+            None
+        };
+        let probe = matches!(
+            c.as_str(),
+            "channel:test" | "channel:test-direct" | "channel:fetch-models"
+        );
         let thread = std::thread::Builder::new()
             .name("channels-prepare".into())
             .spawn(move || {
@@ -248,6 +264,8 @@ impl Actor {
             })
             .map_err(|_| DesktopError("hostUnavailable"))?;
         managed.job = Some(Job {
+            send_owner,
+            probe,
             generation,
             revision,
             cancel,
@@ -328,6 +346,23 @@ impl Actor {
         })();
         if let Some(value) = result.transpose() {
             let _ = job.reply.send(value);
+        }
+    }
+    pub(super) fn cancel_credential_send(&mut self, sid: &str, expected: Option<&str>) {
+        let matches = self
+            .credentialed
+            .as_ref()
+            .and_then(|m| m.job.as_ref())
+            .is_some_and(|job| {
+                if let Some((owner, request)) = &job.send_owner {
+                    owner == sid && expected.is_none_or(|id| request.as_deref() == Some(id))
+                } else {
+                    // 兼容旧通道测试面板的单参数探测取消。
+                    expected.is_none() && job.probe
+                }
+            });
+        if matches {
+            self.cancel_credential_work();
         }
     }
     pub(super) fn cancel_credential_work(&mut self) {

@@ -291,7 +291,7 @@ fn restore_watermark_and_adjacent_reads_share_one_baseline_across_terminal() {
     );
 }
 #[test]
-fn close_revision_interlock_refuses_send_and_releases_runtime_only_after_cancel() {
+fn close_revision_interlock_interrupts_unfinished_text_without_replay() {
     let (root, mut h) = setup();
     let g = bootstrap(&h);
     let s = create(&h, &g);
@@ -313,7 +313,10 @@ fn close_revision_interlock_refuses_send_and_releases_runtime_only_after_cancel(
         &h,
         json!({"command":"closeReady","generation":g,"closeToken":ticket["closeToken"],"committedRevision":1}),
     );
-    assert!(pending.wait(Duration::from_secs(2)).is_ok());
+    assert_eq!(
+        pending.wait(Duration::from_secs(2)).unwrap_err().0,
+        "responseFailed"
+    );
     assert!(h.command("main",json!({"command":"invoke","generation":g,"channel":"settings:update","args":[{"language":"en"}],"mutation":{"mutationId":"after-drain","expectedRevision":1}})).is_err());
     h.shutdown().unwrap();
     let h = FormalHost::open(&root, HostEnvironment::new("darwin", false, false).unwrap()).unwrap();
@@ -327,7 +330,15 @@ fn close_revision_interlock_refuses_send_and_releases_runtime_only_after_cancel(
     );
     assert_eq!(
         history["sdkMessages"][1]["_desktopRuntimeStatus"],
-        "cancelled"
+        "interrupted"
+    );
+    assert_eq!(
+        history["sdkMessages"][1]["error"]["errorType"],
+        "processInterrupted"
+    );
+    assert_eq!(
+        history["sdkMessages"][1]["_desktopTextTaskRequestId"],
+        "closing"
     );
     assert!(h.mock_records().is_empty());
 }
@@ -998,4 +1009,97 @@ fn searching_a_restored_image_prompt_returns_the_displayed_user_message() {
     );
     assert!(host.mock_records().is_empty());
     assert_eq!(updated(&host, &g, &sid), activity);
+}
+
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+#[test]
+fn project_task_retry_is_bound_to_the_last_failed_text_and_is_idempotent() {
+    let (_root, h) = setup();
+    let g = bootstrap(&h);
+    let sid = create(&h, &g);
+    let other = create(&h, &g);
+    call(&h, json!({"command":"attach","generation":g,"observed":{}}));
+    let input = json!({"sessionId":sid,"requestId":"source","startedAt":123,"channelId":"local-mock","modelId":"local-mock-b","effort":"low","userMessage":"[partial-error] synthetic"});
+    let submit = |input: Value| {
+        h.command("main",json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[input]})).unwrap().wait(Duration::from_secs(4))
+    };
+    assert_eq!(submit(input).unwrap_err().0, "responseFailed");
+    let retry =
+        json!({"sessionId":sid,"requestId":"retry","startedAt":124,"retryOfRequestId":"source"});
+    let mut wrong_owner = retry.clone();
+    wrong_owner["sessionId"] = json!(other);
+    assert!(submit(wrong_owner).is_err());
+    let mut forged = retry.clone();
+    forged["userMessage"] = json!("changed");
+    assert!(submit(forged).is_err());
+    assert_eq!(h.mock_records().len(), 1);
+    assert_eq!(submit(retry.clone()).unwrap_err().0, "responseFailed");
+    assert_eq!(submit(retry.clone()).unwrap_err().0, "responseFailed");
+    let mut second_click = retry;
+    second_click["requestId"] = json!("another");
+    assert_eq!(submit(second_click).unwrap_err().0, "requestConflict");
+    let requests = h.mock_records();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(requests[1].model, "local-mock-b");
+    assert_eq!(requests[1].effort.as_deref(), Some("low"));
+    assert_eq!(requests[1].user_messages, 1);
+    let history = call(
+        &h,
+        json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0}),
+    )["sdkMessages"]
+        .clone();
+    assert_eq!(history.as_array().unwrap().len(), 4);
+    assert_eq!(history[0]["message"], history[2]["message"]);
+    assert_eq!(history[0]["_desktopTextTaskRequestId"], "source");
+    assert_eq!(history[2]["_desktopTextTaskRequestId"], "retry");
+    let first_event = h.next_event(Duration::from_secs(1)).unwrap();
+    let initial = &first_event.payload["payload"]["message"];
+    assert_eq!(initial["type"], "user");
+    assert_eq!(initial["_desktopTextTaskRequestId"], "source");
+    assert_eq!(history[3]["_desktopTextTaskRequestId"], "retry");
+    assert!(history[3]["message"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("你好"));
+}
+#[test]
+fn stale_stop_and_completed_retransmission_never_touch_the_next_task() {
+    let (_root, h) = setup();
+    let g = bootstrap(&h);
+    let s = create(&h, &g);
+    call(&h, json!({"command":"attach","generation":g,"observed":{}}));
+    send(&h, &g, &s, "first", "hello")
+        .wait(Duration::from_secs(3))
+        .unwrap();
+    loop {
+        if h.next_event(Duration::from_secs(2)).unwrap().channel == "agent:stream:complete" {
+            break;
+        }
+    }
+    let active = send(&h, &g, &s, "next", "[slow]");
+    send(&h, &g, &s, "first", "hello")
+        .wait(Duration::from_secs(3))
+        .unwrap();
+    while let Some(evt) = h.next_event(Duration::from_millis(2)) {
+        assert_ne!(
+            evt.payload["requestId"], "first",
+            "旧回执不能覆盖新任务的投递"
+        );
+        if evt.payload["payload"]["event"]["type"] == "text_delta" {
+            break;
+        }
+    }
+    invoke(&h, &g, "agent:stop", json!([s, "first"]));
+    let boot = call(&h, json!({"command":"bootstrap"}));
+    assert_eq!(boot["activeRuns"][0]["requestId"], "next");
+    let g = boot["generation"].as_str().unwrap();
+    invoke(&h, g, "agent:stop", json!([s, "next"]));
+    active.wait(Duration::from_secs(3)).unwrap();
+    call(&h, json!({"command":"attach","generation":g,"observed":{}}));
+    let history = call(
+        &h,
+        json!({"command":"restore","generation":g,"sessionId":s,"observedDeliverySequence":0}),
+    )["sdkMessages"]
+        .clone();
+    assert_eq!(history[3]["_desktopRuntimeStatus"], "cancelled");
 }

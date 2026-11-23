@@ -163,6 +163,17 @@
     "readError": "未能核实文件夹状态。",
     "unsafeDirectory": "请选择其他本地文件夹。"
   },
+  "projectTask": {
+    "latest": "最近一次文字任务",
+    "queued": "排队中",
+    "running": "进行中",
+    "waitingInput": "等待输入",
+    "completed": "已完成",
+    "cancelled": "已停止",
+    "failed": "失败",
+    "interrupted": "已中断",
+    "unavailable": "暂时无法读取任务状态。"
+  },
   "projectTree": {
     "expand": "展开 {{name}}",
     "empty": "项目中暂无对话",

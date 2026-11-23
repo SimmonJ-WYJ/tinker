@@ -8,6 +8,11 @@ import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
 
 export interface FormalLifecycleMarker {
+  nativeTaskLifecycle?: {
+    retry(input: { sessionId: string; requestId: string; startedAt: number; retryOfRequestId: string }): Promise<void>
+    stop(sessionId: string, expectedRequestId: string): Promise<void>
+  }
+  projectTaskStatuses?(workspaceId: string): Promise<import('./project-tasks').ProjectTaskStatus[]>
   bindProjectDirectory?(workspaceId: string): Promise<boolean>
   importSessions?: import('./session-import').SessionImporter
   imageFiles?: import('./image-files').NativeImageFiles

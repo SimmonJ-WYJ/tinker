@@ -1272,8 +1272,23 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     void handleSend({ textOverride: text })
   }, [pendingAutoSend, setPendingAutoSend, handleSend])
 
+  const stoppingRequest = React.useRef<string>()
+  const displayedRequestId = streaming ? currentAgentAttempt(store, sessionId) : undefined
+
   /** 停止生成 */
   const handleStop = React.useCallback((): void => {
+    const nativeTask = window.__TAURI_FORMAL__?.nativeTaskLifecycle
+    if (nativeTask) {
+      // 点击绑定到当时展示的请求；终态由宿主发布，完成与取消竞态不能先画成已取消。
+      if (displayedRequestId && stoppingRequest.current !== displayedRequestId && currentAgentAttempt(store, sessionId) === displayedRequestId) {
+        stoppingRequest.current = displayedRequestId
+        void nativeTask.stop(sessionId, displayedRequestId).catch((error: unknown) => {
+          if (stoppingRequest.current === displayedRequestId) stoppingRequest.current = undefined
+          if (acceptAgentAttempt(store, sessionId, displayedRequestId)) toast.error(String(error))
+        })
+      }
+      return
+    }
     setStreamingStates((prev) => {
       const current = prev.get(sessionId)
       if (!current || !current.running) return prev
@@ -1292,7 +1307,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
     if (window.__TAURI_QUEUEING__) store.set(clearToolRunPermissionsAtom,{sessionId,requestId:currentAgentAttempt(store,sessionId) ?? store.get(nativeQueueChainsAtom).get(sessionId)?.chainId})
     window.electronAPI.stopAgent(sessionId).catch(console.error)
-  }, [sessionId, setStreamingStates, store])
+  }, [sessionId, setStreamingStates, store, displayedRequestId])
 
   /** 手动发送 /compact 命令 */
   const handleCompact = React.useCallback(async (): Promise<void> => {
@@ -1745,7 +1760,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                   isProcessing={streaming}
                   onCompact={handleCompact}
                 />}
-                {streaming && !hasTextInput ? (
+                {streaming && (!hasTextInput || window.__TAURI_FORMAL__?.nativeTaskLifecycle) ? (
                   <Button
                     type="button"
                     size="icon"

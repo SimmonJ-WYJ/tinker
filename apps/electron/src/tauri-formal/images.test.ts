@@ -23,12 +23,16 @@ async function fixture(history: SDKMessage[], nativeImages = true) {
   const bridge: NativeBridge = {
     listen: async () => () => {},
     request: async <T,>(req: Record<string, unknown>): Promise<T> => {
-      if (req.command === 'bootstrap') return { generation: 'document', nativeImages, activeRuns: [], platformSnapshot: { revision: 1, settings: {} } } as T
+      if (req.command === 'bootstrap') return { generation: 'document', nativeImages, nativeTaskLifecycle: true, activeRuns: [], platformSnapshot: { revision: 1, settings: {} } } as T
       if (req.command === 'restore') {
         restores++
         return { restoreToken: 'restore', deliverySequence: 0, messages: [], sdkMessages: history, activeSnapshot: null } as T
       }
-      if (req.channel === 'agent:send-message') sent.push((req.args as unknown[])[0])
+      if (req.channel === 'agent:send-message') {
+        const payload = (req.args as Record<string, unknown>[])[0]!
+        sent.push(payload)
+        if (payload.retryOfRequestId) throw { code: 'requestConflict' }
+      }
       return { value: null } as T
     },
   }
@@ -161,4 +165,16 @@ test('quoted slogans and fenced instructions do not implicitly select a prior ve
     await f.send(text)
     expect(f.sent).toEqual([{...input(text), nativeImageAction:'generate'}])
   }
+})
+
+
+test('rejected stale text retry preserves the newer image reference and never dispatches an image action', async () => {
+  const f = await fixture(imageTurn(sid, 'current'))
+  await f.restore()
+  const retry = { sessionId: sid, requestId: 'new', startedAt: 1, retryOfRequestId: 'old-text' }
+  await expect(f.t.invoke('agent:send-message', retry)).rejects.toMatchObject({ code: 'requestConflict' })
+  await f.send('Change the background to blue')
+  expect(f.sent).toEqual([retry, { ...input('Change the background to blue', 'current'), nativeImageAction: 'edit' }])
+  expect(f.counts().changes).toBe(1)
+  f.t.dispose()
 })

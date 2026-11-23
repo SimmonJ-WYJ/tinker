@@ -104,3 +104,19 @@ fn images_use_separate_operations_and_only_log_their_outcomes() {
     body["referenceImage"]["b64_json"] = json!("invalid PNG");
     assert!(call("edits", &body).starts_with("HTTP/1.1 400"));
 }
+
+#[test]
+fn project_task_retry_disconnects_once_then_finishes_the_same_explicit_prompt() {
+    let mock = OwnedMock::start().unwrap();
+    let request = json!({"model":"local-mock-a","messages":[{"role":"user","content":"[task-retry] synthetic prompt"}],"stream":true}).to_string();
+    let first = post(&mock, &request);
+    assert!(first.contains("Local Mock A") && !first.contains("[DONE]"));
+    assert!(post(&mock, &request).contains("[DONE]"));
+    assert_eq!(
+        mock.records()
+            .iter()
+            .map(|r| r.scenario.as_str())
+            .collect::<Vec<_>>(),
+        ["task-retry-failed", "task-retry-completed"]
+    );
+}

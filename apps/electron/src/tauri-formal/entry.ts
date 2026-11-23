@@ -1,5 +1,6 @@
 /** bootstrap 成功后安装原 API，再导入同一正式 renderer/main.tsx。 */
 import { createDesktopApi } from '../preload/api.ts'
+import { parseProjectTaskStatuses } from './project-tasks'
 import { createSessionImporter } from './session-import'
 import { createNativeImageFiles } from './image-files'
 import { selectedImageUse } from './images.ts'
@@ -10,6 +11,7 @@ import { installPersistence } from './persistence.ts'
 import { i18n, setAppLanguage } from '../renderer/lib/i18n.ts'
 
 const credentialErrors: Partial<Record<string, keyof typeof import('../renderer/locales/en/errors.json').desktopRuntime>> = {
+ requestConflict: 'requestConflict',
  corruptImport: 'corruptImport',
  imageFileExists: 'imageFileExists',
  invalidImageFile: 'invalidImageFile',
@@ -39,6 +41,14 @@ try {
   const persistence = installPersistence(transport)
   window.__TAURI_FORMAL__ = {
     hydrated: persistence.hydrated,
+    projectTaskStatuses: transport.bootstrap.nativeTaskLifecycle ? async workspaceId => {
+      const { value } = await transport.command<{ value: unknown }>('projectTaskStatuses', { workspaceId })
+      return parseProjectTaskStatuses(value)
+    } : undefined,
+    nativeTaskLifecycle: transport.bootstrap.nativeTaskLifecycle && !transport.bootstrap.queueing ? {
+      retry: input => transport.invoke('agent:send-message', input),
+      stop: (sessionId, requestId) => transport.invoke('agent:stop', sessionId, requestId),
+    } : undefined,
     nativeImages: transport.bootstrap.nativeImages === true,
     selectedImageUse: transport.bootstrap.nativeImages ? selectedImageUse : undefined,
     bindProjectDirectory: transport.bootstrap.nativeProjectBinding ? async workspaceId => {

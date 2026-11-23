@@ -23,6 +23,11 @@ pub enum Command {
         #[serde(default, rename = "expectedChainId")]
         expected_chain_id: Option<String>,
     },
+    ProjectTaskStatuses {
+        generation: String,
+        #[serde(rename = "workspaceId")]
+        workspace_id: String,
+    },
     Restore {
         generation: String,
         #[serde(rename = "sessionId")]
@@ -58,6 +63,7 @@ impl Command {
             Self::Attach { generation, .. }
             | Self::Detach { generation }
             | Self::Invoke { generation, .. }
+            | Self::ProjectTaskStatuses { generation, .. }
             | Self::Restore { generation, .. }
             | Self::Resume { generation, .. }
             | Self::BeginClose { generation }

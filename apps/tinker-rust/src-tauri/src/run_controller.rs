@@ -28,6 +28,25 @@ pub struct RunController {
     pub(crate) worker: Mutex<Option<JoinHandle<()>>>,
 }
 impl RunController {
+    /// 活动执行已核对后，在写入下一条不可变绑定前检查未确认的存储失败。
+    pub(crate) fn require_confirmed_storage(&self) -> Result<(), RunError> {
+        if self.inner.lock().map_err(|_| RunError::StoreIo)?.blocked {
+            Err(RunError::RecoveryRequired)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// 调用方只传本会话最后提交的绑定。每个会话串行执行，恢复后 current 也指向最后实际启动的执行。
+    pub(crate) fn latest_text_status(&self, request: &str) -> Result<Option<RunStatus>, RunError> {
+        let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
+        match inner.current.as_ref().filter(|run| run.id() == request) {
+            Some(ActiveRun::Text(run)) => Ok(Some(run.snapshot.status)),
+            Some(ActiveRun::Tools(_)) => Ok(None),
+            // Bind 已落盘而 run 尚未创建，沿用 history 的 processInterrupted 语义。
+            None => Ok(Some(RunStatus::Interrupted)),
+        }
+    }
     pub(crate) fn authorize_redirect(
         &self,
         child: String,
@@ -270,6 +289,22 @@ impl RunController {
         }
     }
     pub fn cancel(&self, run_id: &str) -> Result<RunSnapshot, RunError> {
+        self.stop(run_id, RunRecordKind::Cancelled, None)
+    }
+    /// 宿主退出与用户显式停止共享同一把终态锁，但写入不同的持久事件。
+    pub(crate) fn interrupt_text(&self, run_id: &str) -> Result<RunSnapshot, RunError> {
+        self.stop(
+            run_id,
+            RunRecordKind::Interrupted,
+            Some("processInterrupted".into()),
+        )
+    }
+    fn stop(
+        &self,
+        run_id: &str,
+        kind: RunRecordKind,
+        error_code: Option<String>,
+    ) -> Result<RunSnapshot, RunError> {
         validate_id(run_id)?;
         {
             let inner = self.inner.lock().map_err(|_| RunError::StoreIo)?;
@@ -313,7 +348,7 @@ impl RunController {
                 ..
             } = &mut *inner;
             let run = current.as_mut().ok_or(RunError::RunNotFound)?.text_mut()?;
-            if let Err(error) = store.append(run, RunRecordKind::Cancelled, None, None) {
+            if let Err(error) = store.append(run, kind, None, error_code) {
                 mark_storage_failure(run, error);
                 *blocked = true;
                 return Err(error);
