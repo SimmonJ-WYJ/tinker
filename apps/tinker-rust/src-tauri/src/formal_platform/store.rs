@@ -123,8 +123,11 @@ pub(crate) struct Store {
 }
 impl Store {
     pub fn open(trusted: &TrustedRoot) -> Result<Self> {
+        Self::open_namespace(trusted, "formal-platform-v1")
+    }
+    pub(super) fn open_namespace(trusted: &TrustedRoot, namespace: &str) -> Result<Self> {
         trusted.validate()?;
-        let root = trusted.path().join("formal-platform-v1");
+        let root = trusted.path().join(namespace);
         match fs::symlink_metadata(&root) {
             Ok(_) => directory(&root, true)?,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -199,18 +202,16 @@ impl Store {
             Err(_) => Err(DesktopError("storeIo")),
         }
     }
-    pub fn write(&mut self, bytes: Vec<u8>) -> Result<()> {
-        self.write_with_sync(bytes, sync_dir)
+    pub(super) fn publication_uncertain(&self) -> bool {
+        self.blocked
     }
-    fn write_with_sync(
-        &mut self,
-        bytes: Vec<u8>,
-        sync: impl Fn(&Path) -> Result<()>,
-    ) -> Result<()> {
+    pub(super) fn freeze(&mut self) {
+        self.blocked = true;
+    }
+    pub(super) fn verify_current(&self) -> Result<()> {
         if self.blocked {
             return Err(DesktopError("recoveryRequired"));
         }
-        snapshot_budget(&bytes)?;
         self.trusted.validate()?;
         directory(&self.root, true)?;
         same_file(
@@ -229,6 +230,19 @@ impl Store {
         } else if fs::symlink_metadata(&snapshot).is_ok() {
             return Err(DesktopError("storeChanged"));
         }
+        Ok(())
+    }
+    pub fn write(&mut self, bytes: Vec<u8>) -> Result<()> {
+        self.write_with_sync(bytes, sync_dir)
+    }
+    fn write_with_sync(
+        &mut self,
+        bytes: Vec<u8>,
+        sync: impl Fn(&Path) -> Result<()>,
+    ) -> Result<()> {
+        snapshot_budget(&bytes)?;
+        self.verify_current()?;
+        let snapshot = self.root.join("snapshot.json");
         let pending = self.root.join("snapshot.pending");
         // create_new失败时绝不清理外部已有文件。
         let mut file = options().write(true).create_new(true).open(&pending)?;

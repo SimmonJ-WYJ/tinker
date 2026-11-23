@@ -283,7 +283,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {

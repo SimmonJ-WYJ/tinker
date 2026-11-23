@@ -30,9 +30,16 @@
       "other": "其他导入提醒",
       "corruptImport": "未通过完整性检查的已导入副本",
       "importLimit": "超过导入限制的会话",
-      "importDeleted": "先前已删除的会话"
+      "importDeleted": "先前已删除的会话",
+      "unavailableProject": "因所属项目无法安全导入而跳过的对话",
+      "invalidProjectIndex": "未能读取的项目索引",
+      "invalidProject": "无效的项目条目",
+      "duplicateProject": "重复的项目条目",
+      "missingProject": "缺少项目资料的对话",
+      "invalidDirectoryHint": "无效的文件夹引用"
     },
     "errors": {
+      "invalidProjectImportFolder": "请选择包含 agent-sessions.json 或 agent-workspaces.json 的文件夹。",
       "invalidImportFolder": "请选择包含 agent-sessions.json 的文件夹。",
       "invalidImportIndex": "会话索引无效，请选择完整的备份。",
       "unsupportedImportVersion": "暂不支持此版本的备份格式。",
@@ -44,6 +51,8 @@
       "unsupported": "当前桌面版本不支持导入对话。",
       "failed": "未能确认导入结果，可再次选择同一文件夹。",
       "refresh": "已收到导入结果，请刷新对话列表查看已保存的会话。"
-    }
+    },
+    "projectDescription": "请选择包含 agent-sessions.json 或 agent-workspaces.json 的 Electron 备份文件夹。项目对话会保留原项目归属。",
+    "projectResult": "已导入项目 {{imported}} · 已更新项目 {{updated}}"
   }
 }

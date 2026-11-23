@@ -17,6 +17,8 @@ use std::{
     path::Path,
     sync::{atomic::AtomicBool, Arc},
 };
+#[path = "import_workspace.rs"]
+mod workspace;
 pub(super) const PREFIX: &str = "electron-import-";
 const SEED_FILE: &str = "imported-session-v1.json";
 const INTENT_FILE: &str = "import-intent-v1.json";
@@ -32,6 +34,8 @@ pub(super) struct Seed {
     fingerprint: String,
     messages: Vec<SourceMessage>,
     files: Vec<StoredFile>,
+    #[serde(skip)]
+    claimed_workspace: Option<String>,
 }
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -105,6 +109,13 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     serde_json::from_slice(&bytes).map_err(|_| DesktopError("corruptImport"))
 }
 fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
+    write_json_with_sync(path, value, store::sync_directory)
+}
+fn write_json_with_sync(
+    path: &Path,
+    value: &impl Serialize,
+    sync: impl Fn(&Path) -> Result<()>,
+) -> Result<()> {
     store::safe_file(path)?;
     let bytes = serde_json::to_vec(value).map_err(|_| DesktopError("invalidImport"))?;
     if bytes.len() > MAX_SEED_BYTES {
@@ -132,7 +143,7 @@ fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
         file.write_all(&bytes)?;
         file.sync_all()?;
         fs::rename(&temp, path)?;
-        store::sync_directory(parent)
+        sync(parent)
     })();
     if result.is_err() {
         let _ = fs::remove_file(temp);
@@ -168,7 +179,7 @@ fn validate_files(seed: &Seed, dir: &Path, read_bytes: bool) -> Result<()> {
     Ok(())
 }
 pub(super) fn load(dir: &Path, sid: &str) -> Result<Seed> {
-    let seed: Seed = read_json(&dir.join(SEED_FILE))?;
+    let mut seed: Seed = read_json(&dir.join(SEED_FILE))?;
     if seed.version != 1 {
         return Err(DesktopError("unsupportedVersion"));
     }
@@ -184,9 +195,16 @@ pub(super) fn load(dir: &Path, sid: &str) -> Result<Seed> {
         return Err(DesktopError("corruptImport"));
     }
     validate_files(&seed, dir, false)?;
+    workspace::load_claim(&mut seed, dir)?;
     Ok(seed)
 }
 impl Seed {
+    pub(super) fn workspace(&self) -> Option<&str> {
+        self.session
+            .workspace_id
+            .as_deref()
+            .or(self.claimed_workspace.as_deref())
+    }
     pub(super) fn len(&self) -> usize {
         self.messages.len()
     }
@@ -225,6 +243,18 @@ impl DesktopRuntime {
         profile_id: &str,
         prepare_assets: impl FnOnce(&Path) -> Result<Vec<StoredFile>>,
     ) -> Result<ImportReceipt> {
+        self.import_electron_session_in_workspace(source, profile_id, None, prepare_assets)
+    }
+    pub fn import_electron_session_in_workspace(
+        &self,
+        source: &SourceSession,
+        profile_id: &str,
+        workspace: Option<&str>,
+        prepare_assets: impl FnOnce(&Path) -> Result<Vec<StoredFile>>,
+    ) -> Result<ImportReceipt> {
+        if let Some(workspace) = workspace {
+            id(workspace)?;
+        }
         validate_messages(&source.messages)?;
         title(&source.title)?;
         id(profile_id)?;
@@ -250,6 +280,13 @@ impl DesktopRuntime {
             {
                 return Err(DesktopError("importConflict"));
             }
+            let dir = inner.journal.root.join(&sid);
+            let mut fresh = load(&dir, &sid)?;
+            if fresh.integrity != seed.integrity {
+                return Err(DesktopError("corruptImport"));
+            }
+            workspace::claim(&mut fresh, &dir, workspace)?;
+            inner.imported.insert(sid.clone(), fresh);
             return Ok(ImportReceipt {
                 session_id: sid,
                 imported: false,
@@ -289,7 +326,7 @@ impl DesktopRuntime {
             write_json(&intent_path, &intent)?;
         }
         let seed_path = dir.join(SEED_FILE);
-        let seed = if seed_path.exists() {
+        let mut seed = if seed_path.exists() {
             let seed = load(&dir, &sid)?;
             if seed.fingerprint != fingerprint || seed.source_session_id != source.source_session_id
             {
@@ -302,7 +339,7 @@ impl DesktopRuntime {
                 session_id: sid.clone(),
                 title: source.title.clone(),
                 profile_id: profile_id.into(),
-                workspace_id: None,
+                workspace_id: workspace.map(str::to_owned),
                 pinned: source.pinned,
                 archived: source.archived,
                 created_at: source.created_at,
@@ -317,6 +354,7 @@ impl DesktopRuntime {
                 fingerprint,
                 messages: source.messages.clone(),
                 files,
+                claimed_workspace: None,
             };
             seed.integrity = integrity(&seed)?;
             validate_files(&seed, &dir, true)?;
@@ -336,6 +374,7 @@ impl DesktopRuntime {
         if visible > MAX_VISIBLE_IMPORT_BYTES {
             return Err(DesktopError("importLimit"));
         }
+        workspace::claim(&mut seed, &dir, workspace)?;
         let store = crate::run_store::RunStore::open(&dir)?;
         super::execution::validate_store(&store, &[], !inner.tools.is_empty())?;
         for path in [

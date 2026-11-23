@@ -41,6 +41,7 @@ interface ProjectManageDialogProps {
 }
 
 export function ProjectManageDialog({ open, onOpenChange }: ProjectManageDialogProps): React.ReactElement {
+  const nativeProjects = Boolean(window.__TAURI_FORMAL__?.bindProjectDirectory)
   const { t } = useT('nav')
   const { t: tConv } = useT('conversation')
   const [workspaces, setWorkspaces] = useAtom(agentWorkspacesAtom)
@@ -125,7 +126,7 @@ export function ProjectManageDialog({ open, onOpenChange }: ProjectManageDialogP
   }
 
   const canDelete = (ws: AgentWorkspace): boolean => {
-    return ws.slug !== 'default' && workspaces.length > 1
+    return !nativeProjects && ws.slug !== 'default' && workspaces.length > 1
   }
 
   // ===== 拖拽排序 =====
@@ -201,7 +202,7 @@ export function ProjectManageDialog({ open, onOpenChange }: ProjectManageDialogP
           <DialogHeader>
             <DialogTitle>{t('projectManage.title')}</DialogTitle>
             <DialogDescription>
-              {t('projectManage.description')}
+              {t(nativeProjects ? 'projectManage.nativeDescription' : 'projectManage.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -213,11 +214,11 @@ export function ProjectManageDialog({ open, onOpenChange }: ProjectManageDialogP
                 )}
 
                 <div
-                  draggable={editingId !== ws.id}
-                  onDragStart={(e) => handleDragStart(e, ws.id)}
-                  onDragOver={(e) => handleDragOver(e, ws.id)}
+                  draggable={!nativeProjects && editingId !== ws.id}
+                  onDragStart={nativeProjects ? undefined : (e) => handleDragStart(e, ws.id)}
+                  onDragOver={nativeProjects ? undefined : (e) => handleDragOver(e, ws.id)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, ws.id)}
+                  onDrop={nativeProjects ? undefined : (e) => handleDrop(e, ws.id)}
                   onDragEnd={handleDragEnd}
                   className={cn(
                     'group w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors',
@@ -227,7 +228,7 @@ export function ProjectManageDialog({ open, onOpenChange }: ProjectManageDialogP
                     dragId === ws.id && 'opacity-40',
                   )}
                 >
-                  <GripVertical size={12} className="flex-shrink-0 text-foreground/30 cursor-grab active:cursor-grabbing" />
+                  {!nativeProjects && <GripVertical size={12} className="flex-shrink-0 text-foreground/30 cursor-grab active:cursor-grabbing" />}
                   <FolderOpen size={13} className="flex-shrink-0 text-foreground/40" />
 
                   {editingId === ws.id ? (
@@ -246,14 +247,14 @@ export function ProjectManageDialog({ open, onOpenChange }: ProjectManageDialogP
                       <span className="flex-1 min-w-0 truncate">{ws.slug === 'default' ? tConv('projectSwitcher.defaultName') : ws.name}</span>
 
                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <Button
+                        {(!nativeProjects || ws.projectOrigin) && <Button
                           variant="ghost"
                           onClick={(e) => handleStartRename(e, ws)}
                           className="h-auto p-1 rounded hover:bg-foreground/[0.08] text-foreground/40 hover:text-foreground/70 [&_svg]:size-3"
                           title={t('projectManage.renameTooltip')}
                         >
                           <Pencil size={12} />
-                        </Button>
+                        </Button>}
                         {canDelete(ws) && (
                           <Button
                             variant="ghost"

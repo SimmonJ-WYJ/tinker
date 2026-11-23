@@ -24,6 +24,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  nativeProjectBinding?: boolean
   nativeSessionImport?: boolean
   nativeImageFiles?: boolean
   nativeImages?: boolean

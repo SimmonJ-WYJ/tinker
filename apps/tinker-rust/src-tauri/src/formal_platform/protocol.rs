@@ -87,6 +87,10 @@ pub(crate) fn decode<T: serde::de::DeserializeOwned>(v: Value) -> Result<T> {
 pub(crate) fn encoded<T: Serialize>(v: &T) -> Result<Value> {
     serde_json::to_value(v).map_err(|_| DesktopError("storeIo"))
 }
+/// 原工作台和预览目录沿用同一项目名称边界，避免单个名称导致迁移整批失败。
+pub(crate) fn valid_project_name(name: &str) -> bool {
+    !name.trim().is_empty() && name.len() <= 1024 && !name.chars().any(char::is_control)
+}
 pub(crate) fn identifier(s: &str) -> Result<()> {
     if s.is_empty()
         || s.len() > 128

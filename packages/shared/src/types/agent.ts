@@ -8,6 +8,10 @@
 
 /** Agent 工作区 */
 export interface AgentWorkspace {
+  /** 隔离原生项目的宿主投影；目录只以可用状态公开。 */
+  directoryStatus?: 'unbound' | 'bound' | 'unavailable'
+  projectOrigin?: 'imported' | 'orphan' | 'native'
+  hasDirectoryHint?: boolean
   /** 工作区唯一标识 */
   id: string
   /** 显示名称 */

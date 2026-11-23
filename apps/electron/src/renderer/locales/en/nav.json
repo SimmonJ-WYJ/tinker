@@ -140,6 +140,7 @@
     }
   },
   "projectManage": {
+    "nativeDescription": "Rename a project you created or imported.",
     "title": "Manage projects",
     "description": "Rename, delete, or reorder by drag. The default project cannot be deleted; use the title bar to switch or create projects.",
     "renameTooltip": "Rename",
@@ -151,6 +152,16 @@
       "cancel": "Cancel",
       "confirm": "Delete"
     }
+  },
+  "projectDirectory": {
+    "unbound": "No folder selected",
+    "bound": "Folder connected",
+    "unavailable": "Folder unavailable",
+    "choose": "Choose folder",
+    "chooseAnother": "Choose another folder",
+    "bindError": "The folder could not be connected. Choose it again.",
+    "readError": "Folder status could not be checked.",
+    "unsafeDirectory": "Choose a different local folder."
   },
   "projectTree": {
     "expand": "Expand {{name}}",

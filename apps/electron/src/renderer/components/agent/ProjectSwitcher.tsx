@@ -77,6 +77,12 @@ export function ProjectSwitcher({ variant = 'button', onSelectProject }: Project
 
   const currentWorkspace = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0] ?? null
 
+  const nativeProjects = Boolean(window.__TAURI_FORMAL__?.bindProjectDirectory)
+  const showOverview = (ws: AgentWorkspace): void => {
+    setActiveView('project')
+    if (variant === 'list') setExpanded(prev => new Set([...prev, ws.id]))
+  }
+
   const handleSelect = (ws: AgentWorkspace): void => {
     if (onSelectProject) { onSelectProject(ws); setOpen(false); return }
     setCurrentWorkspaceId(ws.id)
@@ -84,10 +90,7 @@ export function ProjectSwitcher({ variant = 'button', onSelectProject }: Project
       agentWorkspaceId: ws.id,
     }).catch(console.error)
     setOpen(false)
-    if (variant === 'list') {
-      setActiveView('project')
-      setExpanded(prev => new Set([...prev, ws.id]))
-    }
+    if (nativeProjects || variant === 'list') showOverview(ws)
   }
 
   const handleStartCreate = (): void => {
@@ -106,12 +109,13 @@ export function ProjectSwitcher({ variant = 'button', onSelectProject }: Project
     createInFlightRef.current = true
 
     try {
-      // 把当前工作区作为来源，让新项目继承已配置的 MCP 服务器
-      const ws = await window.electronAPI.createAgentWorkspace(trimmed, currentWorkspace?.slug)
+      // 仅 Electron 支持继承当前工作区的 MCP 配置。
+      const ws = await window.electronAPI.createAgentWorkspace(trimmed, nativeProjects ? undefined : currentWorkspace?.slug)
       setWorkspaces((prev) => [ws, ...prev])
       if (onSelectProject) onSelectProject(ws)
       else {
         setCurrentWorkspaceId(ws.id)
+        if (nativeProjects) showOverview(ws)
         window.electronAPI.updateSettings({ agentWorkspaceId: ws.id }).catch(console.error)
       }
       setCreating(false)

@@ -8,6 +8,7 @@ import { useOpenSession } from '@/hooks/useOpenSession'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { useT } from '@/hooks/useT'
 import { Button } from '@/components/ui/button'
+import { ProjectDirectory } from './ProjectDirectory'
 import { ProjectManageDialog } from './ProjectManageDialog'
 
 export function ProjectOverview(): React.ReactElement {
@@ -31,6 +32,8 @@ export function ProjectOverview(): React.ReactElement {
     <div className="project-overview__intro"><span className="project-overview__icon"><Folder size={26} strokeWidth={1.5} /></span><div><h1>{name}</h1><p>{t('projectTree.description')}</p></div></div>
     <div className="project-overview__tabs">{t('projectTree.sessions')} <span>{all.length}</span></div>
     <div className="project-overview__body">
+      {workspace?.directoryStatus && window.__TAURI_FORMAL__?.bindProjectDirectory &&
+        <ProjectDirectory key={workspace.id} workspace={workspace} />}
       <label className="project-overview__search"><Search size={16} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('projectTree.search')} aria-label={t('projectTree.search')} /></label>
       {items.length === 0 ? <p className="project-overview__empty">{t(query ? 'projectTree.noResults' : 'projectTree.empty')}</p> : <div className="project-overview__sessions">{items.map(item => <button key={item.id} type="button" onClick={() => { openSession('agent', item.id, item.title, id ?? undefined); setView('conversations') }}><MessageSquare size={17} strokeWidth={1.5} /><span>{item.title}</span></button>)}</div>}
     </div>

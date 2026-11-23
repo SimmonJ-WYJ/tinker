@@ -41,6 +41,11 @@ try {
     hydrated: persistence.hydrated,
     nativeImages: transport.bootstrap.nativeImages === true,
     selectedImageUse: transport.bootstrap.nativeImages ? selectedImageUse : undefined,
+    bindProjectDirectory: transport.bootstrap.nativeProjectBinding ? async workspaceId => {
+      const { value } = await transport.command<{ value: unknown }>('bindProjectDirectory', { workspaceId })
+      if (typeof value !== 'boolean') throw new Error('invalidReply')
+      return value
+    } : undefined,
     importSessions: transport.bootstrap.nativeSessionImport ? createSessionImporter(transport.command) : undefined,
     imageFiles: transport.bootstrap.nativeImageFiles
       ? createNativeImageFiles(transport.command, path => window.electronAPI.readAttachment(path))
