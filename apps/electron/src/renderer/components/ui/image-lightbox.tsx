@@ -3,8 +3,10 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Pencil, Download, X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { nativeImageAssets, useImageSource } from '@/lib/image-asset-reads'
 import { useT } from '@/hooks/useT'
 interface ImageLightboxProps {
+  localPath?: string
   src: string | null
   alt?: string
   open: boolean
@@ -15,9 +17,19 @@ interface ImageLightboxProps {
 }
 const MIN_SCALE = 0.05
 const MAX_SCALE = 8
-export function ImageLightbox({ src, alt, open, onOpenChange, onSave, onEdit, returnFocus }: ImageLightboxProps): React.ReactElement | null {
+export function ImageLightbox({ src: preview, localPath, alt, open, onOpenChange, onSave, onEdit, returnFocus }: ImageLightboxProps): React.ReactElement | null {
   const { t } = useT('common')
   const { t: tPreview } = useT('preview')
+  const nativePath = nativeImageAssets(localPath) ? localPath : undefined
+  const owner = React.useRef<string>()
+  React.useLayoutEffect(() => {
+    if (!open) owner.current = undefined
+    else if (nativePath && !owner.current) owner.current = nativePath
+    else if (owner.current && owner.current !== nativePath) onOpenChange(false)
+  }, [open, nativePath, onOpenChange])
+  const originalPath = open && (!owner.current || owner.current === nativePath) ? nativePath : undefined
+  const original = useImageSource(originalPath, 'image/png', 'original')
+  const src = nativePath ? original?.src : preview
   const [natural, setNatural] = React.useState({ width: 0, height: 0 })
   const [manualScale, setManualScale] = React.useState<number | null>(null)
   const [failed, setFailed] = React.useState(false)
@@ -37,7 +49,7 @@ export function ImageLightbox({ src, alt, open, onOpenChange, onSave, onEdit, re
   const fitScale = loaded ? Math.min(Math.max(1, viewport.width - 48) / natural.width, Math.max(1, viewport.height - 160) / natural.height, 1) : 1
   const scale = manualScale ?? fitScale
   const zoom = (factor: number): void => { if (loaded) setManualScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor))) }
-  if (!src) return null
+  if (!src && !nativePath) return null
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -59,7 +71,7 @@ export function ImageLightbox({ src, alt, open, onOpenChange, onSave, onEdit, re
             <DialogPrimitive.Title className="min-w-0 truncate text-sm font-medium">{alt || tPreview('image.lightboxAlt')}</DialogPrimitive.Title>
             <div className="flex shrink-0 items-center gap-2">
               {onEdit && <Button type="button" variant="ghost" size="icon" onClick={onEdit} disabled={!loaded} aria-label={t('imageVersion.edit')} title={t('imageVersion.edit')}><Pencil className="size-5" aria-hidden="true" /></Button>}
-              {onSave && <Button type="button" variant="ghost" size="icon" onClick={onSave} disabled={failed} aria-label={t('image.save')} title={t('image.save')}><Download className="size-5" aria-hidden="true" /></Button>}
+              {onSave && <Button type="button" variant="ghost" size="icon" onClick={onSave} disabled={failed || original?.failed} aria-label={t('image.save')} title={t('image.save')}><Download className="size-5" aria-hidden="true" /></Button>}
               <DialogPrimitive.Close asChild><Button type="button" variant="ghost" size="icon" aria-label={t('close')} title={t('close')}><X className="size-5" aria-hidden="true" /></Button></DialogPrimitive.Close>
             </div>
           </div>
@@ -70,7 +82,7 @@ export function ImageLightbox({ src, alt, open, onOpenChange, onSave, onEdit, re
               style={loaded ? { width: natural.width * scale, height: natural.height * scale } : undefined}
               onClick={event => { if (event.target === event.currentTarget) onOpenChange(false) }}
             >
-              {failed ? <p role="alert" className="text-sm text-muted-foreground">{tPreview('image.loadFailed')}</p> : <img
+              {failed || original?.failed ? <p role="alert" className="text-sm text-muted-foreground">{tPreview('image.loadFailed')}</p> : !src ? <p role="status">{t('loading')}</p> : <img
                 src={src} alt={alt || tPreview('image.lightboxAlt')} draggable={false}
                 className="block shrink-0 select-none object-contain"
                 style={loaded ? { width: natural.width * scale, height: natural.height * scale, maxWidth: 'none', maxHeight: 'none' } : { maxWidth: '100%', maxHeight: '100%' }}

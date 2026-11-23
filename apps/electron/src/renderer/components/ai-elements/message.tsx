@@ -17,6 +17,7 @@
  * - StreamingIndicator — 流式呼吸脉冲点
  */
 
+import { useImageSource } from '@/lib/image-asset-reads'
 import * as React from 'react'
 import Markdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -1187,19 +1188,9 @@ interface MessageAttachmentImageProps {
 /** 图片附件展示（单图: max 500px，多图: 280px 方块），点击可预览大图 */
 function MessageAttachmentImage({ attachment, isSingle = false }: MessageAttachmentImageProps): React.ReactElement {
   const { t } = useT('conversation')
-  const [imageSrc, setImageSrc] = React.useState<string | null>(null)
+  const imageSrc = useImageSource(attachment.localPath, attachment.mediaType, 'thumbnail')?.src
   const [lightboxOpen, setLightboxOpen] = React.useState(false)
 
-  React.useEffect(() => {
-    window.electronAPI
-      .readAttachment(attachment.localPath)
-      .then((base64) => {
-        setImageSrc(`data:${attachment.mediaType};base64,${base64}`)
-      })
-      .catch((error) => {
-        console.error('[MessageAttachmentImage] 读取附件失败:', error)
-      })
-  }, [attachment.localPath, attachment.mediaType])
 
   /** 保存图片到本地 */
   const handleSave = React.useCallback((): void => {
@@ -1244,6 +1235,7 @@ function MessageAttachmentImage({ attachment, isSingle = false }: MessageAttachm
         <Download className="size-4" />
       </Button>
       <ImageLightbox
+        localPath={attachment.localPath}
         src={imageSrc}
         alt={attachment.filename}
         open={lightboxOpen}

@@ -86,7 +86,7 @@ impl ImageStore {
         let (width, height) = provider::dimensions(bytes)?;
         let hash = digest(bytes);
         let id = reference_id(session, display_name, &hash);
-        let _guard = self.guard()?;
+        let guard = self.guard()?;
         let mut imports = load(&dir, session)?;
         if let Some(existing) = imports.iter().find(|a| a.id == id) {
             disk::png(&dir, &existing.filename, &existing.content_sha256)?;
@@ -98,15 +98,19 @@ impl ImageStore {
         disk::private_dir(&dir)?;
         let filename = format!("{id}.png");
         // 崩溃可能发生在不可变 PNG 同步与索引提交之间。仅采用本请求精确匹配的内容。
-        match dir.join(&filename).symlink_metadata() {
+        let new_file = match dir.join(&filename).symlink_metadata() {
             Ok(_) => {
                 disk::png(&dir, &filename, &hash)?;
+                false
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                disk::atomic_write(&dir, &filename, bytes, provider::MAX_PNG)?
+                let reserved = guard.reserved_bytes(session);
+                disk::asset_budget(&dir, bytes.len() + reserved)?;
+                disk::atomic_write(&dir, &filename, bytes, provider::MAX_PNG)?;
+                true
             }
             Err(e) => return Err(e.into()),
-        }
+        };
         let item = ImportedImage {
             id,
             filename,
@@ -119,7 +123,15 @@ impl ImageStore {
         imports.push(item.clone());
         let data = serde_json::to_vec(&serde_json::json!({"version":1,"imports":imports}))
             .map_err(|_| DesktopError("storeIo"))?;
-        disk::write_index(&dir, INDEX, &data)?;
+        if let Err(error) = disk::write_index(&dir, INDEX, &data) {
+            // A directory sync can fail after publishing. Delete only a new uncredited original.
+            if new_file && load(&dir, session).is_ok_and(|r| !r.iter().any(|a| a.id == item.id)) {
+                disk::png(&dir, &item.filename, &item.content_sha256)?;
+                std::fs::remove_file(dir.join(&item.filename))?;
+                crate::formal_platform::store::sync_dir(&dir)?;
+            }
+            return Err(error);
+        }
         Ok(item)
     }
 }

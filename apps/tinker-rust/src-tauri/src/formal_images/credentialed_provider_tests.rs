@@ -29,7 +29,37 @@ fn owned_routes_send_bound_keys_and_actual_png_multipart() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let policy = EndpointPolicy::owned_qa(&listener, "/v1").unwrap();
         let base = format!("http://{}/v1", listener.local_addr().unwrap());
-        let image = png();
+        let image = if model == "gpt-image-1" && !edit {
+            let mut pixels = vec![0; 1024 * 512 * 4];
+            let mut seed = 19u32;
+            for pixel in &mut pixels {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                *pixel = seed as u8;
+            }
+            let mut output = Vec::new();
+            {
+                let mut encoder = png::Encoder::new(&mut output, 1024, 512);
+                encoder.set_color(png::ColorType::Rgba);
+                encoder.set_compression(png::Compression::Fast);
+                encoder
+                    .write_header()
+                    .unwrap()
+                    .write_image_data(&pixels)
+                    .unwrap();
+            }
+            assert!(output.len() > 512 * 1024);
+            output
+        } else {
+            png()
+        };
+        let expected_png = image.clone();
+        let expected_dimensions = if model == "gpt-image-1" && !edit {
+            (1024, 512)
+        } else {
+            (1, 1)
+        };
         let encoded = STANDARD.encode(&image);
         let server = thread::spawn(move || {
             let (mut socket, _) = listener.accept().unwrap();
@@ -102,14 +132,15 @@ fn owned_routes_send_bound_keys_and_actual_png_multipart() {
             model.into(),
             Arc::new(Secret::new(b"synthetic-key".to_vec()).unwrap()),
         );
-        let (_, w, h) = p
+        let (received_png, w, h) = p
             .request(
                 "synthetic prompt",
                 edit.then_some(("asset", image)),
                 &AtomicBool::new(false),
             )
             .unwrap();
-        assert_eq!((w, h), (1, 1));
+        assert_eq!((w, h), expected_dimensions);
+        assert_eq!(received_png, expected_png);
         server.join().unwrap();
     }
 }
@@ -298,4 +329,35 @@ fn dalle_three_edits_are_rejected_before_network() {
             "modelCapabilityMismatch"
         );
     }
+}
+
+#[test]
+fn oversized_response_length_is_rejected_without_reading_body() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let policy = EndpointPolicy::owned_qa(&listener, "/v1").unwrap();
+    let base = format!("http://{}/v1", listener.local_addr().unwrap());
+    let server = thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        let mut buf = [0; 8192];
+        assert!(socket.read(&mut buf).unwrap() > 0);
+        write!(
+            socket,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            MAX_RESPONSE + 1
+        )
+        .unwrap();
+    });
+    let p = CredentialedImageProvider::new(
+        policy,
+        base,
+        "synthetic-model".into(),
+        Arc::new(Secret::new(b"synthetic-key".to_vec()).unwrap()),
+    );
+    assert_eq!(
+        p.request("synthetic prompt", None, &AtomicBool::new(false))
+            .unwrap_err()
+            .0,
+        "imageTooLarge"
+    );
+    server.join().unwrap();
 }

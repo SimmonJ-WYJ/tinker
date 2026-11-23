@@ -1,3 +1,4 @@
+import { readImageThumbnail } from '@/lib/image-asset-reads'
 import * as React from 'react'
 import { Download, FileImage, FileText } from 'lucide-react'
 import { resolveUserImageReferenceSource, type SDKAssistantMessage, type SDKMessage, type SDKUserMessage } from '@asci/shared'
@@ -24,7 +25,7 @@ function UploadedImage({ file }: { file: AttachedFileRef }): React.ReactElement 
     const extension = file.filename.split('.').at(-1)?.toLowerCase() ?? 'png'
     const type = extension === 'jpg' ? 'jpeg' : extension === 'svg' ? 'svg+xml' : extension
     const mediaType = file.mediaType ?? `image/${type}`
-    void window.electronAPI.readAttachment(file.path).then(data => { if (active) setSrc(`data:${mediaType};base64,${data}`) }).catch(() => { if (active) setFailed(true) })
+    void readImageThumbnail(file.path).then(data => { if (active) setSrc(`data:${mediaType};base64,${data}`) }).catch(() => { if (active) setFailed(true) })
     return () => { active = false }
   }, [file.path, file.filename, file.mediaType, attempt])
   const save = file.mediaType ? nativeImageSave(file.path) : (): void => { void window.electronAPI.saveImageAs(file.path, file.filename) }
@@ -35,7 +36,7 @@ function UploadedImage({ file }: { file: AttachedFileRef }): React.ReactElement 
     </button>
     <figcaption className="sr-only">{t('imageReference.uploaded')}</figcaption>
     {!failed && src && save && <Button type="button" variant="overlay" size="icon-xs" onClick={save} aria-label={t('image.save')} className="conversation-upload__save"><Download aria-hidden="true" /></Button>}
-    <ImageLightbox src={src} alt={file.filename} open={open && !failed} onOpenChange={setOpen} onSave={save} returnFocus={() => trigger.current?.focus()} />
+    <ImageLightbox localPath={file.path} src={src} alt={file.filename} open={open && !failed} onOpenChange={setOpen} onSave={save} returnFocus={() => trigger.current?.focus()} />
   </figure>
 }
 

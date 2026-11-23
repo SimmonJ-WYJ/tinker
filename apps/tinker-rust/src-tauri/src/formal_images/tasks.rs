@@ -365,6 +365,8 @@ impl ImageStore {
             error: None,
         };
         disk::private_dir(&dir)?;
+        // Reserve one maximum-size answer before the provider may be contacted.
+        disk::asset_budget(&dir, MAX_PNG)?;
         guard.summaries.remove(session);
         if let Some(route) = route {
             imgs.routed.entries.push(routes::RoutedEntry {
@@ -483,6 +485,10 @@ impl PendingImage {
             let stored = result.and_then(|(bytes, width, height)| {
                 let id = image_id(&self.sid, &turn.request_id);
                 let filename = format!("{id}.png");
+                if bytes.len() > MAX_PNG {
+                    return Err(DesktopError("imageTooLarge"));
+                }
+                disk::asset_budget(&dir, bytes.len())?;
                 disk::put(&dir, &filename, &bytes)?;
                 Ok(ImageAsset {
                     id,

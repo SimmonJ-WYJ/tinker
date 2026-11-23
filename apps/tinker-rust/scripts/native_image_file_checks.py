@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
 import time
 import uuid
@@ -58,6 +59,28 @@ def image_bytes(window, selector):
     return base64.b64decode(encoded, validate=True)
 
 
+def same_pixels(left, right):
+    if left == right:
+        return True
+    # These legacy fixtures are 72x48; thumbnails may use a different lossless encoding.
+    run = """const sharp=require('sharp');const imgs=await Promise.all(process.argv.slice(1).map(s=>
+        sharp(Buffer.from(s,'base64')).ensureAlpha().raw().toBuffer({resolveWithObject:true})));
+        console.log(imgs[0].info.width===imgs[1].info.width && imgs[0].info.height===imgs[1].info.height &&
+            imgs[0].data.equals(imgs[1].data));"""
+    args = [base64.b64encode(b).decode("ascii") for b in (left, right)]
+    return subprocess.check_output(["bun","-e",run,*args], text=True,
+                                   cwd=Path(__file__).resolve().parents[2]/"electron").strip()=="true"
+
+
+def saved_result(profile, window):
+    name, = window.cards(1)
+    assert name==Path(name).name and name.endswith(".png")
+    path, = (profile/"formal-images-v1").glob("*/"+name)
+    canonical = path.read_bytes()
+    assert same_pixels(canonical, image_bytes(window, RESULT))
+    return canonical
+
+
 def feedback(window, words):
     return window.wait(f"""const a=[...document.querySelectorAll('[data-sonner-toast],[role=alert]')];
         return a.map(e=>e.textContent).find(s=>new RegExp({json.dumps(words)},'i').test(s));""", "visible error feedback")
@@ -84,22 +107,22 @@ def acceptance(binary, Window, scenarios):
         first.wait("return !!document.querySelector('button[aria-label=\"Attach file\"]:not(:disabled),button[aria-label=\"添加附件\"]:not(:disabled)')", "picker dismissed")
         assert first.js("return document.querySelectorAll('.home-recent-session').length") == original_recents
         pick(first, "fixture", ATTACH)
-        assert image_bytes(first, CHIP) == source_bytes
+        assert same_pixels(image_bytes(first, CHIP), source_bytes)
         pick(first, "cancel-open", ATTACH)
-        assert image_bytes(first, CHIP) == source_bytes
+        assert same_pixels(image_bytes(first, CHIP), source_bytes)
         assert not first.js("return !!document.querySelector('[data-sonner-toast][data-type=error]')")
         pick(first, "invalid", ATTACH)
         invalid = feedback(first, "valid PNG|invalid|damaged|decode|corrupt|unsupported|无效|损坏|解码|格式")
-        assert image_bytes(first, CHIP) == source_bytes
+        assert same_pixels(image_bytes(first, CHIP), source_bytes)
         pick(first, "oversized", ATTACH)
         oversized = feedback(first, "size|limit|large|MB|超限|上限|过大")
         assert invalid != oversized
-        assert image_bytes(first, CHIP) == source_bytes and scenarios(first) == []
+        assert same_pixels(image_bytes(first, CHIP), source_bytes) and scenarios(first) == []
         first.send("Edit this image to change the background to blue.")
         first.cards(1)
-        assert image_bytes(first, SENT) == source_bytes
+        assert same_pixels(image_bytes(first, SENT), source_bytes)
         source_id = first.js("return document.querySelector('[data-image-edit-reference]').dataset.imageEditReference")
-        output = image_bytes(first, RESULT)
+        output = saved_result(profile,first)
         destination = first.directory / "qa-export.png"
         pick(first, "cancel-save", SAVE)
         assert not destination.exists()
@@ -124,13 +147,13 @@ def acceptance(binary, Window, scenarios):
             second.wait("""const e=document.querySelector('.home-recent-session');
                 if(!e)return false;e.click();return true;""", "reopen saved session")
         second.cards(1)
-        assert image_bytes(second, RESULT) == output
-        assert image_bytes(second, SENT) == source_bytes
+        assert same_pixels(image_bytes(second, RESULT), output)
+        assert same_pixels(image_bytes(second, SENT), source_bytes)
         assert second.js("return document.querySelector('[data-image-edit-reference]').dataset.imageEditReference") == source_id
         second.wait("""const b=[...document.querySelectorAll('[data-image-edit-reference] button')].find(e=>
             /Edit from this image|从这张图|基于此图|从此图/.test(e.textContent+e.getAttribute('aria-label')));
             if(!b||b.disabled)return false;b.click();return true;""", "reuse original imported reference")
-        assert image_bytes(second, CHIP) == source_bytes and scenarios(second) == []
+        assert same_pixels(image_bytes(second, CHIP), source_bytes) and scenarios(second) == []
         screenshot = second.command("snapshot")["png"]
         second.send("Edit this image to add a yellow sun.")
         second.cards(2)
@@ -163,10 +186,10 @@ def system_panels(binary, Window, scenarios):
         # Schedule the click so the WebView reply is delivered before the system modal gains focus.
         window.wait(ATTACH.replace("b.click()", "setTimeout(()=>b.click(),100)"), "native attachment action")
         input("Press Return after selecting the named fixture (Ctrl-C aborts the QA run): ")
-        assert image_bytes(window, CHIP) == source.read_bytes() and scenarios(window) == []
+        assert same_pixels(image_bytes(window, CHIP), source.read_bytes()) and scenarios(window) == []
         window.send("Edit this image to add a yellow sun.")
         window.cards(1)
-        output = image_bytes(window, RESULT)
+        output = saved_result(profile,window)
         destination = window.directory / "qa-export.png"
         print("Real Save panel: save to this new path:\n" + str(destination), flush=True)
         window.wait(SAVE.replace("b.click()", "setTimeout(()=>b.click(),100)"), "native save action")

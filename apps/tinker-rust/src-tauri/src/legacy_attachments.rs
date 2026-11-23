@@ -50,7 +50,7 @@ impl StoredFile {
     }
     fn limit(&self) -> Result<usize> {
         match self.media_type.as_str() {
-            "image/png" => Ok(crate::formal_images::MAX_PNG),
+            "image/png" => Ok(crate::picked_image::LEGACY_PNG_LIMIT),
             "text/plain" | "text/markdown" => Ok(TEXT_LIMIT),
             _ => Err(invalid()),
         }
@@ -104,7 +104,7 @@ pub fn stage_files(dir: &Path, files: &[SourceAttachment]) -> Result<Vec<StoredF
             return Err(invalid());
         }
         if file.media_type == "image/png" {
-            crate::formal_images::dimensions(&item.bytes)?;
+            crate::picked_image::validate_legacy_png(&item.bytes)?;
         } else if std::str::from_utf8(&item.bytes).is_err() || item.bytes.contains(&0) {
             return Err(invalid());
         }

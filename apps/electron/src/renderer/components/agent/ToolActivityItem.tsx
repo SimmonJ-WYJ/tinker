@@ -9,6 +9,7 @@
  * - CSS 动画（交错入场 / 状态切换）
  */
 
+import { useImageSource } from '@/lib/image-asset-reads'
 import * as React from 'react'
 import {
   CheckCircle2,
@@ -346,18 +347,8 @@ function ActivityGroupRow({ group, index = 0, animate = false, onOpenDetails, de
 
 function ToolResultImage({ attachment }: { attachment: { localPath: string; filename: string; mediaType: string } }): React.ReactElement {
   const { t } = useT('common')
-  const [imageSrc, setImageSrc] = React.useState<string | null>(null)
+  const imageSrc = useImageSource(attachment.localPath, attachment.mediaType, 'thumbnail')?.src
 
-  React.useEffect(() => {
-    window.electronAPI
-      .readAttachment(attachment.localPath)
-      .then((base64) => {
-        setImageSrc(`data:${attachment.mediaType};base64,${base64}`)
-      })
-      .catch((error) => {
-        console.error('[ToolResultImage] 读取附件失败:', error)
-      })
-  }, [attachment.localPath, attachment.mediaType])
 
   const handleSave = React.useCallback((): void => {
     window.electronAPI.saveImageAs(attachment.localPath, attachment.filename)

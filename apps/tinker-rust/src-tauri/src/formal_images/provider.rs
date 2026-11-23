@@ -4,8 +4,10 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::json;
 use std::{net::SocketAddr, time::Duration};
 
-const MAX_RESPONSE: usize = 704 * 1024;
-pub(crate) const MAX_PNG: usize = 512 * 1024;
+pub(super) const MAX_RESPONSE: usize = MAX_PNG.div_ceil(3) * 4 + 64 * 1024;
+pub(crate) const MAX_PNG: usize = 8 * 1024 * 1024;
+#[path = "png_codec.rs"]
+mod png_codec;
 pub(super) const MODEL: &str = "local-image";
 pub(super) const CHANNEL: &str = "local-image-mock";
 
@@ -109,40 +111,37 @@ impl LoopbackImageProvider {
 }
 
 pub(crate) fn validate_pixel_count(width: u32, height: u32) -> Result<()> {
-    if width > 4096 || height > 4096 || u64::from(width) * u64::from(height) > 4_194_304 {
+    if width > 4096 || height > 4096 || u64::from(width) * u64::from(height) > 8_388_608 {
         return Err(DesktopError("imageTooLarge"));
     }
     Ok(())
 }
 
 pub(crate) fn dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
-    let invalid = DesktopError("invalidImageResponse");
-    if bytes.len() > MAX_PNG {
-        return Err(DesktopError("imageTooLarge"));
-    }
-    if !bytes.ends_with(b"\x00\x00\x00\x00IEND\xae\x42\x60\x82") {
-        return Err(invalid);
-    }
-    let mut decoder = png::Decoder::new(bytes);
-    decoder.set_limits(png::Limits {
-        bytes: 32 * 1024 * 1024,
-    });
-    decoder.set_ignore_text_chunk(true);
-    decoder.set_ignore_iccp_chunk(true);
-    let mut reader = decoder.read_info().map_err(|_| invalid)?;
-    let info = reader.info();
-    let (w, h) = (info.width, info.height);
-    validate_pixel_count(w, h)?;
-    if info.animation_control.is_some()
-        || w == 0
-        || h == 0
-        || reader.output_buffer_size() > 16 * 1024 * 1024
-    {
-        return Err(invalid);
-    }
-    reader
-        .next_frame(&mut vec![0; reader.output_buffer_size()])
-        .map_err(|_| invalid)?;
-    reader.finish().map_err(|_| invalid)?;
-    Ok((w, h))
+    // 旧持久化/导入路径继续容许被忽略的metadata；新认证响应单独采用严格准入。
+    png_codec::validate(bytes, None, None, false)
+}
+#[cfg(test)]
+pub(super) fn vendor_dimensions(
+    bytes: &[u8],
+    token: &AtomicBool,
+    key: &[u8],
+) -> Result<(u32, u32)> {
+    png_codec::validate(bytes, Some(token), Some(key), true)
+}
+
+#[cfg(test)]
+#[path = "large_png_tests.rs"]
+mod large_png_tests;
+
+pub(super) fn vendor_png(
+    bytes: Vec<u8>,
+    token: &AtomicBool,
+    key: &[u8],
+) -> Result<(Vec<u8>, u32, u32)> {
+    png_codec::prepare(bytes, token, key)
+}
+
+pub(super) fn response_has_secret(bytes: &[u8], token: &AtomicBool, key: &[u8]) -> Result<bool> {
+    png_codec::secret_present(bytes.iter().copied(), key, Some(token))
 }

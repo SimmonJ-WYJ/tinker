@@ -21,6 +21,8 @@ use std::{
 
 pub(super) struct ImageWorkflow {
     pub store: ImageStore,
+    pub(super) originals: super::image_files::Originals,
+    pub(super) thumbnails: super::thumbnail_reads::ThumbnailReads,
     provider: Option<LoopbackImageProvider>,
     jobs: BTreeMap<String, Job>,
     deliveries: BTreeMap<String, VecDeque<(&'static str, Value)>>,
@@ -37,6 +39,8 @@ impl ImageWorkflow {
     pub fn open(path: &Path, endpoint: Option<SocketAddr>) -> Result<Self> {
         Ok(Self {
             store: ImageStore::open(path)?,
+            originals: Default::default(),
+            thumbnails: Default::default(),
             provider: endpoint.map(LoopbackImageProvider::new).transpose()?,
             jobs: BTreeMap::new(),
             deliveries: BTreeMap::new(),

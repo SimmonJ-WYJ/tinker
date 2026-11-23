@@ -2,20 +2,15 @@
 import * as React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useT } from '@/hooks/useT'
+import { useImageSource } from '@/lib/image-asset-reads'
 import type { ImageVersion } from './image-versions'
-function VersionPreview({ version, label }: { version: ImageVersion; label: string }): React.ReactElement {
+function VersionPreview({ version, label, open }: { version: ImageVersion; label: string; open: boolean }): React.ReactElement {
   const { t } = useT('common')
-  const [src, setSrc] = React.useState('')
-  const [failed, setFailed] = React.useState(false)
-  React.useEffect(() => {
-    let active = true
-    setSrc('')
-    setFailed(false)
-    void window.electronAPI.readAttachment(version.generatedImage.localPath)
-      .then(data => { if (active) setSrc(`data:${version.generatedImage.mediaType};base64,${data}`) })
-      .catch(() => { if (active) setFailed(true) })
-    return () => { active = false }
-  }, [version.generatedImage.localPath, version.generatedImage.mediaType])
+  const { localPath, mediaType } = version.generatedImage
+  const original = useImageSource(open ? localPath : undefined, mediaType, 'original')
+  const [broken, setBroken] = React.useState<string>()
+  const src = original?.src
+  const failed = original?.failed || broken === src && Boolean(src)
 
   return (
     <figure className="min-w-0 space-y-2">
@@ -25,7 +20,7 @@ function VersionPreview({ version, label }: { version: ImageVersion; label: stri
       {failed ? (
         <p role="alert" className="text-sm text-muted-foreground">{t('imageVersion.missing')}</p>
       ) : src ? (
-        <img src={src} alt={label} className="block h-auto max-h-[60vh] max-w-full object-contain" onError={() => setFailed(true)} />
+        <img src={src} alt={label} className="block h-auto max-h-[60vh] max-w-full object-contain" onError={() => setBroken(src)} />
       ) : (
         <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p>
       )}
@@ -55,8 +50,8 @@ export function ImageVersionCompare({ current, parent, open, onOpenChange, retur
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 items-start gap-4">
-          <VersionPreview version={parent} label={t('imageVersion.source')} />
-          <VersionPreview version={current} label={t('imageVersion.current')} />
+          <VersionPreview open={open} version={parent} label={t('imageVersion.source')} />
+          <VersionPreview open={open} version={current} label={t('imageVersion.current')} />
         </div>
       </DialogContent>
     </Dialog>

@@ -103,16 +103,25 @@ class Window:
             return img?.complete&&img.naturalWidth>0&&img.closest('[data-image-edit-reference]').dataset.imageEditReference;""",
                          "persisted sent reference thumbnail")
 
+    def compared_small_images(self, source, child):
+        self.wait(f"""const cards=[...document.querySelectorAll('{CARD}')];
+            const pair=[...document.querySelectorAll('[role=dialog][data-state=open] figure img')];
+            function pixels(i) {{
+                const c=document.createElement('canvas');c.width=i.naturalWidth;c.height=i.naturalHeight;
+                c.getContext('2d').drawImage(i,0,0);return c.toDataURL();
+            }}
+            return pair.length===2 && {json.dumps([source,child])}.every((name,index)=>{{
+                const card=cards.find(i=>i.alt===name),full=pair[index];
+                return card?.complete && full.complete && card.naturalWidth>0 && card.naturalWidth<=256 &&
+                    card.naturalWidth===full.naturalWidth && card.naturalHeight===full.naturalHeight &&
+                    pixels(card)===pixels(full);
+            }});""", "decoded small comparison pixels match each selected version")
+
     def compare_parent(self, source, child, capture=False):
-        names = json.dumps([source, child])
         self.wait(f"""const img=[...document.querySelectorAll('{CARD}')].find(e=>e.alt==={json.dumps(child)});
             const compare=[...(img?.closest('[data-generated-image]')?.querySelectorAll('button')??[])].find(b=>/Compare versions|对比版本|比较版本/i.test(b.textContent));
             if(!compare||compare.disabled)return false; compare.click();return true;""", "Compare versions")
-        self.wait(f"""const cards=[...document.querySelectorAll('{CARD}')];
-            const compared=[...document.querySelectorAll('[role=dialog][data-state=open] figure img')];
-            return compared.length===2 && {names}.every((name,i)=>compared[i].complete &&
-              compared[i].naturalWidth && compared[i].src===cards.find(c=>c.alt===name)?.src);""",
-                  "comparison against the selected parent version")
+        self.compared_small_images(source, child)
         if capture:
             self.wait("""const dlg=document.querySelector('[role=dialog][data-state=open]');
                 return dlg && Number(getComputedStyle(dlg).opacity)>=0.99 &&
@@ -135,7 +144,7 @@ class Window:
                 if(!b)return false; b.click();return true;""", "Open file panel")
         self.wait(f"""const row=[...document.querySelectorAll('[data-file-row]')].find(e=>e.dataset.filePath.endsWith('/'+{json.dumps(filename)}));
             if(!row)return false; row.click();return true;""", "generated file in Session Files")
-        self.wait(f"""const img=[...document.querySelectorAll('button img')].find(e=>e.alt==={json.dumps(filename)}&&e.src.startsWith('blob:')&&e.complete&&e.naturalWidth);
+        self.wait(f"""const img=[...document.querySelectorAll('button[aria-label="Image preview"] img,button[aria-label="图片预览"] img')].find(e=>e.alt==={json.dumps(filename)}&&e.complete&&e.naturalWidth);
             if(!img||img.closest('button').disabled)return false; img.closest('button').click();return true;""", "loaded sidebar image preview")
         self.wait(f"""return [...document.querySelectorAll('[role=dialog][data-state=open] img')].some(e=>e.alt==={json.dumps(filename)}&&e.complete&&e.naturalWidth);""",
                   "enlarged sidebar image")

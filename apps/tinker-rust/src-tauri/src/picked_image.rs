@@ -3,7 +3,34 @@ use crate::desktop_runtime::protocol::{DesktopError, Result};
 
 pub(crate) const MAX_PICKED_BYTES: usize = 8 * 1024 * 1024;
 
+// Electron 备份预览保留原来的空间和像素上限。
+pub(crate) const LEGACY_PNG_LIMIT: usize = 512 * 1024;
+const LEGACY_PIXEL_LIMIT: u64 = 4_194_304;
+
 pub(crate) fn normalize_picked(bytes: &[u8], extension: &str) -> Result<Vec<u8>> {
+    normalize(bytes, extension, false)
+}
+
+pub(crate) fn normalize_legacy_preview(bytes: &[u8], extension: &str) -> Result<Vec<u8>> {
+    normalize(bytes, extension, true)
+}
+
+pub(crate) fn validate_legacy_png(bytes: &[u8]) -> Result<()> {
+    if bytes.len() > LEGACY_PNG_LIMIT {
+        return Err(DesktopError("imageTooLarge"));
+    }
+    let mut decoder = png::Decoder::new(bytes);
+    let info = decoder
+        .read_header_info()
+        .map_err(|_| DesktopError("invalidImageFile"))?;
+    if u64::from(info.width) * u64::from(info.height) > LEGACY_PIXEL_LIMIT {
+        return Err(DesktopError("imageTooLarge"));
+    }
+    crate::formal_images::dimensions(bytes)?;
+    Ok(())
+}
+
+fn normalize(bytes: &[u8], extension: &str, legacy_preview: bool) -> Result<Vec<u8>> {
     use crate::formal_images::{dimensions, validate_pixel_count};
     use image::{codecs::jpeg::JpegDecoder, DynamicImage, ImageDecoder};
     use std::io::Cursor;
@@ -15,7 +42,11 @@ pub(crate) fn normalize_picked(bytes: &[u8], extension: &str) -> Result<Vec<u8>>
     }
     match extension.to_ascii_lowercase().as_str() {
         "png" => {
-            dimensions(bytes).map_err(|e| if e == too_large { e } else { invalid })?;
+            if legacy_preview {
+                validate_legacy_png(bytes)?;
+            } else {
+                dimensions(bytes).map_err(|e| if e == too_large { e } else { invalid })?;
+            }
             return Ok(bytes.to_vec());
         }
         "jpg" | "jpeg" => {}
@@ -27,12 +58,25 @@ pub(crate) fn normalize_picked(bytes: &[u8], extension: &str) -> Result<Vec<u8>>
     let mut decoder = JpegDecoder::new(Cursor::new(bytes)).map_err(|_| invalid)?;
     let (width, height) = decoder.dimensions();
     validate_pixel_count(width, height)?;
+    if legacy_preview && u64::from(width) * u64::from(height) > LEGACY_PIXEL_LIMIT {
+        return Err(too_large);
+    }
     let orientation = decoder.orientation().map_err(|_| invalid)?;
     let mut image = DynamicImage::from_decoder(decoder).map_err(|_| invalid)?;
     image.apply_orientation(orientation);
     let rgb = image.into_rgb8();
 
-    encode_png(rgb.width(), rgb.height(), png::ColorType::Rgb, rgb.as_raw())
+    if legacy_preview {
+        encode_png_limited(
+            rgb.width(),
+            rgb.height(),
+            png::ColorType::Rgb,
+            rgb.as_raw(),
+            LEGACY_PNG_LIMIT,
+        )
+    } else {
+        encode_png(rgb.width(), rgb.height(), png::ColorType::Rgb, rgb.as_raw())
+    }
 }
 
 pub(crate) fn encode_png(
@@ -41,11 +85,51 @@ pub(crate) fn encode_png(
     color: png::ColorType,
     pixels: &[u8],
 ) -> Result<Vec<u8>> {
-    use crate::formal_images::MAX_PNG;
-    use std::io::Cursor;
-    // 对话图片统一使用 PNG；固定大小的缓冲区限制压缩输出，避免写入半张图片。
-    let mut buffer = vec![0; MAX_PNG];
-    let mut output = Cursor::new(buffer.as_mut_slice());
+    encode_png_limited(width, height, color, pixels, crate::formal_images::MAX_PNG)
+}
+
+struct LimitedBuffer {
+    bytes: Vec<u8>,
+    limit: usize,
+}
+impl std::io::Write for LimitedBuffer {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let next = self
+            .bytes
+            .len()
+            .checked_add(buf.len())
+            .filter(|n| *n <= self.limit)
+            .ok_or_else(|| std::io::Error::other("imageTooLarge"))?;
+        if next > self.bytes.capacity() {
+            let capacity = self
+                .bytes
+                .capacity()
+                .saturating_mul(2)
+                .max(next)
+                .min(self.limit);
+            self.bytes
+                .try_reserve_exact(capacity - self.bytes.len())
+                .map_err(std::io::Error::other)?;
+        }
+        self.bytes.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn encode_png_limited(
+    width: u32,
+    height: u32,
+    color: png::ColorType,
+    pixels: &[u8],
+    limit: usize,
+) -> Result<Vec<u8>> {
+    let mut output = LimitedBuffer {
+        bytes: Vec::new(),
+        limit,
+    };
     let mut encoder = png::Encoder::new(&mut output, width, height);
     encoder.set_color(color);
     encoder.set_depth(png::BitDepth::Eight);
@@ -56,9 +140,7 @@ pub(crate) fn encode_png(
         .write_image_data(pixels)
         .map_err(|_| DesktopError("imageTooLarge"))?;
     writer.finish().map_err(|_| DesktopError("imageTooLarge"))?;
-    let length = output.position() as usize;
-    buffer.truncate(length);
-    Ok(buffer)
+    Ok(output.bytes)
 }
 
 #[cfg(test)]
@@ -101,7 +183,7 @@ mod tests {
     }
 
     #[test]
-    fn png_output_limit_returns_an_error_instead_of_partial_bytes() {
+    fn native_png_can_exceed_the_backup_preview_limit() {
         let mut bits = 0x31415926_u32;
         let pixels: Vec<u8> = (0..512 * 512 * 3)
             .map(|_| {
@@ -111,12 +193,34 @@ mod tests {
                 bits as u8
             })
             .collect();
+        let png = encode_png(512, 512, png::ColorType::Rgb, &pixels).unwrap();
+        assert!(png.len() > 512 * 1024);
+        assert_eq!(normalize_picked(&png, "png").unwrap(), png);
         assert_eq!(
-            encode_png(512, 512, png::ColorType::Rgb, &pixels)
+            normalize_legacy_preview(&png, "png").unwrap_err().0,
+            "imageTooLarge"
+        );
+        assert_eq!(
+            encode_png_limited(512, 512, png::ColorType::Rgb, &pixels, 512 * 1024)
                 .unwrap_err()
                 .0,
             "imageTooLarge"
         );
+    }
+
+    #[test]
+    fn legacy_import_keeps_its_pixel_limit_on_a_small_compressed_png() {
+        let pixels = vec![0; 2049 * 2048];
+        let png = encode_png(2049, 2048, png::ColorType::Grayscale, &pixels).unwrap();
+        assert!(png.len() < LEGACY_PNG_LIMIT);
+        assert_eq!(normalize_picked(&png, "png").unwrap(), png);
+        assert_eq!(validate_legacy_png(&png).unwrap_err().0, "imageTooLarge");
+    }
+
+    #[test]
+    fn tiny_picked_image_does_not_hold_an_entire_asset_budget() {
+        let png = encode_png(1, 1, png::ColorType::Rgb, &[1, 2, 3]).unwrap();
+        assert!(png.capacity() < 4096);
     }
 
     #[test]

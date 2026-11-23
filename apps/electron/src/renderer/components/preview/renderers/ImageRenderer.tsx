@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useStore } from 'jotai'
 import { imageEditDraftsAtom } from '@/atoms/image-edit-atoms'
 import { applyPickedImage, nativeImageSave, reportImageFileError } from '@/components/agent/native-image-files'
+import { nativeImageAssets, readImageThumbnail } from '@/lib/image-asset-reads'
 import { useT } from '@/hooks/useT'
 import { ImageLightbox } from '@/components/ui/image-lightbox'
 import type { PreviewRendererProps } from '../preview-registry'
@@ -49,7 +50,7 @@ export default function ImageRenderer({ path, displayName, onError }: PreviewRen
     setExpanded(false)
     void (async (): Promise<void> => {
       try {
-        const base64 = await window.electronAPI.previewReadBinary(path)
+        const base64 = localPath && nativeImageAssets(localPath) ? await readImageThumbnail(localPath) : await window.electronAPI.previewReadBinary(path)
         if (cancelled) return
         const binary = atob(base64)
         const bytes = new Uint8Array(binary.length)
@@ -65,7 +66,7 @@ export default function ImageRenderer({ path, displayName, onError }: PreviewRen
       cancelled = true
       release()
     }
-  }, [path, onError, t])
+  }, [path, localPath, onError, t])
 
   const handleDecodeError = (): void => {
     currentImage?.release()
@@ -91,7 +92,7 @@ export default function ImageRenderer({ path, displayName, onError }: PreviewRen
     const token = openTarget.current
     void applyPickedImage(
       async () => {
-        const bytes = await window.electronAPI.readAttachment(localPath)
+        const bytes = await readImageThumbnail(localPath)
         return {
           imageId,
           displayName,
@@ -130,6 +131,7 @@ export default function ImageRenderer({ path, displayName, onError }: PreviewRen
         <div role="status" className="text-xs text-muted-foreground">{tCommon('loading')}</div>
       )}
       <ImageLightbox
+        localPath={localPath}
         src={currentImage?.url ?? null}
         alt={displayName ?? fileName}
         open={expanded && !!currentImage}

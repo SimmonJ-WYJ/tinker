@@ -212,3 +212,32 @@ pub(super) fn discard_uncommitted(dir: &Path, asset: &ImageAsset) -> Result<()> 
     fs::remove_file(dir.join(&asset.filename))?;
     sync_dir(dir)
 }
+
+// 在存储锁下统计原图、预览缓存与写入中断的残留文件。收据索引单独限额。
+const SESSION_ASSET_BYTES: u64 = 128 * 1024 * 1024;
+pub(super) fn asset_budget(dir: &Path, additional: usize) -> Result<()> {
+    directory(dir, true)?;
+    let mut total = additional as u64;
+    for (i, entry) in fs::read_dir(dir)?.enumerate() {
+        if i >= 12 * LIMIT + 32 {
+            return Err(DesktopError("imageStorageLimit"));
+        }
+        let entry = entry?;
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let name = name.strip_suffix(".next").unwrap_or(name);
+        if (name.ends_with(".png") || name.ends_with(".thumbnail-v1"))
+            && entry.file_type()?.is_file()
+        {
+            // 只统计直接文件，跳过异常目录或链接，访问目标时另行校验。
+            let size = fs::symlink_metadata(entry.path())?.len();
+            total = total
+                .checked_add(size)
+                .ok_or(DesktopError("imageStorageLimit"))?;
+            if total > SESSION_ASSET_BYTES {
+                return Err(DesktopError("imageStorageLimit"));
+            }
+        }
+    }
+    Ok(())
+}

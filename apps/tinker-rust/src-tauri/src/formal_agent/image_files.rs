@@ -4,7 +4,102 @@ use crate::desktop_runtime::protocol::{DesktopError, Result};
 use crate::legacy_attachments::wire_name;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
+use std::collections::VecDeque;
+// 原图分块读取，双图对比最多保留两份已校验数据，每片重新检查会话归属。
+const MAX_RANGE: usize = 256 * 1024;
+const MAX_LEGACY_INLINE: u64 = 512 * 1024;
+struct VerifiedOriginal {
+    session: String,
+    filename: String,
+    sha256: String,
+    bytes: Vec<u8>,
+}
+#[derive(Default)]
+pub(super) struct Originals(VecDeque<VerifiedOriginal>);
+impl Originals {
+    pub(super) fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn read_range(
+        &mut self,
+        sid: &str,
+        filename: &str,
+        sha: &str,
+        range: std::ops::Range<usize>,
+        total: usize,
+        read: impl FnOnce() -> Result<Vec<u8>>,
+    ) -> Result<Value> {
+        let index = self
+            .0
+            .iter()
+            .position(|v| v.session == sid && v.filename == filename && v.sha256 == sha);
+        let previous = index.and_then(|i| self.0.remove(i));
+        // 首次读取核验原图；缓存被腾出后，后续分块仍须匹配原摘要。
+        let original = if let Some(old) = previous.filter(|_| range.start != 0) {
+            old
+        } else {
+            if self.0.len() == 2 {
+                self.0.pop_front();
+            }
+            VerifiedOriginal {
+                session: sid.into(),
+                filename: filename.into(),
+                sha256: sha.into(),
+                bytes: read()?,
+            }
+        };
+        if original.bytes.len() != total {
+            return Err(DesktopError("imageSourceChanged"));
+        }
+        let offset = range.start;
+        let finished = range.end == total;
+        let data = STANDARD.encode(&original.bytes[range]);
+        if !finished {
+            self.0.push_back(original);
+        }
+        Ok(json!({"data":data,"offset":offset,"totalBytes":total,"sha256":sha}))
+    }
+}
 impl Actor {
+    pub(super) fn read_image_range(&mut self, args: &[Value]) -> Result<Value> {
+        if !(4..=5).contains(&args.len()) {
+            return Err(DesktopError("invalidParams"));
+        }
+        let sid = args[0].as_str().ok_or(DesktopError("invalidParams"))?;
+        let filename = args[1].as_str().ok_or(DesktopError("invalidParams"))?;
+        let file = self.view_file(sid, filename)?;
+        let images = self.images.as_mut().expect("resolved image host");
+        let integer = |arg: &Value| {
+            arg.as_u64()
+                .and_then(|v| usize::try_from(v).ok())
+                .ok_or(DesktopError("invalidParams"))
+        };
+        let offset = integer(&args[2])?;
+        let limit = integer(&args[3])?;
+        let sha = file.sha256();
+        if limit == 0 || limit > MAX_RANGE || (offset != 0 && args.len() != 5) {
+            return Err(DesktopError("invalidParams"));
+        }
+        if let Some(expected) = args.get(4) {
+            if expected.as_str() != Some(sha) {
+                return Err(DesktopError("imageSourceChanged"));
+            }
+        }
+        let total = usize::try_from(file.size()?).map_err(|_| DesktopError("imageTooLarge"))?;
+        if offset >= total {
+            return Err(DesktopError("invalidParams"));
+        }
+        images.originals.read_range(
+            sid,
+            filename,
+            sha,
+            offset..offset.saturating_add(limit).min(total),
+            total,
+            || file.read_bytes(),
+        )
+    }
+
     pub fn image_file(&self, channel: &str, args: &[Value]) -> Result<Value> {
         let list = channel == "agent:list-directory";
         let text = channel == "agent:preview-read-text";
@@ -66,6 +161,9 @@ impl Actor {
             if channel == "agent:stat-file" {
                 return Ok(json!({"size": file.size()?, "isDirectory": false}));
             }
+            if file.size()? > MAX_LEGACY_INLINE {
+                return Err(DesktopError("imageTooLarge"));
+            }
             Ok(Value::String(file.read_base64()?))
         } else {
             let (turns, imports) = store.snapshot(sid)?;
@@ -103,6 +201,25 @@ fn text_preview(bytes: &[u8], requested: Option<&Value>) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn two_parallel_original_views_verify_each_source_once() {
+        let mut originals = Originals::default();
+        for name in ["a", "b"] {
+            originals
+                .read_range("sid", name, "digest", 0..1, 2, || Ok(vec![1, 2]))
+                .unwrap();
+        }
+        for name in ["a", "b"] {
+            let last = originals
+                .read_range("sid", name, "digest", 1..2, 2, || {
+                    panic!("original was re-read")
+                })
+                .unwrap();
+            assert_eq!(last["data"], STANDARD.encode([2]));
+        }
+        assert!(originals.0.is_empty());
+    }
+
     #[test]
     fn imported_text_preview_respects_byte_limits_without_splitting_characters() {
         let text = "A好!";
