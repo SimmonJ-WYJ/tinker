@@ -2,8 +2,11 @@
 mod disk;
 mod imports;
 mod provider;
+mod tasks;
+use crate::session_lifecycle::RunStatus;
 pub use imports::ImportedImage;
 use imports::SessionImages;
+pub(crate) use tasks::{ImageAdmission, ImageTaskSummary};
 #[cfg(test)]
 mod tests;
 
@@ -14,7 +17,7 @@ pub(crate) use provider::{dimensions, validate_pixel_count, MAX_PNG};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::File,
     path::{Path, PathBuf},
     sync::{
@@ -69,7 +72,11 @@ fn image_id(session: &str, request: &str) -> String {
 fn valid_prompt(prompt: &str) -> bool {
     !prompt.trim().is_empty() && prompt.len() <= 8192
 }
-type Active = HashSet<(String, String)>;
+#[derive(Default)]
+struct Active {
+    requests: HashSet<(String, String)>,
+    summaries: HashMap<String, Option<ImageTaskSummary>>,
+}
 struct Store {
     dir: PathBuf,
     _lock: File,
@@ -96,7 +103,9 @@ impl ImageStore {
     }
     fn recovered(&self, active: &Active, session: &str, mut turn: ImageTurn) -> ImageTurn {
         if turn.status == ImageStatus::Pending
-            && !active.contains(&(session.into(), turn.request_id.clone()))
+            && !active
+                .requests
+                .contains(&(session.into(), turn.request_id.clone()))
         {
             turn.status = ImageStatus::Interrupted;
         }
@@ -167,91 +176,24 @@ impl ImageStore {
         provider: &LoopbackImageProvider,
         cancelled: &AtomicBool,
     ) -> Result<ImageTurn> {
-        let dir = self.session(session)?;
-        id(request_id)?;
-        if !valid_prompt(prompt) || created_at > MAX_SAFE_INTEGER {
-            return Err(DesktopError("invalidImageInput"));
-        }
-        let key = (session.to_owned(), request_id.to_owned());
-        let (reference, derived) = {
-            let mut active = self.guard()?;
-            let mut images = SessionImages::open(&dir, session)?;
-            if let Some(previous) = images.turns().find(|turn| turn.request_id == request_id) {
-                if previous.prompt != prompt || previous.base_image_id.as_deref() != base_image_id {
-                    return Err(DesktopError("imageRequestConflict"));
-                }
-                return Ok(self.recovered(&active, session, previous.clone()));
-            }
-            if images.original.len() + images.derived.len() >= LIMIT {
-                return Err(DesktopError("imageLimit"));
-            }
-            let (reference, derived) = if let Some(id) = base_image_id {
-                let (_, name, hash, derived) = images
-                    .sources()
-                    .find(|(source, _, _, _)| *source == id)
-                    .ok_or(DesktopError("imageNotFound"))?;
-                (Some((id, disk::png(&dir, name, hash)?)), derived)
-            } else {
-                (None, false)
-            };
-            disk::private_dir(&dir)?;
-            let turns = images.partition(derived);
-            turns.push(ImageTurn {
-                request_id: request_id.into(),
-                prompt: prompt.into(),
-                base_image_id: base_image_id.map(str::to_owned),
-                created_at,
-                status: ImageStatus::Pending,
-                asset: None,
-                error: None,
-            });
-            // 先持久化请求，再释放互斥锁运行网络；重启从不重发未完成请求。
-            disk::save_turns(&dir, turns, derived)?;
-            active.insert(key.clone());
-            (reference, derived)
-        };
-        let result = provider.request(prompt, reference, cancelled);
-        let mut active = self.guard()?;
-        active.remove(&key);
-        let mut images = SessionImages::open(&dir, session)?;
-        let turns = images.partition(derived);
-        let turn = turns
-            .iter_mut()
+        // 旧接口以请求 ID、输入与原图重放，保留原始时间。窗口提交的 admit 还校验时间。
+        let timestamp = self
+            .history(session)?
+            .into_iter()
             .find(|t| t.request_id == request_id)
-            .ok_or(DesktopError("corruptImages"))?;
-        if cancelled.load(Ordering::Acquire)
-            || matches!(result, Err(DesktopError("imageInterrupted")))
-        {
-            turn.status = ImageStatus::Interrupted;
-        } else {
-            match result {
-                Err(err) => {
-                    turn.status = ImageStatus::Failed;
-                    turn.error = Some(err.0.into());
-                }
-                Ok((bytes, width, height)) => {
-                    let image_id = image_id(session, request_id);
-                    let filename = format!("{image_id}.png");
-                    disk::put(&dir, &filename, &bytes)?;
-                    turn.status = ImageStatus::Succeeded;
-                    turn.asset = Some(ImageAsset {
-                        id: image_id,
-                        filename,
-                        model: provider::MODEL.into(),
-                        channel_id: provider::CHANNEL.into(),
-                        prompt: prompt.into(),
-                        reference_ids: turn.base_image_id.iter().cloned().collect(),
-                        base_image_id: turn.base_image_id.clone(),
-                        width,
-                        height,
-                        content_sha256: digest(&bytes),
-                    });
-                }
-            }
+            .map_or(created_at, |turn| turn.created_at);
+        match self.admit(
+            session,
+            request_id,
+            prompt,
+            base_image_id,
+            timestamp,
+            None,
+            None,
+        )? {
+            ImageAdmission::Replay(turn) => Ok(turn),
+            ImageAdmission::New(job) => job.execute(provider, cancelled),
         }
-        let result = turn.clone();
-        disk::save_turns(&dir, turns, derived)?;
-        Ok(result)
     }
 }
 /// 由当前会话索引解析的不可变版本，调用方不能提供本机路径。

@@ -8,8 +8,10 @@ use std::{
 };
 fn root() -> std::path::PathBuf {
     use std::os::unix::fs::DirBuilderExt;
+    static SERIAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let p = std::env::temp_dir().canonicalize().unwrap().join(format!(
-        "tinker-native-images-{}-{}",
+        "tinker-native-images-{}-{}-{}",
+        SERIAL.fetch_add(1, Ordering::Relaxed),
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -485,5 +487,232 @@ fn import_replaces_an_abandoned_partial_stage_without_overwriting_a_committed_ve
         bytes
     );
     drop(store);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn user_stop_is_durable_before_worker_returns_and_late_pixels_are_discarded() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let ImageAdmission::New(job) = store.admit("s", "r", "one", None, 1, None, None).unwrap()
+    else {
+        panic!()
+    };
+    let cancelled = AtomicBool::new(false);
+    assert_eq!(
+        store.latest_task("s").unwrap().unwrap().status,
+        RunStatus::Running
+    );
+    store.stop("s", "r", &cancelled).unwrap();
+    assert!(cancelled.load(Ordering::Acquire));
+    assert!(store.history("s").unwrap()[0].user_stopped());
+    let receipt = job.finish(Ok((pixel(1), 1, 1)), &cancelled).unwrap();
+    assert!(receipt.user_stopped());
+    assert!(receipt.asset.is_none());
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    assert_eq!(
+        store.latest_task("s").unwrap().unwrap().status,
+        RunStatus::Cancelled
+    );
+    assert!(disk::load_turns(&store.session("s").unwrap(), "s", None).unwrap()[0].user_stopped());
+    assert!(store.retry_source("s", "r", "new").is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn failed_artifact_write_commits_failure_and_retry_keeps_exact_provenance() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let ImageAdmission::New(job) = store.admit("s", "r", "new", None, 1, None, None).unwrap()
+    else {
+        panic!()
+    };
+    let filename = format!("{}.png", image_id("s", "r"));
+    std::fs::create_dir(store.session("s").unwrap().join(&filename)).unwrap();
+    let flag = AtomicBool::new(false);
+    assert_eq!(
+        job.finish(Ok((pixel(1), 1, 1)), &flag).unwrap().status,
+        ImageStatus::Failed
+    );
+    assert!(store.attachment("s", &filename).is_err());
+    let source = store.retry_source("s", "r", "r2").unwrap();
+    assert_eq!(source.prompt, "new");
+    let ImageAdmission::New(retry) = store
+        .admit("s", "r2", "new", None, 2, Some("r"), None)
+        .unwrap()
+    else {
+        panic!()
+    };
+    retry.finish(Ok((pixel(2), 1, 1)), &flag).unwrap();
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    assert!(matches!(
+        store
+            .admit("s", "r2", "new", None, 2, Some("r"), None)
+            .unwrap(),
+        ImageAdmission::Replay(_)
+    ));
+    assert!(store.admit("s", "r2", "new", None, 2, None, None).is_err());
+    assert!(store.retry_source("s", "r", "fresh").is_err());
+    assert!(store.retry_source("other", "r", "r2").is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn legacy_and_downgraded_appends_survive_clock_rollback() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let dir = store.session("s").unwrap();
+    disk::private_dir(&dir).unwrap();
+    let legacy = |request: &str, created_at: u64| ImageTurn {
+        request_id: request.into(),
+        prompt: "p".into(),
+        created_at,
+        base_image_id: None,
+        status: ImageStatus::Failed,
+        error: Some("imageProviderFailed".into()),
+        asset: None,
+    };
+    let mut turns = vec![legacy("one", 100), legacy("two", 3)];
+    disk::save_turns(&dir, &turns, false).unwrap();
+    let summary = store.latest_task("s").unwrap().unwrap();
+    assert_eq!(summary.request_id, "two");
+    assert!(summary.text_head_at_admission.is_none());
+    assert!(store.retry_source("s", "one", "new").is_err());
+    assert!(store.retry_source("s", "two", "new").is_ok());
+    let ImageAdmission::New(job) = store
+        .admit("s", "three", "p", None, 2, None, Some("text"))
+        .unwrap()
+    else {
+        panic!()
+    };
+    drop(job);
+    assert_eq!(
+        store
+            .latest_task("s")
+            .unwrap()
+            .unwrap()
+            .text_head_at_admission,
+        Some(Some("text".into()))
+    );
+    drop(store);
+    turns = disk::load_turns(&dir, "s", None).unwrap();
+    turns.extend([legacy("four", 200), legacy("five", 1)]);
+    disk::save_turns(&dir, &turns, false).unwrap();
+    let store = ImageStore::open(&root).unwrap();
+    assert_eq!(store.latest_task("s").unwrap().unwrap().request_id, "five");
+    assert!(store.retry_source("s", "three", "new").is_err());
+    assert!(store.retry_source("s", "five", "new").is_ok());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn missing_source_bytes_and_uncommitted_index_do_not_admit_a_request() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let dir = store.session("s").unwrap();
+    let imported = store.import_png("s", "sample.png", &pixel(1), 0).unwrap();
+    std::fs::write(dir.join(&imported.filename), pixel(2)).unwrap();
+    assert!(store
+        .admit("s", "bad-ref", "edit", Some(&imported.id), 1, None, None)
+        .is_err());
+    assert!(store.latest_task("s").unwrap().is_none());
+    std::fs::create_dir(dir.join("turns.next")).unwrap();
+    assert!(store
+        .admit("s", "uncommitted", "p", None, 2, None, None)
+        .is_err());
+    assert!(store.history("s").unwrap().is_empty());
+    assert!(store.latest_task("s").unwrap().is_none());
+    std::fs::remove_dir(dir.join("turns.next")).unwrap();
+    let ImageAdmission::New(job) = store.admit("s", "real", "p", None, 1, None, None).unwrap()
+    else {
+        panic!()
+    };
+    drop(job);
+    assert_eq!(
+        store.latest_task("s").unwrap().unwrap().status,
+        RunStatus::Interrupted
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn failed_result_commit_discards_only_new_unpublished_pixels_and_keeps_edit_source() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let dir = store.session("s").unwrap();
+    let imported = store.import_png("s", "fixture.png", &pixel(1), 0).unwrap();
+    let ImageAdmission::New(job) = store
+        .admit("s", "r", "edit", Some(&imported.id), 5, None, None)
+        .unwrap()
+    else {
+        panic!()
+    };
+    std::fs::create_dir(dir.join("import-edits.json.next")).unwrap();
+    assert!(job
+        .finish(Ok((pixel(3), 1, 1)), &AtomicBool::new(false))
+        .is_err());
+    let filename = format!("{}.png", image_id("s", "r"));
+    assert!(store.attachment("s", &filename).is_err());
+    assert!(
+        !dir.join(&filename).exists(),
+        "未提交输出应从私有结果目录移除"
+    );
+    assert_eq!(
+        store
+            .attachment("s", &imported.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        pixel(1)
+    );
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    let source = store.retry_source("s", "r", "again").unwrap();
+    assert_eq!(source.status, ImageStatus::Interrupted);
+    assert_eq!(source.base_image_id, Some(imported.id));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn legacy_receipt_remains_read_only_and_new_image_records_its_own_admission() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let dir = store.session("s").unwrap();
+    disk::private_dir(&dir).unwrap();
+    let old = ImageTurn {
+        request_id: "legacy".into(),
+        prompt: "p".into(),
+        base_image_id: None,
+        created_at: 5,
+        status: ImageStatus::Interrupted,
+        asset: None,
+        error: None,
+    };
+    disk::save_turns(&dir, &[old], false).unwrap();
+    let before = std::fs::read(dir.join("turns.json")).unwrap();
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    let old = store.latest_task("s").unwrap().unwrap();
+    assert_eq!(old.text_head_at_admission, None);
+    assert_eq!(old.request_id, "legacy");
+    assert_eq!(std::fs::read(dir.join("turns.json")).unwrap(), before);
+    assert!(!dir.join("task-order.json").exists());
+    let ImageAdmission::New(job) = store
+        .admit("s", "new-image", "p", None, 2, None, Some("first-new-text"))
+        .unwrap()
+    else {
+        panic!()
+    };
+    drop(job);
+    assert_eq!(
+        store
+            .latest_task("s")
+            .unwrap()
+            .unwrap()
+            .text_head_at_admission,
+        Some(Some("first-new-text".to_string()))
+    );
     std::fs::remove_dir_all(root).unwrap();
 }

@@ -1,6 +1,6 @@
 /** 侧栏平铺项目列表：切换/创建仍复用真实工作区入口。 */
 import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { agentSessionsAtom, agentWorkspacesAtom, currentAgentWorkspaceIdAtom, currentAgentSessionIdAtom } from '@/atoms/agent-atoms'
 import { setAppLanguage } from '@/lib/i18n'
@@ -176,5 +176,43 @@ test('collapsed native sidebar opens the selected or newly created project overv
     expect(createWorkspace).toHaveBeenCalledWith('New project', undefined)
   } finally {
     window.__TAURI_FORMAL__ = previous
+  }
+})
+
+test('同一项目的改图与文字行在语言切换后仍指向各自会话', async () => {
+  const marker = window.__TAURI_FORMAL__
+  const api = window.electronAPI
+  try {
+    window.__TAURI_FORMAL__ = {
+      hydrated() {},
+      async projectTaskStatuses() {
+        return [
+          { sessionId: 'image', requestId: 'edit', kind: 'imageEdit', status: 'interrupted' },
+          { sessionId: 'chat', requestId: 'text', kind: 'text', status: 'completed' },
+        ]
+      },
+    }
+    window.electronAPI = {
+      ...api, onAgentStreamEvent: () => () => {}, onAgentStreamComplete: () => () => {},
+    }
+    const store = createStore()
+    store.set(agentWorkspacesAtom, [workspace('studio', 'Studio')])
+    store.set(currentAgentWorkspaceIdAtom, 'studio')
+    store.set(agentSessionsAtom, ['image', 'chat'].map(id => ({
+      id, title: id, workspaceId: 'studio', createdAt: 1, updatedAt: 2,
+    })))
+    render(<Provider store={store}><ProjectOverview /></Provider>)
+    expect(await screen.findByRole('button', { name: /image.*Image edit.*Interrupted/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /chat.*Text.*Completed/ })).toBeVisible()
+    await act(async () => { await setAppLanguage('zh') })
+    const row = await screen.findByRole('button', { name: /image.*改图.*已中断/ })
+    fireEvent.click(row)
+    expect(store.get(currentAgentSessionIdAtom)).toBe('image')
+    expect(store.get(currentAgentWorkspaceIdAtom)).toBe('studio')
+  } finally {
+    cleanup()
+    await setAppLanguage('en')
+    window.__TAURI_FORMAL__ = marker
+    window.electronAPI = api
   }
 })

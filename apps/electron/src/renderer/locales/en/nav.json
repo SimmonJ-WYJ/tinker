@@ -164,7 +164,12 @@
     "unsafeDirectory": "Choose a different local folder."
   },
   "projectTask": {
-    "latest": "Latest text task",
+    "latest": "Latest task",
+    "kind": {
+      "text": "Text",
+      "imageGenerate": "Image generation",
+      "imageEdit": "Image edit"
+    },
     "queued": "Queued",
     "running": "Running",
     "waitingInput": "Waiting for input",

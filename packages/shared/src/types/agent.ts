@@ -198,8 +198,17 @@ export interface ImportedMessageMetadata {
   _importedFiles?: { filename: string; path: string; mediaType: 'image/png' | 'text/plain' | 'text/markdown' }[]
 }
 
+/** Rust 的原生图片任务身份，存入工具调用及对应的用户消息。 */
+interface NativeImageTaskIdentity {
+  _desktopImageTaskRequestId?: string
+  _desktopImageTaskKind?: 'generate' | 'edit'
+}
+
 /** SDK assistant 消息 */
-export interface SDKAssistantMessage extends ImportedMessageMetadata {
+export interface SDKAssistantMessage extends ImportedMessageMetadata, NativeImageTaskIdentity {
+  _desktopImageTaskStatus?: 'running' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
+  /** 宿主按提交顺序核实原始输入、绑定和源图后才允许重试。 */
+  _desktopTaskRetryable?: boolean
   /** 仅原生普通文字任务持久化的请求身份；用于显式重试原始绑定。 */
   _desktopTextTaskRequestId?: string
   /** Rust 宿主持久终态；不是 SDK 会话来源或 token 用量。 */
@@ -240,7 +249,7 @@ export interface UserImageEditReference {
 }
 
 /** SDK user 消息 */
-export interface SDKUserMessage extends ImportedMessageMetadata {
+export interface SDKUserMessage extends ImportedMessageMetadata, NativeImageTaskIdentity {
   /** 与原生助手投影共享文字任务身份，替换尚无 SDK uuid 的乐观用户行。 */
   _desktopTextTaskRequestId?: string
   type: 'user'

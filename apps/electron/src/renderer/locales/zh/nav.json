@@ -164,7 +164,12 @@
     "unsafeDirectory": "请选择其他本地文件夹。"
   },
   "projectTask": {
-    "latest": "最近一次文字任务",
+    "latest": "最近一次任务",
+    "kind": {
+      "text": "文字",
+      "imageGenerate": "生图",
+      "imageEdit": "改图"
+    },
     "queued": "排队中",
     "running": "进行中",
     "waitingInput": "等待输入",

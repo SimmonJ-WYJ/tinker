@@ -6,7 +6,11 @@ use sha2::{Digest, Sha256};
 use std::{
     io::{self, Cursor, Write},
     net::TcpStream,
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+    time::Duration,
 };
 
 pub(super) const MAX_BODY: usize = 704 * 1024;
@@ -89,6 +93,7 @@ pub(super) fn respond(
     op: Operation,
     body: &Value,
     records: &Mutex<Vec<RequestMetadata>>,
+    stop: &AtomicBool,
 ) -> io::Result<()> {
     let invalid = b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     let Some(prompt) = body["prompt"]
@@ -100,42 +105,71 @@ pub(super) fn respond(
     if body["model"] != "local-image" || body["n"] != 1 || body["response_format"] != "b64_json" {
         return stream.write_all(invalid);
     }
-    let failed = prompt.contains("[image-error]");
-    let bytes = if failed {
-        None
-    } else {
-        let Some(bytes) = render(op, body.get("referenceImage"), prompt) else {
-            return stream.write_all(invalid);
+    let Some(bytes) = render(op, body.get("referenceImage"), prompt) else {
+        return stream.write_all(invalid);
+    };
+    let operation = match op {
+        Operation::Generate => "image-generate",
+        Operation::Edit => "image-edit",
+    };
+    let delayed = prompt.contains("[image-task-delay]");
+    let retry = matches!(op, Operation::Edit) && prompt.contains("[image-task-retry]");
+    let (index, failed) = {
+        let mut log = records
+            .lock()
+            .map_err(|_| io::Error::other("mock unavailable"))?;
+        let first_retry = retry && !log.iter().any(|r| r.scenario == "image-edit-retry-failed");
+        let failed = prompt.contains("[image-error]") || first_retry;
+        let suffix = if first_retry {
+            "-retry-failed"
+        } else if failed {
+            "-failed"
+        } else if retry {
+            "-retry-completed"
+        } else if delayed {
+            "-pending-response"
+        } else {
+            ""
         };
-        Some(bytes)
-    };
-    let scenario = match (op, failed) {
-        (Operation::Generate, false) => "image-generate",
-        (Operation::Edit, false) => "image-edit",
-        (Operation::Generate, true) => "image-generate-failed",
-        (Operation::Edit, true) => "image-edit-failed",
-    };
-    if let Ok(mut log) = records.lock() {
-        if log.len() < MAX_REQUESTS {
+        let index = log.len();
+        if index < MAX_REQUESTS {
             log.push(RequestMetadata {
                 model: "local-image".into(),
                 effort: None,
                 user_messages: 0,
                 assistant_messages: 0,
-                scenario: scenario.into(),
+                scenario: format!("{operation}{suffix}"),
             });
         }
-    }
-    if prompt.contains("[image-slow]") {
-        std::thread::sleep(std::time::Duration::from_millis(250));
-    }
-    let Some(bytes) = bytes else {
+        (index, failed)
+    };
+    if failed {
         return stream.write_all(
             b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
         );
-    };
+    }
+    if delayed {
+        // 留出切换窗口、点击停止的时间，退出时无须等完本次延迟。
+        for _ in 0..80 {
+            if stop.load(Ordering::Acquire) {
+                return Ok(());
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    } else if prompt.contains("[image-slow]") {
+        std::thread::sleep(Duration::from_millis(250));
+    }
     let payload = json!({"data":[{"b64_json":STANDARD.encode(bytes)}]}).to_string();
-    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",payload.len())
+    let result = write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",payload.len());
+    if delayed {
+        // 只记录服务端尝试写回，不断言已经取消的客户端接收到了结果。
+        if let Ok(mut log) = records.lock() {
+            if let Some(entry) = log.get_mut(index) {
+                entry.scenario = format!("{operation}-response-attempted");
+            }
+        }
+    }
+    result
 }
 
 #[cfg(test)]

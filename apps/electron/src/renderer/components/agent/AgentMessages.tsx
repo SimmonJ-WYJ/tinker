@@ -25,7 +25,7 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import type { MinimapItem } from '@/components/ai-elements/scroll-minimap'
-import { mergeToolRunMessages, reconcileTextTaskMessages } from '@/hooks/tool-run-snapshot.ts'
+import { mergeToolRunMessages, reconcileNativeTaskMessages } from '@/hooks/tool-run-snapshot.ts'
 import { useSmoothStream } from '@asci/ui'
 import { CopyButton } from '@/components/common/CopyButton'
 import { formatMessageTime } from '@/components/common/format-message-time'
@@ -40,7 +40,7 @@ import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
 import { NativeSearchMessageLocation } from './NativeSearchMessageLocation'
 import './conversation-flow.css'
 import { ConversationSymbol } from './ConversationSymbol.tsx'
-import { NativeTextTaskOutcome } from './NativeTextTaskOutcome'
+import { NativeTaskOutcome } from './NativeTaskOutcome'
 import { RunningStatusText } from './RunningStatusText.tsx'
 import { getToolPhrase } from './tool-phrase'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -617,6 +617,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   const queuedMessages = useAtomValue(queuedMessageUuidsAtom).get(sessionId)
   const setMinimapCache = useSetAtom(tabMinimapCacheAtom)
   const nativeTasks = Boolean(window.__TAURI_FORMAL__?.nativeTaskLifecycle)
+  const nativeImageTasks = window.__TAURI_FORMAL__?.nativeImageTaskLifecycle === true
   /** 原生恢复完成即可展示；原有界面继续等待布局后淡入。 */
   const [animationReady, setReady] = React.useState(false)
   const ready = nativeTasks ? messagesLoaded !== false : animationReady
@@ -712,7 +713,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
     const persisted = persistedSDKMessages ?? []
     const live = liveMessages ?? []
     const merged = mergeToolRunMessages(persisted, live)
-    return nativeTasks ? reconcileTextTaskMessages(merged) : merged
+    return nativeTasks ? reconcileNativeTaskMessages(merged) : merged
   }, [persistedSDKMessages, liveMessages, nativeTasks])
 
   // 压缩流程进行中（含收尾窗口：compact_boundary 已到但 result 未到）
@@ -797,6 +798,9 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
     ? !isPendingUserMessage(group.message,pendingUserIds)
     : group.type === 'system' && (group.message.subtype === 'compact_boundary' || group.message.subtype === 'compacting'))
   const activeAssistantGroup = allGroups.findLast((group, index) => index > latestBoundaryIndex && group.type === 'assistant-turn' && liveGroupSet.has(group))
+  const lastNativeInput = nativeImageTasks ? liveMessages?.findLast(message => message.type === 'user' &&
+    (typeof message._desktopTextTaskRequestId === 'string' || typeof message._desktopImageTaskRequestId === 'string')) : undefined
+  const liveRequestId = lastNativeInput?.type === 'user' ? lastNativeInput._desktopTextTaskRequestId ?? lastNativeInput._desktopImageTaskRequestId : undefined
   const hasLiveAssistantContent = !!activeAssistantGroup
   const liveBlocks = activeAssistantGroup?.type === 'assistant-turn' ? activeAssistantGroup.assistantMessages.flatMap(message => message.message.content) : []
   const hasLiveText = liveBlocks.some(block => block.type === 'text' && typeof block.text === 'string' && !!block.text.trim())
@@ -825,6 +829,10 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
               && group.type === 'assistant-turn'
               && idx === allGroups.findLastIndex((g) => g.type === 'assistant-turn')
             const outcome = group.type === 'assistant-turn' && group.assistantMessages.at(-1)
+            const outcomeId = outcome && (outcome._desktopTextTaskRequestId ?? (nativeImageTasks && outcome._desktopImageTaskRequestId))
+            const latest = nativeImageTasks
+              ? outcome && outcome._desktopTaskRetryable === true && (!liveRequestId || liveRequestId === outcomeId)
+              : idx === allGroups.length - 1
             return (
               <MessageGroupRenderer
                 key={getGroupId(group)}
@@ -838,9 +846,9 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
                 stoppedByUser={isLastAssistantTurn || undefined}
                 sessionModelId={sessionModelId}
               >
-                {window.__TAURI_FORMAL__?.nativeTaskLifecycle && outcome && outcome._desktopTextTaskRequestId &&
-                  <NativeTextTaskOutcome message={outcome} sessionId={sessionId}
-                    canRetry={messagesLoaded === true && !streaming && idx === allGroups.length - 1} />}
+                {nativeTasks && outcome && outcomeId &&
+                  <NativeTaskOutcome message={outcome} sessionId={sessionId}
+                    canRetry={messagesLoaded === true && !streaming && latest === true} />}
               </MessageGroupRenderer>
             )
           })
@@ -851,8 +859,8 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
               <AgentMessageItem
                 message={msg}
                 sessionPath={sessionPath}
-                onRetry={onRetry}
-                onRetryInNewSession={onRetryInNewSession}
+                onRetry={nativeImageTasks ? undefined : onRetry}
+                onRetryInNewSession={nativeImageTasks ? undefined : onRetryInNewSession}
                 onCompact={onCompact}
               />
             </div>

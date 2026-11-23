@@ -262,7 +262,7 @@ fn serve(
         return Ok(());
     };
     if let Some(op) = image {
-        return images::respond(&mut stream, op, &body, records);
+        return images::respond(&mut stream, op, &body, records, stop);
     }
     if tools {
         return tools::respond(&mut stream, &body, records);

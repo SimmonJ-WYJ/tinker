@@ -685,7 +685,7 @@ function LiveAssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewi
           <RunningStatusText active role="status" className="text-sm text-muted-foreground">{tConv('agent.messages.thinkingStreaming')}</RunningStatusText>
         )}
         {presentation.records.length > 0 && (imageCalls.length > 0 ? (
-          <ImageGenerationStatus calls={imageCalls} allMessages={allMessages} userMessage={imageRequest} streaming={isStreaming} stopped={showStoppedBadge}>
+          <ImageGenerationStatus nativeTask={window.__TAURI_FORMAL__?.nativeImageTaskLifecycle ? firstAssistant : undefined} calls={imageCalls} allMessages={allMessages} userMessage={imageRequest} streaming={isStreaming} stopped={showStoppedBadge}>
             {presentation.records.map(({ block }, index) => <ContentBlock key={index} block={block} allMessages={allMessages} basePath={basePath} isStreaming={false} />)}
           </ImageGenerationStatus>
         ) : (
@@ -1558,8 +1558,11 @@ export function MessageGroupRenderer({ children, group, allMessages, basePath, o
   }
 
   // assistant-turn
+  const image = window.__TAURI_FORMAL__?.nativeImageTaskLifecycle ? group.assistantMessages.at(-1) : undefined
   return (
-    <div data-message-id={groupId} data-message-role="assistant" tabIndex={-1}>
+    <div data-message-id={groupId} data-message-role="assistant" tabIndex={-1}
+      data-native-task-kind={image?._desktopImageTaskRequestId ? 'image' : undefined}
+      data-native-task-status={image?._desktopImageTaskStatus} data-request-id={image?._desktopImageTaskRequestId}>
       <AssistantTurnRenderer
         turn={group}
         compactProcess={compactProcess}

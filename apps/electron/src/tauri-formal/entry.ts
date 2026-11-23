@@ -43,8 +43,9 @@ try {
     hydrated: persistence.hydrated,
     projectTaskStatuses: transport.bootstrap.nativeTaskLifecycle ? async workspaceId => {
       const { value } = await transport.command<{ value: unknown }>('projectTaskStatuses', { workspaceId })
-      return parseProjectTaskStatuses(value)
+      return parseProjectTaskStatuses(value, transport.bootstrap.nativeImageTaskLifecycle === true)
     } : undefined,
+    nativeImageTaskLifecycle: transport.bootstrap.nativeImageTaskLifecycle === true && !transport.bootstrap.queueing,
     nativeTaskLifecycle: transport.bootstrap.nativeTaskLifecycle && !transport.bootstrap.queueing ? {
       retry: input => transport.invoke('agent:send-message', input),
       stop: (sessionId, requestId) => transport.invoke('agent:stop', sessionId, requestId),

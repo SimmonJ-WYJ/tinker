@@ -229,6 +229,16 @@ impl Actor {
                 .as_array()
                 .ok_or(DesktopError("invalidReply"))?;
             while let Some(final_message) = messages.get(e.sdk_index) {
+                let mut final_message = final_message.clone();
+                if self.native_task_lifecycle()
+                    && final_message["type"] == "assistant"
+                    && final_message["_desktopTextTaskRequestId"].is_string()
+                {
+                    final_message["_desktopTaskRetryable"] = json!(
+                        self.latest_retryable_task(sid)?.as_deref()
+                            == final_message["_desktopTextTaskRequestId"].as_str()
+                    );
+                }
                 if !self.emit(
                     "agent:stream:event",
                     projection::stream(

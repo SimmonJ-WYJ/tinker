@@ -142,3 +142,23 @@ test('untagged legacy completion keeps its existing stale/missing timestamp runn
  await act(async()=>complete({sessionId:'s',startedAt:200,resultSubtype:'success'}))
  expect(store.get(agentStreamingStatesAtom).get('s')?.running).toBe(false)
 })
+
+
+test('a live image assistant changes to its terminal status once and a late pending echo cannot reopen it', async () => {
+ const original = window.__TAURI_FORMAL__
+ window.__TAURI_FORMAL__ = {hydrated() {}, nativeImageTaskLifecycle:true}
+ try {
+  const {store,event,start} = setup()
+  const {meta} = start(15)
+  const {liveMessagesMapAtom} = await import('@/atoms/agent-atoms')
+  const emit = (status:'running'|'interrupted') => event({...meta,payload:{kind:'sdk_message',message:{
+   type:'assistant',uuid:'image-assistant',parent_tool_use_id:null,_desktopImageTaskRequestId:meta.requestId,
+   _desktopImageTaskKind:'edit',_desktopImageTaskStatus:status,
+   message:{content:[{type:'tool_use',name:'mcp__asci-image__generate_image',id:'tool',input:{}}]},
+  }}})
+  await act(async()=>{ emit('running');emit('interrupted');emit('running');emit('interrupted') })
+  const accepted=store.get(liveMessagesMapAtom).get('s')
+  expect(accepted).toHaveLength(1)
+  expect(accepted?.[0]).toMatchObject({_desktopImageTaskStatus:'interrupted'})
+ } finally {window.__TAURI_FORMAL__ = original}
+})

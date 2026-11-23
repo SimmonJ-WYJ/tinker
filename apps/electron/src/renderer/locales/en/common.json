@@ -93,6 +93,8 @@
   },
   "workspaceDefaultName": "Default project",
   "imageReference": {
+    "localStopDetail": "Tinker stopped waiting locally. The provider may already have received the image request.",
+    "nativeFailureDetail": "No image was saved. Retrying sends a new request to the provider.",
     "title": "Reference image",
     "backToSource": "Return to the original message",
     "sourceMissing": "Original message unavailable",

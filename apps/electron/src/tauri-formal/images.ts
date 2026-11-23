@@ -63,6 +63,22 @@ export function createNativeImageContexts() {
         }
       }
     },
+    async retry<T>(sid: string, invoke: () => Promise<{value: T; imageId?: string}>, changed: () => void): Promise<T> {
+      // 旧恢复响应不能覆盖新图；拒绝、取消或纯文字回执均保留原有来源。
+      const previous = sessions.get(sid)
+      const owner: ImageContext = previous?.sending ? previous : { imageId: previous?.imageId, sending: true }
+      sessions.set(sid, owner)
+      try {
+        const reply = await invoke()
+        if (typeof reply.imageId === 'string') {
+          if (sessions.get(sid) === owner) setImage(sid, reply.imageId)
+          changed()
+        }
+        return reply.value
+      } finally {
+        if (owner !== previous && sessions.get(sid) === owner) setImage(sid, previous?.imageId)
+      }
+    },
     async send<T>(
       input: Record<string, unknown>, invoke: (input: Record<string, unknown>) => Promise<{value:T; imageId?:string}>,
       invalidSelection: () => Error, changed: () => void,

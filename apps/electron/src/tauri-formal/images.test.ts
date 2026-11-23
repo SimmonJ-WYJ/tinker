@@ -23,7 +23,7 @@ async function fixture(history: SDKMessage[], nativeImages = true) {
   const bridge: NativeBridge = {
     listen: async () => () => {},
     request: async <T,>(req: Record<string, unknown>): Promise<T> => {
-      if (req.command === 'bootstrap') return { generation: 'document', nativeImages, nativeTaskLifecycle: true, activeRuns: [], platformSnapshot: { revision: 1, settings: {} } } as T
+      if (req.command === 'bootstrap') return { generation: 'document', nativeImages, nativeTaskLifecycle: true, nativeImageTaskLifecycle: true, activeRuns: [], platformSnapshot: { revision: 1, settings: {} } } as T
       if (req.command === 'restore') {
         restores++
         return { restoreToken: 'restore', deliverySequence: 0, messages: [], sdkMessages: history, activeSnapshot: null } as T
@@ -31,7 +31,7 @@ async function fixture(history: SDKMessage[], nativeImages = true) {
       if (req.channel === 'agent:send-message') {
         const payload = (req.args as Record<string, unknown>[])[0]!
         sent.push(payload)
-        if (payload.retryOfRequestId) throw { code: 'requestConflict' }
+        if (payload.retryOfRequestId && payload.retryOfRequestId !== 'stopped-edit') throw { code: 'requestConflict' }
       }
       return { value: null } as T
     },
@@ -177,4 +177,65 @@ test('rejected stale text retry preserves the newer image reference and never di
   expect(f.sent).toEqual([retry, { ...input('Change the background to blue', 'current'), nativeImageAction: 'edit' }])
   expect(f.counts().changes).toBe(1)
   f.t.dispose()
+})
+
+test('an identity-only image retry updates open files and only its session’s subsequent implicit edit source', async () => {
+  const sent: Record<string, unknown>[] = []
+  const changes: unknown[] = []
+  const t = await createFormalTransport({
+    listen: async () => () => {},
+    request: async <T,>(r: Record<string, unknown>): Promise<T> => {
+      if (r.command === 'bootstrap') return { generation:'g', nativeImages:true, nativeTaskLifecycle:true, nativeImageTaskLifecycle:true, activeRuns:[], platformSnapshot:{revision:0,settings:{}} } as T
+      if (r.channel !== 'agent:send-message') return {value:null} as T
+      const payload = (r.args as Record<string,unknown>[])[0]!
+      sent.push(payload)
+      return { value:null, imageId: payload.retryOfRequestId ? 'retried' : 'other' } as T
+    },
+  }, c => c)
+  t.subscribe('agent:workspace-files-changed', event => changes.push(event))
+  const retry = { sessionId:sid, requestId:'fresh', retryOfRequestId:'failed-edit', startedAt:4 }
+  await t.invoke('agent:send-message', retry)
+  expect(sent[0]).toEqual(retry)
+  expect(changes).toHaveLength(1)
+  await t.invoke('agent:send-message', {sessionId:'different',userMessage:'Change the background to blue'})
+  expect(sent[1]?.nativeImageAction).toBeUndefined()
+  await t.invoke('agent:send-message', input('Change the background to blue'))
+  expect(sent[2]).toEqual({...input('Change the background to blue','retried'),nativeImageAction:'edit'})
+  await t.invoke('agent:send-message', input('Change the background to blue','explicit'))
+  expect(sent[3]).toEqual({...input('Change the background to blue','explicit'),nativeImageAction:'edit'})
+  t.dispose()
+})
+
+
+test('a locally stopped retry has no image receipt and keeps the previous source without refreshing files', async () => {
+  const f = await fixture(imageTurn(sid,'source'))
+  await f.restore()
+  await f.t.invoke('agent:send-message',{sessionId:sid,requestId:'new',startedAt:5,retryOfRequestId:'stopped-edit'})
+  expect(f.counts().changes).toBe(0)
+  await f.send('Change the background to blue')
+  expect(f.sent[1]).toEqual({...input('Change the background to blue','source'),nativeImageAction:'edit'})
+  f.t.dispose()
+})
+
+test('a late successful image retry receipt cannot overwrite a newer confirmed source', async () => {
+  let finish!: (result: {value:null;imageId:string}) => void
+  const sent: Record<string,unknown>[] = []
+  const t = await createFormalTransport({
+    listen:async()=>()=>{},
+    request:async<T,>(r:Record<string,unknown>):Promise<T>=>{
+      if(r.command==='bootstrap')return { generation:'g',nativeImages:true,nativeTaskLifecycle:true,nativeImageTaskLifecycle:true,activeRuns:[],platformSnapshot:{revision:0,settings:{}} } as T
+      if(r.channel!=='agent:send-message')return {value:null} as T
+      const payload=(r.args as Record<string,unknown>[])[0]!
+      sent.push(payload)
+      if(payload.retryOfRequestId)return await new Promise<{value:null;imageId:string}>(resolve=>{finish=resolve}) as T
+      return {value:null,imageId:'newer'} as T
+    },
+  },code=>code)
+  const retry=t.invoke('agent:send-message',{sessionId:sid,requestId:'new',startedAt:7,retryOfRequestId:'old-edit'})
+  await t.invoke('agent:send-message',input('Generate an image of a blue tree'))
+  finish({value:null,imageId:'late'})
+  await retry
+  await t.invoke('agent:send-message',input('Change the background to blue'))
+  expect(sent[2]?.imageEditReferenceId).toBe('newer')
+  t.dispose()
 })

@@ -101,6 +101,13 @@ fn images_use_separate_operations_and_only_log_their_outcomes() {
         json!({"model":"local-image","prompt":"second palette","n":1,"response_format":"b64_json"});
     body["referenceImage"]["b64_json"] = json!(bytes(&call("generations", &second_generation)));
     assert_ne!(bytes(&call("edits", &body)), first_source_edit);
+    body["prompt"] = json!("retryable edit [image-task-retry]");
+    assert!(call("edits", &body).starts_with("HTTP/1.1 500"));
+    assert!(call("edits", &body).starts_with("HTTP/1.1 200"));
+    let records = mock.records();
+    let pair = &records[records.len() - 2..];
+    assert_eq!(pair[0].scenario, "image-edit-retry-failed");
+    assert_eq!(pair[1].scenario, "image-edit-retry-completed");
     body["referenceImage"]["b64_json"] = json!("invalid PNG");
     assert!(call("edits", &body).starts_with("HTTP/1.1 400"));
 }
