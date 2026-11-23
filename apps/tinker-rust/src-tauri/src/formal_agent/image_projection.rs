@@ -1,5 +1,5 @@
 //! 原生图片投影复用现有 SDK 工具和引用附件形状。
-use crate::formal_images::{ImageAsset, ImageStatus, ImageTurn};
+use crate::formal_images::{ImageAsset, ImageStatus, ImageTurn, ImportedImage};
 use serde_json::{json, Value};
 
 pub(super) fn attachment(sid: &str, asset: &ImageAsset) -> Value {
@@ -14,22 +14,26 @@ pub(super) fn project(
     sid: &str,
     turn: &ImageTurn,
     turns: &[ImageTurn],
+    imports: &[ImportedImage],
 ) -> (Vec<Value>, Vec<Value>) {
     let id = format!("native-image-{sid}-{}", turn.request_id);
     let assistant_id = format!("{id}-assistant");
     let tool_id = format!("{id}-tool");
     let mut user = user_message(sid, turn);
-    if let Some(base) = turn.base_image_id.as_ref().and_then(|base| {
-        turns
+    if let Some(id) = &turn.base_image_id {
+        if let Some((asset, request)) = turns
             .iter()
-            .find(|v| v.asset.as_ref().is_some_and(|a| a.id == *base))
-    }) {
-        if let Some(asset) = &base.asset {
+            .filter_map(|t| t.asset.as_ref().map(|a| (a, &t.request_id)))
+            .find(|(a, _)| a.id == *id)
+        {
             let mut reference = attachment(sid, asset);
             reference["imageId"] = json!(asset.id);
-            reference["sourceMessageId"] =
-                json!(format!("native-image-{sid}-{}-assistant", base.request_id));
+            reference["sourceMessageId"] = json!(format!("native-image-{sid}-{request}-assistant"));
             user["imageEditReference"] = reference;
+        } else if let Some(source) = imports.iter().find(|a| a.id == *id) {
+            // 本地导入图没有助手生成消息；链接到同会话的实际附件。
+            user["imageEditReference"] = json!({"imageId":source.id,"localPath":format!("{sid}/{}", source.filename),
+                "filename":source.filename,"displayName":source.display_name,"mediaType":"image/png"});
         }
     }
     let mut plain = vec![

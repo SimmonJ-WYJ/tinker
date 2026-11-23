@@ -6,6 +6,8 @@ mod credentialed;
 mod credentialed_discovery;
 mod delivery;
 mod image_files;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+pub(crate) mod image_grant;
 mod image_projection;
 mod images;
 mod permissions;
@@ -62,6 +64,8 @@ impl PendingReply {
 }
 type Reply = SyncSender<Result<Value>>;
 enum Message {
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    ImageGrant(image_grant::Grant),
     Call(Command, Reply),
     Environment(HostEnvironment, Reply),
     Shutdown(Reply),

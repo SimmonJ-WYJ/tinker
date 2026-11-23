@@ -1,4 +1,8 @@
 //! 正式窗口唯一 IPC 边界；阻塞等待与 owned mock join 全部离开 UI 线程。
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+pub(crate) mod image_disk;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod image_panel;
 use crate::{formal_host::FormalHost, formal_platform::HostEnvironment};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -11,6 +15,8 @@ use tauri::{Manager, Runtime, WebviewWindow};
 #[derive(Clone)]
 pub struct FormalState {
     pub host: Arc<Mutex<Option<FormalHost>>>,
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    picker_open: Arc<AtomicBool>,
     pub approved_close: Arc<AtomicBool>,
     close: Arc<Mutex<Option<CloseReceipt>>>,
     generation: Arc<AtomicU64>,
@@ -50,6 +56,8 @@ impl FormalState {
     pub fn new(host: FormalHost) -> Self {
         Self {
             host: Arc::new(Mutex::new(Some(host))),
+            #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+            picker_open: Arc::new(AtomicBool::new(false)),
             approved_close: Arc::new(AtomicBool::new(false)),
             close: Arc::new(Mutex::new(None)),
             generation: Arc::new(AtomicU64::new(0)),
@@ -196,6 +204,13 @@ pub async fn formal_request<R: Runtime>(
     request: Value,
 ) -> Result<Value, WireError> {
     guard(&window)?;
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    if matches!(
+        request["command"].as_str(),
+        Some("pickImageFile" | "saveImageFile")
+    ) {
+        return image_panel::run(window, state.inner().clone(), request).await;
+    }
     if request["command"] == "closeWindow" {
         state.authorize_close(request)?;
         window.close().map_err(|_| WireError {
@@ -320,6 +335,8 @@ mod tests {
     fn pending_state() -> FormalState {
         FormalState {
             host: Arc::new(Mutex::new(None)),
+            #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+            picker_open: Arc::new(AtomicBool::new(false)),
             approved_close: Arc::new(AtomicBool::new(false)),
             generation: Arc::new(AtomicU64::new(1)),
             environment_sequence: Arc::new(AtomicU64::new(0)),

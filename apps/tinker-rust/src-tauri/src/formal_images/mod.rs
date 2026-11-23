@@ -1,12 +1,16 @@
 //! 独立原生预览的会话图片版本、请求收据与只读恢复。
 mod disk;
+mod imports;
 mod provider;
+pub use imports::ImportedImage;
+use imports::SessionImages;
 #[cfg(test)]
 mod tests;
 
 use crate::desktop_runtime::protocol::{id, DesktopError, Result, MAX_SAFE_INTEGER};
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use provider::LoopbackImageProvider;
+pub(crate) use provider::{dimensions, validate_pixel_count, MAX_PNG};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -99,22 +103,38 @@ impl ImageStore {
         turn
     }
     pub fn history(&self, session: &str) -> Result<Vec<ImageTurn>> {
+        Ok(self.snapshot(session)?.0)
+    }
+    pub(crate) fn snapshot(&self, session: &str) -> Result<(Vec<ImageTurn>, Vec<ImportedImage>)> {
         let dir = self.session(session)?;
         let guard = self.guard()?;
-        Ok(disk::load(&dir, session)?
-            .into_iter()
-            .map(|turn| self.recovered(&guard, session, turn))
-            .collect())
+        let session_images = SessionImages::open(&dir, session)?;
+        let mut turns = session_images.original;
+        if !session_images.derived.is_empty() {
+            turns.extend(session_images.derived);
+            turns.sort_by_key(|turn| turn.created_at);
+        }
+        Ok((
+            turns
+                .into_iter()
+                .map(|turn| self.recovered(&guard, session, turn))
+                .collect(),
+            session_images.imports,
+        ))
     }
     pub(crate) fn attachment(&self, session: &str, filename: &str) -> Result<ImageFile> {
         let dir = self.session(session)?;
         let _guard = self.guard()?;
-        let asset = disk::load(&dir, session)?
-            .into_iter()
-            .filter_map(|turn| turn.asset)
-            .find(|asset| asset.filename == filename)
+        let images = SessionImages::open(&dir, session)?;
+        let (_, name, hash, _) = images
+            .sources()
+            .find(|(_, name, _, _)| *name == filename)
             .ok_or(DesktopError("imageNotFound"))?;
-        Ok(ImageFile { dir, asset })
+        Ok(ImageFile {
+            dir,
+            filename: name.into(),
+            sha256: hash.into(),
+        })
     }
     pub fn execute(
         &self,
@@ -153,25 +173,29 @@ impl ImageStore {
             return Err(DesktopError("invalidImageInput"));
         }
         let key = (session.to_owned(), request_id.to_owned());
-        let reference = {
+        let (reference, derived) = {
             let mut active = self.guard()?;
-            let mut turns = disk::load(&dir, session)?;
-            if let Some(previous) = turns.iter().find(|turn| turn.request_id == request_id) {
+            let mut images = SessionImages::open(&dir, session)?;
+            if let Some(previous) = images.turns().find(|turn| turn.request_id == request_id) {
                 if previous.prompt != prompt || previous.base_image_id.as_deref() != base_image_id {
                     return Err(DesktopError("imageRequestConflict"));
                 }
                 return Ok(self.recovered(&active, session, previous.clone()));
             }
-            if turns.len() >= LIMIT {
+            if images.original.len() + images.derived.len() >= LIMIT {
                 return Err(DesktopError("imageLimit"));
             }
-            let reference = base_image_id
-                .map(|image_id| {
-                    let asset = find(&turns, image_id)?;
-                    Ok::<_, DesktopError>((image_id, disk::png(&dir, asset)?))
-                })
-                .transpose()?;
+            let (reference, derived) = if let Some(id) = base_image_id {
+                let (_, name, hash, derived) = images
+                    .sources()
+                    .find(|(source, _, _, _)| *source == id)
+                    .ok_or(DesktopError("imageNotFound"))?;
+                (Some((id, disk::png(&dir, name, hash)?)), derived)
+            } else {
+                (None, false)
+            };
             disk::private_dir(&dir)?;
+            let turns = images.partition(derived);
             turns.push(ImageTurn {
                 request_id: request_id.into(),
                 prompt: prompt.into(),
@@ -182,14 +206,15 @@ impl ImageStore {
                 error: None,
             });
             // 先持久化请求，再释放互斥锁运行网络；重启从不重发未完成请求。
-            disk::save(&dir, &turns)?;
+            disk::save_turns(&dir, turns, derived)?;
             active.insert(key.clone());
-            reference
+            (reference, derived)
         };
         let result = provider.request(prompt, reference, cancelled);
         let mut active = self.guard()?;
         active.remove(&key);
-        let mut turns = disk::load(&dir, session)?;
+        let mut images = SessionImages::open(&dir, session)?;
+        let turns = images.partition(derived);
         let turn = turns
             .iter_mut()
             .find(|t| t.request_id == request_id)
@@ -225,29 +250,26 @@ impl ImageStore {
             }
         }
         let result = turn.clone();
-        disk::save(&dir, &turns)?;
+        disk::save_turns(&dir, turns, derived)?;
         Ok(result)
     }
 }
 /// 由当前会话索引解析的不可变版本，调用方不能提供本机路径。
 pub(crate) struct ImageFile {
     dir: PathBuf,
-    asset: ImageAsset,
+    filename: String,
+    sha256: String,
 }
 impl ImageFile {
     pub(crate) fn size(&self) -> Result<u64> {
         use crate::formal_platform::store::{directory, regular};
         directory(&self.dir, true)?;
-        Ok(regular(&self.dir.join(&self.asset.filename), provider::MAX_PNG)?.len())
+        Ok(regular(&self.dir.join(&self.filename), provider::MAX_PNG)?.len())
+    }
+    pub(crate) fn read_bytes(&self) -> Result<Vec<u8>> {
+        disk::png(&self.dir, &self.filename, &self.sha256)
     }
     pub(crate) fn read_base64(&self) -> Result<String> {
-        Ok(STANDARD.encode(disk::png(&self.dir, &self.asset)?))
+        Ok(STANDARD.encode(self.read_bytes()?))
     }
-}
-fn find<'a>(turns: &'a [ImageTurn], id: &str) -> Result<&'a ImageAsset> {
-    turns
-        .iter()
-        .filter_map(|turn| turn.asset.as_ref())
-        .find(|a| a.id == id)
-        .ok_or(DesktopError("imageNotFound"))
 }

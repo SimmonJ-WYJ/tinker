@@ -1,5 +1,5 @@
 /** 图片版本元数据只取自宿主生图工具结果，路径仍由附件桥接验证。 */
-import type { SDKMessage, SDKAssistantMessage, SDKToolUseBlock } from '@asci/shared'
+import type { SDKMessage, SDKUserMessage, SDKAssistantMessage, SDKToolUseBlock } from '@asci/shared'
 import { findToolResultInMessages } from './tool-result-lookup'
 export interface ImageVersion {
  sourceMessageId?: string
@@ -19,9 +19,21 @@ export function parseImageVersion(result?:string):ImageVersion|null {
   return {generatedImage:image,imageId:validId(data.imageId)?data.imageId:undefined,baseImageId:validId(data.baseImageId)?data.baseImageId:undefined,model:typeof data.model==='string'?data.model:undefined,channelName:typeof data.channelName==='string'?data.channelName:undefined,referenceCount:typeof data.referenceCount==='number'?data.referenceCount:undefined}
  } catch {return null}
 }
-export function collectImageVersions(messages:SDKMessage[]):ImageVersion[] {
+export function collectImageVersions(messages:SDKMessage[], includeImports = false):ImageVersion[] {
  const versions=new Map<string,ImageVersion>()
  for(const message of messages) {
+  if (includeImports && message.type === 'user') {
+    const ref = (message as SDKUserMessage).imageEditReference
+    if (ref?.displayName && /^ref-[a-f0-9]{32}$/.test(ref.imageId)
+      && typeof ref.localPath === 'string' && /^[\w-]+\/[\w-]+\.png$/.test(ref.localPath)
+      && ref.filename === ref.imageId + '.png' && ref.localPath.endsWith('/' + ref.filename)
+      && ref.mediaType === 'image/png') {
+      versions.set(ref.imageId, {
+        imageId: ref.imageId,
+        generatedImage: { localPath: ref.localPath, filename: ref.filename, mediaType: ref.mediaType },
+      })
+    }
+  }
   if(message.type!=='assistant') continue
   const blocks=(message as SDKAssistantMessage).message?.content
   if(!Array.isArray(blocks)) continue

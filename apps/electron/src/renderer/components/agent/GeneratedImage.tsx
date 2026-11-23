@@ -3,6 +3,7 @@ import { useSetAtom } from 'jotai'
 import { Download, Pencil, Columns2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/hooks/useT'
+import { nativeImageSave } from './native-image-files'
 import { ImageLightbox } from '@/components/ui/image-lightbox'
 import { imageEditDraftsAtom } from '@/atoms/image-edit-atoms'
 import { parseImageVersion, type ImageVersion } from './image-versions'
@@ -29,7 +30,7 @@ export function GeneratedImage({result,versions=[],sessionId}:{result?:string;ve
   const selected={...version,imageId:version.imageId,previewSrc:src,sourceMessageId}
   setDrafts(previous=>new Map(previous).set(sessionId??owner,selected))
  }
- const save=window.__TAURI_FORMAL__ ? undefined : ():void=>{void window.electronAPI.saveImageAs(artifact.localPath,artifact.filename)}
+ const save=window.__TAURI_FORMAL__ ? nativeImageSave(artifact.localPath) : ():void=>{void window.electronAPI.saveImageAs(artifact.localPath,artifact.filename)}
  return <div className="generated-image" data-generated-image="true">
   {failed?<p role="alert" className="generated-image__placeholder">{t('imageVersion.missing')}</p>:src?<button type="button" onClick={()=>setOpen(true)} className="generated-image__preview"><img src={src} alt={artifact.filename} onError={()=>setFailed(true)}/></button>:<p role="status" className="generated-image__placeholder">{t('loading')}</p>}
   <div className="generated-image__actions">

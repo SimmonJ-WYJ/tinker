@@ -5,7 +5,7 @@ use serde_json::json;
 use std::{net::SocketAddr, time::Duration};
 
 const MAX_RESPONSE: usize = 704 * 1024;
-pub(super) const MAX_PNG: usize = 512 * 1024;
+pub(crate) const MAX_PNG: usize = 512 * 1024;
 pub(super) const MODEL: &str = "local-image";
 pub(super) const CHANNEL: &str = "local-image-mock";
 
@@ -108,7 +108,14 @@ impl LoopbackImageProvider {
     }
 }
 
-pub(super) fn dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
+pub(crate) fn validate_pixel_count(width: u32, height: u32) -> Result<()> {
+    if width > 4096 || height > 4096 || u64::from(width) * u64::from(height) > 4_194_304 {
+        return Err(DesktopError("imageTooLarge"));
+    }
+    Ok(())
+}
+
+pub(crate) fn dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
     let invalid = DesktopError("invalidImageResponse");
     if bytes.len() > MAX_PNG {
         return Err(DesktopError("imageTooLarge"));
@@ -125,12 +132,10 @@ pub(super) fn dimensions(bytes: &[u8]) -> Result<(u32, u32)> {
     let mut reader = decoder.read_info().map_err(|_| invalid)?;
     let info = reader.info();
     let (w, h) = (info.width, info.height);
+    validate_pixel_count(w, h)?;
     if info.animation_control.is_some()
         || w == 0
         || h == 0
-        || w > 4096
-        || h > 4096
-        || u64::from(w) * u64::from(h) > 4_194_304
         || reader.output_buffer_size() > 16 * 1024 * 1024
     {
         return Err(invalid);

@@ -169,7 +169,7 @@ fn restart_maps_an_uncertain_receipt_to_interrupted_without_sending() {
         asset: None,
         error: None,
     };
-    disk::save(&dir, &[pending]).unwrap();
+    disk::save_turns(&dir, &[pending], false).unwrap();
     drop(store);
     let store = ImageStore::open(&root).unwrap();
     let offline = LoopbackImageProvider::new("127.0.0.1:1".parse().unwrap()).unwrap();
@@ -299,7 +299,7 @@ fn attachment_stat_only_reads_metadata_and_preview_checks_content_integrity() {
         asset: Some(asset),
         error: None,
     };
-    disk::save(&dir, &[t]).unwrap();
+    disk::save_turns(&dir, &[t], false).unwrap();
     let file = store.attachment("one", &filename).unwrap();
     assert_eq!(file.read_base64().unwrap(), STANDARD.encode(&bytes));
     assert!(store.attachment("two", &filename).is_err());
@@ -317,6 +317,173 @@ fn attachment_stat_only_reads_metadata_and_preview_checks_content_integrity() {
     std::fs::remove_file(&actual).unwrap();
     std::os::unix::fs::symlink(&alternate, &actual).unwrap();
     assert_eq!(file.size().unwrap_err(), DesktopError("unsafePath"));
+    drop(store);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn import_is_a_session_asset_not_a_provider_turn_and_reopens_with_integrity() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let bytes = pixel(61);
+    let one = store
+        .import_png("one", "Green photo.jpg", &bytes, 410)
+        .unwrap();
+    assert_eq!(one.display_name, "Green photo.jpg");
+    assert!(one.filename.ends_with(".png"));
+    assert_eq!(one.width, 1);
+    let repeat = store
+        .import_png("one", "Green photo.jpg", &bytes, 415)
+        .unwrap();
+    assert_eq!(one.id, repeat.id);
+    assert_eq!(repeat.created_at, 410);
+    let other = store
+        .import_png("other", "Green photo.jpg", &bytes, 410)
+        .unwrap();
+    assert_ne!(other.id, one.id);
+    assert!(store
+        .import_png("one", "../private.png", &bytes, 1)
+        .is_err());
+    assert!(store.import_png("one", "bad.png", b"not PNG", 1).is_err());
+    assert!(store.history("one").unwrap().is_empty());
+    drop(store);
+    let reopened = ImageStore::open(&root).unwrap();
+    assert_eq!(reopened.imports("one").unwrap().len(), 1);
+    let asset = reopened.attachment("one", &one.filename).unwrap();
+    assert_eq!(asset.read_bytes().unwrap(), bytes);
+    assert!(reopened.attachment("other", &one.filename).is_err());
+    assert!(reopened.history("one").unwrap().is_empty());
+    std::fs::write(
+        reopened.session("one").unwrap().join(&one.filename),
+        b"damaged",
+    )
+    .unwrap();
+    assert!(asset.read_bytes().is_err());
+    drop(reopened);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn importing_then_editing_keeps_legacy_records_and_original_bytes() {
+    // 已有传统数据后导入、派生及续作，回退到旧版仍读取原有 turns.json。
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let sid = "existing";
+    let dir = store.session(sid).unwrap();
+    disk::private_dir(&dir).unwrap();
+    let prior = ImageTurn {
+        request_id: "previous".into(),
+        prompt: "original receipt".into(),
+        base_image_id: None,
+        created_at: 100,
+        status: ImageStatus::Interrupted,
+        asset: None,
+        error: None,
+    };
+    disk::save_turns(&dir, &[prior], false).unwrap();
+    let legacy = std::fs::read(dir.join("turns.json")).unwrap();
+    let source = store
+        .import_png(sid, "sample.png", &pixel(18), 101)
+        .unwrap();
+    let server = TcpListener::bind("127.0.0.1:0").unwrap();
+    let provider = LoopbackImageProvider::new(server.local_addr().unwrap()).unwrap();
+    let runner = thread::spawn(move || {
+        for expected in [18, 19] {
+            let (mut sock, _) = server.accept().unwrap();
+            let mut reader = BufReader::new(&sock);
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            assert!(line.starts_with("POST /v1/images/edits "));
+            let mut length = 0;
+            loop {
+                line.clear();
+                reader.read_line(&mut line).unwrap();
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(n) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = n.trim().parse().unwrap();
+                }
+            }
+            let mut bytes = vec![0; length];
+            reader.read_exact(&mut bytes).unwrap();
+            let input: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                input["referenceImage"]["b64_json"],
+                STANDARD.encode(pixel(expected))
+            );
+            let result =
+                json!({"data":[{"b64_json":STANDARD.encode(pixel(expected+1))}]}).to_string();
+            write!(sock,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{result}",result.len()).unwrap();
+        }
+    });
+    let edit = store
+        .execute(sid, "edit-one", "change", Some(&source.id), 102, &provider)
+        .unwrap();
+    assert_eq!(edit.status, ImageStatus::Succeeded);
+    let child = edit.asset.unwrap();
+    drop(store);
+    let reopened = ImageStore::open(&root).unwrap();
+    let second = reopened
+        .execute(sid, "edit-two", "another", Some(&child.id), 103, &provider)
+        .unwrap()
+        .asset
+        .unwrap();
+    assert_eq!(second.base_image_id.as_ref(), Some(&child.id));
+    runner.join().unwrap();
+    assert_eq!(
+        reopened
+            .attachment(sid, &source.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        pixel(18)
+    );
+    assert_eq!(reopened.history(sid).unwrap().len(), 3);
+    assert_eq!(reopened.imports(sid).unwrap().len(), 1);
+    assert_eq!(std::fs::read(dir.join("turns.json")).unwrap(), legacy);
+    assert_eq!(disk::load_turns(&dir, sid, None).unwrap().len(), 1);
+    assert!(reopened
+        .execute("other", "edit", "foreign", Some(&source.id), 104, &provider)
+        .is_err());
+    drop(reopened);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn import_replaces_an_abandoned_partial_stage_without_overwriting_a_committed_version() {
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let bytes = pixel(234);
+    let committed = store
+        .import_png("session", "initial.png", &bytes, 1)
+        .unwrap();
+    let aborted = store.session("session").unwrap();
+    let name = "copy.png";
+    let incoming = format!(
+        "ref-{}.png",
+        &digest(format!("session\0{name}\0{}", digest(&bytes)).as_bytes())[..32]
+    );
+    let stage = aborted.join(format!("{incoming}.next"));
+    crate::formal_platform::store::write_new(&stage, b"partial bytes before crash").unwrap();
+    let new = store.import_png("session", name, &bytes, 2).unwrap();
+    assert!(!stage.exists());
+    assert_eq!(
+        store
+            .attachment("session", &new.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        bytes
+    );
+    assert_eq!(
+        store
+            .attachment("session", &committed.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        bytes
+    );
     drop(store);
     std::fs::remove_dir_all(root).unwrap();
 }

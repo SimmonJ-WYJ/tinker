@@ -167,6 +167,15 @@ impl FormalHost {
     pub fn command(&self, window: &str, value: Value) -> Result<PendingReply> {
         self.agent.command(window, value)
     }
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    pub(crate) fn image_grant(
+        &self,
+        generation: String,
+        session: String,
+        step: crate::formal_agent::image_grant::Step,
+    ) -> Result<std::sync::mpsc::Receiver<Result<crate::formal_agent::image_grant::Outcome>>> {
+        self.agent.image_grant(generation, session, step)
+    }
     pub fn set_host_environment(&self, environment: HostEnvironment) -> Result<PendingReply> {
         self.agent.set_host_environment(environment)
     }

@@ -1,6 +1,8 @@
 //! 小型原子索引与不可变 PNG 文件；仅在经过验证的私有根内读写。
 use super::*;
-use crate::formal_platform::store::{directory, options, read_regular, sync_dir, write_new};
+use crate::formal_platform::store::{
+    directory, options, read_regular, regular, sync_dir, write_new,
+};
 use std::{
     fs::{self, File},
     io::ErrorKind,
@@ -52,7 +54,7 @@ pub(super) fn private_dir(path: &Path) -> Result<()> {
     }
 }
 
-pub(super) fn load(dir: &Path, session: &str) -> Result<Vec<ImageTurn>> {
+pub(super) fn read_index(dir: &Path, name: &str) -> Result<Option<Vec<u8>>> {
     // 只读访问未知会话不创建任何数据。
     directory(dir.parent().ok_or(DesktopError("unsafePath"))?, true)?;
     let missing = |p: &Path| -> Result<bool> {
@@ -63,26 +65,43 @@ pub(super) fn load(dir: &Path, session: &str) -> Result<Vec<ImageTurn>> {
         }
     };
     if missing(dir)? {
-        return Ok(vec![]);
+        return Ok(None);
     }
     directory(dir, true)?;
-    let file = dir.join(INDEX);
+    let file = dir.join(name);
     if missing(&file)? {
-        return Ok(vec![]);
+        return Ok(None);
     }
-    let catalog: Catalog = serde_json::from_slice(&read_regular(&file, MAX_INDEX_BYTES)?)
-        .map_err(|_| DesktopError("corruptImages"))?;
+    Ok(Some(read_regular(&file, MAX_INDEX_BYTES)?))
+}
+
+const EXTENSION: &str = "import-edits.json";
+pub(super) fn load_turns(
+    dir: &Path,
+    session: &str,
+    imports: Option<&[ImportedImage]>,
+) -> Result<Vec<ImageTurn>> {
+    let Some(bytes) = read_index(dir, if imports.is_some() { EXTENSION } else { INDEX })? else {
+        return Ok(vec![]);
+    };
+    let catalog: Catalog =
+        serde_json::from_slice(&bytes).map_err(|_| DesktopError("corruptImages"))?;
     if catalog.version != 1 {
         return Err(DesktopError("unsupportedVersion"));
     }
     if catalog.turns.len() > LIMIT {
         return Err(DesktopError("corruptImages"));
     }
-    let mut ids = HashSet::new();
+    let mut ids: HashSet<_> = imports
+        .unwrap_or_default()
+        .iter()
+        .map(|r| r.id.clone())
+        .collect();
     let mut requests = HashSet::new();
     for turn in &catalog.turns {
         if id(&turn.request_id).is_err()
             || !valid_prompt(&turn.prompt)
+            || (imports.is_some() && turn.base_image_id.is_none())
             || !requests.insert(&turn.request_id)
             || turn
                 .base_image_id
@@ -112,31 +131,43 @@ pub(super) fn load(dir: &Path, session: &str) -> Result<Vec<ImageTurn>> {
     Ok(catalog.turns)
 }
 
-pub(super) fn save(dir: &Path, turns: &[ImageTurn]) -> Result<()> {
+pub(super) fn save_turns(dir: &Path, turns: &[ImageTurn], derived: bool) -> Result<()> {
+    let data = serde_json::to_vec(&serde_json::json!({"version":1,"turns":turns}))
+        .map_err(|_| DesktopError("storeIo"))?;
+    write_index(dir, if derived { EXTENSION } else { INDEX }, &data)
+}
+
+pub(super) fn write_index(dir: &Path, name: &str, payload: &[u8]) -> Result<()> {
+    atomic_write(dir, name, payload, MAX_INDEX_BYTES)
+}
+// 先同步临时文件，再一次发布；崩溃前已经写出的部份永不当作有效的最终 PNG。
+pub(super) fn atomic_write(dir: &Path, name: &str, payload: &[u8], limit: usize) -> Result<()> {
     directory(dir, true)?;
     // 单写锁下复用暂存名；上次未发布的残留不会作为正式收据读取。
-    let temp = dir.join("turns.next");
+    let temp = if name == INDEX {
+        dir.join("turns.next")
+    } else {
+        dir.join(format!("{name}.next"))
+    };
     match temp.symlink_metadata() {
         Ok(_) => {
-            read_regular(&temp, MAX_INDEX_BYTES)?;
+            regular(&temp, limit)?;
             fs::remove_file(&temp)?;
         }
         Err(e) if e.kind() == ErrorKind::NotFound => {}
         Err(e) => return Err(e.into()),
     }
-    let payload = serde_json::to_vec(&serde_json::json!({"version":1,"turns":turns}))
-        .map_err(|_| DesktopError("storeIo"))?;
-    if payload.len() > MAX_INDEX_BYTES {
+    if payload.len() > limit {
         return Err(DesktopError("storageLimit"));
     }
-    write_new(&temp, &payload)?;
-    fs::rename(temp, dir.join(INDEX))?;
+    write_new(&temp, payload)?;
+    fs::rename(temp, dir.join(name))?;
     sync_dir(dir)
 }
-pub(super) fn png(dir: &Path, asset: &ImageAsset) -> Result<Vec<u8>> {
+pub(super) fn png(dir: &Path, filename: &str, sha256: &str) -> Result<Vec<u8>> {
     directory(dir, true)?;
-    let bytes = read_regular(&dir.join(&asset.filename), provider::MAX_PNG)?;
-    if digest(&bytes) != asset.content_sha256 {
+    let bytes = read_regular(&dir.join(filename), provider::MAX_PNG)?;
+    if digest(&bytes) != sha256 {
         return Err(DesktopError("corruptImage"));
     }
     Ok(bytes)

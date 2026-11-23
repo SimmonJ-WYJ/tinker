@@ -41,11 +41,14 @@ impl Actor {
             }
             Ok(Value::String(file.read_base64()?))
         } else {
-            let turns = store.history(sid)?;
-            let assets = turns.iter().filter_map(|turn| turn.asset.as_ref());
-            Ok(
-                json!({"entries":assets.map(|a|json!({"name":a.filename,"path":root.join(sid).join(&a.filename),"isDirectory":false})).collect::<Vec<_>>(),"hiddenCount":0}),
-            )
+            let (turns, imports) = store.snapshot(sid)?;
+            let mut entries:Vec<_>=turns.iter().filter_map(|t|t.asset.as_ref()).map(|a|json!({
+                "name":a.filename,"path":root.join(sid).join(&a.filename),"isDirectory":false
+            })).collect();
+            entries.extend(imports.iter().map(|a|json!({
+                "name":a.filename,"displayName":a.display_name,"imageId":a.id,"path":root.join(sid).join(&a.filename),"isDirectory":false
+            })));
+            Ok(json!({"entries":entries,"hiddenCount":0}))
         }
     }
 }

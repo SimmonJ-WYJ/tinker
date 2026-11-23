@@ -96,8 +96,15 @@ fn snapshot(window: &tauri::WebviewWindow, path: PathBuf) -> Result<Value, Strin
     rx.recv_timeout(Duration::from_secs(15))
         .map_err(|e| e.to_string())?
 }
+#[path = "formal_native_qa_picker.rs"]
+mod picker;
 #[path = "formal_native_qa_support.rs"]
 mod support;
+
+/// 仅供受独立 QA 身份限制的宿主调用。
+pub(crate) fn image_panel_selection(save: bool) -> Option<Option<PathBuf>> {
+    picker::selection(save)
+}
 pub fn hooks() -> crate::formal_launch::LaunchProbe {
     crate::formal_launch::LaunchProbe {
         initialization_script: include_str!("formal_native_qa_early.js"),
@@ -134,6 +141,8 @@ pub fn start(window: tauri::WebviewWindow) {
                 "hold" | "release" | "pump-state" | "stale" => {
                     support::control(&window, command["action"].as_str().unwrap())
                 }
+                "image-picker-consumed" => picker::consumed(),
+                "arm-image-picker" => picker::arm(&command["choice"]),
                 "menu-quit" => support::menu_quit(&window),
                 "eval" => evaluate(&window, command["script"].as_str().unwrap_or("").into()),
                 "snapshot" => snapshot(&window, dir.join(format!("snapshot-{sequence}.png"))),

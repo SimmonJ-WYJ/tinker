@@ -228,4 +228,18 @@ def acceptance(binary):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path, help="Path to the checkout's native QA binary")
-    acceptance(parser.parse_args().binary.resolve(strict=True))
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--files", action="store_true",
+                        help="Exercise native import/export with only synthetic QA selections")
+    modes.add_argument("--system-file-panels", action="store_true",
+                       help="Use real macOS Open/Save panels; follow the printed local fixture paths")
+    args = parser.parse_args()
+    binary = args.binary.resolve(strict=True)
+    if args.system_file_panels:
+        from native_image_file_checks import system_panels
+        system_panels(binary, Window, scenarios)
+    elif args.files:
+        from native_image_file_checks import acceptance as file_acceptance
+        file_acceptance(binary, Window, scenarios)
+    else:
+        acceptance(binary)
