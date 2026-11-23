@@ -65,13 +65,20 @@ fn execute_response(status: u16, headers: &str, body: &[u8]) -> (Result<(), Stri
 }
 #[test]
 fn http_status_errors_are_fixed_and_do_not_emit_bodies() {
-    for status in [401, 429, 500, 503] {
+    for (status, expected) in [
+        (401, "channelUnauthorized"),
+        (402, "channelPaymentRequired"),
+        (403, "channelForbidden"),
+        (429, "channelRateLimited"),
+        (500, "httpStatus"),
+        (503, "httpStatus"),
+    ] {
         let (result, output) = execute_response(
             status,
             "X-Synthetic: fake-secret-token\r\n",
             b"fake-secret-token private-error-body",
         );
-        assert_eq!(result, Err("httpStatus".into()));
+        assert_eq!(result, Err(expected.into()));
         assert!(output.is_empty());
     }
 }

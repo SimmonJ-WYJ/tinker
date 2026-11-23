@@ -1,5 +1,6 @@
 /** 原表单凭据和显式探测；受管模式从不解密或自动发起网络请求。 */
 import * as React from 'react'
+import { isNativeChannelError } from '@asci/shared'
 import type { Channel, ChannelModel, ChannelTestResult, FetchModelsResult, ProviderType, ImageProtocol } from '@asci/shared'
 import { useT } from '@/hooks/useT'
 
@@ -32,6 +33,11 @@ export function useChannelCredentials({
   intentFields
 }: Props) {
   const { t } = useT('settings')
+  const { t: tErrors } = useT('errors')
+  function probeError(error: unknown, fallback: string): string {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+    return isNativeChannelError(code) ? tErrors(`desktopRuntime.${code}`) : fallback
+  }
   const isEdit = channel !== null
   const isCustom = provider.startsWith('custom-')
   const [mode, setMode] = React.useState<'loading' | 'managed' | 'legacy'>('loading')
@@ -134,7 +140,7 @@ export function useChannelCredentials({
     } catch (error) {
       if (identity === currentIdentity.current) setFetchResult({
         success: false,
-        message: t('channelForm.models.fetchRequestFailed'),
+        message: probeError(error, t('channelForm.models.fetchRequestFailed')),
         models: []
       })
     } finally {
@@ -192,7 +198,7 @@ export function useChannelCredentials({
       setTestedIdentity(identity)
       setTestResult({
         success: false,
-        message: t('channelForm.fields.testRequestFailed')
+        message: probeError(error, t('channelForm.fields.testRequestFailed'))
       })
       if (!isCustom) setModels([])
       setFetchResult(null)

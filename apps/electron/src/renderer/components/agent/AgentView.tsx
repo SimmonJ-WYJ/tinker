@@ -344,11 +344,13 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   // 渠道已选但模型未选时，自动选择第一个可用模型
   const globalChannels = useAtomValue(channelsAtom)
 
+  const selectedImageModel = globalChannels.find(c => c.id === agentChannelId)?.models.find(m => m.id === agentModelId)?.capability === 'image'
+
   // 检查 Agent 渠道列表中是否存在可用的模型（渠道 enabled + 模型 enabled）
   const hasAvailableModel = React.useMemo(() => {
     // ASCI 官方渠道（商业版）：只要 enabled 且有可用模型，直接视为可用
     const asciOfficial = globalChannels.find((c) => c.id === 'asci-official')
-    if (asciOfficial?.enabled && asciOfficial.models.some((m) => m.enabled)) return true
+    if (asciOfficial?.enabled && asciOfficial.models.some((m) => m.enabled && m.capability !== 'unsupported')) return true
     // 其他渠道：需在 agentChannelIds 白名单中
     if (!agentChannelIds || agentChannelIds.length === 0) return false
     return globalChannels.some(
@@ -373,7 +375,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const channel = globalChannels.find((c) => c.id === agentChannelId && c.enabled)
     if (!channel) return
 
-    const firstModel = channel.models.find((m) => m.enabled)
+    const firstModel = channel.models.find((m) => m.enabled && m.capability !== 'unsupported')
     if (!firstModel) return
 
     // 更新 per-session map
@@ -1005,9 +1007,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       return
     }
 
-    const selectedUse = selectedImage && window.__TAURI_FORMAL__?.selectedImageUse?.(effectiveText, selectedImage.imageId)
-    if (selectedUse === 'inspect') {
-      toast.info(tErrors('desktopRuntime.imageEditOnly'))
+    const selectedUse = selectedImage && window.__TAURI_FORMAL__?.selectedImageUse?.(effectiveText, selectedImage.imageId, selectedImageModel)
+    if (selectedUse === 'inspect' || selectedUse === 'switchToText') {
+      toast.info(tErrors(selectedUse === 'inspect' ? 'desktopRuntime.imageEditOnly' : 'desktopRuntime.imageModelDiscussion'))
       return
     }
     const imageForSend = selectedUse === 'text' ? undefined : selectedImage
@@ -1260,7 +1262,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     // 版本引用已绑定到 input 与恢复快照；发送后不再把它显示成下一条草稿。
     if (imageForSend) setImageEditDrafts(previous => consumeImageEditDraft(previous, sessionId, imageForSend))
     void observeAgentSend(store,sessionId,requestId,window.electronAPI.sendAgentMessage(input),recoveryDraft)
-  }, [taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
+  }, [taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 
   // 一键触发（如「找研究空白」）→ 直接派发 handleSend，不经输入框二段式回车。
   // textOverride 直接带正文，绕过 inputContent state 时序；写入后立即清空 atom 防重复发送。
@@ -1744,9 +1746,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                   externalSelectedModel={externalSelectedModel}
                   onModelSelect={handleModelSelect}
                   compactTrigger={!isHome}
-                  reasoning={isHome ? reasoningForModel : undefined}
+                  reasoning={isHome && !selectedImageModel ? reasoningForModel : undefined}
                 />
-                {!isHome && <ConversationReasoningSelector reasoning={reasoningForModel} />}
+                {!isHome && !selectedImageModel && <ConversationReasoningSelector reasoning={reasoningForModel} />}
                 {taskMode === 'coding' && <ContextUsageBadge
                   key={sessionId}
                   sessionId={sessionId}

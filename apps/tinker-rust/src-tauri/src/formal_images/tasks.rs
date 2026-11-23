@@ -10,6 +10,9 @@ pub(crate) struct ImageTaskSummary {
     pub text_head_at_admission: Option<Option<String>>,
 }
 impl ImageTurn {
+    pub(crate) fn route(&self) -> Option<&ImageRoute> {
+        self.route.as_ref()
+    }
     pub(crate) fn user_stopped(&self) -> bool {
         self.status == ImageStatus::Failed && self.error.as_deref() == Some("imageCancelled")
     }
@@ -33,7 +36,6 @@ pub(crate) struct PendingImage {
     sid: String,
     pending: ImageTurn,
     reference: Option<Vec<u8>>,
-    derived: bool,
 }
 
 // 只保存 v1 无法表示的接纳因果，不复制正文、图片和执行状态。
@@ -72,11 +74,13 @@ impl Order {
             return Err(DesktopError("corruptImages"));
         }
         // 崩溃可以只留下已经同步的最后一个接纳意图；只有 v1 承诺了该请求才可展示或重放。
-        if order
-            .admissions
-            .last()
-            .is_some_and(|a| !images.turns().any(|t| t.request_id == a.request))
-        {
+        if order.admissions.last().is_some_and(|a| {
+            !images
+                .original
+                .iter()
+                .chain(&images.derived)
+                .any(|t| t.request_id == a.request)
+        }) {
             order.admissions.pop();
         }
         let mut prev = (0, 0);
@@ -124,8 +128,17 @@ impl Order {
         Ok(order)
     }
     fn latest<'a>(&self, imgs: &'a SessionImages) -> Option<&'a ImageTurn> {
+        if let Some(last) = imgs.routed.entries.last() {
+            if last.original == imgs.original.len() && last.derived == imgs.derived.len() {
+                return Some(&last.turn);
+            }
+        }
         let previous = self.admissions.last();
-        let (o, d) = previous.map_or((0, 0), |a| (a.original, a.derived));
+        let (mut o, mut d) = previous.map_or((0, 0), |a| (a.original, a.derived));
+        if let Some(last) = imgs.routed.entries.last() {
+            o = o.max(last.original);
+            d = d.max(last.derived);
+        }
         imgs.original[o..]
             .last()
             .into_iter()
@@ -135,6 +148,12 @@ impl Order {
     }
     fn meta(&self, request: &str) -> Option<&Admission> {
         self.admissions.iter().find(|a| a.request == request)
+    }
+    fn retry_of<'a>(&'a self, imgs: &'a SessionImages, request: &str) -> Option<&'a str> {
+        imgs.routed
+            .get(request)
+            .and_then(|e| e.retry_of.as_deref())
+            .or_else(|| self.meta(request).and_then(|a| a.retry_of.as_deref()))
     }
     fn retry_source<'a>(
         &self,
@@ -156,7 +175,7 @@ impl Order {
         if !retryable
             || source == new_id
             || if imgs.turns().any(|t| t.request_id == new_id) {
-                self.meta(new_id).and_then(|a| a.retry_of.as_deref()) != Some(source)
+                self.retry_of(imgs, new_id) != Some(source)
             } else {
                 self.latest(imgs).is_none_or(|t| t.request_id != source)
             }
@@ -179,7 +198,11 @@ impl ImageStore {
         let summary = order.latest(&images).map(|t| {
             let t = self.recovered(&active, session, t.clone());
             ImageTaskSummary {
-                text_head_at_admission: order.meta(&t.request_id).map(|a| a.text_head.clone()),
+                text_head_at_admission: images
+                    .routed
+                    .get(&t.request_id)
+                    .map(|e| e.text_head.clone())
+                    .or_else(|| order.meta(&t.request_id).map(|a| a.text_head.clone())),
                 request_id: t.request_id.clone(),
                 created_at: t.created_at,
                 is_edit: t.base_image_id.is_some(),
@@ -212,6 +235,15 @@ impl ImageStore {
                 .clone(),
         ))
     }
+    pub(crate) fn route_for(&self, session: &str, request: &str) -> Result<Option<ImageRoute>> {
+        let dir = self.session(session)?;
+        id(request)?;
+        let _state = self.guard()?;
+        Ok(SessionImages::open(&dir, session)?
+            .routed
+            .get(request)
+            .map(|e| e.route.clone()))
+    }
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn admit(
         &self,
@@ -222,6 +254,46 @@ impl ImageStore {
         created_at: u64,
         retry_of: Option<&str>,
         text_head: Option<&str>,
+    ) -> Result<ImageAdmission> {
+        self.admit_bound(
+            session, request, prompt, base, created_at, retry_of, text_head, None,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn admit_routed(
+        &self,
+        session: &str,
+        request: &str,
+        prompt: &str,
+        base: Option<&str>,
+        created_at: u64,
+        retry_of: Option<&str>,
+        text_head: Option<&str>,
+        route: &ImageRoute,
+    ) -> Result<ImageAdmission> {
+        route.validate(base)?;
+        self.admit_bound(
+            session,
+            request,
+            prompt,
+            base,
+            created_at,
+            retry_of,
+            text_head,
+            Some(route),
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn admit_bound(
+        &self,
+        session: &str,
+        request: &str,
+        prompt: &str,
+        base: Option<&str>,
+        created_at: u64,
+        retry_of: Option<&str>,
+        text_head: Option<&str>,
+        route: Option<&ImageRoute>,
     ) -> Result<ImageAdmission> {
         let dir = self.session(session)?;
         id(request)?;
@@ -236,7 +308,10 @@ impl ImageStore {
         let mut order = Order::read(&dir, &imgs)?;
         if let Some(source) = retry_of {
             let original = order.retry_source(&imgs, &guard, session, source, request)?;
-            if original.prompt != prompt || original.base_image_id.as_deref() != base {
+            if original.prompt != prompt
+                || original.base_image_id.as_deref() != base
+                || original.route() != route
+            {
                 return Err(DesktopError("imageRequestConflict"));
             }
         }
@@ -244,7 +319,8 @@ impl ImageStore {
             if existing.prompt != prompt
                 || existing.base_image_id.as_deref() != base
                 || existing.created_at != created_at
-                || order.meta(request).and_then(|a| a.retry_of.as_deref()) != retry_of
+                || order.retry_of(&imgs, request) != retry_of
+                || existing.route() != route
             {
                 return Err(DesktopError("imageRequestConflict"));
             }
@@ -257,10 +333,19 @@ impl ImageStore {
         if guard.requests.iter().any(|(sid, _)| sid == session) {
             return Err(DesktopError("runBusy"));
         }
-        if imgs.original.len() + imgs.derived.len() >= LIMIT {
+        if imgs.turns().count() >= LIMIT {
             return Err(DesktopError("imageLimit"));
         }
         let (reference, derived) = if let Some(base) = base {
+            if route.is_none()
+                && imgs
+                    .routed
+                    .entries
+                    .iter()
+                    .any(|e| e.turn.asset.as_ref().is_some_and(|a| a.id == base))
+            {
+                return Err(DesktopError("imageRequestConflict"));
+            }
             let (_, name, hash, derived) = imgs
                 .sources()
                 .find(|(id, _, _, _)| *id == base)
@@ -270,6 +355,7 @@ impl ImageStore {
             (None, false)
         };
         let pending = ImageTurn {
+            route: route.cloned(),
             request_id: request.into(),
             prompt: prompt.into(),
             base_image_id: base.map(str::to_owned),
@@ -280,26 +366,37 @@ impl ImageStore {
         };
         disk::private_dir(&dir)?;
         guard.summaries.remove(session);
-        imgs.partition(derived).push(pending.clone());
-        order.admissions.push(Admission {
-            request: request.into(),
-            text_head: text_head.map(str::to_owned),
-            retry_of: retry_of.map(str::to_owned),
-            original: imgs.original.len(),
-            derived: imgs.derived.len(),
-            in_derived: derived,
-        });
-        // 顺序先落盘，v1 收据作为提交点；任一步返回不确定都不派发网络。
-        let data = serde_json::to_vec(&order).map_err(|_| DesktopError("storeIo"))?;
-        disk::write_index(&dir, ORDER, &data)?;
-        disk::save_turns(&dir, imgs.partition(derived), derived)?;
+        if let Some(route) = route {
+            imgs.routed.entries.push(routes::RoutedEntry {
+                turn: pending.clone(),
+                route: route.clone(),
+                retry_of: retry_of.map(str::to_owned),
+                text_head: text_head.map(str::to_owned),
+                original: imgs.original.len(),
+                derived: imgs.derived.len(),
+            });
+            imgs.routed.save(&dir)?;
+        } else {
+            imgs.partition(derived).push(pending.clone());
+            order.admissions.push(Admission {
+                request: request.into(),
+                text_head: text_head.map(str::to_owned),
+                retry_of: retry_of.map(str::to_owned),
+                original: imgs.original.len(),
+                derived: imgs.derived.len(),
+                in_derived: derived,
+            });
+            // 顺序先落盘，v1 收据作为提交点；任一步返回不确定都不派发网络。
+            let data = serde_json::to_vec(&order).map_err(|_| DesktopError("storeIo"))?;
+            disk::write_index(&dir, ORDER, &data)?;
+            disk::save_turns(&dir, imgs.partition(derived), derived)?;
+        }
         guard.requests.insert((session.into(), request.into()));
         Ok(ImageAdmission::New(PendingImage {
             store: self.clone(),
             sid: session.into(),
             pending,
             reference,
-            derived,
         }))
     }
     pub(crate) fn stop(&self, session: &str, request: &str, cancelled: &AtomicBool) -> Result<()> {
@@ -310,18 +407,13 @@ impl ImageStore {
             return Ok(());
         }
         let mut images = SessionImages::open(&dir, session)?;
-        let derived = images.derived.iter().any(|t| t.request_id == request);
-        let turns = images.partition(derived);
-        let t = turns
-            .iter_mut()
-            .find(|t| t.request_id == request)
-            .ok_or(DesktopError("corruptImages"))?;
+        let t = images.find_mut(request)?;
         if t.status == ImageStatus::Pending {
             active.summaries.remove(session);
             cancelled.store(true, Ordering::Release);
             t.status = ImageStatus::Failed;
             t.error = Some("imageCancelled".into());
-            disk::save_turns(&dir, turns, derived)?;
+            images.save_for(&dir, request)?;
         }
         Ok(())
     }
@@ -331,17 +423,44 @@ impl PendingImage {
         &self.pending
     }
     pub(crate) fn execute(
-        mut self,
+        self,
         provider: &LoopbackImageProvider,
         cancelled: &AtomicBool,
     ) -> Result<ImageTurn> {
-        let reference = self
+        if self.pending.route().is_some() {
+            return Err(DesktopError("imageRequestConflict"));
+        }
+        self.run(cancelled, |prompt, reference, flag| {
+            provider.request(prompt, reference, flag)
+        })
+    }
+    pub(crate) fn execute_with(
+        self,
+        cancelled: &AtomicBool,
+        send: impl FnOnce(&str, Option<(&str, Vec<u8>)>, &AtomicBool) -> Result<(Vec<u8>, u32, u32)>,
+    ) -> Result<ImageTurn> {
+        if self.pending.route().is_none() {
+            return Err(DesktopError("imageRequestConflict"));
+        }
+        self.run(cancelled, send)
+    }
+    fn run(
+        self,
+        cancelled: &AtomicBool,
+        send: impl FnOnce(&str, Option<(&str, Vec<u8>)>, &AtomicBool) -> Result<(Vec<u8>, u32, u32)>,
+    ) -> Result<ImageTurn> {
+        let mut job = self;
+        let reference = job
             .pending
             .base_image_id
             .as_deref()
-            .zip(self.reference.take());
-        let result = provider.request(&self.pending.prompt, reference, cancelled);
-        self.finish(result, cancelled)
+            .zip(job.reference.take());
+        let result = if cancelled.load(Ordering::Acquire) {
+            Err(DesktopError("imageInterrupted"))
+        } else {
+            send(&job.pending.prompt, reference, cancelled)
+        };
+        job.finish(result, cancelled)
     }
     pub(super) fn finish(
         self,
@@ -352,11 +471,7 @@ impl PendingImage {
         let mut state = self.store.guard()?;
         state.summaries.remove(&self.sid);
         let mut images = SessionImages::open(&dir, &self.sid)?;
-        let turns = images.partition(self.derived);
-        let turn = turns
-            .iter_mut()
-            .find(|t| t.request_id == self.pending.request_id)
-            .ok_or(DesktopError("corruptImages"))?;
+        let turn = images.find_mut(&self.pending.request_id)?;
         if turn.status != ImageStatus::Pending {
             return Ok(turn.clone());
         }
@@ -373,8 +488,14 @@ impl PendingImage {
                     id,
                     filename,
                     prompt: turn.prompt.clone(),
-                    model: provider::MODEL.into(),
-                    channel_id: provider::CHANNEL.into(),
+                    model: turn
+                        .route()
+                        .map_or(provider::MODEL, |r| r.model_id.as_str())
+                        .into(),
+                    channel_id: turn
+                        .route()
+                        .map_or(provider::CHANNEL, |r| r.channel_id.as_str())
+                        .into(),
                     reference_ids: turn.base_image_id.iter().cloned().collect(),
                     base_image_id: turn.base_image_id.clone(),
                     width,
@@ -394,7 +515,7 @@ impl PendingImage {
             }
         }
         let receipt = turn.clone();
-        if let Err(error) = disk::save_turns(&dir, turns, self.derived) {
+        if let Err(error) = images.save_for(&dir, &self.pending.request_id) {
             if let Some(asset) = &receipt.asset {
                 // rename 后目录同步失败时，收据可能已经可见；仅在重新读取明确仍为 Pending 时移除本次刚写入的像素。
                 if SessionImages::open(&dir, &self.sid).is_ok_and(|r| {

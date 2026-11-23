@@ -20,6 +20,8 @@ struct Counts {
     partial_disconnects: u64,
     cancelled: u64,
     completed: u64,
+    #[serde(default)]
+    failed_image_edits: u64,
     events: Vec<Event>,
 }
 #[derive(Serialize, Deserialize)]
@@ -52,6 +54,11 @@ impl Observations {
                         "cancelled",
                         "partial",
                         "unauthorized",
+                        "image-generated",
+                        "image-edited",
+                        "image-edit-failed",
+                        "image-invalid",
+                        "text-invalid",
                     ]
                     .contains(&e.phase.as_str())
             })
@@ -65,6 +72,12 @@ impl Observations {
         };
         value.update(|_| {})?;
         Ok(value)
+    }
+    pub fn already_failed_image_edit(&self) -> Result<bool> {
+        self.inner
+            .lock()
+            .map(|c| c.failed_image_edits > 0)
+            .map_err(|_| DesktopError("qaEvidenceInvalid"))
     }
     fn update(&self, f: impl FnOnce(&mut Counts)) -> Result<()> {
         let mut counts = self
@@ -109,6 +122,7 @@ impl Observations {
             match phase {
                 "unauthorized" => c.unauthorized_requests += 1,
                 "partial" => c.partial_disconnects += 1,
+                "image-edit-failed" => c.failed_image_edits += 1,
                 "cancelled" => c.cancelled += 1,
                 _ => c.completed += 1,
             };

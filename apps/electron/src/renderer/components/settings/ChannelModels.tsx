@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 interface Props {
   models: ChannelModel[]
+  onRouteChange?: (model: ChannelModel, route: string) => void
   isCustom: boolean
   isEdit: boolean
   testResult: ChannelTestResult | null
@@ -32,7 +33,7 @@ interface Props {
   setNewModelName: (value: string) => void
   handleAddModel: () => void
 }
-export function ChannelModels({ models, isCustom, isEdit, testResult, fetchResult, fetchingModels, baseUrl, apiKey, hasUsableKey, locked, enabledModelCount, handleFetchModels, handleToggleModel, showCustomInput, setShowCustomInput, addModelError, setAddModelError, newModelId, setNewModelId, newModelName, setNewModelName, handleAddModel }: Props): React.ReactElement {
+export function ChannelModels({ models, onRouteChange, isCustom, isEdit, testResult, fetchResult, fetchingModels, baseUrl, apiKey, hasUsableKey, locked, enabledModelCount, handleFetchModels, handleToggleModel, showCustomInput, setShowCustomInput, addModelError, setAddModelError, newModelId, setNewModelId, newModelName, setNewModelName, handleAddModel }: Props): React.ReactElement {
   const { t } = useT('settings')
 const testPassed = testResult?.success === true
 const modelsEditable = !locked && (testPassed || isCustom)
@@ -112,12 +113,23 @@ return (
                   <div className="truncate text-xs text-muted-foreground">{model.id}</div>
                 )}
               </div>
+              {onRouteChange && model.capability !== 'unsupported' && <select
+                aria-label={t('channelForm.models.usageLabel', {name:model.name})}
+                value={model.capability === 'image' ? model.supportsImageEdits ? 'edit' : 'image' : 'text'}
+                disabled={!modelsEditable}
+                className="max-w-36 rounded border border-input bg-background px-1 py-1 text-xs"
+                onChange={event => onRouteChange(model, event.target.value)}>
+                <option value="text">{t('channelForm.models.text')}</option>
+                <option value="image">{t('channelForm.models.image')}</option>
+                <option value="edit">{t('channelForm.models.edit')}</option>
+              </select>}
+              {model.capability === 'unsupported' && <span className="text-xs text-muted-foreground">{t('channelForm.models.unsupported')}</span>}
               <Switch
                 className="settings-channel-switch"
-                checked={model.enabled}
+                checked={model.enabled && model.capability !== 'unsupported'}
                 onCheckedChange={() => handleToggleModel(model.id)}
-                disabled={!modelsEditable}
-                aria-disabled={!modelsEditable}
+                disabled={!modelsEditable || model.capability === 'unsupported'}
+                aria-disabled={!modelsEditable || model.capability === 'unsupported'}
                 aria-label={model.name}
               />
             </div>

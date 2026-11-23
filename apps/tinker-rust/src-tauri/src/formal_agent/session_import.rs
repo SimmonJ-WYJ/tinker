@@ -75,7 +75,7 @@ impl Actor {
         if self.draining || !self.gate.allows_send() {
             return Err(DesktopError("closing"));
         }
-        if self.images.is_none() {
+        if !self.synthetic_projects() {
             return Err(DesktopError("unsupported"));
         }
         self.root.validate()?;

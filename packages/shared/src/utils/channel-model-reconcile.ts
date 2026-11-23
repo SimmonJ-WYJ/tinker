@@ -20,7 +20,7 @@ export function isModelEnabledInChannel(
   modelId: string | null | undefined,
 ): boolean {
   if (!channel || channel.provider === 'custom-image' || !modelId) return false
-  return channel.models.some((m) => m.id === modelId && m.enabled)
+  return channel.models.some((m) => m.id === modelId && m.enabled && m.capability !== 'unsupported')
 }
 
 /** Claude 家族别名（与 capability-pack manifest 的 model enum 一致） */
@@ -54,7 +54,7 @@ export function pickFallbackModel(
   channel: Channel | null | undefined,
 ): { id: string; name: string } | null {
   if (!channel || channel.provider === 'custom-image') return null
-  const m = channel.models.find((mm) => mm.enabled)
+  const m = channel.models.find((mm) => mm.enabled && mm.capability !== 'unsupported')
   return m ? { id: m.id, name: m.name } : null
 }
 

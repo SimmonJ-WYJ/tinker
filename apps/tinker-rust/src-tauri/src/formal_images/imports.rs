@@ -128,6 +128,7 @@ pub(super) struct SessionImages {
     pub original: Vec<ImageTurn>,
     pub derived: Vec<ImageTurn>,
     pub(super) imports: Vec<ImportedImage>,
+    pub(super) routed: routes::RoutedReceipts,
 }
 impl SessionImages {
     pub fn open(dir: &Path, sid: &str) -> Result<Self> {
@@ -142,14 +143,19 @@ impl SessionImages {
         {
             return Err(DesktopError("corruptImages"));
         }
+        let routed = routes::RoutedReceipts::read(dir, sid, &original, &derived, &imports)?;
         Ok(Self {
+            routed,
             original,
             derived,
             imports,
         })
     }
     pub fn turns(&self) -> impl Iterator<Item = &ImageTurn> {
-        self.original.iter().chain(&self.derived)
+        self.original
+            .iter()
+            .chain(&self.derived)
+            .chain(self.routed.entries.iter().map(|e| &e.turn))
     }
     /// 两个账本独立提交；旧程序仍能读取全部原有生成链。
     pub fn partition(&mut self, derived: bool) -> &mut Vec<ImageTurn> {
@@ -164,6 +170,7 @@ impl SessionImages {
             .iter()
             .map(|t| (t, false))
             .chain(self.derived.iter().map(|t| (t, true)))
+            .chain(self.routed.entries.iter().map(|e| (&e.turn, false)))
             .filter_map(|(t, derived)| {
                 t.asset.as_ref().map(|a| {
                     (

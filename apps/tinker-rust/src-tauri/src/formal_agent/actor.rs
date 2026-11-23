@@ -300,6 +300,9 @@ impl Actor {
         }
         Ok(json!({"value":rows}))
     }
+    pub(super) fn synthetic_projects(&self) -> bool {
+        self.images.is_some() && self.credentialed.is_none()
+    }
     pub(super) fn native_task_lifecycle(&self) -> bool {
         cfg!(all(target_os = "macos", feature = "formal-preview")) && self.images.is_some()
     }
@@ -329,7 +332,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.synthetic_projects(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.synthetic_projects(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -394,7 +397,7 @@ impl Actor {
                 }
             }
             Command::ProjectTaskStatuses { workspace_id, .. } => {
-                if !self.native_task_lifecycle() {
+                if !self.native_task_lifecycle() || !self.synthetic_projects() {
                     return Err(DesktopError("unsupported"));
                 }
                 if self.draining {

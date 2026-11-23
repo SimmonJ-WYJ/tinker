@@ -26,13 +26,35 @@ struct Binding {
 }
 pub(crate) struct OwnedQa {
     policy: EndpointPolicy,
-    stop: Arc<AtomicBool>,
-    thread: Option<JoinHandle<()>>,
+    _servers: [QaServer; 2],
 }
 impl OwnedQa {
     pub(crate) fn start(root: &TrustedRoot) -> Result<Self> {
+        let primary = QaServer::start(root, "qa-endpoint.json", "qa-observations.json", 1)?;
+        let secondary = QaServer::start(
+            root,
+            "qa-secondary-endpoint.json",
+            "qa-secondary-observations.json",
+            2,
+        )?;
+        Ok(Self {
+            policy: primary.policy.combine_owned(&secondary.policy)?,
+            _servers: [primary, secondary],
+        })
+    }
+    pub(crate) fn policy(&self) -> EndpointPolicy {
+        self.policy.clone()
+    }
+}
+struct QaServer {
+    policy: EndpointPolicy,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+}
+impl QaServer {
+    fn start(root: &TrustedRoot, binding: &str, evidence: &str, provider: u8) -> Result<Self> {
         root.validate_channels()?;
-        let file = root.path().join("qa-endpoint.json");
+        let file = root.path().join(binding);
         let saved = if file.try_exists()? {
             let b: Binding = serde_json::from_slice(&store::read_regular(&file, 1024)?)
                 .map_err(|_| DesktopError("invalidEndpoint"))?;
@@ -58,9 +80,8 @@ impl OwnedQa {
             store::sync_dir(root.path())?;
         }
         listener.set_nonblocking(true)?;
-        let observations = Arc::new(Observations::open(
-            root.path().join("qa-observations.json"),
-        )?);
+        let observations = Arc::new(Observations::open(root.path().join(evidence))?);
+        let first_failure = Arc::new(AtomicBool::new(observations.already_failed_image_edit()?));
         let stop = Arc::new(AtomicBool::new(false));
         let token = stop.clone();
         let thread = std::thread::Builder::new()
@@ -84,10 +105,17 @@ impl OwnedQa {
                             }
                             let cancel = token.clone();
                             let observations = observations.clone();
+                            let first_failure = first_failure.clone();
                             match std::thread::Builder::new()
                                 .name("channels-qa-request".into())
                                 .spawn(move || {
-                                    let _ = serve(&mut stream, &cancel, &observations);
+                                    let _ = serve(
+                                        &mut stream,
+                                        &cancel,
+                                        &observations,
+                                        provider,
+                                        &first_failure,
+                                    );
                                 }) {
                                 Ok(handler) => handlers.push(handler),
                                 Err(_) => {
@@ -114,11 +142,8 @@ impl OwnedQa {
             thread: Some(thread),
         })
     }
-    pub(crate) fn policy(&self) -> EndpointPolicy {
-        self.policy.clone()
-    }
 }
-impl Drop for OwnedQa {
+impl Drop for QaServer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(t) = self.thread.take() {
@@ -126,7 +151,13 @@ impl Drop for OwnedQa {
         }
     }
 }
-fn serve(s: &mut TcpStream, cancel: &AtomicBool, observations: &Observations) -> Result<()> {
+fn serve(
+    s: &mut TcpStream,
+    cancel: &AtomicBool,
+    observations: &Observations,
+    provider: u8,
+    first_failure: &AtomicBool,
+) -> Result<()> {
     s.set_nonblocking(true)?;
     let deadline = Instant::now() + Duration::from_secs(2);
     let mut bytes = Vec::new();
@@ -201,9 +232,20 @@ fn serve(s: &mut TcpStream, cancel: &AtomicBool, observations: &Observations) ->
                 return Ok(());
             };
             if headers.starts_with("GET /v1/models ") {
-                let body = r#"{"data":[{"id":"owned-text","display_name":"Owned Text"}]}"#;
+                let body = r#"{"data":[{"id":"owned-text","display_name":"Owned Text"},{"id":"gpt-image-1","display_name":"Owned Image","output_modalities":["image"],"supported_endpoints":["/v1/images/generations","/v1/images/edits"]}]}"#;
                 write!(s,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len())?;
                 evidence.phase = "completed";
+                return Ok(());
+            }
+            if let Some(edit) = qa_images::route(headers.lines().next().unwrap_or("")) {
+                evidence.phase = qa_images::respond(
+                    s,
+                    edit,
+                    provider,
+                    headers,
+                    &bytes[end + 4..end + 4 + length],
+                    first_failure,
+                )?;
                 return Ok(());
             }
             let anthropic = headers.starts_with("POST /v1/messages ");
@@ -213,6 +255,13 @@ fn serve(s: &mut TcpStream, cancel: &AtomicBool, observations: &Observations) ->
             let request: serde_json::Value =
                 serde_json::from_slice(&bytes[end + 4..end + 4 + length])
                     .map_err(|_| DesktopError("qaRequestInvalid"))?;
+            if request.get("model").is_some_and(|m| m != "owned-text") {
+                evidence.phase = "text-invalid";
+                s.write_all(
+                    b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )?;
+                return Ok(());
+            }
             let last = request["messages"]
                 .as_array()
                 .and_then(|a| a.last())
@@ -326,3 +375,6 @@ fn wait_connected(s: &mut TcpStream, cancel: &AtomicBool, duration: Duration) ->
 #[cfg(test)]
 #[path = "qa_tests.rs"]
 mod tests;
+
+#[path = "qa_images.rs"]
+mod qa_images;

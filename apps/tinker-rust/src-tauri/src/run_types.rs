@@ -103,6 +103,10 @@ pub enum RunError {
     HttpConfig,
     HttpTransport,
     HttpStatus,
+    ChannelUnauthorized,
+    ChannelPaymentRequired,
+    ChannelForbidden,
+    ChannelRateLimited,
     HttpProtocol,
     HttpTimeout,
     HttpUnsupported,
@@ -119,6 +123,18 @@ pub enum RunError {
     ToolFailed,
 }
 impl RunError {
+    /// 渠道错误仅从状态码分类，不向界面或记录传递响应正文、地址和认证头。
+    pub fn from_http_status(status: u16) -> Self {
+        match status {
+            401 => Self::ChannelUnauthorized,
+            402 => Self::ChannelPaymentRequired,
+            403 => Self::ChannelForbidden,
+            429 => Self::ChannelRateLimited,
+            408 | 504 => Self::HttpTimeout,
+            _ => Self::HttpStatus,
+        }
+    }
+
     pub fn code(&self) -> &'static str {
         match self {
             Self::InvalidRunId => "invalidRunId",
@@ -142,6 +158,10 @@ impl RunError {
             Self::HttpConfig => "httpConfig",
             Self::HttpTransport => "httpTransport",
             Self::HttpStatus => "httpStatus",
+            Self::ChannelUnauthorized => "channelUnauthorized",
+            Self::ChannelPaymentRequired => "channelPaymentRequired",
+            Self::ChannelForbidden => "channelForbidden",
+            Self::ChannelRateLimited => "channelRateLimited",
             Self::HttpProtocol => "httpProtocol",
             Self::HttpTimeout => "httpTimeout",
             Self::HttpUnsupported => "httpUnsupported",

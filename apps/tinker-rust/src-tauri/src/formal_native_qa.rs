@@ -147,6 +147,23 @@ pub fn start(window: tauri::WebviewWindow) {
                 "hold" | "release" | "pump-state" | "stale" => {
                     support::control(&window, command["action"].as_str().unwrap())
                 }
+                "type-owned-key"
+                    if window.app_handle().config().identifier
+                        == "com.tinker.channels-native-qa" =>
+                {
+                    use crate::credentialed_channels::vault_fake::{QA_SECRET_ONE, QA_SECRET_TWO};
+                    match command["slot"].as_u64() {
+                        Some(slot @ (1 | 2)) => {
+                            let key = if slot == 1 {
+                                QA_SECRET_ONE
+                            } else {
+                                QA_SECRET_TWO
+                            };
+                            evaluate(&window, format!("const i=document.querySelector('input[type=password]');if(!i||i.disabled)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'{key}');i.dispatchEvent(new Event('input',{{bubbles:true}}));return true;"))
+                        }
+                        _ => Err("unknown owned slot".into()),
+                    }
+                }
                 "image-picker-consumed" => picker::consumed(),
                 "arm-image-picker" => picker::arm(&command["choice"]),
                 "arm-session-folder" => {

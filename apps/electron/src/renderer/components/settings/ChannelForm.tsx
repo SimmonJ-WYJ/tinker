@@ -423,7 +423,7 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
   }
 
   // ===== 模型列表 =====
-  const enabledModelCount = models.filter((m) => m.enabled).length
+  const enabledModelCount = models.filter((m) => m.enabled && m.capability !== 'unsupported').length
   /**
    * "创建"按钮的守门项 —— 新建/编辑共用一套逻辑
    * 顺序：配置名 → API Key → Base URL → 启用模型 → 连接测试通过
@@ -644,6 +644,11 @@ export function ChannelForm({ channel, onSaved, onCancel }: ChannelFormProps): R
       <section aria-label={t('channelForm.section.models')} className="border-y border-border/70 py-4">
           <ChannelModels
             models={models}
+            onRouteChange={managed && window.__TAURI_FORMAL__?.nativeImages && provider === 'custom-openai' ? (model, route) => {
+              setModels(previous => previous.map(m => m.id !== model.id ? m : route === 'text'
+                ? {...m, capability:'text', supportsImageEdits:undefined}
+                : {...m, capability:'image', supportsImageEdits:route === 'edit', supportedEfforts:[]}))
+            } : undefined}
             isCustom={isCustom}
             isEdit={isEdit}
             testResult={testResult}

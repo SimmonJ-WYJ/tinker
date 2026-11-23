@@ -69,6 +69,14 @@
     "providerSettings": "模型与渠道"
   },
   "desktopRuntime": {
+    "channelUnauthorized": "渠道拒绝了 API Key（HTTP 401）。请在渠道设置中检查密钥。",
+    "channelPaymentRequired": "渠道要求付费或当前余额不足（HTTP 402）。请检查服务商的余额与账单。",
+    "channelForbidden": "渠道拒绝访问该模型（HTTP 403）。请检查密钥的模型访问权限。",
+    "channelRateLimited": "渠道已触发请求限流（HTTP 429）。请稍后再试。",
+    "channelTimeout": "渠道请求超时。服务商可能已经收到请求，请先检查调用记录再重试。",
+    "sourceChannelUnavailable": "原渠道或模型已不可用，或连接配置已更改。请检查设置，再决定是否发起新请求。",
+    "modelCapabilityMismatch": "生图需要选择图片生成模型，使用引用图需要选择支持改图的模型。",
+    "imageModelDiscussion": "如需讨论或分析图片，请切换到文字模型。",
     "requestConflict": "此请求与保存的任务不一致。请先核对会话及其渠道，再决定是否重新发送。",
     "imageEditOnly": "此预览支持编辑选中的图片。如需发送纯文字，请先移除图片引用。",
     "corruptImport": "这份导入的对话未通过完整性检查，无法打开。其他对话仍可使用。",

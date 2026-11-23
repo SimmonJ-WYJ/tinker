@@ -143,6 +143,14 @@ async fn guarded<T>(
         tokio::select! {result=&mut future=>return Ok(Some(result)),_=tokio::time::sleep_until(deadline)=>return Err(RunError::HttpTimeout),_=tokio::time::sleep(Duration::from_millis(5))=>{}}
     }
 }
+fn http_error(error: reqwest::Error) -> RunError {
+    if error.is_timeout() {
+        RunError::HttpTimeout
+    } else {
+        RunError::HttpTransport
+    }
+}
+
 // 不允许系统resolver作为任何意外路径的后备，避免spawn_blocking DNS拖住runtime析构。
 struct RejectDns;
 impl reqwest::dns::Resolve for RejectDns {
@@ -260,9 +268,9 @@ impl ChatHttpProvider {
         else {
             return Ok(());
         };
-        let mut response = response.map_err(|_| RunError::HttpTransport)?;
+        let mut response = response.map_err(http_error)?;
         if !response.status().is_success() {
-            return Err(RunError::HttpStatus);
+            return Err(RunError::from_http_status(response.status().as_u16()));
         }
         if !response
             .headers()
@@ -285,7 +293,7 @@ impl ChatHttpProvider {
             else {
                 return Ok(());
             };
-            let chunk = chunk.map_err(|_| RunError::HttpTransport)?;
+            let chunk = chunk.map_err(http_error)?;
             let Some(chunk) = chunk else {
                 if !parser.complete() {
                     return Err(RunError::HttpProtocol);

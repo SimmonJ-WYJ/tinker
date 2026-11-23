@@ -92,6 +92,11 @@
       "managedKeyNotice": "The stored key is hidden. Show Key reveals only a newly typed replacement. Test and Refresh are manual; Save commits changes."
     },
     "models": {
+      "usageLabel": "Model usage for {{name}}",
+      "text": "Text",
+      "image": "Image generation",
+      "edit": "Generate and edit",
+      "unsupported": "Unsupported output",
       "emptyHint": "Fetch models first, or add a model ID manually.",
       "fetch": "Refresh",
       "fetchTooltipNeed": "Please fill in Base URL and API Key first",

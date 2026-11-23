@@ -74,7 +74,7 @@ fn project_history(turns: &[Value], text_task_identity: bool) -> Value {
             a["_desktopTextTaskRequestId"] = t["requestId"].clone();
         }
         if !matches!(t["status"].as_str(), Some("completed" | "cancelled")) {
-            a["error"] = json!({"message":"responseFailed","errorType":t["errorCode"].as_str().unwrap_or("INTERRUPTED")});
+            a["error"] = json!({"message":turn_error(t),"errorType":t["errorCode"].as_str().unwrap_or("INTERRUPTED")});
         }
         sdk.push(a);
         if t["status"] == "cancelled" {
@@ -82,6 +82,17 @@ fn project_history(turns: &[Value], text_task_identity: bool) -> Value {
         }
     }
     json!({"messages":messages,"sdkMessages":sdk})
+}
+/// 未知、旧版和中断错误保留原提示；仅精确的已知诊断可穿过 IPC。
+pub(super) fn turn_error(turn: &Value) -> &'static str {
+    match turn["errorCode"].as_str() {
+        Some("channelUnauthorized") => "channelUnauthorized",
+        Some("channelPaymentRequired") => "channelPaymentRequired",
+        Some("channelForbidden") => "channelForbidden",
+        Some("channelRateLimited") => "channelRateLimited",
+        Some("httpTimeout") => "channelTimeout",
+        _ => "responseFailed",
+    }
 }
 pub fn stream(turn: &Value, payload: Value) -> Value {
     json!({"sessionId":turn["sessionId"],"requestId":turn["requestId"],"startedAt":turn["startedAt"],"payload":payload})

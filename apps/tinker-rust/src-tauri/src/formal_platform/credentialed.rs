@@ -127,6 +127,20 @@ impl CredentialedPlatform {
             .clone()
             .ok_or(DesktopError("corruptCatalog"))
     }
+    pub(crate) fn image_catalog(&self) -> Result<Catalog> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("recoveryRequired"))?;
+        if inner.frozen {
+            return Err(DesktopError("recoveryRequired"));
+        }
+        inner
+            .state
+            .credential_catalog
+            .clone()
+            .ok_or(DesktopError("corruptCatalog"))
+    }
     pub fn vault_scope(&self) -> VaultScope {
         self.scope.clone()
     }

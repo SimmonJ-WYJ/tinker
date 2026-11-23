@@ -77,6 +77,24 @@ mod owned {
                             let bytes = http::read_request(&mut stream);
                             let request = String::from_utf8(bytes.clone()).unwrap();
                             out.lock().unwrap().push(bytes);
+                            if request.starts_with("POST /v1/images/generations ")
+                                && !request.contains("failure")
+                            {
+                                let mut png = Vec::new();
+                                {
+                                    let mut e = png::Encoder::new(&mut png, 1, 1);
+                                    e.set_color(png::ColorType::Rgb);
+                                    e.set_depth(png::BitDepth::Eight);
+                                    e.write_header()
+                                        .unwrap()
+                                        .write_image_data(&[30, 55, 70])
+                                        .unwrap();
+                                }
+                                use base64::Engine;
+                                let body=json!({"data":[{"b64_json":base64::engine::general_purpose::STANDARD.encode(png)}]}).to_string();
+                                let _=write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
+                                continue;
+                            }
                             if request.starts_with("GET /v1/models ") {
                                 match response_mode.load(Ordering::Acquire) {
                                     1 => {
@@ -94,6 +112,12 @@ mod owned {
                                     _ => r#"{"data":[{"id":"model","display_name":"Model"}]}"#,
                                 };
                                 let _=write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
+                                continue;
+                            }
+                            if request.contains("synthetic-auth-challenge")
+                                && response_mode.load(Ordering::Acquire) == 7
+                            {
+                                let _=write!(stream,"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
                                 continue;
                             }
                             if request.contains("failure") {
@@ -193,6 +217,154 @@ mod owned {
         .unwrap();
         commit(h, g, staged).unwrap()
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn managed_image_receipt_reopens_without_http_and_never_switches_revisions() {
+        let f = Fixture::new();
+        let mut h = f.open();
+        let boot = call(&h, json!({"command":"bootstrap"})).unwrap();
+        let g = boot["generation"].as_str().unwrap().to_owned();
+        call(&h, json!({"command":"attach","generation":g,"observed":{}})).unwrap();
+        assert_eq!(boot["nativeImages"], true);
+        assert_eq!(boot["nativeSessionImport"], false);
+        assert_eq!(boot["nativeProjectBinding"], false);
+        let mut r = request(&f, "openai-chat", 0, "save-image");
+        r["args"][0]["channel"]["models"] = json!([{"modelId":"model","label":"Text"},{"modelId":"shared-picture","label":"Picture","capability":"image"}]);
+        let staged = invoke(
+            &h,
+            &g,
+            "channel:stage",
+            json!([{"request":r,"secret":QA_SECRET_ONE}]),
+        )
+        .unwrap();
+        commit(&h, &g, staged).unwrap();
+        let sid = invoke(
+            &h,
+            &g,
+            "agent:create-session",
+            json!(["Synthetic picture", "user-channel"]),
+        )
+        .unwrap()["id"]
+            .clone();
+        let send_image = |id: &str, prompt: &str| json!({"sessionId":sid,"requestId":id,"startedAt":1,"channelId":"user-channel","modelId":"shared-picture","userMessage":prompt,"nativeImageAction":"generate"});
+        let submitted = send_image("share", "Synthetic tree");
+        let failure = send_image("broken", "Synthetic failure");
+        invoke(&h, &g, "agent:send-message", json!([submitted])).unwrap();
+        let observed = String::from_utf8(f.records.lock().unwrap()[0].clone()).unwrap();
+        assert!(observed.starts_with("POST /v1/images/generations "));
+        assert!(observed.contains(QA_SECRET_ONE) && observed.contains("shared-picture"));
+        assert_eq!(
+            invoke(&h, &g, "agent:send-message", json!([failure])).unwrap_err(),
+            "imageProviderFailed"
+        );
+        assert_eq!(f.records.lock().unwrap().len(), 2);
+        h.shutdown().unwrap();
+        drop(h);
+        let h = f.open();
+        let g = super::owned::boot(&h);
+        call(&h, json!({"command":"attach","generation":g,"observed":{}})).unwrap();
+        let snapshot=call(&h,json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0})).unwrap();
+        call(
+            &h,
+            json!({"command":"resume","generation":g,"restoreToken":snapshot["restoreToken"]}),
+        )
+        .unwrap();
+        assert!(snapshot["sdkMessages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|v| v["type"] == "assistant")
+            .all(|v| v["message"]["model"] == "shared-picture"));
+        invoke(&h, &g, "agent:send-message", json!([submitted])).unwrap();
+        assert_eq!(f.records.lock().unwrap().len(), 2);
+        let mut update = r.clone();
+        update["channel"] = json!("channel:update");
+        update["mutation"] = json!({"mutationId":"rotate-image","expectedRevision":1});
+        let staged = invoke(
+            &h,
+            &g,
+            "channel:stage",
+            json!([{"request":update,"secret":QA_SECRET_TWO}]),
+        )
+        .unwrap();
+        commit(&h, &g, staged).unwrap();
+        let retry = json!({"sessionId":sid,"requestId":"explicit-retry","startedAt":2,"retryOfRequestId":"broken"});
+        assert_eq!(
+            invoke(&h, &g, "agent:send-message", json!([retry])).unwrap_err(),
+            "sourceChannelUnavailable"
+        );
+        invoke(&h, &g, "agent:send-message", json!([submitted])).unwrap();
+        assert_eq!(f.records.lock().unwrap().len(), 2);
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn cold_image_key_rejects_cross_channel_echo_and_implicit_reference_before_dispatch() {
+        let f = Fixture::new();
+        let mut h = f.open();
+        let g = boot(&h);
+        for (rev, channel, secret) in [(0, "a", QA_SECRET_ONE), (1, "b", QA_SECRET_TWO)] {
+            let mut definition = request(&f, "openai-chat", rev, &format!("save-{channel}"));
+            definition["channel"] = json!("channel:create");
+            definition["args"][0]["channel"]["id"] = json!(channel);
+            definition["args"][0]["channel"]["models"] = json!([{"modelId":"picture","label":"Picture","capability":"image","supportsImageEdits":true}]);
+            let staged = invoke(
+                &h,
+                &g,
+                "channel:stage",
+                json!([{"request":definition,"secret":secret}]),
+            )
+            .unwrap();
+            commit(&h, &g, staged).unwrap();
+        }
+        let sid = invoke(
+            &h,
+            &g,
+            "agent:create-session",
+            json!(["Synthetic image", "a"]),
+        )
+        .unwrap()["id"]
+            .clone();
+        h.shutdown().unwrap();
+        drop(h);
+        let h = f.open();
+        let g = boot(&h);
+        call(&h, json!({"command":"attach","generation":g,"observed":{}})).unwrap();
+        let input = json!({"sessionId":sid,"requestId":"original","startedAt":1,"channelId":"a","modelId":"picture","userMessage":"Synthetic image","nativeImageAction":"generate"});
+        let result = call(&h, json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[input]})).unwrap();
+        let original = result["imageId"].as_str().unwrap();
+        assert_eq!(f.records.lock().unwrap().len(), 1);
+
+        let mut second = input.clone();
+        second["requestId"] = json!("echo");
+        second["channelId"] = json!("b");
+        second["userMessage"] = json!(format!("Synthetic {QA_SECRET_ONE}"));
+        assert_eq!(
+            invoke(&h, &g, "agent:send-message", json!([second])).unwrap_err(),
+            "invalidParams"
+        );
+
+        second["requestId"] = json!("implicit");
+        second["userMessage"] = json!("Synthetic edit");
+        second["nativeImageAction"] = json!("edit");
+        second["imageEditReferenceId"] = json!(original);
+        second["nativeImageReferenceInferred"] = json!(true);
+        assert_eq!(
+            invoke(&h, &g, "agent:send-message", json!([second])).unwrap_err(),
+            "sourceChannelUnavailable"
+        );
+        let history=call(&h,json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0})).unwrap();
+        assert!(!history.to_string().contains(QA_SECRET_ONE));
+        assert_eq!(
+            history["sdkMessages"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|v| v["type"] == "assistant")
+                .count(),
+            1
+        );
+        assert_eq!(f.records.lock().unwrap().len(), 1);
+    }
     fn send(h: &FormalHost, g: &str, sid: &str, id: &str, text: &str) -> Result<Value, String> {
         invoke(
             h,
@@ -201,6 +373,100 @@ mod owned {
             json!([{"sessionId":sid,"requestId":id,"startedAt":1234,"channelId":"user-channel","modelId":"model","userMessage":text,"effort":""}]),
         )
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn managed_text_retry_reopens_and_targets_the_original_revision_once() {
+        let f = Fixture::new();
+        let other = Fixture::new();
+        let policy = f.policy.combine_owned(&other.policy).unwrap();
+        let open = || {
+            FormalHost::open_channels_qa(
+                &f.root,
+                HostEnvironment::new("darwin", false, false).unwrap(),
+                policy.clone(),
+                FakeVault::open(f.root.path().join("qa-vault")).unwrap(),
+            )
+            .unwrap()
+        };
+        let mut h = open();
+        let g = boot(&h);
+        save(&f, &h, &g, "openai-chat");
+        let mut b = request(&other, "openai-chat", 1, "save-b");
+        b["channel"] = json!("channel:create");
+        b["args"][0]["channel"]["id"] = json!("other");
+        let staged = invoke(
+            &h,
+            &g,
+            "channel:stage",
+            json!([{"request":b,"secret":QA_SECRET_TWO}]),
+        )
+        .unwrap();
+        commit(&h, &g, staged).unwrap();
+        let sid = invoke(
+            &h,
+            &g,
+            "agent:create-session",
+            json!(["Text", "user-channel"]),
+        )
+        .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        f.mode.store(7, Ordering::Release);
+        assert_eq!(
+            send(&h, &g, &sid, "first", "synthetic-auth-challenge").unwrap_err(),
+            "channelUnauthorized"
+        );
+        h.shutdown().unwrap();
+        drop(h);
+        let h = open();
+        let g = boot(&h);
+        call(&h, json!({"command":"attach","generation":g,"observed":{}})).unwrap();
+        let hist=call(&h,json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0})).unwrap();
+        call(
+            &h,
+            json!({"command":"resume","generation":g,"restoreToken":hist["restoreToken"]}),
+        )
+        .unwrap();
+        assert!(hist.to_string().contains("channelUnauthorized"));
+        assert_eq!(f.records.lock().unwrap().len(), 1);
+        let retry = |from: &str, to: &str| {
+            invoke(
+                &h,
+                &g,
+                "agent:send-message",
+                json!([{"sessionId":sid,"requestId":to,
+            "startedAt":2000,"retryOfRequestId":from}]),
+            )
+        };
+        f.mode.store(0, Ordering::Release);
+        retry("first", "retry-1").unwrap();
+        retry("first", "retry-1").unwrap();
+        assert_eq!(f.records.lock().unwrap().len(), 2);
+        f.mode.store(7, Ordering::Release);
+        assert_eq!(
+            send(&h, &g, &sid, "second", "synthetic-auth-challenge").unwrap_err(),
+            "channelUnauthorized"
+        );
+        let mut replace = request(&other, "openai-chat", 2, "replace-a");
+        replace["args"][0]["channel"]["name"] = json!("Replacement at B");
+        let staged = invoke(
+            &h,
+            &g,
+            "channel:stage",
+            json!([{"request":replace,"secret":QA_SECRET_TWO}]),
+        )
+        .unwrap();
+        commit(&h, &g, staged).unwrap();
+        assert_eq!(
+            retry("second", "retry-2").unwrap_err(),
+            "sourceChannelUnavailable"
+        );
+        retry("first", "retry-1").unwrap();
+        assert!(other.records.lock().unwrap().is_empty());
+        assert_eq!(f.records.lock().unwrap().len(), 3);
+    }
+
     #[test]
     fn original_invoke_saved_channel_streams_both_codecs_and_reopens_without_request() {
         for protocol in ["openai-chat", "anthropic-messages"] {

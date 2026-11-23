@@ -40,6 +40,7 @@
     "save": "保存图片"
   },
   "modelSelector": {
+    "imageModel": "图片",
     "noModelsCta": "暂无可用模型，前往设置",
     "selectModel": "选择模型",
     "searchPlaceholder": "搜索模型、ID 或渠道…",

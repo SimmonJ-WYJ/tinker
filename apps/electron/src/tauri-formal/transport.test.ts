@@ -241,3 +241,28 @@ test('未完成的只读搜索不阻塞关闭；已释放窗口拒绝迟到结�
     await expect(search).rejects.toThrow('staleGeneration')
   }
 })
+
+test('restore translates fixed provider errors only in error fields and failed tool results', async () => {
+  const bridge:NativeBridge={
+    listen:async()=>()=>{},
+    async request<T>(req:Record<string, unknown>):Promise<T> {
+      if(req.command==='bootstrap') return {generation:'doc',platformSnapshot:snapshot(),activeRuns:[]} as T
+      if(req.command==='restore') return {restoreToken:'r',deliverySequence:0,messages:[],sdkMessages:[
+        {type:'user',message:{content:'channelUnauthorized'}},
+        {type:'assistant',error:{message:'channelTimeout',errorType:'httpTimeout'}},
+        {type:'user',message:{content:[
+          {type:'tool_result',is_error:true,content:'channelPaymentRequired'},
+          {type:'tool_result',is_error:false,content:'channelPaymentRequired'},
+        ]}},
+      ],activeSnapshot:null} as T
+      return {} as T
+    }
+  }
+  const t=await createFormalTransport(bridge,code=>'localized:'+code)
+  for(const event of ['event','error','complete']) t.subscribe('agent:stream:'+event,()=>{})
+  expect(await t.invoke('agent:get-sdk-messages','s')).toMatchObject([
+    {message:{content:'channelUnauthorized'}},{error:{message:'localized:channelTimeout',errorType:'httpTimeout'}},
+    {message:{content:[{content:'localized:channelPaymentRequired'},{content:'channelPaymentRequired'}]}},
+  ])
+  t.dispose()
+})

@@ -40,6 +40,7 @@
     "save": "Save image"
   },
   "modelSelector": {
+    "imageModel": "Image",
     "noModelsCta": "No models available, open settings",
     "selectModel": "Select model",
     "searchPlaceholder": "Search model, ID or channel…",

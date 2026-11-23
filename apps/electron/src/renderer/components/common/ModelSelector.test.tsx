@@ -54,3 +54,22 @@ test('渠道过滤和已禁用模型仍受尊重，中文搜索与未知信息�
  cleanup()
  await act(async()=>{await setAppLanguage('en')})
 })
+
+test('mixed managed channel exposes image usage and omits unsupported models in the original menu', async () => {
+ await setAppLanguage('en')
+ const mixed:Channel[]=[{...channels[0]!,models:[
+   {id:'picture', name:'Studio',enabled:true,capability:'image'},
+   {id:'embeddings', name:'Vectors',enabled:true,capability:'unsupported'},
+ ]}]
+ const store=createStore();store.set(channelsAtom,mixed);store.set(channelsLoadedAtom,true)
+ window.electronAPI={listChannels:async()=>mixed} as unknown as Window['electronAPI']
+ const select=mock(()=>{})
+ await act(async()=>{render(<Provider store={store}><ModelSelector externalSelectedModel={{channelId:'a',modelId:'picture'}} onModelSelect={select}/></Provider>)})
+ const trigger=screen.getByRole('button',{name:/Studio · Image/})
+ await act(async()=>{fireEvent.pointerDown(trigger,{button:0,ctrlKey:false,pointerType:'mouse'})})
+ const option=screen.getByRole('menuitem',{name:/Studio.*Image/})
+ expect(option).toHaveAttribute('data-model-channel','a')
+ expect(screen.queryByRole('menuitem',{name:/Vectors/})).toBeNull()
+ fireEvent.click(option)
+ expect(select).toHaveBeenCalledWith(expect.objectContaining({channelId:'a',modelId:'picture',capability:'image'}))
+})

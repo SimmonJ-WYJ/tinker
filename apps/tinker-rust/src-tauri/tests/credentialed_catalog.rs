@@ -96,3 +96,29 @@ fn endpoint_metadata_and_capacity_checks_are_fail_closed() {
     assert!(c.apply("channel:update", &update, "full", &p).is_err());
     assert_eq!(c.revisions.len(), 128);
 }
+
+#[test]
+fn mixed_catalog_publishes_model_routes_and_keeps_legacy_routes_text_only() {
+    let mut c = Catalog::empty("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into()).unwrap();
+    let mut data = args();
+    data[0]["channel"]["models"] = json!([
+        {"modelId":"gpt-image-1","label":"Legacy title"},
+        {"modelId":"image-alias","label":"Artwork","capability":"image","supportsImageEdits":true},
+        {"modelId":"vectors","label":"Vectors","capability":"unsupported"},
+        {"modelId":"dall-e-3","label":"Generate only","capability":"image","supportsImageEdits":true}
+    ]);
+    c.apply("channel:create", &data, "mix", &EndpointPolicy::Https)
+        .unwrap();
+    let models = &c.public_list()[0]["models"];
+    assert_eq!(models[0]["capability"], "text");
+    assert_eq!(models[1]["capability"], "image");
+    assert_eq!(models[1]["supportsImageEdits"], true);
+    assert_eq!(models[2]["capability"], "unsupported");
+    assert_eq!(models[3]["supportsImageEdits"], false);
+    assert!(c.image_revision("one", "dall-e-3", false).is_ok());
+    assert_eq!(
+        c.image_revision("one", "dall-e-3", true).err().unwrap().0,
+        "modelCapabilityMismatch"
+    );
+    assert!(c.image_revision("one", "gpt-image-1", false).is_err());
+}

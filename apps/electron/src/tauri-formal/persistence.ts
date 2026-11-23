@@ -18,7 +18,7 @@ export interface FormalLifecycleMarker {
   importSessions?: import('./session-import').SessionImporter
   imageFiles?: import('./image-files').NativeImageFiles
   nativeImages?: boolean
-  selectedImageUse?(text: string, imageId: string): 'edit' | 'text' | 'inspect'
+  selectedImageUse?(text: string, imageId: string, imageModel?: boolean): 'edit' | 'text' | 'inspect' | 'switchToText'
   hydrated(part: 'tabs' | 'settings', error?: unknown): void
 }
 declare global {

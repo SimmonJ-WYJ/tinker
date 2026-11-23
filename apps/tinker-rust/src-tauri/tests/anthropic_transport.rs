@@ -192,9 +192,13 @@ fn credential_reflection_error_bodies_and_event_errors_are_redacted() {
     );
     assert_eq!(r, Err("httpProtocol".into()));
     assert_eq!(o, "confirmed ");
-    for status in [401, 429, 500] {
+    for (status, expected) in [
+        (401, "channelUnauthorized"),
+        (429, "channelRateLimited"),
+        (500, "httpStatus"),
+    ] {
         let (r, o) = run(status, "fake-secret-token private error".into());
-        assert_eq!(r, Err("httpStatus".into()));
+        assert_eq!(r, Err(expected.into()));
         assert!(o.is_empty());
     }
     let (r, o) = run(

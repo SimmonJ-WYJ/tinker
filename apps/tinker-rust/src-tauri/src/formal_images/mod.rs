@@ -1,7 +1,11 @@
 //! 独立原生预览的会话图片版本、请求收据与只读恢复。
+mod credentialed_provider;
+pub(crate) use credentialed_provider::CredentialedImageProvider;
 mod disk;
 mod imports;
 mod provider;
+mod routes;
+pub(crate) use routes::{ImageAction, ImageProtocol, ImageRoute};
 mod tasks;
 use crate::session_lifecycle::RunStatus;
 pub use imports::ImportedImage;
@@ -51,6 +55,9 @@ pub struct ImageAsset {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImageTurn {
+    // 旧 v1 账本不包含路由字段。仅从独立路由收据恢复，不接受 renderer 自报。
+    #[serde(skip)]
+    route: Option<ImageRoute>,
     pub request_id: String,
     pub prompt: String,
     pub base_image_id: Option<String>,
@@ -118,17 +125,13 @@ impl ImageStore {
         let dir = self.session(session)?;
         let guard = self.guard()?;
         let session_images = SessionImages::open(&dir, session)?;
-        let mut turns = session_images.original;
-        if !session_images.derived.is_empty() {
-            turns.extend(session_images.derived);
-            turns.sort_by_key(|turn| turn.created_at);
-        }
+        let (turns, imports) = session_images.into_history();
         Ok((
             turns
                 .into_iter()
                 .map(|turn| self.recovered(&guard, session, turn))
                 .collect(),
-            session_images.imports,
+            imports,
         ))
     }
     pub(crate) fn attachment(&self, session: &str, filename: &str) -> Result<ImageFile> {
