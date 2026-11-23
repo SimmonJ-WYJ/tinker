@@ -29,13 +29,13 @@ export function GeneratedImage({result,versions=[],sessionId}:{result?:string;ve
   const selected={...version,imageId:version.imageId,previewSrc:src,sourceMessageId}
   setDrafts(previous=>new Map(previous).set(sessionId??owner,selected))
  }
- const save=():void=>{void window.electronAPI.saveImageAs(artifact.localPath,artifact.filename)}
+ const save=window.__TAURI_FORMAL__ ? undefined : ():void=>{void window.electronAPI.saveImageAs(artifact.localPath,artifact.filename)}
  return <div className="generated-image" data-generated-image="true">
   {failed?<p role="alert" className="generated-image__placeholder">{t('imageVersion.missing')}</p>:src?<button type="button" onClick={()=>setOpen(true)} className="generated-image__preview"><img src={src} alt={artifact.filename} onError={()=>setFailed(true)}/></button>:<p role="status" className="generated-image__placeholder">{t('loading')}</p>}
   <div className="generated-image__actions">
    <Button variant="outline" size="sm" className="generated-image__action" onClick={select} disabled={!canEdit} title={!canEdit&&!failed?t('imageVersion.unavailableId'):undefined}><Pencil aria-hidden="true"/>{t('imageVersion.edit')}</Button>
    {version.baseImageId && <Button ref={compareButton} variant="subtle" size="sm" className="generated-image__action" disabled={!parent} onClick={()=>setCompare(true)} title={!parent?t('imageVersion.parentMissing'):undefined}><Columns2 aria-hidden="true"/>{t('imageVersion.compare')}</Button>}
-   <Button variant="subtle" size="sm" className="generated-image__action" onClick={save} disabled={!src||failed}><Download aria-hidden="true"/>{t('save')}</Button>
+   <Button variant="subtle" size="sm" className="generated-image__action" onClick={save} disabled={!save||!src||failed}><Download aria-hidden="true"/>{t('save')}</Button>
   </div>
   {version.baseImageId && !parent && <p role="status" className="generated-image__notice">{t('imageVersion.parentMissing')}</p>}
   {version.model && <p className="generated-image__caption">{t('imageGeneratedBy',{model:version.model})}</p>}

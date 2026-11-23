@@ -25,6 +25,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+pub(super) const MAX_FORMAL_REPLY: usize = 16 * 1024 * 1024;
 #[derive(Default, PartialEq)]
 pub(super) enum TerminalStage {
     #[default]
@@ -55,6 +56,7 @@ pub(super) struct Barrier {
 }
 pub(super) struct Actor {
     pub runtime: Arc<DesktopRuntime>,
+    pub images: Option<super::images::ImageWorkflow>,
     pub probe_worker: Option<std::thread::JoinHandle<()>>,
     pub probe_epoch: Arc<std::sync::atomic::AtomicU64>,
     pub search: Option<super::search::Search>,
@@ -89,6 +91,7 @@ impl Actor {
     ) -> Self {
         Self {
             runtime,
+            images: None,
             probe_worker: None,
             probe_epoch: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             search: None,
@@ -139,7 +142,7 @@ impl Actor {
                     let result = result.and_then(|value| {
                         if value.as_ref().is_some_and(|v| {
                             serde_json::to_vec(v)
-                                .map_or(true, |bytes| bytes.len() > 16 * 1024 * 1024)
+                                .map_or(true, |bytes| bytes.len() > MAX_FORMAL_REPLY)
                         }) {
                             return Err(DesktopError("historyLimit"));
                         }
@@ -173,6 +176,7 @@ impl Actor {
                 Err(RecvTimeoutError::Timeout) => {}
             }
             self.gate.expire();
+            self.poll_images();
             self.poll_credential_work();
             self.poll();
             self.poll_search();
@@ -232,15 +236,18 @@ impl Actor {
     }
     pub fn history(&self, session: &str) -> Result<Value> {
         let turns = self.turns(session)?;
-        let h = if self.queueing {
+        let mut h = if self.queueing {
             self.queue_history(session, &turns)?
         } else {
             projection::history(&turns)
         };
+        if let Some(images) = &self.images {
+            images.merge_history(session, &mut h)?;
+        }
         if serde_json::to_vec(&h)
             .map_err(|_| DesktopError("invalidReply"))?
             .len()
-            > 16 * 1024 * 1024
+            > MAX_FORMAL_REPLY
         {
             return Err(DesktopError("historyLimit"));
         }
@@ -272,7 +279,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -359,6 +366,9 @@ impl Actor {
                 let turn = turns.last();
                 let active = turn.filter(|t| projection::active(t));
                 let mut bundle = json!({"restoreToken":token,"deliverySequence":self.sequence,"messages":history["messages"],"sdkMessages":history["sdkMessages"],"activeSnapshot":active.map(projection::active_run),"cursor":turn.map(|t|t["sequence"].clone()).unwrap_or(json!(0))});
+                if let Some(active) = self.images.as_ref().and_then(|i| i.active(&session_id)) {
+                    bundle["activeSnapshot"] = active;
+                }
                 if self.queueing {
                     self.queue_restore(&session_id, &turns, &mut bundle)?;
                     self.reset_session_queue_delivery(&session_id);
@@ -485,6 +495,9 @@ impl Actor {
                 runs.push(bundle["activeSnapshot"].clone());
             }
         }
+        if let Some(i) = &self.images {
+            runs.extend(i.active_runs());
+        }
         Ok(runs)
     }
     pub fn refresh(&mut self) -> Result<()> {
@@ -502,6 +515,7 @@ impl Actor {
         Ok(())
     }
     pub fn cancel_all(&mut self) -> Result<()> {
+        self.drain_images();
         self.cancel_credential_work();
         self.cancel_probe();
         self.stop_all_queues("close")?;

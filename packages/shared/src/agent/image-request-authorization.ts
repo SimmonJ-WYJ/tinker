@@ -69,7 +69,7 @@ function requestedImageCount(message: string): number {
 }
 
 /** 附件标签、引用与代码是数据，不能提供或扩大用户操作授权。 */
-function visibleUserMessage(message: string): string {
+export function visibleImageInstruction(message: string): string {
   return message
     .replace(/<([a-z_][\w:-]*)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<attached_files\b[^>]*>[\s\S]*$/gi, ' ')
@@ -95,7 +95,7 @@ function withdrawsImageRequest(clauses: readonly string[]): boolean {
 }
 
 export function requestsImage(context: ImageAuthorizationContext): boolean {
-  const visible = visibleUserMessage(context.userMessage)
+  const visible = visibleImageInstruction(context.userMessage)
   const contextualDiscussion = /费用|多少钱|花费|权限|提示词|命令|教程|方法|是否|是不是|能否|可否|能不能|可不可以|好不好|行不行|合不合适|怎么|如何|为什么|为何|[吗么？?]|分析|解释|评估|群聊|好友|通讯录|数据库|名单|项目成员|团队|发送|删除|支付|购买|上传(?:图片|图像|照片)?(?:到|至)|(?:并|然后|再|同时|接着)\s*(?:把.{0,20})?上传|\b(?:cost|price|permission|prompt|command|tutorial|what|whether|how|why|analyze|analyse|explain|evaluate|chat|contact|database|team|guestlist|upload|send|email|delete|pay|buy)\b/i.test(visible)
   const clauses = visible.split(/[，,。.!?？！？；;\n]/).map(part => part.trim()).filter(Boolean)
   if (withdrawsImageRequest(clauses)) return false
@@ -132,7 +132,7 @@ export class ImageRequestAuthorization implements ImageAuthorization {
     this.paths = new Set(context.referenceImagePaths)
     this.automatic = requestsImage(context)
     this.imageTask = this.automatic
-    this.limit = requestedImageCount(visibleUserMessage(context.userMessage))
+    this.limit = requestedImageCount(visibleImageInstruction(context.userMessage))
   }
 
   authorize(toolName: string, input: Record<string, unknown>, toolUseID?: string): ImageAuthorizationDecision {

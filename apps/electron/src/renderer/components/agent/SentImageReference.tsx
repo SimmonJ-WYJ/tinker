@@ -45,7 +45,7 @@ export function SentImageReference({ reference, sourceMessageId }: { reference: 
         {failed && <span role="alert" className="conversation-reference__error">{t('imageReference.loadFailed')}</span>}
       </div>
       <ImageLightbox src={src} alt={reference.filename} open={open && !failed} onOpenChange={setOpen}
-        onSave={() => { void window.electronAPI.saveImageAs(reference.localPath, reference.filename) }} returnFocus={() => trigger.current?.focus()} />
+        onSave={window.__TAURI_FORMAL__ ? undefined : () => { void window.electronAPI.saveImageAs(reference.localPath, reference.filename) }} returnFocus={() => trigger.current?.focus()} />
     </div>
   )
 }

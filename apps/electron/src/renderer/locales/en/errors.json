@@ -69,6 +69,9 @@
     "providerSettings": "Models & providers"
   },
   "desktopRuntime": {
+    "imageEditOnly": "This preview can edit a selected image. Remove the reference to send a text-only message.",
+    "imageNotFound": "The referenced image is unavailable in this session.",
+    "imageFailed": "The image request failed. Existing images remain available.",
     "unsupported": "This operation is not available in the Rust text preview.",
     "failed": "The Rust response could not finish. Your conversation has been preserved.",
     "transport": "The Rust runtime disconnected. Reopen the preview to recover the conversation.",

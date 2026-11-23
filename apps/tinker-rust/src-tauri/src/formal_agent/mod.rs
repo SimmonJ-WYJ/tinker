@@ -5,6 +5,9 @@ mod channels;
 mod credentialed;
 mod credentialed_discovery;
 mod delivery;
+mod image_files;
+mod image_projection;
+mod images;
 mod permissions;
 mod platform;
 pub mod projection;
@@ -74,20 +77,30 @@ impl FormalAgentHost {
         platform: FormalPlatform,
         root: TrustedRoot,
     ) -> Result<Self> {
-        Self::new_mode(runtime, platform, root, false)
+        Self::new_mode(runtime, platform, root, false, None)
     }
     pub fn new_queueing(
         runtime: Arc<DesktopRuntime>,
         platform: FormalPlatform,
         root: TrustedRoot,
     ) -> Result<Self> {
-        Self::new_mode(runtime, platform, root, true)
+        Self::new_mode(runtime, platform, root, true, None)
+    }
+    pub(crate) fn new_images(
+        runtime: Arc<DesktopRuntime>,
+        platform: FormalPlatform,
+        root: TrustedRoot,
+        endpoint: std::net::SocketAddr,
+    ) -> Result<Self> {
+        let images = images::ImageWorkflow::open(root.path(), endpoint)?;
+        Self::new_mode(runtime, platform, root, false, Some(images))
     }
     fn new_mode(
         runtime: Arc<DesktopRuntime>,
         platform: FormalPlatform,
         root: TrustedRoot,
         queueing: bool,
+        images: Option<images::ImageWorkflow>,
     ) -> Result<Self> {
         runtime.set_availability(platform.availability()?)?;
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
@@ -97,6 +110,7 @@ impl FormalAgentHost {
             .spawn(move || {
                 let mut actor = actor::Actor::new(runtime, platform, root, out);
                 actor.queueing = queueing;
+                actor.images = images;
                 actor.run(rx)
             })
             .map_err(|_| DesktopError("hostUnavailable"))?;

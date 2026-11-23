@@ -1,5 +1,6 @@
 //! 正式预览专属owned HTTP合成服务；不读取环境、凭据或外部文件。
 pub(crate) mod discovery;
+mod images;
 mod tools;
 use crate::{
     desktop_runtime::{
@@ -12,7 +13,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
     io::{Read, Write},
-    net::{TcpListener, TcpStream},
+    net::{SocketAddr, TcpListener, TcpStream},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -33,6 +34,7 @@ pub struct RequestMetadata {
     pub scenario: String,
 }
 pub struct OwnedMock {
+    addr: SocketAddr,
     endpoint: String,
     tools: bool,
     stop: Arc<AtomicBool>,
@@ -52,12 +54,10 @@ impl OwnedMock {
         listener
             .set_nonblocking(true)
             .map_err(|_| DesktopError("mockUnavailable"))?;
-        let endpoint = format!(
-            "http://{}/v1/chat/completions",
-            listener
-                .local_addr()
-                .map_err(|_| DesktopError("mockUnavailable"))?
-        );
+        let addr = listener
+            .local_addr()
+            .map_err(|_| DesktopError("mockUnavailable"))?;
+        let endpoint = format!("http://{addr}/v1/chat/completions");
         let stop = Arc::new(AtomicBool::new(false));
         let records = Arc::new(Mutex::new(Vec::new()));
         let stopped = stop.clone();
@@ -106,6 +106,7 @@ impl OwnedMock {
             })
             .map_err(|_| DesktopError("mockUnavailable"))?;
         Ok(Self {
+            addr,
             endpoint,
             tools,
             stop,
@@ -120,6 +121,9 @@ impl OwnedMock {
         } else {
             local_mock_profiles(&self.endpoint)
         }
+    }
+    pub fn image_addr(&self) -> SocketAddr {
+        self.addr
     }
     pub fn records(&self) -> Vec<RequestMetadata> {
         self.records.lock().map(|v| v.clone()).unwrap_or_default()
@@ -173,11 +177,19 @@ fn serve(
     };
     let headers = String::from_utf8_lossy(&bytes[..header_end]);
     let catalog = headers.starts_with("GET /v1/models HTTP/1.1\r\n");
-    if !catalog && !headers.starts_with("POST /v1/chat/completions HTTP/1.1\r\n") {
+    let image = if tools {
+        None
+    } else {
+        images::operation(headers.lines().next().unwrap_or(""))
+    };
+    if image.is_none() && !catalog && !headers.starts_with("POST /v1/chat/completions HTTP/1.1\r\n")
+    {
         return Ok(());
     }
     let mut length = None;
     let mut auth = false;
+    let mut json_request = false;
+    let mut browser_origin = false;
     for line in headers.lines().skip(1) {
         if let Some((k, v)) = line.split_once(':') {
             match k.to_ascii_lowercase().as_str() {
@@ -189,6 +201,8 @@ fn serve(
                 }
                 "authorization" => auth = v.trim() == format!("Bearer {MOCK_KEY}"),
                 "transfer-encoding" => return Ok(()),
+                "content-type" => json_request = v.trim().eq_ignore_ascii_case("application/json"),
+                "origin" => browser_origin = true,
                 _ => {}
             }
         }
@@ -208,10 +222,19 @@ fn serve(
             json!({"data":ids.iter().map(|id|json!({"id":id})).collect::<Vec<_>>()}).to_string();
         return write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body);
     }
-    let Some(length) = length.filter(|n| *n <= MAX_BODY) else {
+    let max_body = if image.is_some() {
+        images::MAX_BODY
+    } else {
+        MAX_BODY
+    };
+    let Some(length) = length.filter(|n| *n <= max_body) else {
         return Ok(());
     };
-    if !auth {
+    let allowed = match image {
+        Some(_) => json_request && !browser_origin,
+        None => auth,
+    };
+    if !allowed {
         return Ok(());
     }
     while bytes.len() < header_end + length {
@@ -231,13 +254,16 @@ fn serve(
             }
             Err(e) => return Err(e),
         }
-        if bytes.len() > MAX_BODY + 16 * 1024 {
+        if bytes.len() > max_body + 16 * 1024 {
             return Ok(());
         }
     }
     let Ok(body) = serde_json::from_slice::<Value>(&bytes[header_end..header_end + length]) else {
         return Ok(());
     };
+    if let Some(op) = image {
+        return images::respond(&mut stream, op, &body, records);
+    }
     if tools {
         return tools::respond(&mut stream, &body, records);
     }

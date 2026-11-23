@@ -388,9 +388,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     }).catch(console.error)
   }, [agentChannelId, agentModelId, globalChannels, sessionId, setSessionModelMap, setDefaultModelId])
 
-  // 获取当前 session 的工作路径（文件浏览器需要）
+  // 原生图片可属于独立会话，文件列表按宿主会话归属读取。
   React.useEffect(() => {
-    if (!currentWorkspaceId) {
+    if (!currentWorkspaceId && !window.__TAURI_FORMAL__?.nativeImages) {
       setSessionPathMap((prev) => {
         const map = new Map(prev)
         map.delete(sessionId)
@@ -400,7 +400,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     }
 
     window.electronAPI
-      .getAgentSessionPath(currentWorkspaceId, sessionId)
+      .getAgentSessionPath(currentWorkspaceId ?? null, sessionId)
       .then((path) => {
         if (path) {
           setSessionPathMap((prev) => {
@@ -959,12 +959,18 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       return
     }
 
+    const selectedUse = selectedImage && window.__TAURI_FORMAL__?.selectedImageUse?.(effectiveText, selectedImage.imageId)
+    if (selectedUse === 'inspect') {
+      toast.info(tErrors('desktopRuntime.imageEditOnly'))
+      return
+    }
+    const imageForSend = selectedUse === 'text' ? undefined : selectedImage
     const recoveryDraft = captureSendDraft({
       text: opts?.textOverride ?? inputContent,
       html: opts?.textOverride ? '' : inputHtmlContent,
       files: pendingFiles,
       mentions: pendingMentions,
-      image: selectedImage,
+      image: imageForSend,
     }, window.__pendingAgentFileData ?? new Map())
     store.set(sendRecoveryDraftsAtom, previous => new Map(previous).set(sessionId, recoveryDraft))
 
@@ -1105,12 +1111,12 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const tempUserSDKMsg: SDKMessage = {
       type: 'user',
       _agentRequestId: requestId,
-      ...(selectedImage && { imageEditReference: {
-        imageId: selectedImage.imageId,
-        sourceMessageId: selectedImage.sourceMessageId,
-        localPath: selectedImage.generatedImage.localPath,
-        filename: selectedImage.generatedImage.filename,
-        mediaType: selectedImage.generatedImage.mediaType,
+      ...(imageForSend && { imageEditReference: {
+        imageId: imageForSend.imageId,
+        sourceMessageId: imageForSend.sourceMessageId,
+        localPath: imageForSend.generatedImage.localPath,
+        filename: imageForSend.generatedImage.filename,
+        mediaType: imageForSend.generatedImage.mediaType,
       } }),
       message: {
         content: [{ type: 'text', text: finalMessage }],
@@ -1184,7 +1190,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const input: AgentSendInput = {
       sessionId,
       userMessage: finalMessage,
-      imageEditReferenceId: selectedImage?.imageId,
+      imageEditReferenceId: imageForSend?.imageId,
       taskMode,
       channelId: agentChannelId,
       modelId: agentModelId || undefined,
@@ -1205,7 +1211,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     setInputHtmlContent('')
 
     // 版本引用已绑定到 input 与恢复快照；发送后不再把它显示成下一条草稿。
-    if (selectedImage) setImageEditDrafts(previous => consumeImageEditDraft(previous, sessionId, selectedImage))
+    if (imageForSend) setImageEditDrafts(previous => consumeImageEditDraft(previous, sessionId, imageForSend))
     void observeAgentSend(store,sessionId,requestId,window.electronAPI.sendAgentMessage(input),recoveryDraft)
   }, [taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 

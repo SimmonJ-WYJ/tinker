@@ -941,3 +941,61 @@ fn search_limits_to_thirty_recent_sessions_and_one_hit_per_session() {
     );
     assert_eq!(h.mock_records().len(), 31);
 }
+
+#[test]
+fn searching_a_restored_image_prompt_returns_the_displayed_user_message() {
+    let (root, mut host) = setup();
+    let g = bootstrap(&host);
+    call(
+        &host,
+        json!({"command":"attach","generation":g,"observed":{}}),
+    );
+    let sid = create(&host, &g);
+    let updated = |h: &FormalHost, g: &str, id: &str| {
+        invoke(h, g, "agent:list-sessions", json!([]))
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["id"] == id)
+            .unwrap()["updatedAt"]
+            .as_u64()
+            .unwrap()
+    };
+    let other = create(&host, &g);
+    let previous = updated(&host, &g, &other);
+    invoke(
+        &host,
+        &g,
+        "agent:send-message",
+        json!([{
+            "sessionId":sid, "channelId":"local-mock", "modelId":"local-mock-a",
+            "requestId":"search-image", "startedAt":1000,
+            "userMessage":"Generate an image of an apricot field", "nativeImageAction":"generate"
+        }]),
+    );
+    let activity = updated(&host, &g, &sid);
+    assert!(activity >= previous && activity > 1000);
+    host.shutdown().unwrap();
+    drop(host);
+    let host =
+        FormalHost::open(&root, HostEnvironment::new("darwin", false, false).unwrap()).unwrap();
+    let g = bootstrap(&host);
+    call(
+        &host,
+        json!({"command":"attach","generation":g,"observed":{}}),
+    );
+    let sdk = call(
+        &host,
+        json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0}),
+    )["sdkMessages"]
+        .clone();
+    let hit = invoke(&host, &g, "agent:search-messages", json!(["apricot"]));
+    assert_eq!(hit[0]["role"], "user");
+    assert_eq!(hit[0]["messageId"], sdk[0]["uuid"]);
+    assert_eq!(
+        invoke(&host, &g, "agent:search-messages", json!([".png"])),
+        json!([])
+    );
+    assert!(host.mock_records().is_empty());
+    assert_eq!(updated(&host, &g, &sid), activity);
+}
