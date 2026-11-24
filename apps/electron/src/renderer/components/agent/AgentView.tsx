@@ -9,6 +9,7 @@ import { applyPickedImage, reportImageFileError } from './native-image-files'
 import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
 import conversationPlus from '@/assets/conversation/plus.svg'
 import { ConversationReasoningSelector } from './ConversationReasoningSelector.tsx'
+import { ProjectDocuments } from './ProjectDocuments'
 import { ImageEditReference } from './ImageEditReference'
 import { latestTurnAttemptedImage, latestUserImageEditReferenceId } from './image-retry-policy.ts'
 import { BinaryBackdrop } from '../welcome/BinaryBackdrop'
@@ -105,7 +106,7 @@ import { useOpenSession } from '@/hooks/useOpenSession'
 import { AgentSessionProvider } from '@/contexts/session-context'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { sendWithCmdEnterAtom } from '@/atoms/shortcut-atoms'
-import type { AgentSendInput, AgentMessage, AgentPendingFile, ModelOption, SDKMessage, AgentEffort } from '@asci/shared'
+import type { NativeDocumentSource, AgentSendInput, AgentMessage, AgentPendingFile, ModelOption, SDKMessage, AgentEffort } from '@asci/shared'
 import { nowMs, COPY_FEEDBACK_RESET_MS, AGENT_EFFORT_ORDER, inferModelContextWindow } from '@asci/shared'
 import { fileToBase64 } from '@/lib/file-utils'
 import { buildReferenceText } from '@/components/library/SendToAgentButton'
@@ -138,6 +139,7 @@ const REWIND_BLOCKED_I18N_KEYS = {
 } as const
 
 export function AgentView({ sessionId }: { sessionId: string }): React.ReactElement {
+  const { t: tNav } = useT('nav')
   const { t: tHome } = useT('onboarding')
   const { t: tLibrary } = useT('library')
   const { t: tConversation } = useT('conversation')
@@ -199,6 +201,14 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (!meta) return window.__TAURI_FORMAL__?.bindProjectDirectory ? null : globalWorkspaceId
     return meta.workspaceId ?? null     // 数据已加载，以会话自身为准
   }, [sessions, sessionId, globalWorkspaceId])
+  const [documentDraft, setDocumentDraft] = React.useState<{
+    sessionId: string; workspaceId: string; source: NativeDocumentSource
+  } | null>(null)
+  const selectedDocument = documentDraft?.sessionId === sessionId && documentDraft.workspaceId === currentWorkspaceId
+    ? documentDraft.source : undefined
+  React.useEffect(() => {
+    setDocumentDraft(draft => draft?.sessionId === sessionId && draft.workspaceId === currentWorkspaceId ? draft : null)
+  }, [sessionId, currentWorkspaceId])
   const [pendingPrompt, setPendingPrompt] = useAtom(agentPendingPromptAtom)
   const [pendingFiles, setPendingFiles] = useAtom(agentPendingFilesAtom)
   const [imageEditDrafts, setImageEditDrafts] = useAtom(imageEditDraftsAtom)
@@ -924,6 +934,12 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
     // 图片版本绑定只在新轮次生效，不能混入正在运行的纯文本追加通道。
     const isStreamRunning = streaming || store.get(agentStreamingStatesAtom).get(sessionId)?.running === true
+    // 主动发送才消费引用；启动器触发的快捷消息不带草稿中的文档。
+    const cited = opts?.textOverride === undefined ? selectedDocument : undefined
+    if (cited && (isStreamRunning || selectedImageModel || selectedImage || pendingFiles.length || pendingMentions.length)) {
+      toast.info(tNav('documents.textOnly'))
+      return
+    }
     if (isStreamRunning && selectedImage) return
     // 上一条消息仍在处理中，直接追加发送
     if (isStreamRunning) {
@@ -1159,6 +1175,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     const tempUserSDKMsg: SDKMessage = {
       type: 'user',
       _agentRequestId: requestId,
+      ...(cited && { _desktopDocumentSource: cited }),
       ...(imageForSend && { imageEditReference: {
         imageId: imageForSend.imageId,
         sourceMessageId: imageForSend.sourceMessageId,
@@ -1240,6 +1257,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       sessionId,
       userMessage: finalMessage,
       imageEditReferenceId: imageForSend?.imageId,
+      ...(cited && { nativeDocumentReference: { documentId: cited.documentId, startLine: cited.startLine, endLine: cited.endLine } }),
       taskMode,
       channelId: agentChannelId,
       modelId: agentModelId || undefined,
@@ -1261,8 +1279,11 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
     // 版本引用已绑定到 input 与恢复快照；发送后不再把它显示成下一条草稿。
     if (imageForSend) setImageEditDrafts(previous => consumeImageEditDraft(previous, sessionId, imageForSend))
-    void observeAgentSend(store,sessionId,requestId,window.electronAPI.sendAgentMessage(input),recoveryDraft)
-  }, [taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
+    // 一次明确引用只授权本次派发；失败、中断或未知回执不能把原选区留给下一条新问题。
+    if (cited) setDocumentDraft(draft => draft?.source === cited ? null : draft)
+    const sent = window.electronAPI.sendAgentMessage(input)
+    void observeAgentSend(store,sessionId,requestId,sent,recoveryDraft)
+  }, [selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 
   // 一键触发（如「找研究空白」）→ 直接派发 handleSend，不经输入框二段式回车。
   // textOverride 直接带正文，绕过 inputContent state 时序；写入后立即清空 atom 防重复发送。
@@ -1650,6 +1671,10 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
             {(isPlanMode || isPermissionPlanMode) && !isDragOver && <PlanModeDashedBorder />}
 
             <ImageEditReference sessionId={sessionId} />
+            {selectedDocument && <div data-document-draft className="flex items-center gap-2 px-3 pt-2 text-sm">
+              <span>{tNav('documents.source', { name: selectedDocument.filename, start: selectedDocument.startLine, end: selectedDocument.endLine })}</span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setDocumentDraft(null)}>{tNav('documents.remove')}</Button>
+            </div>}
             {/* 附件预览区域 */}
             {pendingFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 px-3 pt-2.5 pb-1.5">
@@ -1734,6 +1759,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                     <p>{tConversation('input.attachTooltip')}</p>
                   </TooltipContent>
                 </Tooltip>
+                {window.__TAURI_FORMAL__?.projectDocuments && currentWorkspaceId && !selectedImageModel && !streaming && !selectedImage &&
+                  <ProjectDocuments key={JSON.stringify([currentWorkspaceId, sessionId])} workspaceId={currentWorkspaceId}
+                    onCite={source => setDocumentDraft({ source, sessionId, workspaceId: currentWorkspaceId })} />}
                 <TaskModeSelector value={taskMode} onChange={setTaskMode} disabled={streaming || !messagesLoaded} locked={modeLocked} />
                 {taskMode === 'coding' && <PermissionModeSelector sessionId={sessionId} />}
                 {/* <FeishuNotifyToggle sessionId={sessionId} /> */}

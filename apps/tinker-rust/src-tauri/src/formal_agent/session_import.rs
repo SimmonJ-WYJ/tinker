@@ -11,7 +11,21 @@ use std::{
     sync::mpsc::{self, Receiver, SyncSender},
 };
 
+pub(crate) enum DocumentStep {
+    Begin,
+    Commit {
+        epoch: u64,
+        filename: String,
+        bytes: Vec<u8>,
+    },
+    List,
+    Read(crate::formal_documents::DocumentSelection),
+}
 pub(crate) enum ImportStep {
+    Document {
+        workspace: String,
+        step: DocumentStep,
+    },
     BeginBinding(String),
     BindDirectory {
         epoch: u64,
@@ -34,6 +48,7 @@ pub(crate) enum ImportStep {
     Commit(u64, Box<SourceSession>),
 }
 pub(crate) enum ImportReply {
+    Document(serde_json::Value),
     Permit { destination: PathBuf, epoch: u64 },
     Valid,
     Committed(bool),
@@ -97,6 +112,43 @@ impl Actor {
             }
         }
         match step {
+            ImportStep::Document { workspace, step } => {
+                self.platform.require_workspace(
+                    crate::formal_platform::workspace::WorkspaceKey::Id(&workspace),
+                )?;
+                use crate::formal_documents;
+                let value = match step {
+                    DocumentStep::Begin => {
+                        return Ok(ImportReply::Permit {
+                            destination: self.root.path().to_owned(),
+                            epoch: now,
+                        })
+                    }
+                    DocumentStep::Commit {
+                        epoch,
+                        filename,
+                        bytes,
+                    } => {
+                        if epoch != now {
+                            return Err(DesktopError("closing"));
+                        }
+                        self.platform.check_project_text(&filename)?;
+                        if let Ok(text) = std::str::from_utf8(&bytes) {
+                            self.platform.check_project_text(text)?;
+                        }
+                        serde_json::json!(formal_documents::import_selected(
+                            &self.root, &workspace, &filename, &bytes
+                        )?)
+                    }
+                    DocumentStep::List => {
+                        serde_json::json!(formal_documents::list(&self.root, &workspace)?)
+                    }
+                    DocumentStep::Read(selection) => serde_json::json!(formal_documents::read(
+                        &self.root, &workspace, &selection
+                    )?),
+                };
+                Ok(ImportReply::Document(value))
+            }
             ImportStep::BeginBinding(workspace_id) => {
                 self.platform.require_workspace(
                     crate::formal_platform::workspace::WorkspaceKey::Project(&workspace_id),

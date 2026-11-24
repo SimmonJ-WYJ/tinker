@@ -57,7 +57,7 @@ impl Inner {
         {
             return Err(DesktopError("runBusy"));
         }
-        self.send_inner(p.clone(), true)?;
+        self.send_inner(p.clone(), true, None)?;
         self.queue_snapshot(&p.session_id, &p.request_id, None)
     }
     pub(super) fn queue_input(&mut self, p: QueueInput) -> Result<Value> {

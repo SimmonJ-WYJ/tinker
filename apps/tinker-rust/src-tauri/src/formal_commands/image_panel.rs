@@ -46,29 +46,34 @@ fn host_step(state: &FormalState, g: &str, sid: &str, step: Step) -> HostResult<
     pending.recv().map_err(|_| DesktopError("hostClosed"))?
 }
 #[allow(deprecated)]
-fn native_panel(filename: Option<&str>) -> HostResult<Option<PathBuf>> {
+pub(super) fn native_open_file(extensions: &[&str]) -> HostResult<Option<PathBuf>> {
     let mtm = MainThreadMarker::new().ok_or(DesktopError("windowUnavailable"))?;
-    let panel = match filename {
-        Some(name) => {
-            let panel = NSSavePanel::savePanel(mtm);
-            panel.setNameFieldStringValue(&NSString::from_str(name));
-            panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&[NSString::from_str(
-                "png",
-            )])));
-            panel
-        }
-        None => {
-            let panel = NSOpenPanel::openPanel(mtm);
-            panel.setCanChooseDirectories(false);
-            panel.setCanChooseFiles(true);
-            panel.setResolvesAliases(false);
-            panel.setAllowsMultipleSelection(false);
-            panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(
-                &["png", "jpg", "jpeg"].map(NSString::from_str),
-            )));
-            panel.into_super()
-        }
+    let panel = NSOpenPanel::openPanel(mtm);
+    panel.setCanChooseDirectories(false);
+    panel.setCanChooseFiles(true);
+    panel.setResolvesAliases(false);
+    panel.setAllowsMultipleSelection(false);
+    let allowed = extensions
+        .iter()
+        .map(|ext| NSString::from_str(ext))
+        .collect::<Vec<_>>();
+    panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&allowed)));
+    modal_path(&panel)
+}
+#[allow(deprecated)]
+fn native_panel(filename: Option<&str>) -> HostResult<Option<PathBuf>> {
+    let Some(name) = filename else {
+        return native_open_file(&["png", "jpg", "jpeg"]);
     };
+    let mtm = MainThreadMarker::new().ok_or(DesktopError("windowUnavailable"))?;
+    let panel = NSSavePanel::savePanel(mtm);
+    panel.setNameFieldStringValue(&NSString::from_str(name));
+    panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&[NSString::from_str(
+        "png",
+    )])));
+    modal_path(&panel)
+}
+fn modal_path(panel: &NSSavePanel) -> HostResult<Option<PathBuf>> {
     panel.setAllowsOtherFileTypes(false);
     match panel.runModal() {
         code if code == NSModalResponseOK => panel

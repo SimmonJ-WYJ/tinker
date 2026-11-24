@@ -1,14 +1,21 @@
 //! 请求先绑定后执行；每个会话仅继承最近成功祖先。
+use super::document_send::{DocumentRead, DocumentSource, ExcerptProvider};
 use super::{
     protocol::*,
     session::{Binding, Entry, Turn},
     Inner,
 };
+use crate::formal_documents::DocumentSelection;
 use crate::{
     run_types::{is_terminal, RunError, MAX_INPUT_BYTES},
     session_lifecycle::RunStatus,
 };
 use serde_json::{json, Value};
+pub(crate) struct ResolvedTextRetry {
+    pub send: Send,
+    pub is_new: bool,
+    pub document: Option<DocumentSelection>,
+}
 /// 重试只接受持久身份。本次输入、渠道、模型和 effort 均由原始 binding 决定。
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -46,8 +53,8 @@ impl super::DesktopRuntime {
                 && bindings.iter().any(|b| b.request.request_id == request)
         }))
     }
-    /// 返回完整的发送参数；新执行同时返回源时间，供宿主与图片时间线核对。
-    pub(crate) fn resolve_text_retry(&self, retry: TextRetry) -> Result<(Send, Option<u64>)> {
+    /// 复用原请求和文档选区，仅新执行需要再次检查最新任务。
+    pub(crate) fn resolve_text_retry(&self, retry: TextRetry) -> Result<ResolvedTextRetry> {
         let inner = self
             .inner
             .lock()
@@ -72,6 +79,7 @@ impl super::DesktopRuntime {
         {
             return Err(DesktopError("requestConflict"));
         }
+        let document = source.document_source.as_ref().map(|d| d.selection());
         let mut next = source.request.clone();
         next.request_id = retry.request_id;
         next.started_at = retry.started_at;
@@ -84,8 +92,13 @@ impl super::DesktopRuntime {
             if index > 0
                 && bindings[index - 1].request.request_id == source.request.request_id
                 && bindings[index].request == next
+                && bindings[index].document_source == source.document_source
             {
-                return Ok((next, None));
+                return Ok(ResolvedTextRetry {
+                    send: next,
+                    is_new: false,
+                    document,
+                });
             }
             return Err(DesktopError("requestConflict"));
         }
@@ -108,7 +121,11 @@ impl super::DesktopRuntime {
                 "requestConflict"
             }));
         }
-        Ok((next, Some(source.request.started_at)))
+        Ok(ResolvedTextRetry {
+            send: next,
+            is_new: true,
+            document,
+        })
     }
 }
 pub(super) fn validate_send(p: &Send) -> Result<()> {
@@ -151,6 +168,13 @@ impl Inner {
         Ok(project_turn(b, snapshot))
     }
     pub(super) fn send(&mut self, p: Send) -> Result<Value> {
+        self.send_with_reference(p, None)
+    }
+    pub(super) fn send_with_reference(
+        &mut self,
+        p: Send,
+        reference: Option<DocumentRead<'_>>,
+    ) -> Result<Value> {
         if !(self.managed
             && self
                 .bindings
@@ -164,9 +188,14 @@ impl Inner {
         {
             return Err(DesktopError("runBusy"));
         }
-        self.send_inner(p, false)
+        self.send_inner(p, false, reference)
     }
-    pub(super) fn send_inner(&mut self, p: Send, begin: bool) -> Result<Value> {
+    pub(super) fn send_inner(
+        &mut self,
+        p: Send,
+        begin: bool,
+        reference: Option<DocumentRead<'_>>,
+    ) -> Result<Value> {
         validate_send(&p)?;
         let session = self.session(&p.session_id)?;
         self.require_import_seed(&p.session_id)?;
@@ -178,7 +207,14 @@ impl Inner {
                 .iter()
                 .find(|b| b.request.request_id == p.request_id)
             {
-                return if b.request == p && self.binding_revision_matches(b) {
+                return if b.request == p
+                    && b.document_source
+                        .as_ref()
+                        .map(DocumentSource::selection)
+                        .as_ref()
+                        == reference.as_ref().map(|r| r.selection)
+                    && self.binding_revision_matches(b)
+                {
                     self.turn_reply(b)
                 } else {
                     Err(DesktopError("requestConflict"))
@@ -248,12 +284,29 @@ impl Inner {
             &p.user_message,
             &p.profile_id,
         )?;
-        self.controllers
+        let controller = self
+            .controllers
             .get(&p.session_id)
-            .ok_or(DesktopError("sessionNotFound"))?
-            .require_confirmed_storage()?;
+            .ok_or(DesktopError("sessionNotFound"))?;
+        controller.require_confirmed_storage()?;
+        // 只有首次绑定读取原文；重放已从上面的相同选区回执返回。
+        let excerpt = reference.map(DocumentRead::resolve).transpose()?;
+        let document_source = excerpt.as_ref().map(DocumentSource::from_excerpt);
+        let provider = if let Some(excerpt) = excerpt {
+            let provider = ExcerptProvider::new(provider, excerpt);
+            let context = controller.preflight_text_context(
+                &p.request_id,
+                parent.as_deref(),
+                &p.user_message,
+            )?;
+            self.import_validate_context(&p.session_id, &provider.context(&context)?)?;
+            std::sync::Arc::new(provider) as std::sync::Arc<dyn crate::run_provider::RunProvider>
+        } else {
+            provider
+        };
         let binding = Binding {
             request: p.clone(),
+            document_source,
             config_revision: profile.config_revision.clone(),
             accepted_at: super::activity_time(session.updated_at)?,
             parent_run_id: parent.clone(),
@@ -525,6 +578,7 @@ pub(super) fn project_turn(b: &Binding, snapshot: Option<crate::run_types::RunSn
         effort: b.request.effort.clone(),
         started_at: b.request.started_at,
         user_message: b.request.user_message.clone(),
+        document_source: b.document_source.clone(),
         assistant_message: output,
         status,
         sequence,

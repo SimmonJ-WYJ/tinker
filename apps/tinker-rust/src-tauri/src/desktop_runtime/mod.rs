@@ -1,5 +1,6 @@
 //! 正式会话服务；stdio与Tauri共同调用，秘密仅由可信宿主注入。
 pub mod availability;
+mod document_send;
 mod execution;
 pub(crate) use execution::TextRetry;
 mod import;

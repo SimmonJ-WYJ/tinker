@@ -402,18 +402,22 @@ impl Actor {
             );
         }
         let source = retry.retry_of_request_id.clone();
-        let (send, is_new) = self.runtime.resolve_text_retry(retry)?;
-        if is_new.is_some()
-            && self.latest_retryable_task(&send.session_id)?.as_deref() != Some(&source)
-        {
+        let resolved = self.runtime.resolve_text_retry(retry)?;
+        let send = resolved.send;
+        let is_new = resolved.is_new;
+        if is_new && self.latest_retryable_task(&send.session_id)?.as_deref() != Some(&source) {
             return Err(DesktopError("requestConflict"));
         }
         let mut input = json!({"sessionId":send.session_id, "requestId":send.request_id, "startedAt":send.started_at,
             "userMessage":send.user_message, "channelId":send.profile_id, "modelId":send.model_id});
+        if let Some(selection) = resolved.document {
+            input["workspaceId"] = self.session(&send.session_id)?["workspaceId"].clone();
+            input["nativeDocumentReference"] = json!(selection);
+        }
         if let Some(effort) = send.effort {
             input["effort"] = json!(effort);
         }
-        if is_new.is_some() && self.credentialed.as_ref().is_some_and(|c| !c.bypass) {
+        if is_new && self.credentialed.as_ref().is_some_and(|c| !c.bypass) {
             // The worker only prepares credentials. Re-enter with the original retry command
             // so the actor rechecks the source revision and latest turn before binding.
             let identity = json!({"sessionId":send.session_id, "requestId":send.request_id,
@@ -455,6 +459,7 @@ impl Actor {
             match key.as_str() {
                 "sessionId" | "userMessage" | "channelId" | "modelId" | "workspaceId"
                 | "startedAt" | "requestId" | "taskMode" | "effort" => {}
+                "nativeDocumentReference" if self.projects_supported() && !self.queueing => {}
                 "nativeImageAction" | "imageEditReferenceId" if self.images.is_some() => {}
                 "nativeImageReferenceInferred"
                     if self.credentialed.is_some()
@@ -522,6 +527,13 @@ impl Actor {
                     format!("native-{now}-{}", self.token_seq)
                 }
             });
+        let reference = input.get("nativeDocumentReference");
+        if reference.is_some()
+            && (input.get("nativeImageAction").is_some()
+                || input.get("imageEditReferenceId").is_some())
+        {
+            return Err(DesktopError("modelCapabilityMismatch"));
+        }
         if input.get("nativeImageAction").is_some() {
             return self.send_image(&input, sid, &request, started, None, reply);
         }
@@ -576,7 +588,21 @@ impl Actor {
         {
             return Err(DesktopError("hostBusy"));
         }
-        let turn=self.core("chat.send",json!({"sessionId":sid,"requestId":request,"startedAt":started,"profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort}))?;
+        let params = json!({"sessionId":sid,"requestId":request,"startedAt":started,
+            "profileId":input["channelId"],"modelId":input["modelId"],"userMessage":text,"effort":effort});
+        let turn = if let Some(reference) = reference {
+            let workspace = input["workspaceId"]
+                .as_str()
+                .ok_or(DesktopError("workspaceMismatch"))?;
+            self.runtime.send_document(
+                &self.root,
+                workspace,
+                crate::desktop_runtime::protocol::decode(params)?,
+                &crate::desktop_runtime::protocol::decode(reference.clone())?,
+            )?
+        } else {
+            self.core("chat.send", params)?
+        };
 
         if superseded {
             // 旧请求的回执不能替换后续任务的流投递条目。

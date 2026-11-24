@@ -9,6 +9,7 @@ import { useOpenSession } from '@/hooks/useOpenSession'
 import { draftSessionIdsAtom } from '@/atoms/draft-session-atoms'
 import { useT } from '@/hooks/useT'
 import { Button } from '@/components/ui/button'
+import { ProjectDocuments } from './ProjectDocuments'
 import { ProjectDirectory } from './ProjectDirectory'
 import { ProjectManageDialog } from './ProjectManageDialog'
 
@@ -36,6 +37,7 @@ export function ProjectOverview(): React.ReactElement {
     <div className="project-overview__body">
       {workspace?.directoryStatus && window.__TAURI_FORMAL__?.bindProjectDirectory &&
         <ProjectDirectory key={workspace.id} workspace={workspace} />}
+      {workspace && window.__TAURI_FORMAL__?.projectDocuments && <div><ProjectDocuments key={workspace.id} workspaceId={workspace.id} /></div>}
       <label className="project-overview__search"><Search size={16} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('projectTree.search')} aria-label={t('projectTree.search')} /></label>
       {tasks.unavailable && <p role="status" className="text-sm text-muted-foreground">{t('projectTask.unavailable')}</p>}
       {items.length === 0 ? <p className="project-overview__empty">{t(query ? 'projectTree.noResults' : 'projectTree.empty')}</p> : <div className="project-overview__sessions">{items.map(item => {

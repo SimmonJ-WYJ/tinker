@@ -18,6 +18,9 @@ pub fn session(s: &Value) -> Value {
 }
 pub(super) fn user_message(turn: &Value) -> Value {
     let mut message = json!({"type":"user","uuid":turn["userMessageId"],"message":{"content":[{"type":"text","text":turn["userMessage"]}]},"parent_tool_use_id":null,"_createdAt":turn["startedAt"]});
+    if let Some(source) = turn.get("documentSource").filter(|s| !s.is_null()) {
+        message["_desktopDocumentSource"] = source.clone();
+    }
     // 工具消息在历史、实时 SDK 与恢复快照中使用相同的显式身份；旧文本投影不变。
     if !turn["toolState"].is_null() {
         message["_desktopRunId"] = turn["runId"].clone();
@@ -52,7 +55,11 @@ fn project_history(turns: &[Value], text_task_identity: bool) -> Value {
             }
             continue;
         }
-        messages.push(json!({"id":t["userMessageId"],"role":"user","content":t["userMessage"],"createdAt":t["startedAt"]}));
+        let mut plain_user = json!({"id":t["userMessageId"],"role":"user","content":t["userMessage"],"createdAt":t["startedAt"]});
+        if let Some(source) = t.get("documentSource").filter(|s| !s.is_null()) {
+            plain_user["_desktopDocumentSource"] = source.clone();
+        }
+        messages.push(plain_user);
         let mut user = user_message(t);
         if text_task_identity && t["toolState"].is_null() {
             user["_desktopTextTaskRequestId"] = t["requestId"].clone();

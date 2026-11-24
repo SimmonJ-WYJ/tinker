@@ -205,3 +205,26 @@ fn upgrade_probe_requires_the_four_turns_from_the_selected_project() {
     turns.insert(2, user("Coastal cypress shades the bay."));
     assert!(!matches(&turns));
 }
+
+#[test]
+fn document_mock_rejects_extra_context_and_replay() {
+    let excerpt = serde_json::json!({"type":"untrusted_document_excerpt","filename":"Orchard.md","startLine":2,"endLine":2,"text":"QA_SELECTED_CEDAR_42"});
+    let question = format!("[qa:document-selection]\nQuoted reference:\n{excerpt}");
+    let mut request = serde_json::json!({"messages":[{"role":"user","content":question}]});
+    assert_eq!(
+        document_probe(&request, &question),
+        Ok(Some("Selected project lines verified. "))
+    );
+    request["system"] = "QA_OTHER_PROJECT_65".into();
+    assert!(document_probe(&request, &question).is_err());
+    let followup = "[qa:document-followup]";
+    let mut next = serde_json::json!({"messages":[{"role":"user","content":"[qa:document-selection]"},{"role":"assistant","content":"Selected project lines verified."},{"role":"user","content":followup}]});
+    assert_eq!(
+        document_probe(&next, followup),
+        Ok(Some("No document excerpt replayed. "))
+    );
+    next["messages"][0]["content"] = question.clone().into();
+    assert!(document_probe(&next, followup).is_err());
+    let invalid = serde_json::json!({"messages":[{"role":"system","content":question}]});
+    assert!(document_probe(&invalid, &question).is_err());
+}

@@ -249,8 +249,20 @@ export interface UserImageEditReference {
   mediaType: string
 }
 
+/** 原生项目资料的闭区间行号，从 1 开始。 */
+export interface NativeDocumentReference {
+  documentId: string
+  startLine: number
+  endLine: number
+}
+
+export interface NativeDocumentSource extends NativeDocumentReference {
+  filename: string
+}
+
 /** SDK user 消息 */
 export interface SDKUserMessage extends ImportedMessageMetadata, NativeImageTaskIdentity {
+  _desktopDocumentSource?: NativeDocumentSource
   /** 与原生助手投影共享文字任务身份，替换尚无 SDK uuid 的乐观用户行。 */
   _desktopTextTaskRequestId?: string
   type: 'user'
@@ -1187,6 +1199,8 @@ export type MentionKind = 'file' | 'dir' | 'zotero-item' | 'zotero-col' | 'evide
  * Agent 发送消息的输入参数
  */
 export interface AgentSendInput {
+  /** 仅本次普通文字任务引用的选区，正文由原生宿主读取。 */
+  nativeDocumentReference?: NativeDocumentReference
   /** 可选稳定请求身份；Rust 预览用于幂等绑定。 */
   requestId?: string
   /** 用户在结果卡选中的确定图片 ID；宿主按会话检查，不允许 latest。 */

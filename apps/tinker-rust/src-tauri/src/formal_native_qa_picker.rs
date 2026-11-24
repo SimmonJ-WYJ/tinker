@@ -100,3 +100,29 @@ pub(super) fn session_folder() -> Option<Option<PathBuf>> {
 pub(super) fn project_folder() -> Option<Option<PathBuf>> {
     folder_selection(&PROJECT_FOLDER, "qa-project-folder")
 }
+
+// 文档面板只用固定测试叶文件名；正式应用不能消费这组选择。
+static DOCUMENT_CHOICE: Mutex<Option<Option<&'static str>>> = Mutex::new(None);
+pub(super) fn arm_document(value: &Value) -> Result<Value, String> {
+    let leaf = match value.as_str() {
+        Some("cancel") => None,
+        Some("fixture") => Some("qa-project-note.md"),
+        Some("fixture-two") => Some("qa-project-other.txt"),
+        Some("invalid") => Some("qa-project-invalid.txt"),
+        Some("oversized") => Some("qa-project-oversized.txt"),
+        Some("pdf") => Some("qa-project-scan.pdf"),
+        _ => return Err("Unknown QA document choice".into()),
+    };
+    let mut next = DOCUMENT_CHOICE
+        .lock()
+        .map_err(|_| "QA document picker unavailable")?;
+    if next.is_some() {
+        return Err("Previous QA document choice was not consumed".into());
+    }
+    *next = Some(leaf);
+    Ok(json!(true))
+}
+pub(super) fn document_selection() -> Option<Option<PathBuf>> {
+    let leaf = DOCUMENT_CHOICE.lock().ok()?.take()?;
+    Some(leaf.and_then(|name| super::directory().ok().map(|root| root.join(name))))
+}

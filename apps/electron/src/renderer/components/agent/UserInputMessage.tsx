@@ -1,4 +1,8 @@
 import { readImageThumbnail } from '@/lib/image-asset-reads'
+import { useAtomValue } from 'jotai'
+import { agentSessionsAtom } from '@/atoms/agent-atoms'
+import { useAgentSessionId } from '@/contexts/session-context'
+import { ProjectDocuments } from './ProjectDocuments'
 import * as React from 'react'
 import { Download, FileImage, FileText } from 'lucide-react'
 import { resolveUserImageReferenceSource, type SDKAssistantMessage, type SDKMessage, type SDKUserMessage } from '@asci/shared'
@@ -65,6 +69,12 @@ export function ImportedAssistantMessage({ message }: { message: SDKAssistantMes
   )
 }
 
+function SentDocumentSource({ source }: { source: NonNullable<SDKUserMessage['_desktopDocumentSource']> }) {
+  const sessionId = useAgentSessionId()
+  const workspaceId = useAtomValue(agentSessionsAtom).find(session => session.id === sessionId)?.workspaceId
+  return workspaceId ? <ProjectDocuments key={workspaceId} workspaceId={workspaceId} source={source} /> : null
+}
+
 export function UserInputMessage({ message, allMessages }: { message: SDKUserMessage; allMessages: SDKMessage[] }): React.ReactElement {
   const content = extractUserText(message) ?? ''
   const imported = isImportedConversationMessage(message)
@@ -76,6 +86,7 @@ export function UserInputMessage({ message, allMessages }: { message: SDKUserMes
   const source = resolveUserImageReferenceSource(message, allMessages)
   return <Message from="user" className="conversation-user">
     <PassiveAttachments files={files} />
+    {window.__TAURI_FORMAL__?.projectDocuments && message._desktopDocumentSource && <SentDocumentSource source={message._desktopDocumentSource} />}
     {(text || message.imageEditReference) && <div className="conversation-user__bubble">
       {message.imageEditReference && <SentImageReference reference={message.imageEditReference} sourceMessageId={source} />}
       {text && <UserMessageContent className="conversation-user__text" plainText={imported}>{text}</UserMessageContent>}

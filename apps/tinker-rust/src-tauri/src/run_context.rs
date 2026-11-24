@@ -62,6 +62,24 @@ impl RunContext {
             }],
         }
     }
+    pub(crate) fn with_current_user_suffix(&self, suffix: &str) -> Result<Self, RunError> {
+        let bytes = self
+            .messages
+            .iter()
+            .map(|message| message.content.len())
+            .sum::<usize>();
+        if bytes.saturating_add(suffix.len()) > MAX_CONTEXT_BYTES {
+            return Err(RunError::ContextLimitExceeded);
+        }
+        let mut context = self.clone();
+        let current = context
+            .messages
+            .last_mut()
+            .filter(|m| m.role == ChatRole::User)
+            .ok_or(RunError::ContextUnsupported)?;
+        current.content.push_str(suffix);
+        Ok(context)
+    }
     pub fn messages(&self) -> &[ChatMessage] {
         &self.messages
     }

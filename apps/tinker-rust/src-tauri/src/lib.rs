@@ -57,6 +57,7 @@ mod tool_worker;
 
 pub mod credentialed_channels;
 
+pub mod formal_documents;
 pub mod formal_images;
 
 mod picked_image;

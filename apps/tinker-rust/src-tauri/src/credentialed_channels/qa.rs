@@ -175,6 +175,55 @@ fn has_upgrade_history(request: &serde_json::Value) -> bool {
         })
 }
 
+// 仅供本机 QA：在 HTTP 边界确认选段、角色和后续轮次，不记录消息正文。
+fn document_probe(request: &serde_json::Value, last: &str) -> Result<Option<&'static str>> {
+    let selected = last.contains("[qa:document-selection]");
+    let followup = last.contains("[qa:document-followup]");
+    if !selected && !followup {
+        return Ok(None);
+    }
+    let invalid = DesktopError("qaDocumentScopeMismatch");
+    let wire = request.to_string();
+    if [
+        "QA_UNSELECTED_TOP_87",
+        "QA_UNSELECTED_BOTTOM_76",
+        "QA_OTHER_PROJECT_65",
+    ]
+    .iter()
+    .any(|token| wire.contains(token))
+    {
+        return Err(invalid);
+    }
+    let message = request["messages"]
+        .as_array()
+        .and_then(|m| m.last())
+        .ok_or(invalid)?;
+    if message["role"] != "user" || message["content"] != last {
+        return Err(invalid);
+    }
+    if followup {
+        return if !selected
+            && !wire.contains("untrusted_document_excerpt")
+            && !wire.contains("QA_SELECTED_CEDAR_42")
+        {
+            Ok(Some("No document excerpt replayed. "))
+        } else {
+            Err(invalid)
+        };
+    }
+    let start = last.find('{').ok_or(invalid)?;
+    let excerpt: serde_json::Value = serde_json::from_str(&last[start..]).map_err(|_| invalid)?;
+    if excerpt["type"] != "untrusted_document_excerpt"
+        || excerpt["startLine"] != 2
+        || excerpt["endLine"] != 2
+        || excerpt["text"] != "QA_SELECTED_CEDAR_42"
+        || wire.matches("QA_SELECTED_CEDAR_42").count() != 1
+    {
+        return Err(invalid);
+    }
+    Ok(Some("Selected project lines verified. "))
+}
+
 fn serve(
     s: &mut TcpStream,
     cancel: &AtomicBool,
@@ -292,7 +341,8 @@ fn serve(
                 .and_then(|m| m["content"].as_str())
                 .unwrap_or("");
             let rehearsal = last.contains("[qa:upgrade-context]");
-            if rehearsal && !has_upgrade_history(&request) {
+            let document = document_probe(&request, last);
+            if document.is_err() || (rehearsal && !has_upgrade_history(&request)) {
                 evidence.phase = "text-invalid";
                 s.write_all(b"HTTP/1.1 422 Unprocessable Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
                 return Ok(());
@@ -312,7 +362,9 @@ fn serve(
             }
             let held = last.contains("[qa:hold]");
             let partial = last.contains("[qa:partial]");
-            let first = if rehearsal {
+            let first = if let Some(reply) = document? {
+                reply.into()
+            } else if rehearsal {
                 "Imported alpine context verified. ".into()
             } else if held || partial {
                 "Owned QA visible streaming segment. ".repeat(6)

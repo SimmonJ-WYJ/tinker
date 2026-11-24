@@ -70,6 +70,7 @@ fn directory_sync_failure_never_commits_session_or_calls_provider() {
 #[test]
 fn event_snapshot_advancing_after_empty_read_keeps_poll_cursor() {
     let turn = Turn {
+        document_source: None,
         session_id: "session".into(),
         request_id: "request".into(),
         run_id: "request".into(),
