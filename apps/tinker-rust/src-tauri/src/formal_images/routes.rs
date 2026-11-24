@@ -39,7 +39,7 @@ impl ImageRoute {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct RoutedEntry {
     pub turn: ImageTurn,
@@ -49,10 +49,10 @@ pub(super) struct RoutedEntry {
     pub original: usize,
     pub derived: usize,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RoutedReceipts {
-    version: u32,
+    pub(super) version: u32,
     pub entries: Vec<RoutedEntry>,
 }
 impl RoutedReceipts {

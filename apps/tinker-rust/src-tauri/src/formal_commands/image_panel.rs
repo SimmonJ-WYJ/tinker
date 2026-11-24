@@ -65,11 +65,15 @@ fn native_panel(filename: Option<&str>) -> HostResult<Option<PathBuf>> {
     let Some(name) = filename else {
         return native_open_file(&["png", "jpg", "jpeg"]);
     };
+    native_save_file(name, "png")
+}
+#[allow(deprecated)]
+pub(super) fn native_save_file(name: &str, extension: &str) -> HostResult<Option<PathBuf>> {
     let mtm = MainThreadMarker::new().ok_or(DesktopError("windowUnavailable"))?;
     let panel = NSSavePanel::savePanel(mtm);
     panel.setNameFieldStringValue(&NSString::from_str(name));
     panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&[NSString::from_str(
-        "png",
+        extension,
     )])));
     modal_path(&panel)
 }

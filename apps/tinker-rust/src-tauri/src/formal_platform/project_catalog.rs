@@ -58,7 +58,7 @@ pub(super) fn open_current(root: &TrustedRoot) -> Result<(Store, bool)> {
     }
     Ok((legacy, false))
 }
-fn project_id(source: &str) -> String {
+pub(crate) fn project_id(source: &str) -> String {
     format!(
         "project-{}",
         &format!("{:x}", Sha256::digest(source.as_bytes()))[..32]
@@ -142,10 +142,13 @@ pub(super) fn validate_catalog(records: &[WorkspaceRecord], managed: bool) -> Re
     Ok(())
 }
 impl Inner {
-    fn commit_projects(&mut self, next: Persisted) -> Result<()> {
+    fn commit_projects(&mut self, next: Persisted, publish: bool) -> Result<()> {
         validate_catalog(&next.workspaces, false)?;
         let bytes = serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?;
         super::store::snapshot_budget(&bytes)?;
+        if !publish {
+            return Ok(());
+        }
         if !self.project_mode {
             // 首次项目写入时切换副本。旧版可继续打开自己的偏好；两个副本此后独立。
             self.store.verify_current()?;
@@ -175,12 +178,99 @@ impl Inner {
         Ok(())
     }
 }
+// 仅携带项目身份和显示信息。目录授权、源机器路径、渠道及凭据均不属于归档格式。
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PortableProject {
+    pub id: String,
+    pub name: String,
+    origin: String,
+    source_project_id: Option<String>,
+    created_at: u64,
+    updated_at: u64,
+}
+impl PortableProject {
+    fn from_record(record: &WorkspaceRecord) -> Result<Self> {
+        let w = &record.workspace;
+        Ok(Self {
+            id: w.id.clone(),
+            name: record.local_name.as_ref().unwrap_or(&w.name).clone(),
+            origin: w
+                .project_origin
+                .clone()
+                .ok_or(DesktopError("workspaceNotFound"))?,
+            source_project_id: record.source_project_id.clone(),
+            created_at: w.created_at,
+            updated_at: w.updated_at,
+        })
+    }
+    fn record(&self) -> WorkspaceRecord {
+        WorkspaceRecord {
+            workspace: Workspace {
+                id: self.id.clone(),
+                slug: self.id.clone(),
+                name: self.name.clone(),
+                created_at: self.created_at,
+                updated_at: self.updated_at,
+                project_origin: Some(self.origin.clone()),
+                directory_status: None,
+                has_directory_hint: None,
+            },
+            source_project_id: self.source_project_id.clone(),
+            effort: "high".into(),
+            binding: None,
+            local_name: None,
+        }
+    }
+    pub(crate) fn validate(&self) -> Result<()> {
+        validate_catalog(&[WorkspaceRecord::initial(), self.record()], false)
+            .map_err(|_| DesktopError("invalidProjectArchive"))
+    }
+}
 pub(crate) trait ProjectCatalog {
     fn check_project_text(&self, text: &str) -> Result<()>;
+    fn edit_projects_mode<T>(
+        &self,
+        publish: bool,
+        edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &Path) -> Result<T>,
+    ) -> Result<T>;
     fn edit_projects<T>(
         &self,
         edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &Path) -> Result<T>,
-    ) -> Result<T>;
+    ) -> Result<T> {
+        self.edit_projects_mode(true, edit)
+    }
+    fn portable_project(&self, id: &str) -> Result<Option<PortableProject>> {
+        self.edit_projects(|records, _| {
+            records
+                .iter()
+                .skip(1)
+                .find(|r| r.workspace.id == id)
+                .map(PortableProject::from_record)
+                .transpose()
+        })
+    }
+    fn prepare_portable_project(&self, project: &PortableProject, publish: bool) -> Result<()> {
+        project.validate()?;
+        self.check_project_text(&project.name)?;
+        self.check_project_text(&project.id)?;
+        if let Some(source) = &project.source_project_id {
+            self.check_project_text(source)?;
+        }
+        self.edit_projects_mode(publish, |records, _| {
+            if records.len() > MAX_PROJECTS {
+                return Err(DesktopError("projectLimit"));
+            }
+            if records.iter().any(|r| {
+                r.workspace.id == project.id
+                    || r.local_name.as_ref().unwrap_or(&r.workspace.name) == &project.name
+            }) {
+                return Err(DesktopError("projectConflict"));
+            }
+            records.push(project.record());
+            Ok(())
+        })
+    }
     fn import_projects(
         &self,
         projects: &[SourceProject],
@@ -397,8 +487,9 @@ impl ProjectCatalog for FormalPlatform {
     fn check_project_text(&self, text: &str) -> Result<()> {
         super::reject_credentials(&serde_json::json!(text), &self.known_keys)
     }
-    fn edit_projects<T>(
+    fn edit_projects_mode<T>(
         &self,
+        publish: bool,
         edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &Path) -> Result<T>,
     ) -> Result<T> {
         let mut i = self
@@ -408,7 +499,7 @@ impl ProjectCatalog for FormalPlatform {
         let mut next = i.state.clone();
         let result = edit(&mut next.workspaces, i.root.path())?;
         if i.state.workspaces != next.workspaces {
-            i.commit_projects(next)?;
+            i.commit_projects(next, publish)?;
         }
         Ok(result)
     }

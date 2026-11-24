@@ -2,6 +2,8 @@
 mod credentialed_provider;
 pub(crate) use credentialed_provider::CredentialedImageProvider;
 mod disk;
+mod portable;
+pub(crate) use portable::PortableImages;
 mod imports;
 mod provider;
 mod routes;

@@ -17,6 +17,8 @@ use std::{
     path::Path,
     sync::{atomic::AtomicBool, Arc},
 };
+#[path = "portable.rs"]
+pub(crate) mod portable;
 #[path = "import_workspace.rs"]
 mod workspace;
 pub(super) const PREFIX: &str = "electron-import-";
@@ -34,6 +36,8 @@ pub(super) struct Seed {
     fingerprint: String,
     messages: Vec<SourceMessage>,
     files: Vec<StoredFile>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    turns: Vec<super::Turn>,
     #[serde(skip)]
     claimed_workspace: Option<String>,
 }
@@ -151,6 +155,15 @@ fn write_json_with_sync(
     result
 }
 fn integrity(seed: &Seed) -> Result<String> {
+    if seed.version == 2 {
+        return digest(&(
+            &seed.session,
+            &seed.fingerprint,
+            &seed.messages,
+            &seed.files,
+            &seed.turns,
+        ));
+    }
     digest(&(
         seed.version,
         &seed.session,
@@ -180,7 +193,7 @@ fn validate_files(seed: &Seed, dir: &Path, read_bytes: bool) -> Result<()> {
 }
 pub(super) fn load(dir: &Path, sid: &str) -> Result<Seed> {
     let mut seed: Seed = read_json(&dir.join(SEED_FILE))?;
-    if seed.version != 1 {
+    if seed.version != 1 || !seed.turns.is_empty() {
         return Err(DesktopError("unsupportedVersion"));
     }
     validate_messages(&seed.messages)?;
@@ -199,6 +212,12 @@ pub(super) fn load(dir: &Path, sid: &str) -> Result<Seed> {
     Ok(seed)
 }
 impl Seed {
+    pub(super) fn has_archived_request(&self, rid: &str) -> bool {
+        self.turns.iter().any(|turn| turn.request_id == rid)
+    }
+    pub(super) fn metadata(&self) -> &Session {
+        &self.session
+    }
     pub(super) fn workspace(&self) -> Option<&str> {
         self.session
             .workspace_id
@@ -206,7 +225,7 @@ impl Seed {
             .or(self.claimed_workspace.as_deref())
     }
     pub(super) fn len(&self) -> usize {
-        self.messages.len()
+        self.messages.len() + self.turns.len()
     }
     fn prefix(&self) -> Vec<ChatMessage> {
         self.messages
@@ -220,9 +239,36 @@ impl Seed {
                 },
                 content: m.text.clone(),
             })
+            .chain(
+                self.turns
+                    .iter()
+                    .filter(|t| t.status == crate::session_lifecycle::RunStatus::Completed)
+                    .flat_map(|t| {
+                        [
+                            ChatMessage {
+                                role: ChatRole::User,
+                                content: t.user_message.clone(),
+                            },
+                            ChatMessage {
+                                role: ChatRole::Assistant,
+                                content: t.assistant_message.clone(),
+                            },
+                        ]
+                    })
+                    .filter(|m| !m.content.is_empty()),
+            )
             .collect()
     }
     pub(super) fn turn(&self, index: usize) -> Result<Value> {
+        if index >= self.messages.len() {
+            let turn = self
+                .turns
+                .get(index - self.messages.len())
+                .ok_or(DesktopError("invalidCursor"))?;
+            let mut value = json!(turn);
+            value["toolState"] = Value::Null;
+            return Ok(value);
+        }
         let m = self
             .messages
             .get(index)
@@ -354,6 +400,7 @@ impl DesktopRuntime {
                 fingerprint,
                 messages: source.messages.clone(),
                 files,
+                turns: vec![],
                 claimed_workspace: None,
             };
             seed.integrity = integrity(&seed)?;
@@ -449,7 +496,11 @@ impl Inner {
         if let Some(seed) = self.imported.get(sid) {
             let dir = self.journal.root.join(sid);
             store::existing_run_layout(&dir)?;
-            let fresh = load(&dir, sid)?;
+            let fresh = if seed.version == 2 {
+                portable::load(&dir, sid, &seed.integrity)?
+            } else {
+                load(&dir, sid)?
+            };
             if fresh.integrity != seed.integrity {
                 return Err(DesktopError("corruptImport"));
             }

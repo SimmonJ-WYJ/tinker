@@ -4,6 +4,7 @@ mod document_send;
 mod execution;
 pub(crate) use execution::TextRetry;
 mod import;
+pub(crate) use import::portable::{PortableEntry, PortableSession};
 pub use import::ImportReceipt;
 pub(crate) mod profile;
 mod project_tasks;
@@ -159,6 +160,7 @@ impl DesktopRuntime {
             inner.revisions = prepared.revisions;
             inner.availability = Some(prepared.enabled);
         }
+        let mut portable_entries = BTreeMap::new();
         for record in records {
             match record.entry {
                 Entry::Session { session } => {
@@ -200,6 +202,24 @@ impl DesktopRuntime {
                         .or_default();
                     inner.sessions.insert(session.session_id.clone(), session);
                 }
+                Entry::PortableSessions { sessions } => {
+                    for entry in sessions {
+                        let sid = entry.session_id.clone();
+                        id(&sid)?;
+                        let seed = import::portable::load(
+                            &inner.journal.root.join(&sid),
+                            &sid,
+                            &entry.integrity,
+                        )?;
+                        if inner.sessions.contains_key(&sid) || inner.sessions.len() >= MAX_SESSIONS
+                        {
+                            return Err(DesktopError("corruptJournal"));
+                        }
+                        inner.sessions.insert(sid.clone(), seed.metadata().clone());
+                        inner.bindings.insert(sid.clone(), vec![]);
+                        portable_entries.insert(sid, seed);
+                    }
+                }
                 Entry::Bind { binding } => {
                     inner.apply_plain_binding(binding)?;
                 }
@@ -215,7 +235,9 @@ impl DesktopRuntime {
             store::existing_run_layout(&inner.journal.root.join(session_id))?;
         }
         for session in inner.sessions.values() {
-            if session.session_id.starts_with(import::PREFIX) {
+            if let Some(seed) = portable_entries.remove(&session.session_id) {
+                inner.imported.insert(session.session_id.clone(), seed);
+            } else if session.session_id.starts_with(import::PREFIX) {
                 if let Ok(seed) = import::load(
                     &inner.journal.root.join(&session.session_id),
                     &session.session_id,
@@ -404,6 +426,7 @@ impl Inner {
                     && s.profile_id == p.profile_id
                     && s.workspace_id == p.workspace_id
                     && !s.session_id.starts_with(import::PREFIX)
+                    && !self.imported.contains_key(&s.session_id)
                     && self.bindings.get(&s.session_id).is_some_and(Vec::is_empty)
             }) {
                 return Ok(json!(s));
@@ -412,7 +435,21 @@ impl Inner {
         if self.sessions.len() >= MAX_SESSIONS {
             return Err(DesktopError("sessionLimit"));
         }
-        let session_id = format!("session-{}", self.sessions.len() + 1);
+        let mut next = self.sessions.len() + 1;
+        let session_id = loop {
+            let candidate = format!("session-{next}");
+            if !self.sessions.contains_key(&candidate)
+                && !self
+                    .journal
+                    .root
+                    .join(&candidate)
+                    .join("portable-owner-v1.json")
+                    .try_exists()?
+            {
+                break candidate;
+            }
+            next += 1;
+        };
         let path = self.journal.root.join(&session_id);
         store::directory(&path)?;
         let run_store = RunStore::open(&path)?;

@@ -24,6 +24,7 @@ pub const MOCK_CONFIG_REVISION: &str = "local-mock-protocol-v1";
 pub const MOCK_KEY: &str = "synthetic-local-mock-key";
 #[derive(Debug, Clone)]
 enum RootLocation {
+    PortableStaging(PathBuf),
     ChannelsTemporary,
     ChannelsAppData(PathBuf),
     Temporary,
@@ -44,6 +45,11 @@ struct Marker {
     root: PathBuf,
 }
 impl TrustedRoot {
+    pub(crate) fn create_portable_staging(parent: &TrustedRoot) -> Result<Self> {
+        parent.validate()?;
+        let base = parent.path().join("portable-project-v1");
+        Self::create(&base.join("stage"), RootLocation::PortableStaging(base))
+    }
     pub fn create_channels_temporary(path: impl AsRef<Path>) -> Result<Self> {
         Self::create(path.as_ref(), RootLocation::ChannelsTemporary)
     }
@@ -103,6 +109,9 @@ impl TrustedRoot {
         self.validate()
     }
     fn kind(location: &RootLocation) -> &'static str {
+        if matches!(location, RootLocation::PortableStaging(_)) {
+            return "tinker-portable-staging";
+        }
         if matches!(
             location,
             RootLocation::ChannelsTemporary | RootLocation::ChannelsAppData(_)
@@ -151,6 +160,13 @@ impl TrustedRoot {
             return Err(DesktopError("invalidRoot"));
         }
         match location {
+            RootLocation::PortableStaging(expected) => {
+                if parent != expected || path.file_name().and_then(|v| v.to_str()) != Some("stage")
+                {
+                    return Err(DesktopError("invalidRoot"));
+                }
+                directory(parent, true)?;
+            }
             RootLocation::Temporary
             | RootLocation::ToolsTemporary
             | RootLocation::ChannelsTemporary => {

@@ -127,6 +127,25 @@ fn generate_edit_failure_and_reopen_post_only_explicit_images() {
         STANDARD.encode(pixel(1))
     );
     assert!(reopened.attachment("other", &original.filename).is_err());
+    let mut budget = 2 * MAX_PNG;
+    let mut archived = reopened.export_portable("session", &mut budget).unwrap();
+    archived.remap_session("session", "relocated").unwrap();
+    reopened.stage_portable("relocated", &archived).unwrap();
+    let restored = reopened.history("relocated").unwrap();
+    let original = restored[0].asset.as_ref().unwrap();
+    assert_ne!(&original.id, id);
+    let edited = restored[1].asset.as_ref().unwrap();
+    assert_eq!(edited.reference_ids, std::slice::from_ref(&original.id));
+    assert_eq!(restored[2].base_image_id.as_ref(), Some(&original.id));
+    assert_eq!(
+        reopened
+            .attachment("relocated", &edited.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        pixel(2)
+    );
+
     drop(reopened);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -1135,4 +1154,63 @@ fn import_index_write_failure_discards_only_the_uncommitted_original() {
     );
     drop(store);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn portable_images_only_copy_indexed_verified_originals_to_a_fresh_session() {
+    let a = root();
+    let b = root();
+    let c = root();
+    let source = ImageStore::open(&a).unwrap();
+    let target = ImageStore::open(&b).unwrap();
+    let broken = ImageStore::open(&c).unwrap();
+    let png = pixel(74);
+    let asset = source.import_png("ours", "selected.png", &png, 1).unwrap();
+    source
+        .import_png("other", "another.png", &pixel(4), 2)
+        .unwrap();
+    assert!(source.export_portable("ours", &mut 0).is_err());
+    let mut budget = usize::MAX;
+    let images = source.export_portable("ours", &mut budget).unwrap();
+    assert_eq!(images.image_count(), 1);
+    let json = serde_json::to_string(&images).unwrap();
+    let field = format!(r#""{}":"{}""#, asset.filename, STANDARD.encode(&png));
+    assert!(json.contains(&field));
+    let duplicate = json.replace(&field, &format!("{field},{field}"));
+    assert!(serde_json::from_str::<PortableImages>(&duplicate).is_err());
+    target.stage_portable("ours", &images).unwrap();
+    assert_eq!(
+        target
+            .attachment("ours", &asset.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        png
+    );
+    assert!(target.stage_portable("ours", &images).is_err());
+    let mut relocated = images.clone();
+    relocated.remap_session("ours", "restored").unwrap();
+    target.stage_portable("restored", &relocated).unwrap();
+    let relocated_import = &target.imports("restored").unwrap()[0];
+    assert_ne!(relocated_import.id, asset.id);
+    assert_eq!(
+        target
+            .attachment("restored", &relocated_import.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        png
+    );
+    let mut archive = serde_json::to_value(&images).unwrap();
+    archive["pngs"][&asset.filename] = json!(STANDARD.encode(pixel(32)));
+    assert_eq!(
+        broken
+            .stage_portable("ours", &serde_json::from_value(archive).unwrap())
+            .unwrap_err()
+            .0,
+        "corruptImages"
+    );
+    for root in [a, b, c] {
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

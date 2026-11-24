@@ -72,6 +72,8 @@ pub(super) struct Actor {
     pub barriers: BTreeMap<String, Barrier>,
     pub terminal_receipts: BTreeMap<String, TerminalReceipt>,
     pub permission_owners: BTreeMap<String, (String, String)>,
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    pub pending_backup: Option<super::project_backup::Pending>,
     pub generation: String,
     pub generation_seq: u64,
     pub sequence: u64,
@@ -107,6 +109,8 @@ impl Actor {
             barriers: BTreeMap::new(),
             terminal_receipts: BTreeMap::new(),
             permission_owners: BTreeMap::new(),
+            #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+            pending_backup: None,
             generation: String::new(),
             generation_seq: 0,
             sequence: 0,
@@ -326,6 +330,10 @@ impl Actor {
                     let _ = self.gate.abort(&t.close_token);
                 }
                 self.generation_seq += 1;
+                #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+                {
+                    self.pending_backup = None;
+                }
                 self.generation = format!("document-{}", self.generation_seq);
                 self.attached = false;
                 self.barriers.clear();
@@ -337,7 +345,7 @@ impl Actor {
                     e.resync = true;
                 }
                 Ok(Some(
-                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeImageAssetReads":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectTaskStatuses":self.native_task_lifecycle()&&self.projects_supported(),"nativeProjectDocuments":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
+                    json!({"version":1,"generation":self.generation,"platformSnapshot":self.platform.bootstrap()?,"activeRuns":self.active_runs()?,"queueing":self.queueing,"nativeImages":self.images.is_some(),"nativeImageAssetReads":self.images.is_some(),"nativeTaskLifecycle":self.native_task_lifecycle(),"nativeImageTaskLifecycle":self.native_task_lifecycle(),"nativeProjectTaskStatuses":self.native_task_lifecycle()&&self.projects_supported(),"nativeProjectBackups":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeProjectDocuments":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeProjectBinding":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeSessionImport":cfg!(all(target_os="macos",feature="formal-preview"))&&self.projects_supported(),"nativeImageFiles":cfg!(all(target_os="macos",feature="formal-preview"))&&self.images.is_some(),"credentialedChannels":self.credentialed.is_some()}),
                 ))
             }
             Command::Attach { observed, .. } => {
@@ -514,6 +522,10 @@ impl Actor {
                 let ticket = self
                     .gate
                     .begin(&self.generation, self.platform.bootstrap()?.revision)?;
+                #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+                {
+                    self.pending_backup = None;
+                }
                 self.ticket = Some(ticket.clone());
                 Ok(Some(json!(ticket)))
             }

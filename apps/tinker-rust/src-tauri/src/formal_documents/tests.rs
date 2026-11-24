@@ -395,3 +395,47 @@ fn protected_text_in_pdf_is_checked_after_extraction_and_before_publishing() {
     assert_eq!(result.unwrap_err().0, "invalidParams");
     assert!(!project_path(&f.0, "p").unwrap().exists());
 }
+
+#[test]
+fn portable_docs_reopen_by_original_id_and_reject_tampered_text() {
+    let a = Fixture::new();
+    let b = Fixture::new();
+    let doc = import_selected(&a.0, "one", "来源.md", b"heading\nsource").unwrap();
+    import_selected(&a.0, "two", "other.txt", b"other project").unwrap();
+    let mut docs = export_portable(&a.0, "one").unwrap();
+    assert_eq!(docs.len(), 1);
+    stage_portable(&b.0, "one", &docs).unwrap();
+    let reopened = TrustedRoot::open_temporary(b.0.path()).unwrap();
+    assert_eq!(
+        read(&reopened, "one", &selection(&doc, 2, 2)).unwrap().text,
+        "source"
+    );
+    docs[0].text.replace_range(0..1, "x");
+    assert_eq!(
+        stage_portable(&Fixture::new().0, "one", &docs)
+            .unwrap_err()
+            .0,
+        "corruptSnapshot"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn portable_pdf_restores_blank_page_boundaries_without_shipping_input_file() {
+    let a = Fixture::new();
+    let b = Fixture::new();
+    let bytes = pdf_fixture(&[&["one"], &[], &["third", "second line"]]);
+    let pdf = import_selected(&a.0, "work", "selected.pdf", &bytes).unwrap();
+    let records = export_portable(&a.0, "work").unwrap();
+    stage_portable(&b.0, "work", &records).unwrap();
+    drop(a);
+    let selection = DocumentSelection {
+        document_id: pdf.document_id,
+        page: Some(3),
+        start_line: 2,
+        end_line: 2,
+    };
+    let out = read(&b.0, "work", &selection).unwrap();
+    assert_eq!(out.document.page_line_counts, Some(vec![1, 0, 2]));
+    assert_eq!(out.text, "second line");
+}

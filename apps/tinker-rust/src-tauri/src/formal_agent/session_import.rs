@@ -21,6 +21,7 @@ pub(crate) enum DocumentStep {
     Read(crate::formal_documents::DocumentSelection),
 }
 pub(crate) enum ImportStep {
+    Backup(super::project_backup::Step),
     Document {
         workspace: String,
         step: DocumentStep,
@@ -47,6 +48,7 @@ pub(crate) enum ImportStep {
     Commit(u64, Box<SourceSession>),
 }
 pub(crate) enum ImportReply {
+    BackupBytes(Vec<u8>),
     Document(serde_json::Value),
     Permit { destination: PathBuf, epoch: u64 },
     Valid,
@@ -79,11 +81,11 @@ impl FormalAgentHost {
     }
 }
 impl Actor {
-    pub(super) fn session_import(&self, call: ImportCall) {
+    pub(super) fn session_import(&mut self, call: ImportCall) {
         let result = self.import_step(&call.generation, call.step);
         let _ = call.reply.send(result);
     }
-    fn import_step(&self, generation: &str, step: ImportStep) -> Result<ImportReply> {
+    fn import_step(&mut self, generation: &str, step: ImportStep) -> Result<ImportReply> {
         if generation.is_empty() || generation != self.generation {
             return Err(DesktopError("staleGeneration"));
         }
@@ -111,6 +113,7 @@ impl Actor {
             }
         }
         match step {
+            ImportStep::Backup(step) => self.project_backup(now, step),
             ImportStep::Document { workspace, step } => {
                 self.platform.require_workspace(
                     crate::formal_platform::workspace::WorkspaceKey::Id(&workspace),

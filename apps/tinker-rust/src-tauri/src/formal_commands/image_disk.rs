@@ -32,9 +32,6 @@ fn open_at(dir: &File, leaf: &CString, flags: i32) -> Result<File> {
     }
     Ok(unsafe { File::from_raw_fd(fd) })
 }
-fn directory(path: &Path) -> Result<File> {
-    directory_outside(path, None)
-}
 fn directory_outside(path: &Path, excluded: Option<(u64, u64)>) -> Result<File> {
     let mut parts = path.components();
     if parts.next() != Some(Component::RootDir) {
@@ -106,12 +103,12 @@ pub(crate) struct StagedExport {
     temp: CString,
     dest: CString,
     active: bool,
+    excluded: Option<(u64, u64)>,
 }
 pub(super) fn stage_export(path: &Path, bytes: &[u8]) -> Result<StagedExport> {
     if bytes.len() > crate::formal_images::MAX_PNG {
         return Err(DesktopError("imageTooLarge"));
     }
-    let (parent, leaf) = split(path)?;
     if !path
         .extension()
         .and_then(OsStr::to_str)
@@ -119,29 +116,59 @@ pub(super) fn stage_export(path: &Path, bytes: &[u8]) -> Result<StagedExport> {
     {
         return Err(DesktopError("unsupportedImageFormat"));
     }
-    let dir = directory(parent)?;
-    let temp = CString::new(format!(
-        ".tinker-{}.tmp",
-        crate::credentialed_channels::catalog::random_reference()?
-    ))
-    .map_err(unavailable)?;
-    let mut file = open_at(&dir, &temp, libc::O_CREAT | libc::O_EXCL | libc::O_WRONLY)?;
-    let stage = StagedExport {
+    destination(path, None)?.stage(bytes)
+}
+
+pub(super) struct Destination {
+    dir: File,
+    parent: PathBuf,
+    dest: CString,
+    excluded: Option<(u64, u64)>,
+}
+pub(super) fn destination(path: &Path, excluded: Option<(u64, u64)>) -> Result<Destination> {
+    let (parent, leaf) = split(path)?;
+    let dir = directory_outside(parent, excluded)?;
+    Ok(Destination {
         dir,
         parent: parent.to_owned(),
-        temp,
         dest: name(OsStr::new(leaf))?,
-        active: true,
-    };
-    file.write_all(bytes)
-        .and_then(|()| file.sync_all())
+        excluded,
+    })
+}
+impl Destination {
+    pub(super) fn stage(self, bytes: &[u8]) -> Result<StagedExport> {
+        let Self {
+            dir,
+            parent,
+            dest,
+            excluded,
+        } = self;
+        let temp = CString::new(format!(
+            ".tinker-{}.tmp",
+            crate::credentialed_channels::catalog::random_reference()?
+        ))
         .map_err(unavailable)?;
-    Ok(stage)
+        let mut file = open_at(&dir, &temp, libc::O_CREAT | libc::O_EXCL | libc::O_WRONLY)?;
+        let stage = StagedExport {
+            dir,
+            parent,
+            temp,
+            dest,
+            excluded,
+            active: true,
+        };
+        file.write_all(bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(unavailable)?;
+        Ok(stage)
+    }
 }
 impl StagedExport {
     pub(crate) fn commit(mut self) -> Result<()> {
         let expected = self.dir.metadata().map_err(unavailable)?;
-        let current = directory(&self.parent)?.metadata().map_err(unavailable)?;
+        let current = directory_outside(&self.parent, self.excluded)?
+            .metadata()
+            .map_err(unavailable)?;
         if (current.dev(), current.ino()) != (expected.dev(), expected.ino()) {
             return Err(unavailable(()));
         }

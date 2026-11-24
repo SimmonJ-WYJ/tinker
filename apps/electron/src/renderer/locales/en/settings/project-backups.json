@@ -1,0 +1,39 @@
+{
+  "projectBackups": {
+    "title": "Project backups",
+    "exportLabel": "Back up a project",
+    "exportDescription": "Save the project's conversations, managed images, and documents with their references. Workspace files and channel credentials are excluded.",
+    "project": "Project to back up",
+    "selectProject": "Choose a project",
+    "export": "Save backup",
+    "restoreLabel": "Restore a project",
+    "restoreDescription": "Choose a Tinker project backup to review its contents before restoring.",
+    "pick": "Choose backup",
+    "counts": "Conversations ({{sessions}}) · Documents ({{documents}}) · Images ({{images}})",
+    "rebind": "You can link a local folder to the restored project separately.",
+    "cancel": "Cancel",
+    "confirm": "Restore project",
+    "working": "Working on the project backup…",
+    "saved": "Project backup saved.",
+    "duplicate": "This project backup was already restored.",
+    "restored": "Project restored.",
+    "refresh": "Refresh projects",
+    "errors": {
+      "backupFileExists": "A file already exists at this location. Choose a new file name.",
+      "backupFileUnavailable": "Could not read or save the backup file. Choose another file or location.",
+      "backupTooLarge": "The backup exceeds the allowed size.",
+      "backupSelectionExpired": "The backup selection expired. Choose the backup again.",
+      "invalidProjectArchive": "This file is not a valid Tinker project backup.",
+      "archiveChecksumMismatch": "The backup failed its integrity check.",
+      "unsupportedVersion": "This version of Tinker cannot open the backup format.",
+      "storageLimit": "The backup exceeds the allowed content or storage limits.",
+      "projectConflict": "The backup conflicts with an existing project. Existing project data was kept.",
+      "recoveryRequired": "Restart the preview to recover the previous backup operation.",
+      "projectArchiveBusy": "Finish or stop the active project tasks, then try again.",
+      "missingArchiveAsset": "The project backup is missing a required asset.",
+      "imageDialogBusy": "Close the other file dialog and try again.",
+      "failed": "The project backup operation could not be completed.",
+      "refresh": "The backup is restored, but the project list could not refresh."
+    }
+  }
+}

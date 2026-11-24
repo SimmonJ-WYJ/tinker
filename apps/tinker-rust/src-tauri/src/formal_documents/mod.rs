@@ -61,9 +61,26 @@ mod disk;
 #[cfg(unix)]
 mod storage;
 #[cfg(unix)]
-pub use storage::{list, read};
+pub(crate) use storage::{export_portable, prepare_selected, publish_selected, stage_portable};
 #[cfg(unix)]
-pub(crate) use storage::{prepare_selected, publish_selected};
+pub use storage::{list, read};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PortableDocument {
+    document: DocumentSummary,
+    digest: String,
+    text: String,
+}
+
+#[cfg(not(unix))]
+pub(crate) fn export_portable(_: &TrustedRoot, _: &str) -> Result<Vec<PortableDocument>> {
+    Err(DesktopError("unsupportedPlatform"))
+}
+#[cfg(not(unix))]
+pub(crate) fn stage_portable(_: &TrustedRoot, _: &str, _: &[PortableDocument]) -> Result<()> {
+    Err(DesktopError("unsupportedPlatform"))
+}
 
 /// 只在宿主内存中传递的规范化资料，不作为渲染层的可反序列化输入。
 pub(crate) struct PreparedDocument {

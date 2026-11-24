@@ -3,6 +3,25 @@ use super::*;
 pub(crate) fn fail_after_rename(platform: &FormalPlatform) {
     platform.inner.lock().unwrap().store.fail_after_rename = true;
 }
+pub(crate) fn fill_snapshot_budget(platform: &FormalPlatform) {
+    let mut inner = platform.inner.lock().unwrap();
+    let id = "qa-draft".to_owned();
+    inner
+        .state
+        .settings
+        .session_drafts
+        .insert(id.clone(), String::new());
+    let used = serde_json::to_vec(&inner.state).unwrap().len();
+    inner
+        .state
+        .settings
+        .session_drafts
+        .insert(id, "x".repeat(MAX_SNAPSHOT_BYTES - used));
+    assert_eq!(
+        serde_json::to_vec(&inner.state).unwrap().len(),
+        MAX_SNAPSHOT_BYTES
+    );
+}
 #[test]
 fn directory_sync_failure_never_acknowledges_and_requires_restart() {
     let path = std::fs::canonicalize(std::env::temp_dir())

@@ -1,0 +1,39 @@
+{
+  "projectBackups": {
+    "title": "项目备份",
+    "exportLabel": "备份项目",
+    "exportDescription": "保存项目中的对话、托管图片、资料及其引用。备份不包含工作区文件或渠道凭据。",
+    "project": "要备份的项目",
+    "selectProject": "选择项目",
+    "export": "保存备份",
+    "restoreLabel": "恢复项目",
+    "restoreDescription": "选择 Tinker 项目备份，确认内容后再恢复。",
+    "pick": "选择备份",
+    "counts": "{{sessions}} 个对话、{{documents}} 份资料、{{images}} 张图片",
+    "rebind": "你可以为恢复后的项目单独绑定本地文件夹。",
+    "cancel": "取消",
+    "confirm": "恢复项目",
+    "working": "正在处理项目备份…",
+    "saved": "项目备份已保存。",
+    "duplicate": "此项目备份已恢复过。",
+    "restored": "项目已恢复。",
+    "refresh": "刷新项目",
+    "errors": {
+      "backupFileExists": "该位置已有同名文件，请选择新的文件名。",
+      "backupFileUnavailable": "无法读取或保存备份文件，请选择其他文件或位置。",
+      "backupTooLarge": "备份超过允许的大小。",
+      "backupSelectionExpired": "备份选择已过期，请重新选择。",
+      "invalidProjectArchive": "这个文件不是有效的 Tinker 项目备份。",
+      "archiveChecksumMismatch": "备份未通过完整性检查。",
+      "unsupportedVersion": "当前版本的 Tinker 无法打开此备份格式。",
+      "storageLimit": "备份超过允许的内容或存储上限。",
+      "projectConflict": "备份与已有项目冲突，已保留现有项目数据。",
+      "recoveryRequired": "请重启预览版以恢复上一次备份操作。",
+      "projectArchiveBusy": "请等待项目任务结束或停止任务后再试。",
+      "missingArchiveAsset": "项目备份缺少必要的资产。",
+      "imageDialogBusy": "请关闭其他文件对话框后再试。",
+      "failed": "无法完成项目备份操作。",
+      "refresh": "备份已恢复，但无法刷新项目列表。"
+    }
+  }
+}

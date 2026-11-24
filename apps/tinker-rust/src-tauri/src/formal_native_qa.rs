@@ -144,6 +144,9 @@ pub(crate) fn accepts_fixture_panels(identifier: &str) -> bool {
 pub(crate) fn image_panel_selection(save: bool) -> Option<Option<PathBuf>> {
     picker::selection(save)
 }
+pub(crate) fn backup_panel_selection() -> Option<Option<PathBuf>> {
+    picker::backup_selection()
+}
 pub(crate) fn document_panel_selection() -> Option<Option<PathBuf>> {
     picker::document_selection()
 }
@@ -209,6 +212,7 @@ pub fn start(window: tauri::WebviewWindow) {
                 "activate-owned-window" => foreground(&window, true),
                 "foreground-state" => foreground(&window, false),
                 "image-picker-consumed" => picker::consumed(),
+                "arm-backup-picker" => picker::arm_folder(&picker::BACKUP_FILE, &command["choice"]),
                 "arm-document-picker" => picker::arm_document(&command["choice"]),
                 "arm-image-picker" => picker::arm(&command["choice"]),
                 "arm-session-folder" => {

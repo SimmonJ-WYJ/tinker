@@ -28,6 +28,7 @@ pub mod desktop_commands;
 pub mod desktop_runtime;
 
 pub mod formal_platform;
+pub(crate) mod portable_project;
 
 pub mod formal_agent;
 pub mod formal_host;

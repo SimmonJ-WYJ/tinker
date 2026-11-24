@@ -24,7 +24,7 @@ fn valid_name(name: &str) -> bool {
             .chars()
             .any(|c| c.is_control() || c == '/' || c == '\\')
 }
-fn reference_id(session: &str, name: &str, sha: &str) -> String {
+pub(super) fn reference_id(session: &str, name: &str, sha: &str) -> String {
     format!(
         "ref-{}",
         &digest(format!("{session}\0{name}\0{sha}").as_bytes())[..32]
