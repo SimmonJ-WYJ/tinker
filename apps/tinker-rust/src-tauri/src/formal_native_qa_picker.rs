@@ -111,6 +111,10 @@ pub(super) fn arm_document(value: &Value) -> Result<Value, String> {
         Some("invalid") => Some("qa-project-invalid.txt"),
         Some("oversized") => Some("qa-project-oversized.txt"),
         Some("pdf") => Some("qa-project-scan.pdf"),
+        Some("pdf-pages") => Some("qa-project-pages.pdf"),
+        Some("pdf-encrypted") => Some("qa-project-protected.pdf"),
+        Some("pdf-damaged") => Some("qa-project-damaged.pdf"),
+        Some("pdf-limit") => Some("qa-project-long.pdf"),
         _ => return Err("Unknown QA document choice".into()),
     };
     let mut next = DOCUMENT_CHOICE

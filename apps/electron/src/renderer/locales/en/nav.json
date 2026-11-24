@@ -182,7 +182,7 @@
   "documents": {
     "title": "Project documents",
     "source": "{{name}} · lines {{start}}–{{end}}",
-    "empty": "No documents imported. Choose a UTF-8 text or Markdown file.",
+    "empty": "No documents imported. Choose a text file, Markdown file, or PDF with selectable text.",
     "start": "First line",
     "end": "Last line",
     "lineCount": "{{count}} lines",
@@ -193,7 +193,7 @@
     "loading": "Loading document…",
     "retry": "Try again",
     "invalid": "Choose a readable UTF-8 document with text content.",
-    "unsupported": "Choose a .txt, .md, or .markdown file. PDF is not supported.",
+    "unsupported": "Choose a .txt, .md, .markdown, or .pdf file.",
     "rangeError": "Choose a range in this document of at most 80 lines and 8 KiB of text.",
     "tooLarge": "This document exceeds the import limit. Choose a smaller file.",
     "missing": "This document is unavailable in this project.",
@@ -201,7 +201,16 @@
     "unavailable": "This file is unavailable. Choose an accessible local file.",
     "error": "Could not read the project documents. Try again.",
     "textOnly": "Use a text model and send your question with only the document reference.",
-    "import": "Import document"
+    "import": "Import document",
+    "pageSource": "{{name}} · page {{page}} · lines {{start}}–{{end}}",
+    "page": "Page",
+    "pagePosition": "{{page}} of {{total}}",
+    "emptyPage": "This page has no text to quote.",
+    "pdfEncrypted": "This PDF is encrypted. Choose an unencrypted copy.",
+    "pdfNoText": "This PDF has no extractable text. Choose a PDF with a text layer.",
+    "invalidPdf": "This PDF could not be parsed. Choose a readable copy.",
+    "pdfParseTimeout": "Reading this PDF took too long. Try a shorter or simpler copy.",
+    "pdfParserUnavailable": "PDF text extraction is unavailable on this device. You can import a text or Markdown copy."
   },
   "projectTree": {
     "expand": "Expand {{name}}",

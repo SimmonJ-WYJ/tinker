@@ -182,7 +182,7 @@
   "documents": {
     "title": "项目资料",
     "source": "{{name}} · 第 {{start}}–{{end}} 行",
-    "empty": "尚未导入资料。请选择 UTF-8 文本或 Markdown 文件。",
+    "empty": "尚未导入资料。请选择文本、Markdown 或含文字层的 PDF 文件。",
     "start": "起始行",
     "end": "结束行",
     "lineCount": "共 {{count}} 行",
@@ -193,7 +193,7 @@
     "loading": "正在读取资料…",
     "retry": "重试",
     "invalid": "请选择包含可读正文的 UTF-8 资料。",
-    "unsupported": "请选择 .txt、.md 或 .markdown 文件。暂不支持 PDF。",
+    "unsupported": "请选择 .txt、.md、.markdown 或 .pdf 文件。",
     "rangeError": "请在资料范围内选择最多 80 行、8 KiB 的文字。",
     "tooLarge": "资料超过导入上限，请选择较小的文件。",
     "missing": "本项目中找不到这份资料。",
@@ -201,7 +201,16 @@
     "unavailable": "资料不可用，请重新选择可访问的本地文件。",
     "error": "无法读取项目资料，请重试。",
     "textOnly": "请选择文字模型，并仅随问题发送这一份资料引用。",
-    "import": "导入资料"
+    "import": "导入资料",
+    "pageSource": "{{name}} · 第 {{page}} 页 · 第 {{start}}–{{end}} 行",
+    "page": "页码",
+    "pagePosition": "第 {{page}} 页，共 {{total}} 页",
+    "emptyPage": "本页没有可引用的文字。",
+    "pdfEncrypted": "这份 PDF 已加密，请选择未加密的副本。",
+    "pdfNoText": "这份 PDF 没有可提取的文字，请选择含文字层的 PDF。",
+    "invalidPdf": "无法解析这份 PDF，请选择可正常打开的副本。",
+    "pdfParseTimeout": "读取这份 PDF 超时，请选择较短或较简单的副本。",
+    "pdfParserUnavailable": "当前设备无法提取 PDF 文字。可以导入文本或 Markdown 副本。"
   },
   "projectTree": {
     "expand": "展开 {{name}}",

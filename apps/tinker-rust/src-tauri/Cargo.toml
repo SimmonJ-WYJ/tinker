@@ -6,6 +6,7 @@ default-run = "tinker-rust-foundation"
 rust-version = "1.89"
 
 [build-dependencies]
+cc = "=1.2.60"
 tauri-build = { version = "2.5", features = [] }
 
 [dependencies]

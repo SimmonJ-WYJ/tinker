@@ -5,7 +5,9 @@ use super::{
 use crate::{
     desktop_runtime::protocol::{id, DesktopError, Result as HostResult},
     formal_agent::session_import::{DocumentStep, ImportReply, ImportStep},
-    formal_documents::{check_name, DocumentSelection, DOCUMENT_EXTENSIONS, MAX_DOCUMENT_BYTES},
+    formal_documents::{
+        check_name, input_limit, prepare_selected, DocumentSelection, DOCUMENT_EXTENSIONS,
+    },
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -71,14 +73,15 @@ struct Selected {
 }
 impl Selected {
     fn read(self) -> HostResult<(String, Vec<u8>)> {
-        let bytes = image_disk::read_bounded(self.file, MAX_DOCUMENT_BYTES, "documentTooLarge")
-            .map_err(|e| {
-                if e.0 == "imageFileUnavailable" {
-                    DesktopError("documentUnavailable")
-                } else {
-                    e
-                }
-            })?;
+        let bytes =
+            image_disk::read_bounded(self.file, input_limit(&self.filename), "documentTooLarge")
+                .map_err(|e| {
+                    if e.0 == "imageFileUnavailable" {
+                        DesktopError("documentUnavailable")
+                    } else {
+                        e
+                    }
+                })?;
         Ok((self.filename, bytes))
     }
 }
@@ -144,11 +147,9 @@ pub(super) async fn run<R: Runtime>(
             };
             super::guard(&window)?;
             let (filename, bytes) = picked.read()?;
-            reply = call(DocumentStep::Commit {
-                epoch,
-                filename,
-                bytes,
-            })?;
+            let prepared = prepare_selected(&filename, &bytes)?;
+            super::guard(&window)?;
+            reply = call(DocumentStep::Commit { epoch, prepared })?;
         }
         match reply {
             ImportReply::Document(value) => Ok(json!({"value":value})),
