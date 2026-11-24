@@ -10,7 +10,7 @@ import { TooltipProvider } from '../renderer/components/ui/tooltip'
 import { setAppLanguage } from '../renderer/lib/i18n'
 import { createFormalTransport } from './transport'
 
-test('sending consumes document consent immediately even if dispatch rejects and the next question is sent normally', async () => {
+for (const pdf of [false, true]) test(`sending a ${pdf ? 'PDF' : 'text'} citation consumes consent even when dispatch fails`, async () => {
   const previousApi = window.electronAPI, previousMarker = window.__TAURI_FORMAL__
   const requests: AgentSendInput[] = []
   let fail!: (error: Error) => void
@@ -25,10 +25,10 @@ test('sending consumes document consent immediately even if dispatch rejects and
   try {
     await setAppLanguage('en')
     for (const channel of ['event', 'complete', 'error']) transport.subscribe('agent:stream:' + channel, () => {})
-    const document = { filename: 'owned.md', documentId: 'doc-one', lineCount: 1, byteLength: 5 }
+    const document = { filename: pdf ? 'owned.pdf' : 'owned.md', ...(pdf && { pageLineCounts: [0, 1] }), documentId: 'doc-one', lineCount: 1, byteLength: 5 }
     window.__TAURI_FORMAL__ = { hydrated() {}, projectDocuments: {
       list: async () => [document], pick: async () => null,
-      read: async () => ({ document, startLine: 1, endLine: 1, text: 'owned' }),
+      read: async (_workspace, { page }) => ({ document, page, startLine: 1, endLine: 1, text: 'owned' }),
     } }
     window.electronAPI = { ...createDesktopApi(transport), sendAgentMessage: async input => {
       requests.push(input)
@@ -45,11 +45,12 @@ test('sending consumes document consent immediately even if dispatch rejects and
     store.set(agentSessionDraftsAtom, new Map([['s', 'First question']]))
     const view = render(<Provider store={store}><TooltipProvider><AgentView sessionId="s" /></TooltipProvider></Provider>)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Project documents' })) })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'owned.md' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: document.filename })) })
+    if (pdf) await act(async () => { fireEvent.change(screen.getByRole('combobox', { name: 'Page' }), { target: { value: '2' } }) })
     fireEvent.click(screen.getByRole('button', { name: 'Attach these lines' }))
-    expect(view.container.querySelector('[data-document-draft]')).toBeTruthy()
+    expect(view.container.querySelector('[data-document-draft]')).toHaveTextContent(pdf ? 'owned.pdf · page 2 · lines 1–1' : 'owned.md · lines 1–1')
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send message' })) })
-    expect(requests[0]?.nativeDocumentReference).toEqual({ documentId: 'doc-one', startLine: 1, endLine: 1 })
+    expect(requests[0]?.nativeDocumentReference).toEqual({ documentId: 'doc-one', ...(pdf && { page: 2 }), startLine: 1, endLine: 1 })
     expect(!!view.container.querySelector('[data-document-draft]')).toBe(false)
     await act(async () => { fail(new Error('Rejected by local fixture')) })
     await act(async () => { store.set(agentSessionDraftsAtom, new Map([['s', 'Unrelated question']])) })

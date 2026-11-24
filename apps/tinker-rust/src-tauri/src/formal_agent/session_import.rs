@@ -15,8 +15,7 @@ pub(crate) enum DocumentStep {
     Begin,
     Commit {
         epoch: u64,
-        filename: String,
-        bytes: Vec<u8>,
+        prepared: crate::formal_documents::PreparedDocument,
     },
     List,
     Read(crate::formal_documents::DocumentSelection),
@@ -124,20 +123,15 @@ impl Actor {
                             epoch: now,
                         })
                     }
-                    DocumentStep::Commit {
-                        epoch,
-                        filename,
-                        bytes,
-                    } => {
+                    DocumentStep::Commit { epoch, prepared } => {
                         if epoch != now {
                             return Err(DesktopError("closing"));
                         }
-                        self.platform.check_project_text(&filename)?;
-                        if let Ok(text) = std::str::from_utf8(&bytes) {
-                            self.platform.check_project_text(text)?;
-                        }
-                        serde_json::json!(formal_documents::import_selected(
-                            &self.root, &workspace, &filename, &bytes
+                        serde_json::json!(formal_documents::publish_selected(
+                            &self.root,
+                            &workspace,
+                            prepared,
+                            |text| self.platform.check_project_text(text),
                         )?)
                     }
                     DocumentStep::List => {

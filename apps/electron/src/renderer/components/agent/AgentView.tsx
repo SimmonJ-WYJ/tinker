@@ -9,7 +9,8 @@ import { applyPickedImage, reportImageFileError } from './native-image-files'
 import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
 import conversationPlus from '@/assets/conversation/plus.svg'
 import { ConversationReasoningSelector } from './ConversationReasoningSelector.tsx'
-import { ProjectDocuments } from './ProjectDocuments'
+import { documentSelection } from '../../../tauri-formal/project-documents'
+import { documentSourceLabel, ProjectDocuments } from './ProjectDocuments'
 import { ImageEditReference } from './ImageEditReference'
 import { latestTurnAttemptedImage, latestUserImageEditReferenceId } from './image-retry-policy.ts'
 import { BinaryBackdrop } from '../welcome/BinaryBackdrop'
@@ -1257,7 +1258,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       sessionId,
       userMessage: finalMessage,
       imageEditReferenceId: imageForSend?.imageId,
-      ...(cited && { nativeDocumentReference: { documentId: cited.documentId, startLine: cited.startLine, endLine: cited.endLine } }),
+      ...(cited && { nativeDocumentReference: documentSelection(cited) }),
       taskMode,
       channelId: agentChannelId,
       modelId: agentModelId || undefined,
@@ -1672,7 +1673,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
             <ImageEditReference sessionId={sessionId} />
             {selectedDocument && <div data-document-draft className="flex items-center gap-2 px-3 pt-2 text-sm">
-              <span>{tNav('documents.source', { name: selectedDocument.filename, start: selectedDocument.startLine, end: selectedDocument.endLine })}</span>
+              <span>{documentSourceLabel(tNav, selectedDocument)}</span>
               <Button type="button" size="sm" variant="ghost" onClick={() => setDocumentDraft(null)}>{tNav('documents.remove')}</Button>
             </div>}
             {/* 附件预览区域 */}

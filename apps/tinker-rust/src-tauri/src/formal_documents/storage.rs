@@ -21,10 +21,17 @@ fn valid_id(id: &str) -> bool {
     })
 }
 
-fn fingerprint(name: &str, text: &str) -> String {
+fn fingerprint(name: &str, text: &str, pages: Option<&[usize]>) -> String {
     let mut hash = Sha256::new();
     hash.update(name);
     hash.update([0]);
+    if let Some(counts) = pages {
+        // 页界属于不可变的引用身份，即使两份文件的连续文本完全一样。
+        hash.update((counts.len() as u64).to_be_bytes());
+        for count in counts {
+            hash.update((*count as u64).to_be_bytes());
+        }
+    }
     hash.update(text);
     format!("{:x}", hash.finalize())
 }
@@ -44,11 +51,25 @@ pub(super) fn slot(id: &str) -> Option<usize> {
     }
     usize::from_str_radix(&id[4..6], 16)
         .ok()
-        .filter(|n| *n < MAX_PROJECT_DOCUMENTS)
+        .filter(|n| *n < 2 * MAX_PROJECT_DOCUMENTS)
 }
 
 pub(super) fn record_name(index: usize) -> String {
     format!("document-{index:02x}.json")
+}
+
+fn valid_pages(doc: &DocumentSummary, index: usize) -> bool {
+    match (&doc.page_line_counts, is_pdf(&doc.filename)) {
+        (None, false) => index < MAX_PROJECT_DOCUMENTS,
+        (Some(pages), true) => {
+            index >= MAX_PROJECT_DOCUMENTS
+                && !pages.is_empty()
+                && pages.len() <= MAX_PDF_PAGES
+                && pages.iter().all(|&n| n <= MAX_DOCUMENT_LINES)
+                && pages.iter().sum::<usize>() == doc.line_count
+        }
+        _ => false,
+    }
 }
 
 fn open_snapshot(dir: &ProjectDir, workspace: &str, index: usize) -> Result<Option<Snapshot>> {
@@ -62,8 +83,14 @@ fn open_snapshot(dir: &ProjectDir, workspace: &str, index: usize) -> Result<Opti
         || s.text.len() != s.document.byte_length
         || s.text.len() > MAX_DOCUMENT_BYTES
         || check_name(&s.document.filename).is_err()
+        || !valid_pages(&s.document, index)
+        || (s.document.page_line_counts.is_none() && s.text.starts_with("%PDF-"))
         || line_count(&s.text).ok() != Some(s.document.line_count)
-        || fingerprint(&s.document.filename, &s.text) != s.digest
+        || fingerprint(
+            &s.document.filename,
+            &s.text,
+            s.document.page_line_counts.as_deref(),
+        ) != s.digest
     {
         return Err(DesktopError("corruptSnapshot"));
     }
@@ -73,7 +100,7 @@ fn open_snapshot(dir: &ProjectDir, workspace: &str, index: usize) -> Result<Opti
 struct Catalog {
     entries: Vec<(DocumentSummary, String)>,
     total_bytes: usize,
-    free_slot: Option<usize>,
+    free_slots: [Option<usize>; 2],
 }
 
 impl Catalog {
@@ -81,15 +108,18 @@ impl Catalog {
         let mut catalog = Self {
             entries: vec![],
             total_bytes: 0,
-            free_slot: None,
+            free_slots: [None; 2],
         };
-        for index in 0..MAX_PROJECT_DOCUMENTS {
+        // 旧预览只扫描前 64 个槽位，因此含 PDF 的项目仍可用旧版查看原有文本文档。
+        for index in 0..2 * MAX_PROJECT_DOCUMENTS {
             let Some(snapshot) = open_snapshot(dir, workspace, index)? else {
-                catalog.free_slot.get_or_insert(index);
+                catalog.free_slots[index / MAX_PROJECT_DOCUMENTS].get_or_insert(index);
                 continue;
             };
             catalog.total_bytes += snapshot.document.byte_length;
-            if catalog.total_bytes > MAX_PROJECT_BYTES {
+            if catalog.entries.len() >= MAX_PROJECT_DOCUMENTS
+                || catalog.total_bytes > MAX_PROJECT_BYTES
+            {
                 return Err(DesktopError("documentQuotaExceeded"));
             }
             catalog.entries.push((snapshot.document, snapshot.digest));
@@ -128,14 +158,21 @@ pub fn read(
         .filter(|value| value.document.document_id == selection.document_id)
         .ok_or(DesktopError("documentNotFound"))?;
     dir.verify_current()?;
-    if end > snapshot.document.line_count {
+    let (first, lines) = match (&snapshot.document.page_line_counts, selection.page) {
+        (None, None) => (0, snapshot.document.line_count),
+        (Some(counts), Some(page)) if (1..=counts.len()).contains(&page) => {
+            (counts[..page - 1].iter().sum(), counts[page - 1])
+        }
+        _ => return Err(DesktopError("invalidDocumentRange")),
+    };
+    if end > lines {
         return Err(DesktopError("invalidDocumentRange"));
     }
     let mut text = String::new();
     for (offset, line) in snapshot
         .text
         .lines()
-        .skip(start - 1)
+        .skip(first + start - 1)
         .take(end - start + 1)
         .enumerate()
     {
@@ -150,47 +187,107 @@ pub fn read(
     }
     Ok(DocumentExcerpt {
         document: snapshot.document,
+        page: selection.page,
         start_line: start,
         end_line: end,
         text,
     })
 }
 
-/// 仅供原生宿主传入面板中已选择、在固定目录描述符内读取的单个文件。
-pub fn import_selected(
-    root: &TrustedRoot,
-    workspace: &str,
-    filename: &str,
-    bytes: &[u8],
-) -> Result<DocumentSummary> {
-    check_name(filename)?;
-    if bytes.len() > MAX_DOCUMENT_BYTES {
+fn normalize(text: &str) -> String {
+    text.strip_prefix('\u{feff}')
+        .unwrap_or(text)
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+}
+
+fn selected_text(filename: &str, bytes: &[u8]) -> Result<(String, Option<Vec<usize>>)> {
+    if bytes.len() > input_limit(filename) {
         return Err(DesktopError("documentTooLarge"));
     }
-    let original = std::str::from_utf8(bytes).map_err(|_| DesktopError("invalidDocument"))?;
-    let text = original
-        .strip_prefix('\u{feff}')
-        .unwrap_or(original)
-        .replace("\r\n", "\n")
-        .replace('\r', "\n");
+    if !is_pdf(filename) {
+        let text =
+            normalize(std::str::from_utf8(bytes).map_err(|_| DesktopError("invalidDocument"))?);
+        if text.starts_with("%PDF-") {
+            return Err(DesktopError("invalidDocument"));
+        }
+        return Ok((text, None));
+    }
+
+    let pages = pdf::extract_pages(bytes)?;
+    if pages.len() > MAX_PDF_PAGES {
+        return Err(DesktopError("documentTooLarge"));
+    }
+    let mut text = String::new();
+    let mut counts = Vec::with_capacity(pages.len());
+    for page in pages {
+        let normalized = normalize(&page);
+        let body = normalized.trim_end_matches('\n');
+        if body.trim().is_empty() {
+            counts.push(0);
+            continue;
+        }
+        if text.len() + usize::from(!text.is_empty()) + body.len() > MAX_DOCUMENT_BYTES {
+            return Err(DesktopError("documentTooLarge"));
+        }
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        counts.push(line_count(body)?);
+        text.push_str(body);
+    }
+    if text.is_empty() {
+        return Err(DesktopError("pdfNoText"));
+    }
+    Ok((text, Some(counts)))
+}
+
+/// 仅供原生宿主传入面板中已选择、在固定目录描述符内读取的单个文件。
+pub(crate) fn prepare_selected(filename: &str, bytes: &[u8]) -> Result<PreparedDocument> {
+    check_name(filename)?;
+    let (text, pages) = selected_text(filename, bytes)?;
     let lines = line_count(&text)?;
+    Ok(PreparedDocument {
+        filename: filename.to_owned(),
+        text,
+        pages,
+        lines,
+    })
+}
+
+pub(crate) fn publish_selected(
+    root: &TrustedRoot,
+    workspace: &str,
+    pending: PreparedDocument,
+    check_text: impl Fn(&str) -> Result<()>,
+) -> Result<DocumentSummary> {
+    let PreparedDocument {
+        filename,
+        text,
+        pages,
+        lines,
+    } = pending;
+    check_text(&filename)?;
+    check_text(&text)?;
     let dir = ProjectDir::open(root, workspace, true)?.ok_or(DesktopError("storeIo"))?;
     let catalog = Catalog::load(&dir, workspace)?;
     dir.clear_pending()?;
-    let digest = fingerprint(filename, &text);
+    let digest = fingerprint(&filename, &text, pages.as_deref());
     if let Some((summary, _)) = catalog.entries.iter().find(|(_, hash)| hash == &digest) {
         dir.commit()?;
         return Ok(summary.clone());
     }
-    let index = catalog
-        .free_slot
+    let index = catalog.free_slots[usize::from(pages.is_some())]
         .ok_or(DesktopError("documentQuotaExceeded"))?;
-    if catalog.total_bytes + text.len() > MAX_PROJECT_BYTES {
+    if catalog.entries.len() >= MAX_PROJECT_DOCUMENTS
+        || catalog.total_bytes + text.len() > MAX_PROJECT_BYTES
+    {
         return Err(DesktopError("documentQuotaExceeded"));
     }
     let document = DocumentSummary {
         document_id: format!("doc-{index:02x}{}", &random_reference()?[2..]),
-        filename: filename.into(),
+        filename,
+        page_line_counts: pages,
         line_count: lines,
         byte_length: text.len(),
     };

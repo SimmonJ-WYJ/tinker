@@ -252,6 +252,8 @@ export interface UserImageEditReference {
 /** 原生项目资料的闭区间行号，从 1 开始。 */
 export interface NativeDocumentReference {
   documentId: string
+  /** PDF 页码从 1 开始，引用行号相对于本页；纯文本文档不传。 */
+  page?: number
   startLine: number
   endLine: number
 }

@@ -228,3 +228,31 @@ fn document_mock_rejects_extra_context_and_replay() {
     let invalid = serde_json::json!({"messages":[{"role":"system","content":question}]});
     assert!(document_probe(&invalid, &question).is_err());
 }
+
+#[test]
+fn pdf_probe_requires_exact_page_range_and_one_time_disclosure() {
+    let data = serde_json::json!({"type":"untrusted_document_excerpt","filename":"qa-project-pages.pdf","page":2,"startLine":2,"endLine":2,"text":"QA_PDF_SELECTED_CEDAR_42"});
+    let check = |data: &Value, extra: &str| {
+        let last = format!("[qa:pdf-selection]\n{data}");
+        document_probe(
+            &serde_json::json!({"messages":[{"role":"user","content":extra},{"role":"user","content":last}]}),
+            &last,
+        )
+    };
+    assert_eq!(
+        check(&data, "prior question"),
+        Ok(Some("Selected PDF page and line verified. "))
+    );
+    assert!(check(&data, "QA_PDF_PAGE_ONE_18").is_err());
+    let mut wrong = data.clone();
+    wrong["page"] = 1.into();
+    assert!(check(&wrong, "").is_err());
+    let last = "[qa:pdf-followup]";
+    let mut next = serde_json::json!({"messages":[{"role":"user","content":"prior question"},{"role":"user","content":last}]});
+    assert_eq!(
+        document_probe(&next, last),
+        Ok(Some("No PDF excerpt replayed. "))
+    );
+    next["messages"][0]["content"] = data["text"].clone();
+    assert!(document_probe(&next, last).is_err());
+}

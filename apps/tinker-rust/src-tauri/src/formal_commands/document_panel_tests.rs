@@ -37,6 +37,19 @@ fn document_read_keeps_the_file_confirmed_by_the_picker_and_refuses_internal_or_
     fs::rename(&original, parent.join("renamed.md")).unwrap();
     fs::write(&original, b"replacement").unwrap();
     assert_eq!(picked.read().unwrap().1, b"original selection");
+    // 允许已明确选中的较大 PDF 容器；文本文件继续使用原有较小上限。
+    let above_text_limit = vec![0; crate::formal_documents::MAX_DOCUMENT_BYTES + 1];
+    let pdf = parent.join("项目 brief.PDF");
+    fs::write(&pdf, &above_text_limit).unwrap();
+    assert_eq!(
+        selected(&pdf, &store).unwrap().read().unwrap().1,
+        above_text_limit
+    );
+    fs::write(&original, &above_text_limit).unwrap();
+    assert_eq!(
+        selected(&original, &store).unwrap().read().unwrap_err().0,
+        "documentTooLarge"
+    );
     let other = store.join("internal.txt");
     fs::write(&other, b"private contents").unwrap();
     assert!(selected(&other, &store).is_err());
@@ -94,8 +107,7 @@ fn project_and_document_generation_are_checked_at_commit_and_each_read() {
     };
     let commit = |epoch| DocumentStep::Commit {
         epoch,
-        filename: "note.txt".into(),
-        bytes: b"selected\nunselected".to_vec(),
+        prepared: prepare_selected("note.txt", b"selected\nunselected").unwrap(),
     };
     assert!(step(&generation, "absent", DocumentStep::List).is_err());
     let e = epoch(&generation, a);
@@ -106,6 +118,7 @@ fn project_and_document_generation_are_checked_at_commit_and_each_read() {
     let read = || {
         DocumentStep::Read(DocumentSelection {
             document_id: summary["documentId"].as_str().unwrap().into(),
+            page: None,
             start_line: 1,
             end_line: 1,
         })
@@ -120,15 +133,39 @@ fn project_and_document_generation_are_checked_at_commit_and_each_read() {
     assert!(
         matches!(step(&generation,&b,DocumentStep::List).unwrap(),ImportReply::Document(v) if v.as_array().unwrap().is_empty())
     );
+    // 宿主解析阶段还未完成时，Actor 仍可查询资料并关闭当前授权。
+    // 成品只能通过同一个 epoch 返回发布；原件仍不出现在项目中。
+    let (worker_entered, worker_ready) = std::sync::mpsc::channel();
+    let (allow_parse, waiting) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        let bytes = crate::formal_documents::pdf_fixture(&[&["held import"]]);
+        worker_entered.send(()).unwrap();
+        waiting.recv_timeout(Duration::from_secs(10)).unwrap();
+        prepare_selected("held.pdf", &bytes).unwrap()
+    });
+    worker_ready.recv_timeout(Duration::from_secs(10)).unwrap();
+    assert!(
+        matches!(step(&generation, a, DocumentStep::List).unwrap(), ImportReply::Document(v) if v.as_array().unwrap().len() == 1)
+    );
     let close = call(json!({"command":"beginClose","generation":generation}));
     call(json!({"command":"abortClose","generation":generation,"closeToken":close["closeToken"]}));
-    assert_eq!(step(&generation, a, commit(e)).err().unwrap().0, "closing");
+    allow_parse.send(()).unwrap();
+    let prepared = worker.join().unwrap();
+    assert_eq!(
+        step(&generation, a, DocumentStep::Commit { epoch: e, prepared })
+            .err()
+            .unwrap()
+            .0,
+        "closing"
+    );
+
     let replacement = call(json!({"command":"bootstrap"}));
     assert_ne!(replacement["generation"], generation);
     assert_eq!(
         step(&generation, a, commit(e)).err().unwrap().0,
         "staleGeneration"
     );
+    assert_eq!(crate::formal_documents::list(&root, a).unwrap().len(), 1);
     assert!(host.mock_records().is_empty());
     host.shutdown().unwrap();
     fs::remove_dir_all(root.path()).unwrap();

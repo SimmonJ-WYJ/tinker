@@ -177,8 +177,9 @@ fn has_upgrade_history(request: &serde_json::Value) -> bool {
 
 // 仅供本机 QA：在 HTTP 边界确认选段、角色和后续轮次，不记录消息正文。
 fn document_probe(request: &serde_json::Value, last: &str) -> Result<Option<&'static str>> {
-    let selected = last.contains("[qa:document-selection]");
-    let followup = last.contains("[qa:document-followup]");
+    let pdf = last.contains("[qa:pdf-selection]") || last.contains("[qa:pdf-followup]");
+    let selected = last.contains("[qa:document-selection]") || last.contains("[qa:pdf-selection]");
+    let followup = last.contains("[qa:document-followup]") || last.contains("[qa:pdf-followup]");
     if !selected && !followup {
         return Ok(None);
     }
@@ -188,6 +189,12 @@ fn document_probe(request: &serde_json::Value, last: &str) -> Result<Option<&'st
         "QA_UNSELECTED_TOP_87",
         "QA_UNSELECTED_BOTTOM_76",
         "QA_OTHER_PROJECT_65",
+        "QA_PDF_PAGE_ONE_18",
+        "QA_PDF_PAGE_THREE_19",
+        "QA_PDF_UNSELECTED_TOP_87",
+        "QA_PDF_UNSELECTED_BOTTOM_76",
+        "%PDF-",
+        "JVBERi0",
     ]
     .iter()
     .any(|token| wire.contains(token))
@@ -201,12 +208,22 @@ fn document_probe(request: &serde_json::Value, last: &str) -> Result<Option<&'st
     if message["role"] != "user" || message["content"] != last {
         return Err(invalid);
     }
+    let marker = if pdf {
+        "QA_PDF_SELECTED_CEDAR_42"
+    } else {
+        "QA_SELECTED_CEDAR_42"
+    };
     if followup {
         return if !selected
             && !wire.contains("untrusted_document_excerpt")
             && !wire.contains("QA_SELECTED_CEDAR_42")
+            && !wire.contains("QA_PDF_SELECTED_CEDAR_42")
         {
-            Ok(Some("No document excerpt replayed. "))
+            Ok(Some(if pdf {
+                "No PDF excerpt replayed. "
+            } else {
+                "No document excerpt replayed. "
+            }))
         } else {
             Err(invalid)
         };
@@ -216,12 +233,17 @@ fn document_probe(request: &serde_json::Value, last: &str) -> Result<Option<&'st
     if excerpt["type"] != "untrusted_document_excerpt"
         || excerpt["startLine"] != 2
         || excerpt["endLine"] != 2
-        || excerpt["text"] != "QA_SELECTED_CEDAR_42"
-        || wire.matches("QA_SELECTED_CEDAR_42").count() != 1
+        || (pdf && (excerpt["page"] != 2 || excerpt["filename"] != "qa-project-pages.pdf"))
+        || excerpt["text"] != marker
+        || wire.matches(marker).count() != 1
     {
         return Err(invalid);
     }
-    Ok(Some("Selected project lines verified. "))
+    Ok(Some(if pdf {
+        "Selected PDF page and line verified. "
+    } else {
+        "Selected project lines verified. "
+    }))
 }
 
 fn serve(

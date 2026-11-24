@@ -96,3 +96,74 @@ test('an oversized initial range falls back to line one, and the displayed numbe
   expect(screen.getByText('second').parentElement).toHaveTextContent('2second')
   expect(screen.getByText('third').parentElement).toHaveTextContent('3third')
 })
+
+const pdf = { documentId: 'pdf1', filename: 'guide.pdf', lineCount: 4, pageLineCounts: [1, 3, 0], byteLength: 50 }
+function setupPdf() {
+  const api = {
+    list: mock(async () => [pdf]),
+    pick: mock(async () => null),
+    read: mock(async (_id: string, range: NativeDocumentReference) => ({
+      document: pdf, ...range, text: range.page === 1 ? 'first page' :
+        ['second page', 'quoted line', 'last line'].slice(range.startLine - 1, range.endLine).join('\n'),
+    })),
+  } satisfies NativeProjectDocuments
+  window.__TAURI_FORMAL__ = { hydrated() {}, projectDocuments: api }
+  return api
+}
+
+test('a PDF citation uses only the current page and its previewed lines; a blank page cannot be attached', async () => {
+  await setAppLanguage('en')
+  const api = setupPdf()
+  const cite = mock((_source: NativeDocumentSource) => {})
+  render(<ProjectDocuments workspaceId="w" onCite={cite} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Project documents' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'guide.pdf' }))
+  expect(await screen.findByText('first page')).toBeVisible()
+  const page = screen.getByRole('combobox', { name: 'Page' })
+  await act(async () => { fireEvent.change(page, { target: { value: '3' } }) })
+  expect(screen.queryByText('first page')).toBeNull()
+  expect(screen.getByText('This page has no text to quote.')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Attach these lines' })).toBeDisabled()
+  expect(api.read).toHaveBeenCalledTimes(1)
+  await act(async () => { fireEvent.change(page, { target: { value: '2' } }) })
+  expect(await screen.findByText('second page')).toBeVisible()
+  fireEvent.change(screen.getByLabelText('First line'), { target: { value: '2' } })
+  fireEvent.change(screen.getByLabelText('Last line'), { target: { value: '2' } })
+  expect(screen.getByRole('button', { name: 'Attach these lines' })).toBeDisabled()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview lines' })) })
+  expect(screen.queryByText('second page')).toBeNull()
+  expect(screen.getByText('quoted line')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Attach these lines' }))
+  expect(cite.mock.calls).toEqual([[{ documentId: 'pdf1', filename: 'guide.pdf', page: 2, startLine: 2, endLine: 2 }]])
+})
+
+test('a restored PDF source opens only its saved page and line range', async () => {
+  await setAppLanguage('en')
+  const api = setupPdf()
+  const source = { documentId: 'pdf1', filename: 'guide.pdf', page: 2, startLine: 2, endLine: 2 }
+  render(<ProjectDocuments workspaceId="w" source={source} />)
+  fireEvent.click(screen.getByRole('button', { name: 'guide.pdf · page 2 · lines 2–2' }))
+  expect(await screen.findByText('quoted line')).toBeVisible()
+  expect(api.read.mock.calls).toEqual([['w', { documentId: 'pdf1', page: 2, startLine: 2, endLine: 2 }]])
+  expect(api.list).not.toHaveBeenCalled()
+  expect(screen.queryByRole('combobox')).toBeNull()
+})
+
+test.each([
+  ['pdfEncrypted', 'This PDF is encrypted. Choose an unencrypted copy.'],
+  ['pdfNoText', 'This PDF has no extractable text. Choose a PDF with a text layer.'],
+  ['invalidPdf', 'This PDF could not be parsed. Choose a readable copy.'],
+  ['documentTooLarge', 'This document exceeds the import limit. Choose a smaller file.'],
+])('a rejected %s import explains the failure and allows another pick', async (code, message) => {
+  await setAppLanguage('en')
+  const api = setup()
+  api.pick.mockRejectedValueOnce({ code })
+  render(<ProjectDocuments workspaceId="a" />)
+  fireEvent.click(screen.getByRole('button', { name: 'Project documents' }))
+  await screen.findByRole('button', { name: 'notes.md' })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Import document' })) })
+  expect(screen.getByRole('alert')).toHaveTextContent(message)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Import document' })) })
+  expect(api.pick).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('alert')).toBeNull()
+})

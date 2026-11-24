@@ -6,8 +6,10 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub(crate) const DOCUMENT_EXTENSIONS: &[&str] = &["txt", "md", "markdown"];
+pub(crate) const DOCUMENT_EXTENSIONS: &[&str] = &["txt", "md", "markdown", "pdf"];
 pub const MAX_DOCUMENT_BYTES: usize = 256 * 1024;
+const MAX_PDF_BYTES: usize = 8 * 1024 * 1024;
+const MAX_PDF_PAGES: usize = 100;
 const MAX_DOCUMENT_LINES: usize = 8192;
 const MAX_LINE_BYTES: usize = 8192;
 const MAX_EXCERPT_LINES: usize = 80;
@@ -23,6 +25,8 @@ const PENDING: &str = "import.pending";
 pub struct DocumentSummary {
     pub document_id: String,
     pub filename: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_line_counts: Option<Vec<usize>>,
     pub line_count: usize,
     pub byte_length: usize,
 }
@@ -30,6 +34,8 @@ pub struct DocumentSummary {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DocumentSelection {
     pub document_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<usize>,
     pub start_line: usize,
     pub end_line: usize,
 }
@@ -37,20 +43,59 @@ pub struct DocumentSelection {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DocumentExcerpt {
     pub document: DocumentSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<usize>,
     pub start_line: usize,
     pub end_line: usize,
     pub text: String,
 }
 
 #[cfg(unix)]
+mod pdf;
+#[cfg(target_os = "macos")]
+pub use pdf::dispatch_worker;
+#[cfg(all(test, target_os = "macos"))]
+pub(crate) use pdf::fixture as pdf_fixture;
+#[cfg(unix)]
 mod disk;
 #[cfg(unix)]
 mod storage;
 #[cfg(unix)]
-pub use storage::{import_selected, list, read};
+pub use storage::{list, read};
+#[cfg(unix)]
+pub(crate) use storage::{prepare_selected, publish_selected};
+
+/// 只在宿主内存中传递的规范化资料，不作为渲染层的可反序列化输入。
+pub(crate) struct PreparedDocument {
+    filename: String,
+    text: String,
+    pages: Option<Vec<usize>>,
+    lines: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn import_selected(
+    root: &TrustedRoot,
+    workspace: &str,
+    filename: &str,
+    bytes: &[u8],
+) -> Result<DocumentSummary> {
+    publish_selected(root, workspace, prepare_selected(filename, bytes)?, |_| {
+        Ok(())
+    })
+}
 
 #[cfg(not(unix))]
-pub fn import_selected(_: &TrustedRoot, _: &str, _: &str, _: &[u8]) -> Result<DocumentSummary> {
+pub(crate) fn prepare_selected(_: &str, _: &[u8]) -> Result<PreparedDocument> {
+    Err(DesktopError("unsupportedPlatform"))
+}
+#[cfg(not(unix))]
+pub(crate) fn publish_selected(
+    _: &TrustedRoot,
+    _: &str,
+    _: PreparedDocument,
+    _: impl Fn(&str) -> Result<()>,
+) -> Result<DocumentSummary> {
     Err(DesktopError("unsupportedPlatform"))
 }
 #[cfg(not(unix))]
@@ -64,6 +109,20 @@ pub fn read(_: &TrustedRoot, _: &str, _: &DocumentSelection) -> Result<DocumentE
 
 #[cfg(all(test, unix))]
 mod tests;
+
+pub(crate) fn is_pdf(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
+}
+
+pub(crate) fn input_limit(name: &str) -> usize {
+    if is_pdf(name) {
+        MAX_PDF_BYTES
+    } else {
+        MAX_DOCUMENT_BYTES
+    }
+}
 
 pub(crate) fn check_name(name: &str) -> Result<()> {
     if name.is_empty()
@@ -89,7 +148,6 @@ pub(crate) fn check_name(name: &str) -> Result<()> {
 #[cfg(unix)]
 fn line_count(text: &str) -> Result<usize> {
     if text.trim().is_empty()
-        || text.starts_with("%PDF-")
         || text
             .chars()
             .any(|c| c.is_control() && !matches!(c, '\t' | '\n'))

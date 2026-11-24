@@ -29,6 +29,7 @@ impl Drop for Fixture {
 fn selection(summary: &DocumentSummary, start_line: usize, end_line: usize) -> DocumentSelection {
     DocumentSelection {
         document_id: summary.document_id.clone(),
+        page: None,
         start_line,
         end_line,
     }
@@ -94,8 +95,8 @@ fn rejects_bad_files_and_ranges_without_publishing_any_partial_document() {
     let root = &f.0;
     for (name, bytes, error) in [
         (
-            "scan.pdf",
-            b"%PDF-1.7".as_slice(),
+            "other.rtf",
+            b"unhandled".as_slice(),
             "unsupportedDocumentFormat",
         ),
         ("../outside.txt", b"text", "invalidDocument"),
@@ -171,7 +172,16 @@ fn damaged_or_linked_records_and_path_shaped_identifiers_fail_closed() {
 #[test]
 fn quota_allows_retries_at_capacity_and_isolates_other_projects() {
     let f = Fixture::new();
-    for i in 0..MAX_PROJECT_DOCUMENTS {
+    #[cfg(target_os = "macos")]
+    let text_slots = {
+        let bytes = pdf_fixture(&[&["separate slots, shared quota"]]);
+        let pdf = import_selected(&f.0, "p", "partial.pdf", &bytes).unwrap();
+        assert!(slot(&pdf.document_id).unwrap() >= MAX_PROJECT_DOCUMENTS);
+        MAX_PROJECT_DOCUMENTS - 1
+    };
+    #[cfg(not(target_os = "macos"))]
+    let text_slots = MAX_PROJECT_DOCUMENTS;
+    for i in 0..text_slots {
         import_selected(&f.0, "p", &format!("{i}.txt"), b"same").unwrap();
     }
     let last = import_selected(&f.0, "p", "0.txt", b"same").unwrap();
@@ -271,4 +281,117 @@ fn swapped_workspace_directory_cannot_redirect_a_held_writer() {
     assert!(detached
         .join(record_name(slot(&original.document_id).unwrap()))
         .is_file());
+}
+
+#[test]
+fn picker_supports_pdf_and_rejects_oversize_pdf_before_parsing() {
+    assert!(check_name("公开 notes.PdF").is_ok());
+    let root = Fixture::new();
+    let bytes = vec![0; MAX_PDF_BYTES + 1];
+    assert_eq!(
+        import_selected(&root.0, "p", "large.pdf", &bytes)
+            .unwrap_err()
+            .0,
+        "documentTooLarge"
+    );
+    assert!(list(&root.0, "p").unwrap().is_empty());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn pdf_import_keeps_physical_pages_and_local_source_ranges_across_reopen() {
+    let f = Fixture::new();
+    let bytes = pdf_fixture(&[&["first only"], &[], &["before", "selected", "after"]]);
+    let pdf = import_selected(&f.0, "p", "Sample.PDF", &bytes).unwrap();
+    assert_eq!(pdf.page_line_counts.as_deref(), Some([1, 0, 3].as_slice()));
+    assert_eq!(pdf.line_count, 4);
+    assert_eq!(
+        import_selected(&f.0, "p", "Sample.PDF", &bytes).unwrap(),
+        pdf
+    );
+    let root = TrustedRoot::open_temporary(f.0.path()).unwrap();
+    let pick = |page: Option<usize>, start, end| DocumentSelection {
+        page,
+        ..selection(&pdf, start, end)
+    };
+    let result = read(&root, "p", &pick(Some(3), 2, 2)).unwrap();
+    assert_eq!((result.text.as_str(), result.page), ("selected", Some(3)));
+    assert_eq!(
+        read(&root, "q", &pick(Some(3), 2, 2)).unwrap_err().0,
+        "documentNotFound"
+    );
+    for s in [
+        pick(None, 1, 1),
+        pick(Some(0), 1, 1),
+        pick(Some(4), 1, 1),
+        pick(Some(2), 1, 1),
+        pick(Some(1), 1, 2),
+    ] {
+        assert_eq!(read(&root, "p", &s).unwrap_err().0, "invalidDocumentRange");
+    }
+
+    // 调整页界但保持行数和可见文字总数相同，仍须视为新版本。
+    let changed = pdf_fixture(&[&["first only", "before"], &[], &["selected", "after"]]);
+    let updated = import_selected(&root, "p", "Sample.PDF", &changed).unwrap();
+    assert_ne!(pdf.document_id, updated.document_id);
+    assert_eq!(
+        read(&root, "p", &pick(Some(3), 2, 2)).unwrap().text,
+        "selected"
+    );
+
+    let record = project_path(&root, "p")
+        .unwrap()
+        .join(record_name(slot(&pdf.document_id).unwrap()));
+    let raw = fs::read_to_string(&record).unwrap();
+    assert!(!raw.contains("%PDF-"));
+    let mut json: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    json["document"]["pageLineCounts"] = serde_json::json!([2, 0, 2]);
+    fs::write(record, serde_json::to_vec(&json).unwrap()).unwrap();
+    assert_eq!(
+        read(&root, "p", &pick(Some(3), 2, 2)).unwrap_err().0,
+        "corruptSnapshot"
+    );
+}
+
+#[test]
+fn old_text_contract_preserves_wire_shape_and_rejects_a_page() {
+    let f = Fixture::new();
+    let doc = import_selected(&f.0, "p", "text.txt", b"hello").unwrap();
+    assert!(serde_json::to_value(&doc)
+        .unwrap()
+        .get("pageLineCounts")
+        .is_none());
+    let old: DocumentSelection = serde_json::from_value(serde_json::json!({
+        "documentId":doc.document_id, "startLine":1, "endLine":1
+    }))
+    .unwrap();
+    assert!(serde_json::to_value(read(&f.0, "p", &old).unwrap())
+        .unwrap()
+        .get("page")
+        .is_none());
+    let wrong = DocumentSelection {
+        page: Some(1),
+        ..old
+    };
+    assert_eq!(
+        read(&f.0, "p", &wrong).unwrap_err().0,
+        "invalidDocumentRange"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn protected_text_in_pdf_is_checked_after_extraction_and_before_publishing() {
+    let f = Fixture::new();
+    let bytes = pdf_fixture(&[&["SYNTHETIC-PROTECTED-TEXT"]]);
+    let pending = prepare_selected("guard.pdf", &bytes).unwrap();
+    let result = publish_selected(&f.0, "p", pending, |s| {
+        if s == "SYNTHETIC-PROTECTED-TEXT" {
+            Err(DesktopError("invalidParams"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(result.unwrap_err().0, "invalidParams");
+    assert!(!project_path(&f.0, "p").unwrap().exists());
 }

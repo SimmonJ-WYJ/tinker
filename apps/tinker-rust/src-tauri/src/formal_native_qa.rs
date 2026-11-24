@@ -67,6 +67,37 @@ fn evaluate(window: &tauri::WebviewWindow, script: String) -> Result<Value, Stri
     rx.recv_timeout(Duration::from_secs(15))
         .map_err(|e| e.to_string())?
 }
+// 只对本进程的 QA 窗口请求激活；AppKit 可能拒绝或延后，调用者还需读取实际状态。
+fn foreground(window: &tauri::WebviewWindow, activate: bool) -> Result<Value, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSWindow};
+
+    let (tx, rx) = mpsc::channel();
+    window
+        .with_webview(move |view| {
+            let result = (|| {
+                let mtm = MainThreadMarker::new().ok_or("QA requires the main thread")?;
+                let app = NSApplication::sharedApplication(mtm);
+                // Tauri 在此主线程回调内拥有并保活该 NSWindow。
+                let owned = unsafe { view.ns_window().cast::<NSWindow>().as_ref() }
+                    .ok_or("QA window unavailable")?;
+                if activate {
+                    if objc2::available!(macos = 14.0) {
+                        app.activate();
+                    } else {
+                        #[allow(deprecated)]
+                        app.activateIgnoringOtherApps(true);
+                    }
+                    owned.makeKeyAndOrderFront(None);
+                }
+                Ok(json!({"active": app.isActive(), "key": owned.isKeyWindow(), "visible": owned.isVisible()}))
+            })();
+            let _ = tx.send(result);
+        })
+        .map_err(|e| e.to_string())?;
+    rx.recv_timeout(Duration::from_secs(15))
+        .map_err(|e| e.to_string())?
+}
 fn snapshot(window: &tauri::WebviewWindow, path: PathBuf) -> Result<Value, String> {
     let (tx, rx) = mpsc::channel();
     window
@@ -175,6 +206,8 @@ pub fn start(window: tauri::WebviewWindow) {
                         _ => Err("unknown owned slot".into()),
                     }
                 }
+                "activate-owned-window" => foreground(&window, true),
+                "foreground-state" => foreground(&window, false),
                 "image-picker-consumed" => picker::consumed(),
                 "arm-document-picker" => picker::arm_document(&command["choice"]),
                 "arm-image-picker" => picker::arm(&command["choice"]),
