@@ -130,3 +130,15 @@ pub(super) fn document_selection() -> Option<Option<PathBuf>> {
     let leaf = DOCUMENT_CHOICE.lock().ok()?.take()?;
     Some(leaf.and_then(|name| super::directory().ok().map(|root| root.join(name))))
 }
+
+pub(super) static BACKUP_FILE: Mutex<Option<bool>> = Mutex::new(None);
+pub(super) fn backup_selection() -> Option<Option<PathBuf>> {
+    let selected = BACKUP_FILE.lock().ok()?.take()?;
+    Some(if selected {
+        super::directory()
+            .ok()
+            .map(|dir| dir.join("qa-project.tinkerproject"))
+    } else {
+        None
+    })
+}

@@ -199,6 +199,13 @@ impl Inner {
         validate_send(&p)?;
         let session = self.session(&p.session_id)?;
         self.require_import_seed(&p.session_id)?;
+        if self
+            .imported
+            .get(&p.session_id)
+            .is_some_and(|seed| seed.has_archived_request(&p.request_id))
+        {
+            return Err(DesktopError("requestConflict"));
+        }
         if self.imported.contains_key(&p.session_id) && self.tools.contains_key(&p.profile_id) {
             return Err(DesktopError("contextUnsupported"));
         }

@@ -2,6 +2,7 @@
 import { createDesktopApi } from '../preload/api.ts'
 import { parseProjectTaskStatuses, supportsProjectTaskStatuses } from './project-tasks'
 import { createProjectDocuments } from './project-documents'
+import { createProjectBackups } from './project-backups'
 import { createSessionImporter } from './session-import'
 import { createNativeImageAssets } from './image-assets'
 import { createNativeImageFiles } from './image-files'
@@ -46,6 +47,7 @@ try {
   const persistence = installPersistence(transport)
   const imageAssets = transport.bootstrap.nativeImageAssetReads ? createNativeImageAssets(transport.invoke) : undefined
   window.__TAURI_FORMAL__ = {
+    projectBackups: transport.bootstrap.nativeProjectBackups ? createProjectBackups(transport.command) : undefined,
     projectDocuments: transport.bootstrap.nativeProjectDocuments ? createProjectDocuments(transport.command) : undefined,
     imageAssets,
     hydrated: persistence.hydrated,

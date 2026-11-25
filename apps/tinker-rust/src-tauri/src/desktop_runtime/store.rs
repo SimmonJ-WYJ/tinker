@@ -151,12 +151,14 @@ impl Journal {
             let value: serde_json::Value =
                 serde_json::from_slice(line).map_err(|_| DesktopError("corruptJournal"))?;
             let version = value.get("version").and_then(|v| v.as_u64());
-            if version != Some(1) && !(queue_enabled && version == Some(2)) {
+            if !(matches!(version, Some(1 | 3)) || queue_enabled && version == Some(2)) {
                 return Err(DesktopError("unsupportedVersion"));
             }
             let record: Record =
                 serde_json::from_value(value).map_err(|_| DesktopError("corruptJournal"))?;
-            if (record.version == 2) != matches!(&record.entry, Entry::Queue { .. }) {
+            if (record.version == 2) != matches!(&record.entry, Entry::Queue { .. })
+                || (record.version == 3) != matches!(&record.entry, Entry::PortableSessions { .. })
+            {
                 return Err(DesktopError("corruptJournal"));
             }
             if record.sequence != records.len() as u64 + 1 {
@@ -179,6 +181,9 @@ impl Journal {
             records,
         ))
     }
+    pub(super) fn require_recovery(&mut self) {
+        self.blocked = true;
+    }
     pub fn ensure_writable(&self) -> Result<()> {
         if self.blocked {
             Err(DesktopError("recoveryRequired"))
@@ -186,12 +191,29 @@ impl Journal {
             Ok(())
         }
     }
+    pub(super) fn check_portable_batch(&self, sessions: Vec<super::PortableEntry>) -> Result<()> {
+        self.ensure_writable()?;
+        let record = Record {
+            version: 3,
+            sequence: self.sequence + 1,
+            entry: Entry::PortableSessions { sessions },
+        };
+        let size = serde_json::to_vec(&record)
+            .map_err(|_| DesktopError("storeIo"))?
+            .len();
+        if size > MAX_FRAME_BYTES || self.bytes + size as u64 + 1 > MAX_JOURNAL_BYTES {
+            return Err(DesktopError("storageLimit"));
+        }
+        Ok(())
+    }
     pub fn append(&mut self, entry: Entry) -> Result<()> {
         if self.blocked {
             return Err(DesktopError("recoveryRequired"));
         }
         let record = Record {
-            version: if matches!(&entry, Entry::Queue { .. }) {
+            version: if matches!(&entry, Entry::PortableSessions { .. }) {
+                3
+            } else if matches!(&entry, Entry::Queue { .. }) {
                 2
             } else {
                 VERSION

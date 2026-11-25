@@ -30,6 +30,9 @@ pub enum Entry {
     Session {
         session: Session,
     },
+    PortableSessions {
+        sessions: Vec<super::PortableEntry>,
+    },
     Bind {
         binding: Binding,
     },
@@ -44,8 +47,8 @@ pub struct Record {
     pub sequence: u64,
     pub entry: Entry,
 }
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Turn {
     pub session_id: String,
     pub request_id: String,

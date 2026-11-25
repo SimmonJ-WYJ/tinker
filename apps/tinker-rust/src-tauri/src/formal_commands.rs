@@ -1,5 +1,7 @@
 //! 正式窗口唯一 IPC 边界；阻塞等待与 owned mock join 全部离开 UI 线程。
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod backup_panel;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod directory_panel;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod document_panel;
@@ -236,6 +238,18 @@ pub async fn formal_request<R: Runtime>(
         Some("pickProjectDocument" | "listProjectDocuments" | "readProjectDocument")
     ) {
         return document_panel::run(window, state.inner().clone(), request).await;
+    }
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    if matches!(
+        request["command"].as_str(),
+        Some(
+            "exportProjectBackup"
+                | "pickProjectBackup"
+                | "restoreProjectBackup"
+                | "discardProjectBackup"
+        )
+    ) {
+        return backup_panel::run(window, state.inner().clone(), request).await;
     }
     #[cfg(all(target_os = "macos", feature = "formal-preview"))]
     if request["command"] == "bindProjectDirectory" {

@@ -482,8 +482,9 @@ impl project_catalog::ProjectCatalog for CredentialedPlatform {
     fn check_project_text(&self, text: &str) -> Result<()> {
         crate::credentialed_channels::worker::guard(&json!(text), &self.known)
     }
-    fn edit_projects<T>(
+    fn edit_projects_mode<T>(
         &self,
+        publish: bool,
         edit: impl FnOnce(&mut Vec<WorkspaceRecord>, &std::path::Path) -> Result<T>,
     ) -> Result<T> {
         let mut i = self
@@ -504,6 +505,9 @@ impl project_catalog::ProjectCatalog for CredentialedPlatform {
             project_catalog::validate_catalog(&next.workspaces, true)?;
             let data = serde_json::to_vec(&next).map_err(|_| DesktopError("storeIo"))?;
             store::snapshot_budget(&data)?;
+            if !publish {
+                return Ok(result);
+            }
             if let Err(e) = i.store.write(data) {
                 i.frozen = true;
                 return Err(e);

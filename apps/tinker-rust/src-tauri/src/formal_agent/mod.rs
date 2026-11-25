@@ -13,6 +13,8 @@ mod image_projection;
 mod images;
 mod permissions;
 mod platform;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+pub(crate) mod project_backup;
 pub mod projection;
 pub mod protocol;
 mod queue_bridge;
@@ -113,6 +115,9 @@ impl FormalAgentHost {
         images: Option<images::ImageWorkflow>,
     ) -> Result<Self> {
         runtime.set_availability(platform.availability()?)?;
+        if let Some(images) = &images {
+            crate::portable_project::recover(&root, &runtime, &platform, &images.store)?;
+        }
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
         let worker = thread::Builder::new()
@@ -139,6 +144,7 @@ impl FormalAgentHost {
     ) -> Result<Self> {
         root.validate_channels()?;
         let images = images::ImageWorkflow::open(root.path(), None)?;
+        crate::portable_project::recover(&root, &runtime, platform.as_ref(), &images.store)?;
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
         let worker = thread::Builder::new()

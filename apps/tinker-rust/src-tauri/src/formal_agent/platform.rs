@@ -75,16 +75,17 @@ impl crate::formal_platform::project_catalog::ProjectCatalog for HostPlatform {
             Self::Credentialed(p) => p.check_project_text(text),
         }
     }
-    fn edit_projects<T>(
+    fn edit_projects_mode<T>(
         &self,
+        publish: bool,
         edit: impl FnOnce(
             &mut Vec<crate::formal_platform::workspace::WorkspaceRecord>,
             &std::path::Path,
         ) -> Result<T>,
     ) -> Result<T> {
         match self {
-            Self::Synthetic(p) => p.edit_projects(edit),
-            Self::Credentialed(p) => p.edit_projects(edit),
+            Self::Synthetic(p) => p.edit_projects_mode(publish, edit),
+            Self::Credentialed(p) => p.edit_projects_mode(publish, edit),
         }
     }
 }

@@ -214,7 +214,7 @@ pub(super) fn discard_uncommitted(dir: &Path, asset: &ImageAsset) -> Result<()> 
 }
 
 // 在存储锁下统计原图、预览缓存与写入中断的残留文件。收据索引单独限额。
-const SESSION_ASSET_BYTES: u64 = 128 * 1024 * 1024;
+pub(super) const SESSION_ASSET_BYTES: u64 = 128 * 1024 * 1024;
 pub(super) fn asset_budget(dir: &Path, additional: usize) -> Result<()> {
     directory(dir, true)?;
     let mut total = additional as u64;

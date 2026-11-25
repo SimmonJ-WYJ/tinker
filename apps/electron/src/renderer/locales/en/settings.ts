@@ -12,6 +12,7 @@ import general from './settings/general.json'
 import panel from './settings/panel.json'
 import profile from './settings/profile.json'
 import proxy from './settings/proxy.json'
+import projectBackups from './settings/project-backups.json'
 import sessionImport from './settings/session-import.json'
 import shortcuts from './settings/shortcuts.json'
 import updates from './settings/updates.json'
@@ -26,6 +27,7 @@ export const settingsEn = {
   ...channels,
   ...proxy,
   ...sessionImport,
+  ...projectBackups,
   ...shortcuts,
   ...zotero,
   ...agent,

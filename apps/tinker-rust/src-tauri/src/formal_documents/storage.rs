@@ -78,6 +78,11 @@ fn open_snapshot(dir: &ProjectDir, workspace: &str, index: usize) -> Result<Opti
     };
     let s: Snapshot =
         serde_json::from_slice(&bytes).map_err(|_| DesktopError("corruptSnapshot"))?;
+    validate_snapshot(&s, workspace, index)?;
+    Ok(Some(s))
+}
+
+fn validate_snapshot(s: &Snapshot, workspace: &str, index: usize) -> Result<()> {
     if s.workspace != workspace
         || slot(&s.document.document_id) != Some(index)
         || s.text.len() != s.document.byte_length
@@ -94,7 +99,7 @@ fn open_snapshot(dir: &ProjectDir, workspace: &str, index: usize) -> Result<Opti
     {
         return Err(DesktopError("corruptSnapshot"));
     }
-    Ok(Some(s))
+    Ok(())
 }
 
 struct Catalog {
@@ -300,4 +305,68 @@ pub(crate) fn publish_selected(
     let payload = serde_json::to_vec(&snapshot).map_err(|_| DesktopError("storeIo"))?;
     dir.publish(&record_name(index), &payload)?;
     Ok(snapshot.document)
+}
+
+pub(crate) fn export_portable(
+    root: &TrustedRoot,
+    workspace: &str,
+) -> Result<Vec<PortableDocument>> {
+    let Some(dir) = ProjectDir::open(root, workspace, false)? else {
+        return Ok(vec![]);
+    };
+    let mut items = vec![];
+    let mut total = 0;
+    for index in 0..2 * MAX_PROJECT_DOCUMENTS {
+        if let Some(s) = open_snapshot(&dir, workspace, index)? {
+            total += s.text.len();
+            if items.len() >= MAX_PROJECT_DOCUMENTS || total > MAX_PROJECT_BYTES {
+                return Err(DesktopError("documentQuotaExceeded"));
+            }
+            items.push(PortableDocument {
+                document: s.document,
+                digest: s.digest,
+                text: s.text,
+            });
+        }
+    }
+    dir.verify_current()?;
+    Ok(items)
+}
+
+// 仅写入独立预检根；保留槽位与随机 ID，使历史引用无需映射。
+pub(crate) fn stage_portable(
+    root: &TrustedRoot,
+    workspace: &str,
+    items: &[PortableDocument],
+) -> Result<()> {
+    if items.len() > MAX_PROJECT_DOCUMENTS {
+        return Err(DesktopError("documentQuotaExceeded"));
+    }
+    if items.is_empty() {
+        return Ok(());
+    }
+    let dir = ProjectDir::open(root, workspace, true)?.ok_or(DesktopError("storeIo"))?;
+    let mut total = 0;
+    let mut slots = std::collections::HashSet::new();
+    let mut digests = std::collections::HashSet::new();
+    for item in items {
+        let index = slot(&item.document.document_id).ok_or(DesktopError("corruptSnapshot"))?;
+        if !slots.insert(index) || !digests.insert(&item.digest) {
+            return Err(DesktopError("corruptSnapshot"));
+        }
+        total += item.text.len();
+        if total > MAX_PROJECT_BYTES {
+            return Err(DesktopError("documentQuotaExceeded"));
+        }
+        let snapshot = Snapshot {
+            workspace: workspace.into(),
+            document: item.document.clone(),
+            digest: item.digest.clone(),
+            text: item.text.clone(),
+        };
+        validate_snapshot(&snapshot, workspace, index)?;
+        let bytes = serde_json::to_vec(&snapshot).map_err(|_| DesktopError("storeIo"))?;
+        dir.publish(&record_name(index), &bytes)?;
+    }
+    Ok(())
 }
