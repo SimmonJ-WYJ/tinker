@@ -1,7 +1,7 @@
 //! 备份的路径只来自原生面板，确认恢复只接受宿主发出的单次令牌。
 use super::{
+    file_sheet::{self, Panel},
     image_disk,
-    image_panel::{native_open_file, native_save_file},
     session_panel::host_step,
     FormalState, WireError,
 };
@@ -18,7 +18,6 @@ use std::{
     fs::File,
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
-    sync::mpsc,
 };
 #[cfg(feature = "formal-native-qa")]
 use tauri::Manager;
@@ -110,18 +109,15 @@ fn choose<R: Runtime>(
             return choice.map(|p| selected(p, save, excluded)).transpose();
         }
     }
-    let (tx, rx) = mpsc::sync_channel(1);
-    window
-        .run_on_main_thread(move || {
-            let path = if save {
-                native_save_file("Project.tinkerproject", EXTENSION)
-            } else {
-                native_open_file(&[EXTENSION])
-            };
-            let _ = tx.send(path.and_then(|p| p.map(|p| selected(p, save, excluded)).transpose()));
-        })
-        .map_err(|_| DesktopError("windowUnavailable"))?;
-    rx.recv().map_err(|_| DesktopError("windowUnavailable"))?
+    let kind = if save {
+        Panel::Save {
+            name: "Project.tinkerproject".into(),
+            extension: EXTENSION,
+        }
+    } else {
+        Panel::Open(&[EXTENSION])
+    };
+    file_sheet::choose(window, kind, move |path| selected(path, save, excluded))
 }
 fn identity(root: &Path) -> HostResult<(u64, u64)> {
     let meta = root

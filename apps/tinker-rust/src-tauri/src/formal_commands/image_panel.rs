@@ -1,18 +1,13 @@
 //! 外部路径由系统面板选择；前端只能获得本会话内的文件引用。
+use super::file_sheet::{self, Panel};
 use super::{image_disk, FormalState, WireError};
 use crate::{
     desktop_runtime::protocol::{id, DesktopError, Result as HostResult},
     formal_agent::image_grant::{Outcome, Step},
 };
-use objc2::MainThreadMarker;
-use objc2_app_kit::{NSModalResponseCancel, NSModalResponseOK, NSOpenPanel, NSSavePanel};
-use objc2_foundation::{NSArray, NSString};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{
-    path::{Path, PathBuf},
-    sync::mpsc,
-};
+use std::path::{Path, PathBuf};
 #[cfg(feature = "formal-native-qa")]
 use tauri::Manager;
 use tauri::{Runtime, WebviewWindow};
@@ -45,50 +40,6 @@ fn host_step(state: &FormalState, g: &str, sid: &str, step: Step) -> HostResult<
         .image_grant(g.to_owned(), sid.to_owned(), step)?;
     pending.recv().map_err(|_| DesktopError("hostClosed"))?
 }
-#[allow(deprecated)]
-pub(super) fn native_open_file(extensions: &[&str]) -> HostResult<Option<PathBuf>> {
-    let mtm = MainThreadMarker::new().ok_or(DesktopError("windowUnavailable"))?;
-    let panel = NSOpenPanel::openPanel(mtm);
-    panel.setCanChooseDirectories(false);
-    panel.setCanChooseFiles(true);
-    panel.setResolvesAliases(false);
-    panel.setAllowsMultipleSelection(false);
-    let allowed = extensions
-        .iter()
-        .map(|ext| NSString::from_str(ext))
-        .collect::<Vec<_>>();
-    panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&allowed)));
-    modal_path(&panel)
-}
-#[allow(deprecated)]
-fn native_panel(filename: Option<&str>) -> HostResult<Option<PathBuf>> {
-    let Some(name) = filename else {
-        return native_open_file(&["png", "jpg", "jpeg"]);
-    };
-    native_save_file(name, "png")
-}
-#[allow(deprecated)]
-pub(super) fn native_save_file(name: &str, extension: &str) -> HostResult<Option<PathBuf>> {
-    let mtm = MainThreadMarker::new().ok_or(DesktopError("windowUnavailable"))?;
-    let panel = NSSavePanel::savePanel(mtm);
-    panel.setNameFieldStringValue(&NSString::from_str(name));
-    panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&[NSString::from_str(
-        extension,
-    )])));
-    modal_path(&panel)
-}
-fn modal_path(panel: &NSSavePanel) -> HostResult<Option<PathBuf>> {
-    panel.setAllowsOtherFileTypes(false);
-    match panel.runModal() {
-        code if code == NSModalResponseOK => panel
-            .URL()
-            .and_then(|u| u.to_file_path())
-            .map(Some)
-            .ok_or(DesktopError("imageFileUnavailable")),
-        code if code == NSModalResponseCancel => Ok(None),
-        _ => Err(DesktopError("windowUnavailable")),
-    }
-}
 fn choose<R: Runtime>(
     window: &WebviewWindow<R>,
     filename: Option<String>,
@@ -100,13 +51,14 @@ fn choose<R: Runtime>(
             return Ok(selection);
         }
     }
-    let (tx, rx) = mpsc::sync_channel(1);
-    window
-        .run_on_main_thread(move || {
-            let _ = tx.send(native_panel(filename.as_deref()));
-        })
-        .map_err(|_| DesktopError("windowUnavailable"))?;
-    rx.recv().map_err(|_| DesktopError("windowUnavailable"))?
+    let kind = match filename {
+        Some(name) => Panel::Save {
+            name,
+            extension: "png",
+        },
+        None => Panel::Open(&["png", "jpg", "jpeg"]),
+    };
+    file_sheet::choose(window, kind, Ok)
 }
 pub(super) async fn run<R: Runtime>(
     window: WebviewWindow<R>,

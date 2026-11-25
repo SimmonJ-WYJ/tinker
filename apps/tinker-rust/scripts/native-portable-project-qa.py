@@ -8,6 +8,7 @@ import plistlib
 from runpy import run_path
 import shutil
 import tempfile
+import time
 import uuid
 
 HERE = Path(__file__).resolve().parent
@@ -59,13 +60,26 @@ def window(binary, profile, evidence, label, pids):
         w.stop_if_running()
 
 
+def require_sheet(w, attached):
+    deadline = time.monotonic() + 8
+    while time.monotonic() < deadline:
+        # 这条只读探针必须经过 Tauri 主线程；阻塞式 runModal 即使显示了面板也无法通过。
+        if w.command("foreground-state")["sheetAttached"] is attached:
+            return
+        time.sleep(.1)
+    raise AssertionError(f"Expected owned window sheetAttached={attached}")
+
+
 def system_picker(w, selector, description):
     input(f"QA pid {w.proc.pid} is ready. Bind desktop control to this nonmodal window, then press Enter: ")
+    docs["foreground"](w)
     print(description, flush=True)
-    # 先让 WKWebView 回传测试命令，再进入 AppKit 模态循环。
+    # 等到系统面板真实挂接再操作；确认后等待同一窗口解除挂接。
     w.wait(f"""const b=document.querySelector({json.dumps(selector)});
         if(!b || b.disabled)return false;setTimeout(()=>b.click(),350);return true;""", "open the physical file panel")
+    require_sheet(w, True)
     input("Finish the indicated action on the physical panel, then press Enter: ")
+    require_sheet(w, False)
 
 
 def seed(w, profile, system_panels):

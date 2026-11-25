@@ -1,6 +1,9 @@
 //! 资料选择只把项目标识交给渲染层；面板确认时即固定外部文件描述符。
 use super::{
-    image_disk, image_panel::native_open_file, session_panel::host_step, FormalState, WireError,
+    file_sheet::{self, Panel},
+    image_disk,
+    session_panel::host_step,
+    FormalState, WireError,
 };
 use crate::{
     desktop_runtime::protocol::{id, DesktopError, Result as HostResult},
@@ -15,7 +18,6 @@ use std::{
     fs::File,
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
-    sync::mpsc,
 };
 #[cfg(feature = "formal-native-qa")]
 use tauri::Manager;
@@ -108,15 +110,9 @@ fn choose<R: Runtime>(
             return choice.map(|path| selected(&path, &excluded)).transpose();
         }
     }
-    let (tx, rx) = mpsc::sync_channel(1);
-    window
-        .run_on_main_thread(move || {
-            let result = native_open_file(DOCUMENT_EXTENSIONS)
-                .and_then(|path| path.map(|path| selected(&path, &excluded)).transpose());
-            let _ = tx.send(result);
-        })
-        .map_err(|_| DesktopError("windowUnavailable"))?;
-    rx.recv().map_err(|_| DesktopError("windowUnavailable"))?
+    file_sheet::choose(window, Panel::Open(DOCUMENT_EXTENSIONS), move |path| {
+        selected(&path, &excluded)
+    })
 }
 
 pub(super) async fn run<R: Runtime>(
