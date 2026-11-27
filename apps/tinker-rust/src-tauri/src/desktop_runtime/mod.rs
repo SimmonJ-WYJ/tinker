@@ -2,9 +2,10 @@
 pub mod availability;
 mod document_send;
 mod execution;
+pub(crate) use document_send::DocumentSource;
 pub(crate) use execution::TextRetry;
 mod import;
-pub(crate) use import::portable::{PortableEntry, PortableSession, RevisionRoute};
+pub(crate) use import::portable::{PortableEntry, PortableSession, RevisionDraft, RevisionRoute};
 pub use import::ImportReceipt;
 pub(crate) mod profile;
 mod project_tasks;
@@ -347,19 +348,22 @@ impl Inner {
             .and_then(import::Seed::workspace)
             .or(session.workspace_id.as_deref())
     }
-    fn parked_revision_route(&self, sid: &str) -> Option<&RevisionRoute> {
+    fn parked_revision(&self, sid: &str) -> Option<&RevisionDraft> {
         if !self.bindings.get(sid)?.is_empty() {
             return None;
         }
-        self.imported.get(sid)?.revision_route.as_ref()
+        self.imported.get(sid)?.revision_draft.as_ref()
     }
     fn project_session(&self, session: &Session) -> Value {
         let mut value = json!(session);
         if let Some(workspace) = self.session_workspace(session) {
             value["workspaceId"] = json!(workspace);
         }
-        if let Some(route) = self.parked_revision_route(&session.session_id) {
-            value["nativeRevisionRoute"] = json!(route);
+        if let Some(draft) = self.parked_revision(&session.session_id) {
+            value["nativeRevisionRoute"] = json!(draft.route);
+            if let Some(source) = &draft.document {
+                value["nativeRevisionDocument"] = json!(source);
+            }
         }
         if self.require_import_seed(&session.session_id).is_err() {
             value["importError"] = json!("corruptImport");

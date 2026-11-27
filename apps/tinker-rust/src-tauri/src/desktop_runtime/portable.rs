@@ -165,7 +165,7 @@ impl PortableSession {
             files: self.attachments.iter().map(file_metadata).collect(),
             turns: self.turns.clone(),
             claimed_workspace: None,
-            revision_route: None,
+            revision_draft: None,
         }
     }
 }
@@ -189,7 +189,7 @@ pub(in crate::desktop_runtime) fn load(dir: &Path, sid: &str, expected: &str) ->
     {
         return Err(DesktopError("corruptImport"));
     }
-    seed.revision_route = RevisionRoute::load(dir, &seed)?;
+    seed.revision_draft = RevisionDraft::load(dir, &seed)?;
     validate_files(&seed, dir, false)?;
     Ok(seed)
 }
@@ -364,7 +364,7 @@ impl DesktopRuntime {
 fn publish(
     inner: &mut Inner,
     sessions: &[PortableSession],
-    revision_route: Option<&RevisionRoute>,
+    revision: Option<&RevisionDraft>,
     publish_catalog: impl FnOnce() -> Result<()>,
 ) -> Result<()> {
     let mut staged = BTreeMap::new();
@@ -385,8 +385,8 @@ fn publish(
         }
         legacy_attachments::stage_files(&dir, &value.attachments)?;
         let mut seed = value.seed(owner);
-        if let Some(route) = revision_route {
-            route.stage(&dir, &mut seed)?;
+        if let Some(draft) = revision {
+            draft.stage(&dir, &mut seed)?;
         }
         seed.integrity = integrity(&seed)?;
         write_json(&dir.join(SEED), &seed)?;
@@ -493,4 +493,4 @@ mod tests;
 
 #[path = "fork.rs"]
 mod fork;
-pub(crate) use fork::RevisionRoute;
+pub(crate) use fork::{RevisionDraft, RevisionRoute};

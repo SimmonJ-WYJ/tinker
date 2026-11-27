@@ -233,18 +233,53 @@ fn parked_revision_route_survives_restart_without_becoming_portable_history() {
         model_id: "synthetic-model".into(),
         config_revision: "previous-binding".into(),
     };
+    let draft = super::RevisionDraft {
+        route: route.clone(),
+        document: None,
+    };
     let child = rt
         .fork_completed_turns(
             source,
             "revision:selected",
             vec![],
-            Some((&route, "Parked question")),
+            Some((&draft, "Parked question")),
             |_| Ok(()),
         )
         .unwrap();
     let sid = child["sessionId"].as_str().unwrap();
     assert_eq!(child["title"], "Parked question (fork)");
     assert!(child.get("nativeRevisionRoute").is_some());
+    let dir = tmp.0.join("desktop-runtime-v1").join(sid);
+    let seed: Seed = read_json(&dir.join(SEED)).unwrap();
+    // v1 的路由文件及 journal 摘要在两版中相同。
+    assert_eq!(
+        seed.fingerprint,
+        format!("revision-route-v1:{}", digest(&(sid, &route)).unwrap())
+    );
+    assert_eq!(
+        read_json::<super::RevisionRoute>(&dir.join("revision-route-v1.json")).unwrap(),
+        route
+    );
+    let suggestion = json!({"documentId":"doc-00000000000000000000000000000002", "filename":"historical.pdf",
+        "page":2,"startLine":1,"endLine":2});
+    let cited = super::RevisionDraft {
+        route,
+        document: Some(serde_json::from_value(suggestion.clone()).unwrap()),
+    };
+    let cited_child = rt
+        .fork_completed_turns(
+            source,
+            "revision:cited",
+            vec![],
+            Some((&cited, "Cited question")),
+            |_| Ok(()),
+        )
+        .unwrap();
+    let cited_sid = cited_child["sessionId"].as_str().unwrap();
+    let cited_dir = tmp.0.join("desktop-runtime-v1").join(cited_sid);
+    let cited_seed: Seed = read_json(&cited_dir.join(SEED)).unwrap();
+    assert!(cited_seed.fingerprint.starts_with("revision-cited-v2:"));
+    assert_eq!(cited_child["nativeRevisionDocument"], suggestion);
     drop(rt);
     let reopened = open();
     let sessions = call(&reopened, "sessions.list", json!({}));
@@ -268,4 +303,33 @@ fn parked_revision_route_survives_restart_without_becoming_portable_history() {
         serde_json::to_string(&reopened.export_portable_sessions("orchard").unwrap()).unwrap();
     assert!(!backup.contains("previous-binding"));
     assert!(!backup.contains("revisionRoute"));
+    assert!(!backup.contains("historical.pdf"));
+    assert!(!backup.contains(suggestion["documentId"].as_str().unwrap()));
+    let restored = Temp::new();
+    let rt_restored =
+        DesktopRuntime::open(&restored.0, profiles("http://127.0.0.1:9/chat")).unwrap();
+    let archive: Vec<PortableSession> = serde_json::from_str(&backup).unwrap();
+    rt_restored
+        .restore_portable_sessions("orchard", &archive, || Ok(()))
+        .unwrap();
+    let rows = call(&rt_restored, "sessions.list", json!({}));
+    let imported = rows["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["sessionId"] == cited_sid)
+        .unwrap();
+    assert!(
+        imported.get("nativeRevisionDocument").is_none()
+            && imported.get("nativeRevisionRoute").is_none()
+    );
+
+    let sidecar = cited_dir.join("revision-route-v1.json");
+    let mut changed: Value = read_json(&sidecar).unwrap();
+    changed["document"]["page"] = json!(1);
+    write_json(&sidecar, &changed).unwrap();
+    assert!(matches!(
+        load(&cited_dir, cited_sid, &cited_seed.integrity),
+        Err(DesktopError("corruptImport"))
+    ));
 }

@@ -260,6 +260,7 @@
     "warningFilesDescription": "File restore unavailable: {{reason}}"
   },
   "revision": {
+    "previousExcerpt": "Previously cited excerpt (optional)",
     "edit": "Edit question in new branch",
     "regenerate": "Regenerate in new branch",
     "pendingInput": "Send or remove the pending attachments, references or mentions before switching branches.",

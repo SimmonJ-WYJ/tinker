@@ -90,3 +90,14 @@ test('宿主已记录失败轮次时不把原提问重复还原为未发送草�
   expect(store.get(agentSessionDraftsAtom).has('child')).toBe(false)
   expect(store.get(agentSessionsAtom).find(s => s.id === 'child')?.nativeRevisionRoute).toBeUndefined()
 })
+
+test.each(['edit', 'regenerate'] as const)('a cited %s opens an editable branch without sending or copying an attachment', async action => {
+  const source = { documentId: 'pdf-1', filename: 'Guide.pdf', page: 2, startLine: 4, endLine: 5 }
+  const cited = { ...prepared, session: { ...prepared.session, nativeRevisionDocument: source } }
+  const { view, store, send } = fixture(mock(async () => cited))
+  await act(async () => { await view.result.current?.('answer', action) })
+  expect(send).not.toHaveBeenCalled()
+  expect(store.get(currentAgentSessionIdAtom)).toBe('child')
+  expect(store.get(agentSessionDraftsAtom).get('child')).toBe(prepared.prompt)
+  expect(store.get(agentSessionsAtom)[0]?.nativeRevisionDocument).toEqual(source)
+})

@@ -265,7 +265,8 @@ impl Inner {
             }
         }
         // 普通发送同样保护重启后未提交的编辑，确保首次绑定不会静默改用同名渠道的新端点。
-        if self.parked_revision_route(&p.session_id).is_some_and(|r| {
+        if self.parked_revision(&p.session_id).is_some_and(|draft| {
+            let r = &draft.route;
             r.channel_id == p.profile_id
                 && r.model_id == p.model_id
                 && !self.text_route_available(&p.profile_id, &p.model_id, &r.config_revision)

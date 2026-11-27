@@ -8,8 +8,10 @@ pub fn active(turn: &Value) -> bool {
 }
 pub fn session(s: &Value) -> Value {
     let mut out = json!({"id":s["sessionId"],"title":s["title"],"channelId":s["profileId"],"pinned":s["pinned"],"archived":s["archived"],"createdAt":s["createdAt"],"updatedAt":s["updatedAt"]});
-    if let Some(route) = s.get("nativeRevisionRoute") {
-        out["nativeRevisionRoute"] = route.clone();
+    for key in ["nativeRevisionRoute", "nativeRevisionDocument"] {
+        if let Some(value) = s.get(key) {
+            out[key] = value.clone();
+        }
     }
     if s["importError"] == "corruptImport" {
         out["importError"] = json!("corruptImport");
