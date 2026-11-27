@@ -1,6 +1,7 @@
 import { clearToolRunPermissionsAtom } from '@/hooks/tool-run-snapshot-state'
 import { currentAgentAttempt } from '@/lib/agent-attempt'
 import { nativeQueueChainsAtom, refusesNativeQueue, rejectNativeQueuedMessageAtom } from '@/hooks/native-queue-state'
+import { sendRevisionText, useNativeConversationRevision } from './use-native-conversation-revision'
 import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { registerAgentAttempt, acceptAgentAttempt } from '@/lib/agent-attempt'
 import { observeAgentSend } from '@/lib/agent-send'
@@ -190,12 +191,18 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const setSessionModelMap = useSetAtom(agentSessionModelMapAtom)
   const [defaultChannelId, setDefaultChannelId] = useAtom(agentChannelIdAtom)
   const [defaultModelId, setDefaultModelId] = useAtom(agentModelIdAtom)
-  const agentChannelId = sessionChannelMap.get(sessionId) ?? defaultChannelId
-  const agentModelId = sessionModelMap.get(sessionId) ?? defaultModelId
+  const sessions = useAtomValue(agentSessionsAtom)
+  const session = sessions.find(meta => meta.id === sessionId)
+  const revisionRoute = window.__TAURI_FORMAL__?.prepareRevision ? session?.nativeRevisionRoute : undefined
+  const waitingForRoute = !!window.__TAURI_FORMAL__?.prepareRevision && !session
+  // 渠道设置也会自动替换普通会话模型；绑定中的草稿只接受本输入框的显式选择。
+  const [revisionChoice, setRevisionChoice] = React.useState<Pick<ModelOption, 'channelId' | 'modelId'> | null>(null)
+  const draftRoute = revisionRoute && (revisionChoice ?? revisionRoute)
+  const agentChannelId = waitingForRoute ? null : draftRoute?.channelId ?? sessionChannelMap.get(sessionId) ?? defaultChannelId
+  const agentModelId = waitingForRoute ? null : draftRoute?.modelId ?? sessionModelMap.get(sessionId) ?? defaultModelId
   const agentChannelIds = useAtomValue(agentChannelIdsAtom)
   const setDraftSessionIds = useSetAtom(draftSessionIdsAtom)
   const globalWorkspaceId = useAtomValue(currentAgentWorkspaceIdAtom)
-  const sessions = useAtomValue(agentSessionsAtom)
   // 从会话元数据派生 workspaceId：会话数据已加载时以自身为准，未加载时回退全局 atom
   const currentWorkspaceId = React.useMemo(() => {
     const meta = sessions.find((s) => s.id === sessionId)
@@ -243,24 +250,26 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   // 已有会话首次打开时，从全局默认值初始化 per-session map
   React.useEffect(() => {
-    if (!sessionId) return
-    if (!sessionChannelMap.has(sessionId) && defaultChannelId) {
+    if (!sessionId || waitingForRoute) return
+    const initialChannel = draftRoute?.channelId ?? defaultChannelId
+    const initialModel = draftRoute?.modelId ?? defaultModelId
+    if (!sessionChannelMap.has(sessionId) && initialChannel) {
       setSessionChannelMap((prev) => {
         if (prev.has(sessionId)) return prev
         const map = new Map(prev)
-        map.set(sessionId, defaultChannelId)
+        map.set(sessionId, initialChannel)
         return map
       })
     }
-    if (!sessionModelMap.has(sessionId) && defaultModelId) {
+    if (!sessionModelMap.has(sessionId) && initialModel) {
       setSessionModelMap((prev) => {
         if (prev.has(sessionId)) return prev
         const map = new Map(prev)
-        map.set(sessionId, defaultModelId)
+        map.set(sessionId, initialModel)
         return map
       })
     }
-  }, [sessionId, sessionChannelMap, sessionModelMap, defaultChannelId, defaultModelId, setSessionChannelMap, setSessionModelMap])
+  }, [sessionId, waitingForRoute, draftRoute, sessionChannelMap, sessionModelMap, defaultChannelId, defaultModelId, setSessionChannelMap, setSessionModelMap])
 
   const lastContextUsage = React.useMemo(() => latestContextUsage(persistedSDKMessages), [persistedSDKMessages])
   const contextStatus: AgentContextStatus = {
@@ -294,6 +303,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   }, [suggestion, streaming, sendWithCmdEnter, tConversation])
   const setAgentSessions = useSetAtom(agentSessionsAtom)
   const openSession = useOpenSession()
+  const reviseReply = useNativeConversationRevision(sessionId, openSession, !!selectedDocument || !!selectedImage)
   const wsAttachedDirsMap = useAtomValue(workspaceAttachedDirectoriesMapAtom)
   const wsAttachedDirs = currentWorkspaceId ? (wsAttachedDirsMap.get(currentWorkspaceId) ?? []) : []
 
@@ -530,6 +540,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (!messagesLoaded) return
     if (!pendingPrompt) return
     if (pendingPrompt.sessionId !== sessionId) return
+    if (revisionRoute) { setPendingPrompt(null); return }
     if (!agentChannelId || streaming) return
 
     // 快照当前上下文
@@ -597,7 +608,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       }
       void observeAgentSend(store,sessionId,requestId,window.electronAPI.sendAgentMessage(input),recoveryDraft)
     })
-  }, [messagesLoaded, pendingPrompt, sessionId, agentChannelId, agentModelId, currentWorkspaceId, streaming, setPendingPrompt, setStreamingStates, setAgentStreamErrors, store])
+  }, [messagesLoaded, pendingPrompt, revisionRoute, sessionId, agentChannelId, agentModelId, currentWorkspaceId, streaming, setPendingPrompt, setStreamingStates, setAgentStreamErrors, store])
 
   // ===== 附件处理 =====
 
@@ -845,6 +856,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   /** ModelSelector 选择回调 */
   const handleModelSelect = React.useCallback((option: ModelOption): void => {
+    if (revisionRoute) setRevisionChoice({ channelId: option.channelId, modelId: option.modelId })
     // 更新当前会话的 per-session 配置
     setSessionChannelMap((prev) => {
       const map = new Map(prev)
@@ -866,7 +878,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       agentChannelId: option.channelId,
       agentModelId: option.modelId,
     }).catch(console.error)
-  }, [sessionId, setSessionChannelMap, setSessionModelMap, setDefaultChannelId, setDefaultModelId])
+  }, [sessionId, revisionRoute, setSessionChannelMap, setSessionModelMap, setDefaultChannelId, setDefaultModelId])
 
   /** 构建 externalSelectedModel 给 ModelSelector */
   const externalSelectedModel = React.useMemo(() => {
@@ -896,6 +908,16 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     // textOverride：一键触发场景（如「找研究空白」）直接传入正文，绕过输入框 state（避免填入→回车的闭包时序问题）。
     if (store.get(pendingNativeImageSelectionsAtom).has(sessionId)) return
     const baseText = (opts?.textOverride ?? inputContent).trim()
+    if (waitingForRoute) return
+    if (revisionRoute && agentChannelId === revisionRoute.channelId && agentModelId === revisionRoute.modelId) {
+      if (opts?.textOverride !== undefined || !baseText || !session) return
+      if (pendingFiles.length || pendingMentions.length || selectedImage || selectedDocument) {
+        toast.info(tConversation('revision.textOnly'))
+        return
+      }
+      await sendRevisionText(store, session, baseText, revisionRoute, getSessionEffort())
+      return
+    }
     const mentionTokens = pendingMentions
       .map((m) => {
         if (m.kind === 'file') return `@file:${m.id}`
@@ -1266,7 +1288,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (cited) setDocumentDraft(draft => draft?.source === cited ? null : draft)
     const sent = window.electronAPI.sendAgentMessage(input)
     void observeAgentSend(store,sessionId,requestId,sent,recoveryDraft)
-  }, [selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
+  }, [getSessionEffort, waitingForRoute, session, revisionRoute, tConversation, selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 
   // 一键触发（如「找研究空白」）→ 直接派发 handleSend，不经输入框二段式回车。
   // textOverride 直接带正文，绕过 inputContent state 时序；写入后立即清空 atom 防重复发送。
@@ -1376,7 +1398,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   /** 重试：在当前会话中重新发送最后一条用户消息 */
   const handleRetry = React.useCallback((): void => {
-    if (!agentChannelId || streaming) return
+    if (!agentChannelId || streaming || revisionRoute) return
 
     // 找到最后一条用户消息
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
@@ -1426,7 +1448,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       requestId,
       startedAt: streamStartedAt,
     }).catch(console.error)
-  }, [messages, persistedSDKMessages, sessionId, agentChannelId, agentModelId, currentWorkspaceId, streaming, setAgentStreamErrors, setStreamingStates, tConversation, store])
+  }, [messages, persistedSDKMessages, sessionId, revisionRoute, agentChannelId, agentModelId, currentWorkspaceId, streaming, setAgentStreamErrors, setStreamingStates, tConversation, store])
 
   /** 在新会话中重试：创建新会话 + 切换 tab + 发送引用旧会话的提示词 */
   const handleRetryInNewSession = React.useCallback(async (): Promise<void> => {
@@ -1606,6 +1628,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
           stoppedByUser={stoppedByUser}
           onRetry={handleRetry}
           onRetryInNewSession={handleRetryInNewSession}
+          onRevise={reviseReply}
           onFork={handleFork}
           onRewind={handleRewindRequest}
           onCompact={taskMode === 'coding' ? handleCompact : undefined}

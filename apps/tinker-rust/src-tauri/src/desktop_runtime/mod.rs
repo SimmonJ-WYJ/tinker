@@ -4,7 +4,7 @@ mod document_send;
 mod execution;
 pub(crate) use execution::TextRetry;
 mod import;
-pub(crate) use import::portable::{PortableEntry, PortableSession};
+pub(crate) use import::portable::{PortableEntry, PortableSession, RevisionRoute};
 pub use import::ImportReceipt;
 pub(crate) mod profile;
 mod project_tasks;
@@ -347,10 +347,19 @@ impl Inner {
             .and_then(import::Seed::workspace)
             .or(session.workspace_id.as_deref())
     }
+    fn parked_revision_route(&self, sid: &str) -> Option<&RevisionRoute> {
+        if !self.bindings.get(sid)?.is_empty() {
+            return None;
+        }
+        self.imported.get(sid)?.revision_route.as_ref()
+    }
     fn project_session(&self, session: &Session) -> Value {
         let mut value = json!(session);
         if let Some(workspace) = self.session_workspace(session) {
             value["workspaceId"] = json!(workspace);
+        }
+        if let Some(route) = self.parked_revision_route(&session.session_id) {
+            value["nativeRevisionRoute"] = json!(route);
         }
         if self.require_import_seed(&session.session_id).is_err() {
             value["importError"] = json!("corruptImport");

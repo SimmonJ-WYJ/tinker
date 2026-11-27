@@ -8,6 +8,9 @@ pub fn active(turn: &Value) -> bool {
 }
 pub fn session(s: &Value) -> Value {
     let mut out = json!({"id":s["sessionId"],"title":s["title"],"channelId":s["profileId"],"pinned":s["pinned"],"archived":s["archived"],"createdAt":s["createdAt"],"updatedAt":s["updatedAt"]});
+    if let Some(route) = s.get("nativeRevisionRoute") {
+        out["nativeRevisionRoute"] = route.clone();
+    }
     if s["importError"] == "corruptImport" {
         out["importError"] = json!("corruptImport");
     }
@@ -78,6 +81,9 @@ fn project_history(turns: &[Value], text_task_identity: bool) -> Value {
         messages.push(json!({"id":t["assistantMessageId"],"role":"assistant","content":t["assistantMessage"],"createdAt":t["startedAt"],"model":t["modelId"]}));
         let mut a = json!({"type":"assistant","uuid":t["assistantMessageId"],"message":{"content":[{"type":"text","text":t["assistantMessage"]}],"model":t["modelId"]},"parent_tool_use_id":null,"_createdAt":t["startedAt"],"_channelModelId":t["modelId"],"_desktopRuntimeStatus":t["status"]});
         if text_task_identity {
+            if super::fork::revision_candidate(t) {
+                a["_desktopCanRevise"] = json!(true);
+            }
             a["_desktopTextTaskRequestId"] = t["requestId"].clone();
         }
         if !matches!(t["status"].as_str(), Some("completed" | "cancelled")) {

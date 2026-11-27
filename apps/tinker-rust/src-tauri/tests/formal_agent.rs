@@ -64,6 +64,136 @@ fn send(
     h.command("main",json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[{"sessionId":s,"requestId":id,"startedAt":1234,"channelId":"local-mock","modelId":"local-mock-a","workspaceId":"local-mock-workspace-id","userMessage":text}]})).unwrap()
 }
 #[test]
+fn revision_uses_only_history_before_selected_question_and_preserves_source() {
+    let (_root, host) = setup();
+    let generation = bootstrap(&host);
+    let source = create(&host, &generation);
+    let messages = |id: &str| invoke(&host, &generation, "agent:get-messages", json!([id]));
+    send(&host, &generation, &source, "one", "First?")
+        .wait(Duration::from_secs(10))
+        .unwrap();
+    invoke(
+        &host,
+        &generation,
+        "agent:send-message",
+        json!([{"sessionId":source,
+        "requestId":"two", "channelId":"local-mock", "modelId":"local-mock-b",
+        "effort":"low", "userMessage":"Second?"}]),
+    );
+    send(&host, &generation, &source, "three", "Third?")
+        .wait(Duration::from_secs(10))
+        .unwrap();
+    let original = messages(&source);
+    let prepare = |id: &str| {
+        invoke(
+            &host,
+            &generation,
+            "agent:prepare-revision",
+            json!([{"sessionId":source, "upToMessageUuid":id}]),
+        )
+    };
+    let first = prepare("one-assistant");
+    assert_eq!(first["prompt"], "First?");
+    assert_eq!(
+        first["session"]["nativeRevisionRoute"]["channelId"],
+        "local-mock"
+    );
+    assert_eq!(
+        first["session"]["nativeRevisionRoute"]["modelId"],
+        "local-mock-a"
+    );
+    assert!(first["session"]["nativeRevisionRoute"]["configRevision"].is_string());
+    let first_id = first["session"]["id"].as_str().unwrap();
+    assert_eq!(messages(first_id), json!([]));
+    let middle = prepare("two-assistant");
+    let child = middle["session"]["id"].as_str().unwrap();
+    assert_ne!(child, first_id);
+    assert_eq!(middle["prompt"], "Second?");
+    assert!(first.get("effort").is_none());
+    assert_eq!(middle["effort"], "low");
+    assert_eq!(
+        middle["session"]["nativeRevisionRoute"]["modelId"],
+        "local-mock-b"
+    );
+    let prefix = messages(child);
+    assert_eq!(prefix.as_array().unwrap().len(), 2);
+    assert_eq!(prefix[0]["content"], original[0]["content"]);
+    assert_eq!(prefix[1]["content"], original[1]["content"]);
+    assert_eq!(messages(&source), original);
+    assert_eq!(host.mock_records().len(), 3);
+    let sessions = || invoke(&host, &generation, "agent:list-sessions", json!([]));
+    let before = sessions();
+    for (sid, anchor) in [
+        (&source[..], "one-user"),
+        (first_id, "two-assistant"),
+        (child, prefix[1]["id"].as_str().unwrap()),
+    ] {
+        let err = host.command("main", json!({"command":"invoke","generation":generation,
+            "channel":"agent:prepare-revision","args":[{"sessionId":sid,"upToMessageUuid":anchor}]}))
+            .unwrap().wait(Duration::from_secs(2)).unwrap_err();
+        assert!(matches!(err.0, "forkUnsupported" | "forkAnchorMissing"));
+    }
+    assert_eq!(sessions(), before);
+    let route = &middle["session"]["nativeRevisionRoute"];
+    let accepted_input = json!({"sessionId":child, "requestId":"edited", "startedAt":5678,
+        "userMessage":"Changed?", "channelId":route["channelId"], "modelId":route["modelId"],
+        "effort":middle["effort"], "expectedConfigRevision":route["configRevision"]});
+    let submit = |input: &Value| {
+        host.command(
+            "main",
+            json!({"command":"invoke",
+        "generation":generation,"channel":"agent:send-message","args":[input]}),
+        )
+        .unwrap()
+        .wait(Duration::from_secs(10))
+    };
+    let mut stale = accepted_input.clone();
+    stale["expectedConfigRevision"] = json!("stale-config");
+    assert_eq!(submit(&stale).unwrap_err().0, "sourceChannelUnavailable");
+    assert_eq!(host.mock_records().len(), 3);
+    assert_eq!(messages(child), prefix);
+    let accepted_receipt = submit(&accepted_input).unwrap();
+    let records = host.mock_records();
+    assert_eq!(records.len(), 4);
+    assert_eq!(records[3].effort.as_deref(), Some("low"));
+    assert_eq!(
+        (records[3].user_messages, records[3].assistant_messages),
+        (2, 1)
+    );
+    assert_eq!(messages(&source), original);
+    call(
+        &host,
+        json!({"command":"invoke","generation":generation,"channel":"channel:update",
+        "args":["local-mock",{"enabled":false}],
+        "mutation":{"mutationId":"disable-revision-route","expectedRevision":0}}),
+    );
+    let sessions_before = sessions();
+    let err = host.command("main", json!({"command":"invoke","generation":generation,
+        "channel":"agent:prepare-revision","args":[{"sessionId":source,"upToMessageUuid":"two-assistant"}]}))
+        .unwrap().wait(Duration::from_secs(2)).unwrap_err();
+    assert_eq!(err.0, "sourceChannelUnavailable");
+    assert_eq!(submit(&accepted_input).unwrap(), accepted_receipt);
+    for (field, changed, error) in [
+        ("userMessage", json!("Second?"), "requestConflict"),
+        (
+            "requestId",
+            json!("different-request"),
+            "sourceChannelUnavailable",
+        ),
+        (
+            "expectedConfigRevision",
+            json!("wrong-version"),
+            "requestConflict",
+        ),
+    ] {
+        let mut tampered = accepted_input.clone();
+        tampered[field] = changed;
+        assert_eq!(submit(&tampered).unwrap_err().0, error);
+    }
+    assert_eq!(sessions(), sessions_before);
+    assert_eq!(host.mock_records().len(), 4);
+}
+#[test]
 fn actual_http_unicode_multiturn_and_duplicate_send_wait_for_terminal() {
     let (_root, h) = setup();
     let g = bootstrap(&h);

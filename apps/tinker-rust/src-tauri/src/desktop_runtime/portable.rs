@@ -165,6 +165,7 @@ impl PortableSession {
             files: self.attachments.iter().map(file_metadata).collect(),
             turns: self.turns.clone(),
             claimed_workspace: None,
+            revision_route: None,
         }
     }
 }
@@ -180,7 +181,7 @@ fn file_metadata(item: &SourceAttachment) -> StoredFile {
 }
 
 pub(in crate::desktop_runtime) fn load(dir: &Path, sid: &str, expected: &str) -> Result<Seed> {
-    let seed: Seed = read_json(&dir.join(SEED))?;
+    let mut seed: Seed = read_json(&dir.join(SEED))?;
     if seed.version != 2
         || seed.session.session_id != sid
         || seed.integrity != expected
@@ -188,6 +189,7 @@ pub(in crate::desktop_runtime) fn load(dir: &Path, sid: &str, expected: &str) ->
     {
         return Err(DesktopError("corruptImport"));
     }
+    seed.revision_route = RevisionRoute::load(dir, &seed)?;
     validate_files(&seed, dir, false)?;
     Ok(seed)
 }
@@ -355,13 +357,14 @@ impl DesktopRuntime {
             .lock()
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
         preflight(&inner, Some(workspace), UNCONFIGURED_PROFILE_ID, sessions)?;
-        publish(&mut inner, sessions, publish_catalog)
+        publish(&mut inner, sessions, None, publish_catalog)
     }
 }
 
 fn publish(
     inner: &mut Inner,
     sessions: &[PortableSession],
+    revision_route: Option<&RevisionRoute>,
     publish_catalog: impl FnOnce() -> Result<()>,
 ) -> Result<()> {
     let mut staged = BTreeMap::new();
@@ -382,6 +385,9 @@ fn publish(
         }
         legacy_attachments::stage_files(&dir, &value.attachments)?;
         let mut seed = value.seed(owner);
+        if let Some(route) = revision_route {
+            route.stage(&dir, &mut seed)?;
+        }
         seed.integrity = integrity(&seed)?;
         write_json(&dir.join(SEED), &seed)?;
         let run_store = RunStore::open(&dir)?;
@@ -487,3 +493,4 @@ mod tests;
 
 #[path = "fork.rs"]
 mod fork;
+pub(crate) use fork::RevisionRoute;

@@ -34,6 +34,7 @@ impl Actor {
                     | "agent:create-session"
                     | "agent:get-or-create-draft-session"
                     | "agent:fork-session"
+                    | "agent:prepare-revision"
                     | "agent:update-title"
                     | "agent:delete-session"
                     | "agent:toggle-pin"
@@ -57,6 +58,32 @@ impl Actor {
             arity(&args, 1, 1)?;
             let retry = crate::desktop_runtime::protocol::decode(args[0].clone())?;
             return self.retry_task(retry, reply);
+        }
+        if c == "agent:send-message" {
+            if let Some(input) = args
+                .first()
+                .filter(|a| a.get("expectedConfigRevision").is_some())
+            {
+                if !self.projects_supported()
+                    || mutation.is_some()
+                    || input.get("nativeImageAction").is_some()
+                    || input.get("imageEditReferenceId").is_some()
+                {
+                    return Err(DesktopError("unsupported"));
+                }
+                self.runtime.require_text_route_for_request(
+                    input["channelId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?,
+                    input["modelId"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?,
+                    input["expectedConfigRevision"]
+                        .as_str()
+                        .ok_or(DesktopError("invalidParams"))?,
+                    input["sessionId"].as_str().zip(input["requestId"].as_str()),
+                )?;
+            }
         }
         let image_send = c == "agent:send-message"
             && mutation.is_none()
@@ -195,9 +222,15 @@ impl Actor {
                 self.history(string(&args, 0)?)?["messages"].clone()
             }
             "agent:get-sdk-messages" => return Err(DesktopError("restoreRequired")),
-            "agent:fork-session" => {
+            "agent:prepare-revision" if !self.projects_supported() => {
+                return Err(DesktopError("unsupported"))
+            }
+            "agent:fork-session" | "agent:prepare-revision" => {
                 arity(&args, 1, 1)?;
-                self.fork_reply(crate::desktop_runtime::protocol::decode(args[0].clone())?)?
+                self.fork_reply(
+                    crate::desktop_runtime::protocol::decode(args[0].clone())?,
+                    c == "agent:prepare-revision",
+                )?
             }
             "agent:update-title" => {
                 arity(&args, 2, 2)?;
@@ -462,8 +495,16 @@ impl Actor {
         let object = input.as_object().ok_or(DesktopError("invalidParams"))?;
         for (key, value) in object {
             match key.as_str() {
-                "sessionId" | "userMessage" | "channelId" | "modelId" | "workspaceId"
-                | "startedAt" | "requestId" | "taskMode" | "effort" => {}
+                "sessionId"
+                | "userMessage"
+                | "channelId"
+                | "modelId"
+                | "workspaceId"
+                | "startedAt"
+                | "requestId"
+                | "taskMode"
+                | "effort"
+                | "expectedConfigRevision" => {}
                 "nativeDocumentReference" if self.projects_supported() && !self.queueing => {}
                 "nativeImageAction" | "imageEditReferenceId" if self.images.is_some() => {}
                 "nativeImageReferenceInferred"
@@ -500,13 +541,7 @@ impl Actor {
         let text = input["userMessage"]
             .as_str()
             .ok_or(DesktopError("invalidParams"))?;
-        if input["taskMode"].as_str().is_some_and(|v| v != "search")
-            || text.contains("<attached_files>")
-            || text.contains("<referenced_directory")
-            || text
-                .split_whitespace()
-                .any(|w| w.starts_with("@file:") || w.starts_with("@dir:"))
-        {
+        if input["taskMode"].as_str().is_some_and(|v| v != "search") || has_file_directive(text) {
             return Err(DesktopError("unsupported"));
         }
         let session = self.session(sid)?;
@@ -665,4 +700,12 @@ fn optional(args: &[Value], i: usize) -> Result<Option<String>> {
         Some(Value::String(s)) => Ok(Some(s.clone())),
         _ => Err(DesktopError("invalidParams")),
     }
+}
+
+pub(super) fn has_file_directive(text: &str) -> bool {
+    text.contains("<attached_files>")
+        || text.contains("<referenced_directory")
+        || text
+            .split_whitespace()
+            .any(|w| w.starts_with("@file:") || w.starts_with("@dir:"))
 }

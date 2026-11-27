@@ -49,6 +49,8 @@ try {
   const persistence = installPersistence(transport)
   const imageAssets = transport.bootstrap.nativeImageAssetReads ? createNativeImageAssets(transport.invoke) : undefined
   window.__TAURI_FORMAL__ = {
+    prepareRevision: transport.bootstrap.nativeConversationRevisions && !transport.bootstrap.queueing
+      ? input => transport.invoke('agent:prepare-revision', input) : undefined,
     projectBackups: transport.bootstrap.nativeProjectBackups ? createProjectBackups(transport.command) : undefined,
     projectDocuments: transport.bootstrap.nativeProjectDocuments ? createProjectDocuments(transport.command) : undefined,
     imageAssets,

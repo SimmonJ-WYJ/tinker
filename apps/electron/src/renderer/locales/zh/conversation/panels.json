@@ -259,6 +259,13 @@
     "warningFilesOnly": "已回退对话",
     "warningFilesDescription": "文件恢复不可用：{{reason}}"
   },
+  "revision": {
+    "edit": "在新分支编辑提问",
+    "regenerate": "在新分支重新生成",
+    "pendingInput": "请先发送或移除待处理的附件、引用或提及，再切换分支。",
+    "textOnly": "请以纯文字发送修改后的提问，或切换模型开始其他任务。",
+    "failed": "无法在新分支修改此回复"
+  },
   "fork": {
     "tooltip": "从此处分叉",
     "success": "已创建分叉会话",

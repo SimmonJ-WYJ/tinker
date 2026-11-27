@@ -2,12 +2,53 @@
 use super::*;
 use crate::desktop_runtime::activity_time;
 
+const REVISION_ROUTE_FILE: &str = "revision-route-v1.json";
+const REVISION_FINGERPRINT: &str = "revision-route-v1:";
+
+/// 本机未发送分支的公开路由标识。项目备份只包含历史，不携带该绑定。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct RevisionRoute {
+    pub channel_id: String,
+    pub model_id: String,
+    pub config_revision: String,
+}
+impl RevisionRoute {
+    fn fingerprint(&self, sid: &str) -> Result<String> {
+        Ok(format!("{REVISION_FINGERPRINT}{}", digest(&(sid, self))?))
+    }
+
+    pub(super) fn stage(&self, dir: &Path, seed: &mut Seed) -> Result<()> {
+        let path = dir.join(REVISION_ROUTE_FILE);
+        store::safe_file(&path)?;
+        if path.try_exists()? && read_json::<Self>(&path)? != *self {
+            return Err(DesktopError("importConflict"));
+        }
+        write_json(&path, self)?;
+        seed.fingerprint = self.fingerprint(&seed.session.session_id)?;
+        seed.revision_route = Some(self.clone());
+        Ok(())
+    }
+
+    pub(super) fn load(dir: &Path, seed: &Seed) -> Result<Option<Self>> {
+        if !seed.fingerprint.starts_with(REVISION_FINGERPRINT) {
+            return Ok(None);
+        }
+        let route: Self = read_json(&dir.join(REVISION_ROUTE_FILE))?;
+        if route.fingerprint(&seed.session.session_id)? != seed.fingerprint {
+            return Err(DesktopError("corruptImport"));
+        }
+        Ok(Some(route))
+    }
+}
+
 impl DesktopRuntime {
     pub(crate) fn fork_completed_turns(
         &self,
         source: &str,
         anchor: &str,
         mut turns: Vec<Turn>,
+        revision: Option<(&RevisionRoute, &str)>,
         prepare_assets: impl FnOnce(&str) -> Result<()>,
     ) -> Result<Value> {
         let mut inner = self
@@ -16,7 +57,10 @@ impl DesktopRuntime {
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
         let parent = inner.session(source)?;
         let workspace = inner.session_workspace(parent).map(str::to_owned);
-        let profile = parent.profile_id.clone();
+        let revision_route = revision.map(|(route, _)| route);
+        let profile = revision_route
+            .map_or(&parent.profile_id, |route| &route.channel_id)
+            .clone();
         let now = activity_time(parent.updated_at)?;
         // The next unpublished slot for this exact anchor is stable across crashes,
         // even if another conversation is created before the user retries.
@@ -32,8 +76,23 @@ impl DesktopRuntime {
             slot += 1;
         };
         let intent = inner.journal.root.join(format!(".fork-{sid}.json"));
-        let suffix = " (fork)";
-        let mut name = parent.title.as_str();
+        let suffix = if revision.is_some() && slot > 0 {
+            format!(" (fork {})", slot + 1)
+        } else {
+            " (fork)".to_owned()
+        };
+        // 同一提问可以多次重新生成，侧栏需能辨认提问与各次分支。
+        let question = revision.map(|(_, prompt)| {
+            prompt
+                .trim()
+                .lines()
+                .next()
+                .unwrap_or_default()
+                .chars()
+                .take(64)
+                .collect::<String>()
+        });
+        let mut name = question.as_deref().unwrap_or(&parent.title);
         while name.len() + suffix.len() > 1024 {
             name = &name[..name.char_indices().next_back().unwrap().0];
         }
@@ -98,9 +157,9 @@ impl DesktopRuntime {
             write_json(&intent, &session)?;
         }
         prepare_assets(&sid)?;
-        publish(&mut inner, values, || Ok(()))?;
+        publish(&mut inner, values, revision_route, || Ok(()))?;
         // Once journaled the session is authoritative even if cleanup fails.
         let _ = fs::remove_file(intent);
-        Ok(json!(session))
+        Ok(inner.project_session(&session))
     }
 }

@@ -5,7 +5,7 @@ use crate::desktop_runtime::{
     Turn,
 };
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
 #[derive(Deserialize)]
@@ -16,14 +16,51 @@ pub(super) struct ForkReply {
 }
 
 impl Actor {
-    pub(super) fn fork_reply(&self, input: ForkReply) -> Result<Value> {
+    pub(super) fn fork_reply(&self, input: ForkReply, before_question: bool) -> Result<Value> {
         let sid = &input.session_id;
         let turns = self.turns(sid)?;
         let history = self.history_from_turns(sid, &turns)?;
         let messages = history["sdkMessages"]
             .as_array()
             .ok_or(DesktopError("invalidReply"))?;
-        let prefix = completed_prefix(&turns, messages, &input.up_to_message_uuid)?;
+        let anchor = &input.up_to_message_uuid;
+        let mut prefix = completed_prefix(&turns, messages, anchor)?;
+        if before_question {
+            let target = take_revision_target(&mut prefix, messages, sid, anchor)?;
+            self.runtime.require_text_route(
+                &target.profile_id,
+                &target.model_id,
+                &target.config_revision,
+            )?;
+            // 冒号不属于原生消息 UUID 字符集；未发布意图不能与普通分叉相互复用。
+            let route = crate::desktop_runtime::RevisionRoute {
+                channel_id: target.profile_id,
+                model_id: target.model_id,
+                config_revision: target.config_revision,
+            };
+            let child = self.publish_fork(
+                sid,
+                &format!("revision:{anchor}"),
+                prefix,
+                Some((&route, &target.user_message)),
+            )?;
+            let mut prepared = json!({"session":child, "prompt":target.user_message});
+            if let Some(effort) = target.effort {
+                prepared["effort"] = json!(effort);
+            }
+            Ok(prepared)
+        } else {
+            self.publish_fork(sid, anchor, prefix, None)
+        }
+    }
+
+    fn publish_fork(
+        &self,
+        sid: &str,
+        anchor: &str,
+        prefix: ForkPrefix,
+        revision: Option<(&crate::desktop_runtime::RevisionRoute, &str)>,
+    ) -> Result<Value> {
         let session = self.session(sid)?;
         for loc in prefix
             .text
@@ -37,16 +74,15 @@ impl Actor {
                 return Err(DesktopError("forkUnsupported"));
             }
         }
-        let child = self.runtime.fork_completed_turns(
-            sid,
-            &input.up_to_message_uuid,
-            prefix.text,
-            |target| match &self.images {
-                Some(images) => images.store.fork_assets(sid, target, &prefix.images),
-                None if prefix.images.is_empty() => Ok(()),
-                None => Err(DesktopError("forkUnsupported")),
-            },
-        )?;
+        let child =
+            self.runtime
+                .fork_completed_turns(sid, anchor, prefix.text, revision, |target| {
+                    match &self.images {
+                        Some(images) => images.store.fork_assets(sid, target, &prefix.images),
+                        None if prefix.images.is_empty() => Ok(()),
+                        None => Err(DesktopError("forkUnsupported")),
+                    }
+                })?;
         Ok(projection::session(&child))
     }
 }
@@ -54,6 +90,53 @@ impl Actor {
 struct ForkPrefix {
     text: Vec<Turn>,
     images: BTreeSet<String>,
+}
+
+// 历史快照没有可重发的渠道身份。文档摘录只允许由新的显式选区发送。
+pub(super) fn revision_candidate(turn: &Value) -> bool {
+    turn["status"] == "completed"
+        && turn["documentSource"].is_null()
+        && turn["toolState"].is_null()
+        && turn["importedMessages"].is_null()
+        && turn["profileId"].is_string()
+        && turn["configRevision"] != "portable-history-v1"
+        && turn["userMessage"]
+            .as_str()
+            .is_some_and(|s| !s.trim().is_empty() && !super::channels::has_file_directive(s))
+}
+
+fn take_revision_target(
+    prefix: &mut ForkPrefix,
+    messages: &[Value],
+    session: &str,
+    anchor: &str,
+) -> Result<Turn> {
+    let mut matches = messages
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m["uuid"] == anchor);
+    let (index, reply) = matches.next().ok_or(DesktopError("forkAnchorMissing"))?;
+    let user = index
+        .checked_sub(1)
+        .and_then(|i| messages.get(i))
+        .ok_or(DesktopError("forkUnsupported"))?;
+    let target = prefix.text.pop().ok_or(DesktopError("forkUnsupported"))?;
+    if matches.next().is_some()
+        || target.session_id != session
+        || target.document_source.is_some()
+        || reply["_desktopCanRevise"] != true
+        || reply["uuid"] != target.assistant_message_id
+        || user["uuid"] != target.user_message_id
+        || !user["imageEditReference"].is_null()
+        || !user["_desktopDocumentSource"].is_null()
+        || !user["_importedFiles"].is_null()
+        || !user["_electronImported"].is_null()
+        || user["message"]["content"] != json!([{"type":"text","text":target.user_message}])
+        || reply["message"]["content"] != json!([{"type":"text","text":target.assistant_message}])
+    {
+        return Err(DesktopError("forkUnsupported"));
+    }
+    Ok(target)
 }
 
 fn completed_prefix(turns: &[Value], messages: &[Value], anchor: &str) -> Result<ForkPrefix> {
@@ -131,6 +214,58 @@ mod tests {
                "profileId":"a","modelId":"model-a","configRevision":"1","startedAt":1,
                "userMessage":"hi","assistantMessage":"hello","status":"completed","sequence":2,
                "errorCode":null,"toolState":null})
+    }
+
+    #[test]
+    fn revision_rejects_ambiguous_or_non_plain_projected_pairs() {
+        let turns = [turn("one")];
+        let sdk = projection::text_task_history(&turns)["sdkMessages"]
+            .as_array()
+            .unwrap()
+            .clone();
+        let revise = |messages: &[Value]| {
+            let mut prefix = completed_prefix(&turns, messages, "one-assistant")?;
+            take_revision_target(&mut prefix, messages, "session-1", "one-assistant")
+        };
+        assert_eq!(revise(&sdk).unwrap().user_message, "hi");
+        let mut duplicate = sdk.clone();
+        duplicate.extend(sdk.clone());
+        assert!(revise(&duplicate).is_err());
+        for (key, value) in [
+            ("imageEditReference", json!({"imageId":"another"})),
+            ("_desktopDocumentSource", json!({"firstLine":1})),
+            ("_importedFiles", json!([])),
+            ("_desktopQueueChainId", json!("chain")),
+            (
+                "message",
+                json!({"content":[{"type":"text","text":"displayed instead"}]}),
+            ),
+            (
+                "message",
+                json!({"content":[{"type":"text","text":"hi"},{"type":"image"}]}),
+            ),
+        ] {
+            let mut invalid = sdk.clone();
+            invalid[0][key] = value;
+            assert!(revise(&invalid).is_err(), "{key}");
+        }
+        for (key, value) in [
+            ("status", json!("interrupted")),
+            ("status", json!("cancelled")),
+            ("status", json!("running")),
+            ("toolState", json!({})),
+            ("documentSource", json!({})),
+            ("importedMessages", json!([])),
+            ("configRevision", json!("portable-history-v1")),
+            (
+                "userMessage",
+                json!("<attached_files>synthetic</attached_files>"),
+            ),
+        ] {
+            let mut invalid = turn("one");
+            invalid[key] = value;
+            assert!(!revision_candidate(&invalid), "{key}");
+        }
     }
 
     #[test]

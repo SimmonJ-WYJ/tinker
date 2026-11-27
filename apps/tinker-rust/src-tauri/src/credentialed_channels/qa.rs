@@ -379,6 +379,43 @@ fn serve(
                 s.write_all(b"HTTP/1.1 422 Unprocessable Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
                 return Ok(());
             }
+            // 在 HTTP 边界验证旧提问和修改后的精确上下文；仅匹配本轮合成样例。
+            let revision = last.starts_with("[qa:revision] ");
+            let revision_fixture = [
+                (
+                    "[qa:revision] How many trees will need a stake?",
+                    "Original question verified. ",
+                ),
+                (
+                    "[qa:revision] How many pairs of stakes should we order?",
+                    "Edited question verified. ",
+                ),
+                (
+                    "[qa:revision] Test an unavailable upstream. [qa:failure]",
+                    "",
+                ),
+                ("[qa:revision] Stop this slow reply. [qa:hold]", ""),
+            ]
+            .into_iter()
+            .find(|(question, _)| last == *question);
+            let valid_revision = revision_fixture.is_some_and(|(question, _)| {
+                let messages = serde_json::json!([
+                    {"role":"user","content":"We counted six apple trees."},
+                    {"role":"assistant","content":"Owned QA streamed text completed."},
+                    {"role":"user","content":question},
+                ]);
+                request["messages"] == messages
+                    && request["model"] == "owned-text"
+                    && request["stream"] == true
+                    && request.as_object().is_some_and(|body| {
+                        body.keys().all(|key| {
+                            matches!(
+                                key.as_str(),
+                                "messages" | "model" | "stream" | "reasoning_effort"
+                            )
+                        })
+                    })
+            });
             let document = document_probe(&request, last);
             let fork = last == "[qa:fork-context] Continue the forked orchard note.";
             let expected_fork = serde_json::json!([
@@ -387,6 +424,7 @@ fn serve(
                 {"role":"user","content":last},
             ]);
             if document.is_err()
+                || (revision && !valid_revision)
                 || (rehearsal && !has_upgrade_history(&request))
                 || (fork && request["messages"] != expected_fork)
             {
@@ -413,6 +451,9 @@ fn serve(
                 reply.into()
             } else if media_follow {
                 "Project fork context verified. ".into()
+            } else if let Some((_, reply)) = revision_fixture.filter(|(_, reply)| !reply.is_empty())
+            {
+                reply.into()
             } else if fork {
                 "Fork prefix verified. ".into()
             } else if rehearsal {
