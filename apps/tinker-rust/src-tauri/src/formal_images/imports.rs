@@ -13,6 +13,24 @@ pub struct ImportedImage {
     pub height: u32,
     pub content_sha256: String,
     pub created_at: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) history_source: Option<HistoryImageSource>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HistoryImageSource {
+    pub message_id: String,
+    pub attachment_id: String,
+}
+
+impl HistoryImageSource {
+    fn valid(&self) -> bool {
+        !self.message_id.is_empty()
+            && self.message_id.len() <= 512
+            && !self.attachment_id.is_empty()
+            && self.attachment_id.len() <= 128
+    }
 }
 
 fn valid_name(name: &str) -> bool {
@@ -24,7 +42,24 @@ fn valid_name(name: &str) -> bool {
             .chars()
             .any(|c| c.is_control() || c == '/' || c == '\\')
 }
-pub(super) fn reference_id(session: &str, name: &str, sha: &str) -> String {
+pub(super) fn reference_id(
+    session: &str,
+    name: &str,
+    sha: &str,
+    source: Option<&HistoryImageSource>,
+) -> String {
+    if let Some(source) = source {
+        // 每个元组成员独立编码；相同像素、不同消息或附件均是不同的编辑来源。
+        let identity = serde_json::to_vec(&(
+            session,
+            name,
+            sha,
+            &source.message_id,
+            &source.attachment_id,
+        ))
+        .expect("字符串元组可序列化");
+        return format!("ref-{}", &digest(&identity)[..32]);
+    }
     format!(
         "ref-{}",
         &digest(format!("{session}\0{name}\0{sha}").as_bytes())[..32]
@@ -52,7 +87,14 @@ pub(super) fn load(dir: &Path, session: &str) -> Result<Vec<ImportedImage>> {
                 || a.created_at > MAX_SAFE_INTEGER
                 || a.content_sha256.len() != 64
                 || !a.content_sha256.bytes().all(|c| c.is_ascii_hexdigit())
-                || a.id != reference_id(session, &a.display_name, &a.content_sha256)
+                || a.history_source.as_ref().is_some_and(|s| !s.valid())
+                || a.id
+                    != reference_id(
+                        session,
+                        &a.display_name,
+                        &a.content_sha256,
+                        a.history_source.as_ref(),
+                    )
                 || a.filename != format!("{}.png", a.id)
                 || a.width == 0
                 || a.height == 0
@@ -79,13 +121,27 @@ impl ImageStore {
         bytes: &[u8],
         created_at: u64,
     ) -> Result<ImportedImage> {
+        self.import_reference(session, display_name, bytes, created_at, None)
+    }
+
+    pub(crate) fn import_reference(
+        &self,
+        session: &str,
+        display_name: &str,
+        bytes: &[u8],
+        created_at: u64,
+        history_source: Option<HistoryImageSource>,
+    ) -> Result<ImportedImage> {
         let dir = self.session(session)?;
-        if !valid_name(display_name) || created_at > MAX_SAFE_INTEGER {
+        if history_source.as_ref().is_some_and(|s| !s.valid())
+            || !valid_name(display_name)
+            || created_at > MAX_SAFE_INTEGER
+        {
             return Err(DesktopError("invalidImageInput"));
         }
         let (width, height) = provider::dimensions(bytes)?;
         let hash = digest(bytes);
-        let id = reference_id(session, display_name, &hash);
+        let id = reference_id(session, display_name, &hash, history_source.as_ref());
         let guard = self.guard()?;
         let mut imports = load(&dir, session)?;
         if let Some(existing) = imports.iter().find(|a| a.id == id) {
@@ -115,6 +171,7 @@ impl ImageStore {
             id,
             filename,
             display_name: display_name.into(),
+            history_source,
             width,
             height,
             content_sha256: hash,

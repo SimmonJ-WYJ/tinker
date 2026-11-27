@@ -64,7 +64,11 @@ pub fn wire_name(file: &StoredFile) -> String {
     } else {
         "txt"
     };
-    let key = Sha256::digest(format!("{}\0{}", file.id, file.sha256).as_bytes());
+    managed_name(&file.id, &file.sha256, ext)
+}
+
+pub(crate) fn managed_name(id: &str, sha256: &str, ext: &str) -> String {
+    let key = Sha256::digest(format!("{id}\0{sha256}").as_bytes());
     format!("legacy-{key:x}.{ext}")
 }
 

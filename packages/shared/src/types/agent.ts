@@ -243,6 +243,8 @@ export interface UserImageEditReference {
   imageId: string
   /** 宿主根据确定图片产物验证的来源 SDK UUID；旧消息可缺省。 */
   sourceMessageId?: string
+  /** 从旧会话选择图片后，由宿主核实的原始托管附件路径。 */
+  sourceAttachmentPath?: string
   /** 经宿主校验的会话相对附件路径 */
   localPath: string
   filename: string

@@ -56,12 +56,28 @@ export function bindImageReferenceSources(messages: SDKMessage[], history: reado
 }
 
 /** 历史渲染也只看该用户消息之前的来源，绝不把后来出现的同名产物当作旧引用。 */
-export function resolveUserImageReferenceSource(message: SDKUserMessage, messages: readonly SDKMessage[]): string | undefined {
+export function resolveUserImageReferenceSource(message: SDKUserMessage, messages: readonly SDKMessage[], nativeSessionId?: string | null): string | undefined {
   if (!message.imageEditReference) return undefined
   let index = messages.indexOf(message)
   if (index < 0 && message.uuid) {
     const matches = messages.map((item, position) => ({ item, position })).filter(({ item }) => item.type === 'user' && (item as SDKUserMessage).uuid === message.uuid)
     if (matches.length === 1) index = matches[0]!.position
   }
-  return index < 0 ? undefined : resolveImageReferenceSource(message.imageEditReference, messages.slice(0, index))
+  if (index < 0) return undefined
+  const reference = message.imageEditReference
+  if (nativeSessionId && (reference.localPath.split('/')[0] !== nativeSessionId
+    || (message.session_id && message.session_id !== nativeSessionId))) return undefined
+  const preceding = messages.slice(0, index)
+  if (reference.sourceAttachmentPath === undefined) return resolveImageReferenceSource(reference, preceding)
+
+  // 旧附件没有生图工具记录；只接受当前原生会话宿主投影的精确消息和托管附件。
+  const { sourceMessageId, sourceAttachmentPath } = reference
+  if (!nativeSessionId || !sourceMessageId
+    || /^([\w-]+)\/legacy-[a-f0-9]{64}\.png$/.exec(sourceAttachmentPath)?.[1] !== nativeSessionId) return undefined
+  const owners = preceding.filter((item): item is SDKUserMessage | SDKAssistantMessage =>
+    (item.type === 'user' || item.type === 'assistant') && item.uuid === sourceMessageId)
+  const owner = owners[0]
+  if (owners.length !== 1 || owner?._electronImported !== true || owner.session_id !== nativeSessionId) return undefined
+  return Array.isArray(owner._importedFiles) && owner._importedFiles.some(file => file?.path === sourceAttachmentPath && file.mediaType === 'image/png')
+    ? sourceMessageId : undefined
 }

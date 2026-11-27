@@ -123,6 +123,23 @@ def run(bundle):
         routes["select_model"](w, channel["id"], routes["IMAGE"])
         w.edit(copied_image, "Edit this image again. [qa:fork-version]")
         assert len(large["names"](w, 2)) == 2
+        # 两条会话的 PNG 字节完全相同，编辑引用必须定位分支自己的生成消息。
+        generated_row = w.wait(f"""const card=[...document.querySelectorAll('[data-generated-image] img')]
+            .find(i=>i.alt==={json.dumps(copied_image)});
+            return card?.closest('[data-message-id]')?.dataset.messageId;""", "branch result owner")
+        assert child["id"] in generated_row and source["id"] not in generated_row
+        w.wait(f"""const card=[...document.querySelectorAll('[data-image-edit-reference]')]
+            .find(e=>e.dataset.imageEditReference==={json.dumps(Path(copied_image).stem)});
+            const link=card?.querySelector('[data-reference-source-link]');
+            if(!link||link.disabled)return false; link.focus();link.click();return true;""",
+            "locate the edited branch image from its sent reference")
+        w.wait(f"""const row=document.querySelector('[data-reference-highlighted]');
+            return row?.dataset.messageId==={json.dumps(generated_row)} && document.activeElement===row;""",
+            "only the branch result is highlighted and focused")
+        routes["choose"](w, ".conversation-reference-return", "return to the branch reference")
+        w.wait(f"""return document.activeElement?.matches('[data-reference-source-link]') &&
+            document.activeElement.closest('[data-image-edit-reference]')?.dataset.imageEditReference
+            ==={json.dumps(Path(copied_image).stem)};""", "focus back on the branch source link")
         assert source in sessions(w)
         after = routes["counts"](root)
         assert after == [[2,7],[0,0]], after

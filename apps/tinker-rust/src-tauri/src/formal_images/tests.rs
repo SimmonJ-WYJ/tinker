@@ -1216,6 +1216,46 @@ fn portable_images_only_copy_indexed_verified_originals_to_a_fresh_session() {
 }
 
 #[test]
+fn portable_history_reference_remaps_only_the_session_and_rejects_changed_provenance() {
+    let dir = root();
+    let store = ImageStore::open(&dir).unwrap();
+    let image = pixel(84);
+    let source = imports::HistoryImageSource {
+        message_id: "second-of-two".into(),
+        attachment_id: "owned".into(),
+    };
+    let prepared = store
+        .import_reference("before", "photo.png", &image, 1, Some(source))
+        .unwrap();
+    let mut budget = usize::MAX;
+    let mut portable = store.export_portable("before", &mut budget).unwrap();
+    let mut tampered = serde_json::to_value(&portable).unwrap();
+    tampered["imports"][0]["historySource"]["messageId"] = json!("first-of-two");
+    let mut tampered: PortableImages = serde_json::from_value(tampered).unwrap();
+    assert_eq!(
+        tampered.remap_session("before", "after").unwrap_err().0,
+        "corruptImages"
+    );
+
+    portable.remap_session("before", "after").unwrap();
+    store.stage_portable("after", &portable).unwrap();
+    let moved = store.imports("after").unwrap().remove(0);
+    assert_ne!(prepared.id, moved.id);
+    assert_eq!(
+        store
+            .attachment("after", &moved.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        image
+    );
+    let owner = moved.history_source.unwrap();
+    assert_eq!(owner.message_id, "second-of-two");
+    assert_eq!(owner.attachment_id, "owned");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn fork_copies_only_used_versions_and_recovers_an_exact_unpublished_install() {
     use std::collections::BTreeSet;
     let root = root();

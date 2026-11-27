@@ -461,6 +461,39 @@ impl DesktopRuntime {
             .get(sid)
             .map_or_else(Vec::new, |s| s.files.clone()))
     }
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    pub(crate) fn history_image(
+        &self,
+        sid: &str,
+        message_id: &str,
+        filename: &str,
+    ) -> Result<(StoredFile, Vec<u8>)> {
+        let missing = DesktopError("imageNotFound");
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        inner.session(sid)?;
+        inner.require_import_seed(sid)?;
+        let seed = inner.imported.get(sid).ok_or(missing)?;
+        let message = seed
+            .messages
+            .iter()
+            .find(|m| m.id == message_id)
+            .ok_or(missing)?;
+        let file = seed
+            .files
+            .iter()
+            .find(|f| {
+                f.media_type == "image/png"
+                    && message.attachment_ids.contains(&f.id)
+                    && legacy_attachments::wire_name(f) == filename
+            })
+            .ok_or(missing)?;
+        let bytes = legacy_attachments::read_asset(&inner.journal.root.join(sid), file)?;
+        Ok((file.clone(), bytes))
+    }
+
     pub(crate) fn imported_file_bytes(&self, sid: &str, filename: &str) -> Result<Option<Vec<u8>>> {
         let inner = self
             .inner

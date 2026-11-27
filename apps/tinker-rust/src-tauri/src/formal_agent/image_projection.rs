@@ -5,6 +5,20 @@ use serde_json::{json, Value};
 pub(super) fn attachment(sid: &str, asset: &ImageAsset) -> Value {
     json!({"localPath":format!("{sid}/{}",asset.filename),"filename":asset.filename,"mediaType":"image/png"})
 }
+pub(super) fn imported_reference(sid: &str, source: &ImportedImage) -> Value {
+    let mut reference = json!({"imageId":source.id,"localPath":format!("{sid}/{}", source.filename),
+        "filename":source.filename,"displayName":source.display_name,"mediaType":"image/png"});
+    if let Some(owner) = &source.history_source {
+        reference["sourceMessageId"] = json!(format!("electron-import:{sid}:{}", owner.message_id));
+        let name = crate::legacy_attachments::managed_name(
+            &owner.attachment_id,
+            &source.content_sha256,
+            "png",
+        );
+        reference["sourceAttachmentPath"] = json!(format!("{sid}/{name}"));
+    }
+    reference
+}
 fn image_kind(turn: &ImageTurn) -> &'static str {
     if turn.base_image_id.is_some() {
         "edit"
@@ -41,9 +55,7 @@ pub(super) fn project(
             reference["sourceMessageId"] = json!(format!("native-image-{sid}-{request}-assistant"));
             user["imageEditReference"] = reference;
         } else if let Some(source) = imports.iter().find(|a| a.id == *id) {
-            // 本地导入图没有助手生成消息；链接到同会话的实际附件。
-            user["imageEditReference"] = json!({"imageId":source.id,"localPath":format!("{sid}/{}", source.filename),
-                "filename":source.filename,"displayName":source.display_name,"mediaType":"image/png"});
+            user["imageEditReference"] = imported_reference(sid, source);
         }
     }
     let mut plain = vec![

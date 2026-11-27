@@ -60,7 +60,11 @@ impl Actor {
         let result = self.apply_image_grant(&grant.generation, &grant.session, grant.step);
         let _ = grant.reply.send(result);
     }
-    fn apply_image_grant(&mut self, generation: &str, sid: &str, step: Step) -> Result<Outcome> {
+    fn checked_image_store(
+        &self,
+        generation: &str,
+        sid: &str,
+    ) -> Result<&crate::formal_images::ImageStore> {
         if generation.is_empty() || generation != self.generation {
             return Err(DesktopError("staleGeneration"));
         }
@@ -75,6 +79,35 @@ impl Actor {
             .ok_or(DesktopError("unsupported"))?
             .store;
         self.session(sid)?;
+        Ok(store)
+    }
+
+    pub(super) fn prepare_history_image(
+        &self,
+        generation: &str,
+        sid: &str,
+        projected_id: &str,
+        filename: &str,
+    ) -> Result<Value> {
+        let store = self.checked_image_store(generation, sid)?;
+        let raw_id = projected_id
+            .strip_prefix(&format!("electron-import:{sid}:"))
+            .filter(|id| !id.is_empty() && id.len() <= 512)
+            .ok_or(DesktopError("imageNotFound"))?;
+        if filename.len() != "legacy-".len() + 64 + ".png".len() {
+            return Err(DesktopError("imageNotFound"));
+        }
+        let (file, png) = self.runtime.history_image(sid, raw_id, filename)?;
+        let source = crate::formal_images::HistoryImageSource {
+            message_id: raw_id.into(),
+            attachment_id: file.id,
+        };
+        let imported = store.import_reference(sid, &file.filename, &png, now()?, Some(source))?;
+        Ok(json!({"value":super::image_projection::imported_reference(sid, &imported)}))
+    }
+
+    fn apply_image_grant(&mut self, generation: &str, sid: &str, step: Step) -> Result<Outcome> {
+        let store = self.checked_image_store(generation, sid)?;
         match step {
             Step::CheckImport => Ok(Outcome::Ready),
             Step::ReadExport(filename) if filename.starts_with("legacy-") => {
@@ -91,13 +124,9 @@ impl Actor {
                 store.attachment(sid, &filename)?.read_bytes()?,
             )),
             Step::Import { name, png } => {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|_| DesktopError("clockUnavailable"))?
-                    .as_millis() as u64;
-                let imported = store.import_png(sid, &name, &png, now)?;
+                let imported = store.import_png(sid, &name, &png, now()?)?;
                 Ok(Outcome::Finished(
-                    json!({"value":{"imageId":imported.id,"localPath":format!("{sid}/{}",imported.filename),"filename":imported.filename,"displayName":imported.display_name,"mediaType":"image/png"}}),
+                    json!({"value":super::image_projection::imported_reference(sid, &imported)}),
                 ))
             }
             Step::Export { filename, staged } => {
@@ -117,4 +146,11 @@ impl Actor {
             }
         }
     }
+}
+
+fn now() -> Result<u64> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| DesktopError("clockUnavailable"))?
+        .as_millis() as u64)
 }

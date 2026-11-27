@@ -409,6 +409,15 @@ impl Actor {
                     self.invoke(&channel, args, mutation, reply)
                 }
             }
+            #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+            Command::PrepareHistoryImage {
+                generation,
+                session_id,
+                message_id,
+                filename,
+            } => self
+                .prepare_history_image(&generation, &session_id, &message_id, &filename)
+                .map(Some),
             Command::ProjectTaskStatuses { workspace_id, .. } => {
                 if !self.native_task_lifecycle() || !self.projects_supported() {
                     return Err(DesktopError("unsupported"));
