@@ -6,6 +6,8 @@ mod directory_panel;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod document_panel;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+mod file_sheet;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
 pub(crate) mod image_disk;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 mod image_panel;

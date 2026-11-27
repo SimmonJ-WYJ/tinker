@@ -90,7 +90,7 @@ fn foreground(window: &tauri::WebviewWindow, activate: bool) -> Result<Value, St
                     }
                     owned.makeKeyAndOrderFront(None);
                 }
-                Ok(json!({"active": app.isActive(), "key": owned.isKeyWindow(), "visible": owned.isVisible()}))
+                Ok(json!({"active": app.isActive(), "key": owned.isKeyWindow(), "visible": owned.isVisible(), "sheetAttached": owned.attachedSheet().is_some()}))
             })();
             let _ = tx.send(result);
         })
