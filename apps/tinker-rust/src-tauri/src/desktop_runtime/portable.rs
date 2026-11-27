@@ -48,12 +48,18 @@ impl PortableSession {
     }
 
     fn validate(&self, workspace: &str) -> Result<()> {
+        self.validate_for(Some(workspace), UNCONFIGURED_PROFILE_ID)
+    }
+
+    fn validate_for(&self, workspace: Option<&str>, profile: &str) -> Result<()> {
         let canonical_digest = |n: &str| {
             n.len() == 40
                 && n.bytes()
                     .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         };
-        id(workspace)?;
+        if let Some(workspace) = workspace {
+            id(workspace)?;
+        }
         id(self.session_id())?;
         // 禁止预留名字与 journal / 锁文件冲突。
         if !(self
@@ -72,9 +78,9 @@ impl PortableSession {
             return Err(DesktopError("invalidImport"));
         }
         title(&self.session.title)?;
-        if self.session.workspace_id.as_deref() != Some(workspace)
+        if self.session.workspace_id.as_deref() != workspace
             || self.session.deleted
-            || self.session.profile_id != UNCONFIGURED_PROFILE_ID
+            || self.session.profile_id != profile
             || self.session.created_at > self.session.updated_at
             || self.session.updated_at > MAX_SAFE_INTEGER
         {
@@ -336,7 +342,7 @@ impl DesktopRuntime {
             .inner
             .lock()
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
-        preflight(&inner, workspace, sessions)
+        preflight(&inner, Some(workspace), UNCONFIGURED_PROFILE_ID, sessions)
     }
 
     pub(crate) fn restore_portable_sessions(
@@ -349,79 +355,95 @@ impl DesktopRuntime {
             .inner
             .lock()
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
-        preflight(&inner, workspace, sessions)?;
-        let mut staged = BTreeMap::new();
-        let mut entries = vec![];
-        for value in sessions {
-            let sid = value.session_id();
-            if inner.sessions.contains_key(sid) {
-                continue;
-            }
-            let dir = inner.journal.root.join(sid);
-            let owner = digest(value)?;
-            if !dir.try_exists()? {
-                let preparing = inner.journal.root.join(format!(".portable-{owner}"));
-                store::directory(&preparing)?;
-                write_json(&preparing.join(OWNER), &owner)?;
-                fs::rename(&preparing, &dir)?;
-                store::sync_directory(&inner.journal.root)?;
-            }
-            legacy_attachments::stage_files(&dir, &value.attachments)?;
-            let mut seed = value.seed(owner);
-            seed.integrity = integrity(&seed)?;
-            write_json(&dir.join(SEED), &seed)?;
-            let run_store = RunStore::open(&dir)?;
-            crate::desktop_runtime::execution::validate_store(
-                &run_store,
-                &[],
-                !inner.tools.is_empty(),
-            )?;
-            let controller = if inner.tools.is_empty() {
-                RunController::from_store(run_store)?
-            } else {
-                RunController::from_store_with_tools(run_store)?
-            };
-            for path in [
-                dir.join("runs-v1/context-v2"),
-                dir.join("runs-v1"),
-                dir,
-                inner.journal.root.clone(),
-            ] {
-                store::sync_directory(&path)?;
-            }
-            entries.push(PortableEntry {
-                session_id: sid.into(),
-                integrity: seed.integrity.clone(),
-            });
-            staged.insert(sid.to_owned(), (seed, controller));
-        }
-        if !entries.is_empty() {
-            inner
-                .journal
-                .append(Entry::PortableSessions { sessions: entries })?;
-        }
-        if let Err(error) = publish_catalog() {
-            inner.journal.require_recovery();
-            return Err(error);
-        }
-        for (sid, (seed, controller)) in staged {
-            inner.sessions.insert(sid.clone(), seed.session.clone());
-            inner.controllers.insert(sid.clone(), controller);
-            inner.bindings.insert(sid.clone(), vec![]);
-            inner.imported.insert(sid, seed);
-        }
-        Ok(())
+        preflight(&inner, Some(workspace), UNCONFIGURED_PROFILE_ID, sessions)?;
+        publish(&mut inner, sessions, publish_catalog)
     }
 }
 
-fn preflight(inner: &Inner, workspace: &str, sessions: &[PortableSession]) -> Result<()> {
+fn publish(
+    inner: &mut Inner,
+    sessions: &[PortableSession],
+    publish_catalog: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    let mut staged = BTreeMap::new();
+    let mut entries = vec![];
+    for value in sessions {
+        let sid = value.session_id();
+        if inner.sessions.contains_key(sid) {
+            continue;
+        }
+        let dir = inner.journal.root.join(sid);
+        let owner = digest(value)?;
+        if !dir.try_exists()? {
+            let preparing = inner.journal.root.join(format!(".portable-{owner}"));
+            store::directory(&preparing)?;
+            write_json(&preparing.join(OWNER), &owner)?;
+            fs::rename(&preparing, &dir)?;
+            store::sync_directory(&inner.journal.root)?;
+        }
+        legacy_attachments::stage_files(&dir, &value.attachments)?;
+        let mut seed = value.seed(owner);
+        seed.integrity = integrity(&seed)?;
+        write_json(&dir.join(SEED), &seed)?;
+        let run_store = RunStore::open(&dir)?;
+        crate::desktop_runtime::execution::validate_store(
+            &run_store,
+            &[],
+            !inner.tools.is_empty(),
+        )?;
+        let controller = if inner.tools.is_empty() {
+            RunController::from_store(run_store)?
+        } else {
+            RunController::from_store_with_tools(run_store)?
+        };
+        for path in [
+            dir.join("runs-v1/context-v2"),
+            dir.join("runs-v1"),
+            dir,
+            inner.journal.root.clone(),
+        ] {
+            store::sync_directory(&path)?;
+        }
+        entries.push(PortableEntry {
+            session_id: sid.into(),
+            integrity: seed.integrity.clone(),
+        });
+        staged.insert(sid.to_owned(), (seed, controller));
+    }
+    if !entries.is_empty() {
+        inner
+            .journal
+            .append(Entry::PortableSessions { sessions: entries })?;
+    }
+    if let Err(error) = publish_catalog() {
+        inner.journal.require_recovery();
+        return Err(error);
+    }
+    for (sid, (seed, controller)) in staged {
+        inner.sessions.insert(sid.clone(), seed.session.clone());
+        inner.controllers.insert(sid.clone(), controller);
+        inner.bindings.insert(sid.clone(), vec![]);
+        inner.imported.insert(sid, seed);
+    }
+    Ok(())
+}
+
+fn preflight(
+    inner: &Inner,
+    workspace: Option<&str>,
+    profile: &str,
+    sessions: &[PortableSession],
+) -> Result<()> {
     inner.journal.ensure_writable()?;
-    id(workspace)?;
+    if let Some(w) = workspace {
+        id(w)?;
+    }
+
     let mut ids = BTreeSet::new();
     let mut count = inner.sessions.len();
     let mut entries = vec![];
     for value in sessions {
-        value.validate(workspace)?;
+        value.validate_for(workspace, profile)?;
         let sid = value.session_id();
         if !ids.insert(sid) {
             return Err(DesktopError("invalidImport"));
@@ -463,3 +485,6 @@ fn preflight(inner: &Inner, workspace: &str, sessions: &[PortableSession]) -> Re
 #[cfg(test)]
 #[path = "portable_tests.rs"]
 mod tests;
+
+#[path = "fork.rs"]
+mod fork;

@@ -16,6 +16,8 @@ import { i18n, setAppLanguage } from '../renderer/lib/i18n.ts'
 
 const credentialErrors: Partial<Record<string, keyof typeof import('../renderer/locales/en/errors.json').desktopRuntime>> = {
  ...Object.fromEntries(NATIVE_CHANNEL_ERROR_CODES.map(code => [code, code])),
+ contextLimitExceeded: 'contextLimitExceeded',
+ forkUnsupported: 'forkUnsupported', forkAnchorMissing: 'forkAnchorMissing',
  requestConflict: 'requestConflict',
  corruptImport: 'corruptImport',
  imageFileExists: 'imageFileExists',

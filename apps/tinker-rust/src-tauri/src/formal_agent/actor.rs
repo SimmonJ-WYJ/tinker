@@ -247,7 +247,7 @@ impl Actor {
         let turns = self.turns(session)?;
         self.history_from_turns(session, &turns)
     }
-    fn history_from_turns(&self, session: &str, turns: &[Value]) -> Result<Value> {
+    pub(super) fn history_from_turns(&self, session: &str, turns: &[Value]) -> Result<Value> {
         let mut h = if self.queueing {
             self.queue_history(session, turns)?
         } else {

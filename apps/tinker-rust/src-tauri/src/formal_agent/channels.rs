@@ -33,6 +33,7 @@ impl Actor {
                     | "agent:update-workspace"
                     | "agent:create-session"
                     | "agent:get-or-create-draft-session"
+                    | "agent:fork-session"
                     | "agent:update-title"
                     | "agent:delete-session"
                     | "agent:toggle-pin"
@@ -194,6 +195,10 @@ impl Actor {
                 self.history(string(&args, 0)?)?["messages"].clone()
             }
             "agent:get-sdk-messages" => return Err(DesktopError("restoreRequired")),
+            "agent:fork-session" => {
+                arity(&args, 1, 1)?;
+                self.fork_reply(crate::desktop_runtime::protocol::decode(args[0].clone())?)?
+            }
             "agent:update-title" => {
                 arity(&args, 2, 2)?;
                 projection::session(&self.core(

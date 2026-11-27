@@ -69,6 +69,9 @@
     "providerSettings": "Models & providers"
   },
   "desktopRuntime": {
+    "contextLimitExceeded": "The conversation context exceeds the local limit. Choose an earlier reply or use a shorter conversation.",
+    "forkUnsupported": "Choose a completed text reply. This part of the conversation includes content that cannot yet be copied into a fork.",
+    "forkAnchorMissing": "The selected reply is no longer available in this conversation.",
     "channelUnauthorized": "The channel rejected its API key (HTTP 401). Check the key in channel settings.",
     "channelPaymentRequired": "The channel requires payment or a positive balance (HTTP 402). Check your balance and billing with the provider.",
     "channelForbidden": "The channel denied access to this model (HTTP 403). Check the key’s model permissions.",

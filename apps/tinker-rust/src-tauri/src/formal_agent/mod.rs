@@ -6,6 +6,7 @@ mod credentialed;
 mod credentialed_discovery;
 mod credentialed_images;
 mod delivery;
+mod fork;
 mod image_files;
 #[cfg(all(target_os = "macos", feature = "formal-preview"))]
 pub(crate) mod image_grant;
