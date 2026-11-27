@@ -3,7 +3,13 @@ use super::*;
 use crate::desktop_runtime::activity_time;
 
 impl DesktopRuntime {
-    pub(crate) fn fork_completed_turns(&self, source: &str, mut turns: Vec<Turn>) -> Result<Value> {
+    pub(crate) fn fork_completed_turns(
+        &self,
+        source: &str,
+        anchor: &str,
+        mut turns: Vec<Turn>,
+        prepare_assets: impl FnOnce(&str) -> Result<()>,
+    ) -> Result<Value> {
         let mut inner = self
             .inner
             .lock()
@@ -12,11 +18,6 @@ impl DesktopRuntime {
         let workspace = inner.session_workspace(parent).map(str::to_owned);
         let profile = parent.profile_id.clone();
         let now = activity_time(parent.updated_at)?;
-        let anchor = turns
-            .last()
-            .ok_or(DesktopError("forkUnsupported"))?
-            .assistant_message_id
-            .as_str();
         // The next unpublished slot for this exact anchor is stable across crashes,
         // even if another conversation is created before the user retries.
         let mut slot = 0;
@@ -96,6 +97,7 @@ impl DesktopRuntime {
             }
             write_json(&intent, &session)?;
         }
+        prepare_assets(&sid)?;
         publish(&mut inner, values, || Ok(()))?;
         // Once journaled the session is authoritative even if cleanup fails.
         let _ = fs::remove_file(intent);

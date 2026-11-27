@@ -128,7 +128,7 @@ fn asset_dir(base: &Path, group: Option<&SessionImages>, project: &str) -> PathB
         None => base.join(format!("project-documents-v1-{}", hash(project.as_bytes()))),
     }
 }
-fn install_directory(stage: &Path, live: &Path) -> Result<()> {
+pub(crate) fn install_directory(stage: &Path, live: &Path) -> Result<()> {
     directory(stage, true)?;
     let source = stage.parent().ok_or(DesktopError("unsafePath"))?;
     let target = live.parent().ok_or(DesktopError("unsafePath"))?;
@@ -137,7 +137,7 @@ fn install_directory(stage: &Path, live: &Path) -> Result<()> {
     sync_dir(target)?;
     sync_dir(source)
 }
-fn same<T: Serialize>(a: &T, b: &T) -> Result<()> {
+pub(crate) fn same<T: Serialize>(a: &T, b: &T) -> Result<()> {
     let fingerprint = |v: &T| {
         struct HashWriter(Sha256);
         impl Write for HashWriter {

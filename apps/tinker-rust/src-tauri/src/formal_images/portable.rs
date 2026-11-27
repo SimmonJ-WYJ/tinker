@@ -179,9 +179,17 @@ impl ImageStore {
             return Err(DesktopError("backupTaskActive"));
         }
         let images = SessionImages::open(&dir, session)?;
+        Self::collect_portable(&dir, images, remaining)
+    }
+
+    fn collect_portable(
+        dir: &Path,
+        images: SessionImages,
+        remaining: &mut usize,
+    ) -> Result<PortableImages> {
         let mut pngs = BTreeMap::new();
         for (name, hash, width, height) in assets(&images) {
-            let bytes = disk::png(&dir, name, hash)?;
+            let bytes = disk::png(dir, name, hash)?;
             let encoded =
                 base64::encoded_len(bytes.len(), true).ok_or(DesktopError("storageLimit"))?;
             *remaining = remaining
@@ -205,6 +213,10 @@ impl ImageStore {
     pub(crate) fn stage_portable(&self, session: &str, data: &PortableImages) -> Result<()> {
         let dir = self.session(session)?;
         let _guard = self.guard()?;
+        Self::write_portable(&dir, session, data)
+    }
+
+    fn write_portable(dir: &Path, session: &str, data: &PortableImages) -> Result<()> {
         if data.routed.version != 1 {
             return Err(DesktopError("unsupportedVersion"));
         }
@@ -228,23 +240,23 @@ impl ImageStore {
             Ok(_) => return Err(DesktopError("storeChanged")),
             Err(e) => return Err(e.into()),
         }
-        disk::private_dir(&dir)?;
+        disk::private_dir(dir)?;
         if !data.original.is_empty() {
-            disk::save_turns(&dir, &data.original, false)?;
+            disk::save_turns(dir, &data.original, false)?;
         }
         if !data.derived.is_empty() {
-            disk::save_turns(&dir, &data.derived, true)?;
+            disk::save_turns(dir, &data.derived, true)?;
         }
         if !data.imports.is_empty() {
             let index =
                 serde_json::to_vec(&serde_json::json!({"version":1,"imports":data.imports}))
                     .map_err(|_| DesktopError("storeIo"))?;
-            disk::write_index(&dir, "imports.json", &index)?;
+            disk::write_index(dir, "imports.json", &index)?;
         }
         if !data.routed.entries.is_empty() {
-            data.routed.save(&dir)?;
+            data.routed.save(dir)?;
         }
-        let images = SessionImages::open(&dir, session)?;
+        let images = SessionImages::open(dir, session)?;
         if assets(&images).count() != data.pngs.len() {
             return Err(DesktopError("corruptImages"));
         }
@@ -264,8 +276,11 @@ impl ImageStore {
             if digest(&bytes) != hash || dimensions(&bytes)? != (width, height) {
                 return Err(DesktopError("corruptImages"));
             }
-            disk::put(&dir, name, &bytes)?;
+            disk::put(dir, name, &bytes)?;
         }
         Ok(())
     }
 }
+
+#[path = "fork_assets.rs"]
+mod fork_assets;

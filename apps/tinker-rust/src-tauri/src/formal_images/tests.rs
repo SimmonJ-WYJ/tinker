@@ -1214,3 +1214,67 @@ fn portable_images_only_copy_indexed_verified_originals_to_a_fresh_session() {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[test]
+fn fork_copies_only_used_versions_and_recovers_an_exact_unpublished_install() {
+    use std::collections::BTreeSet;
+    let root = root();
+    let store = ImageStore::open(&root).unwrap();
+    let a = store
+        .import_png("source", "chosen.png", &pixel(1), 1)
+        .unwrap();
+    let unselected = store
+        .import_png("source", "other.png", &pixel(2), 2)
+        .unwrap();
+    for (id, parent) in [("keep", &a.id), ("after", &unselected.id)] {
+        let ImageAdmission::New(job) = store
+            .admit("source", id, "edit", Some(parent), 3, None, None)
+            .unwrap()
+        else {
+            panic!()
+        };
+        job.finish(Ok((pixel(3), 1, 1)), &AtomicBool::new(false))
+            .unwrap();
+    }
+    let keep = BTreeSet::from(["keep".to_string()]);
+    store.fork_assets("source", "child", &keep).unwrap();
+    drop(store);
+    let store = ImageStore::open(&root).unwrap();
+    store.fork_assets("source", "child", &keep).unwrap();
+    let (versions, refs) = store.snapshot("child").unwrap();
+    assert_eq!((versions.len(), refs.len()), (1, 1));
+    assert_ne!(refs[0].id, a.id);
+    assert_eq!(refs[0].display_name, "chosen.png");
+    assert_eq!(versions[0].base_image_id.as_ref(), Some(&refs[0].id));
+    assert_eq!(versions[0].route().unwrap().revision, "fork-history-v1");
+    assert_eq!(
+        store
+            .latest_task("child")
+            .unwrap()
+            .unwrap()
+            .text_head_at_admission,
+        Some(None)
+    );
+    assert!(store.attachment("child", &a.filename).is_err());
+    assert!(store.fork_assets("another", "other-child", &keep).is_err());
+    assert!(store
+        .fork_assets("source", "child", &BTreeSet::from(["after".into()]))
+        .is_err());
+    let copied = versions[0].asset.as_ref().unwrap();
+    std::fs::write(
+        store.session("child").unwrap().join(&copied.filename),
+        pixel(99),
+    )
+    .unwrap();
+    assert!(store.fork_assets("source", "child", &keep).is_err());
+    assert_eq!(
+        store
+            .attachment("source", &a.filename)
+            .unwrap()
+            .read_bytes()
+            .unwrap(),
+        pixel(1)
+    );
+    drop(store);
+    std::fs::remove_dir_all(root).unwrap();
+}

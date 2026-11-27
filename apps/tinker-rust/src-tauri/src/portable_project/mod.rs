@@ -23,7 +23,7 @@ use std::{
     io::{self, Write},
     marker::PhantomData,
 };
-pub(crate) use transaction::{preflight, recover, restore};
+pub(crate) use transaction::{install_directory, preflight, recover, restore, same};
 
 pub(crate) const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
 const MAGIC: &[u8; 8] = b"TINKERPB";
