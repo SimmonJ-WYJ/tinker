@@ -5,7 +5,10 @@ mod disk;
 mod portable;
 pub(crate) use portable::PortableImages;
 mod imports;
+mod local_admissions;
 mod provider;
+mod revision;
+pub(crate) use revision::{RevisionImageEdit, RevisionImageReference};
 mod routes;
 pub(crate) use routes::{ImageAction, ImageProtocol, ImageRoute};
 mod tasks;
@@ -64,6 +67,8 @@ pub struct ImageTurn {
     // 旧 v1 账本不包含路由字段。仅从独立路由收据恢复，不接受 renderer 自报。
     #[serde(skip)]
     route: Option<ImageRoute>,
+    #[serde(skip)]
+    admitted_locally: bool,
     pub request_id: String,
     pub prompt: String,
     pub base_image_id: Option<String>,

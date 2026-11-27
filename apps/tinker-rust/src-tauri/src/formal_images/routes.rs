@@ -137,6 +137,7 @@ impl RoutedReceipts {
             }
             t.route = Some(entry.route.clone());
         }
+        local_admissions::mark_local_suffix(dir, sid, &mut index.entries);
         Ok(index)
     }
     pub fn save(&self, dir: &Path) -> Result<()> {

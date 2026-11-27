@@ -1,23 +1,14 @@
 //! 原生图片投影复用现有 SDK 工具和引用附件形状。
-use crate::formal_images::{ImageAsset, ImageStatus, ImageTurn, ImportedImage};
+use crate::formal_images::{
+    ImageAsset, ImageStatus, ImageTurn, ImportedImage, RevisionImageReference,
+};
 use serde_json::{json, Value};
 
 pub(super) fn attachment(sid: &str, asset: &ImageAsset) -> Value {
     json!({"localPath":format!("{sid}/{}",asset.filename),"filename":asset.filename,"mediaType":"image/png"})
 }
 pub(super) fn imported_reference(sid: &str, source: &ImportedImage) -> Value {
-    let mut reference = json!({"imageId":source.id,"localPath":format!("{sid}/{}", source.filename),
-        "filename":source.filename,"displayName":source.display_name,"mediaType":"image/png"});
-    if let Some(owner) = &source.history_source {
-        reference["sourceMessageId"] = json!(format!("electron-import:{sid}:{}", owner.message_id));
-        let name = crate::legacy_attachments::managed_name(
-            &owner.attachment_id,
-            &source.content_sha256,
-            "png",
-        );
-        reference["sourceAttachmentPath"] = json!(format!("{sid}/{name}"));
-    }
-    reference
+    json!(RevisionImageReference::from_import(sid, source))
 }
 fn image_kind(turn: &ImageTurn) -> &'static str {
     if turn.base_image_id.is_some() {
@@ -36,6 +27,7 @@ pub(super) fn project(
     turn: &ImageTurn,
     turns: &[ImageTurn],
     imports: &[ImportedImage],
+    locally_bound: bool,
 ) -> (Vec<Value>, Vec<Value>) {
     let model = turn
         .route()
@@ -45,15 +37,13 @@ pub(super) fn project(
     let tool_id = format!("{id}-tool");
     let mut user = user_message(sid, turn);
     if let Some(id) = &turn.base_image_id {
-        if let Some((asset, request)) = turns
+        if let Some((_, request)) = turns
             .iter()
             .filter_map(|t| t.asset.as_ref().map(|a| (a, &t.request_id)))
             .find(|(a, _)| a.id == *id)
         {
-            let mut reference = attachment(sid, asset);
-            reference["imageId"] = json!(asset.id);
-            reference["sourceMessageId"] = json!(format!("native-image-{sid}-{request}-assistant"));
-            user["imageEditReference"] = reference;
+            user["imageEditReference"] =
+                json!(RevisionImageReference::from_generated(sid, request));
         } else if let Some(source) = imports.iter().find(|a| a.id == *id) {
             user["imageEditReference"] = imported_reference(sid, source);
         }
@@ -67,6 +57,12 @@ pub(super) fn project(
         input["baseImageId"] = json!(r);
     }
     sdk.push(json!({"type":"assistant","uuid":assistant_id,"_desktopImageTaskRequestId":turn.request_id,"_desktopImageTaskKind":image_kind(turn),"_desktopImageTaskStatus":turn.task_status(),"parent_tool_use_id":null,"_createdAt":turn.created_at,"_agentRequestId":turn.request_id,"message":{"model":model,"content":[{"type":"tool_use","id":tool_id,"name":"mcp__asci-image__generate_image","input":input}]}}));
+    if turn.is_revision_candidate(locally_bound)
+        && !super::channels::has_file_directive(&turn.prompt)
+        && sdk[0]["imageEditReference"].is_object()
+    {
+        sdk[1]["_desktopCanRevise"] = json!(true);
+    }
     if turn.status == ImageStatus::Pending {
         return (plain, sdk);
     }

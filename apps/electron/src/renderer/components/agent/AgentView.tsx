@@ -1,7 +1,7 @@
 import { clearToolRunPermissionsAtom } from '@/hooks/tool-run-snapshot-state'
 import { currentAgentAttempt } from '@/lib/agent-attempt'
 import { nativeQueueChainsAtom, refusesNativeQueue, rejectNativeQueuedMessageAtom } from '@/hooks/native-queue-state'
-import { sendRevisionText, useNativeConversationRevision } from './use-native-conversation-revision'
+import { sendRevisionQuestion, useNativeConversationRevision } from './use-native-conversation-revision'
 import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { registerAgentAttempt, acceptAgentAttempt } from '@/lib/agent-attempt'
 import { observeAgentSend } from '@/lib/agent-send'
@@ -12,6 +12,7 @@ import conversationPlus from '@/assets/conversation/plus.svg'
 import { ConversationReasoningSelector } from './ConversationReasoningSelector.tsx'
 import { documentSelection } from '../../../tauri-formal/project-documents'
 import { documentSourceLabel, ProjectDocuments } from './ProjectDocuments'
+import { RevisionImageReference } from './RevisionImageReference'
 import { ImageEditReference } from './ImageEditReference'
 import { latestTurnAttemptedImage, latestUserImageEditReferenceId } from './image-retry-policy.ts'
 import { BinaryBackdrop } from '../welcome/BinaryBackdrop'
@@ -202,6 +203,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const agentModelId = waitingForRoute ? null : draftRoute?.modelId ?? sessionModelMap.get(sessionId) ?? defaultModelId
   const guardedRoute = revisionRoute && agentChannelId === revisionRoute.channelId && agentModelId === revisionRoute.modelId
     ? revisionRoute : undefined
+  const revisionImage = revisionRoute ? session?.nativeRevisionImage : undefined
   const suggestedDocument = guardedRoute ? session?.nativeRevisionDocument : undefined
   const agentChannelIds = useAtomValue(agentChannelIdsAtom)
   const setDraftSessionIds = useSetAtom(draftSessionIdsAtom)
@@ -306,7 +308,6 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   }, [suggestion, streaming, sendWithCmdEnter, tConversation])
   const setAgentSessions = useSetAtom(agentSessionsAtom)
   const openSession = useOpenSession()
-  const reviseReply = useNativeConversationRevision(sessionId, openSession, !!selectedDocument || !!selectedImage)
   const wsAttachedDirsMap = useAtomValue(workspaceAttachedDirectoriesMapAtom)
   const wsAttachedDirs = currentWorkspaceId ? (wsAttachedDirsMap.get(currentWorkspaceId) ?? []) : []
 
@@ -368,7 +369,17 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   // 渠道已选但模型未选时，自动选择第一个可用模型
   const globalChannels = useAtomValue(channelsAtom)
 
-  const selectedImageModel = globalChannels.find(c => c.id === agentChannelId)?.models.find(m => m.id === agentModelId)?.capability === 'image'
+  const channel = globalChannels.find(c => c.id === agentChannelId)
+  const model = channel?.models.find(m => m.id === agentModelId)
+  const selectedImageModel = model?.capability === 'image'
+  const imageRouteReady = !!(guardedRoute && channel?.enabled && channel.nativeConfigRevision === guardedRoute.configRevision && model?.enabled && selectedImageModel && model.supportsImageEdits)
+  // 原图的授权只在当前挂载、当前渠道配置和当前草稿有效。
+  const imageScope = revisionImage && imageRouteReady
+    ? JSON.stringify([sessionId, revisionImage.imageId, revisionImage.localPath, guardedRoute, channel?.updatedAt, channel?.baseUrl]) : undefined
+  const [attachedImageScope, setAttachedImageScope] = React.useState<string>()
+  const revisionImageAttached = !!imageScope && attachedImageScope === imageScope
+  React.useLayoutEffect(() => { setAttachedImageScope(undefined) }, [imageScope])
+  const reviseReply = useNativeConversationRevision(sessionId, openSession, !!selectedDocument || !!selectedImage || revisionImageAttached)
 
   // 检查 Agent 渠道列表中是否存在可用的模型（渠道 enabled + 模型 enabled）
   const hasAvailableModel = React.useMemo(() => {
@@ -860,7 +871,10 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   /** ModelSelector 选择回调 */
   const handleModelSelect = React.useCallback((option: ModelOption): void => {
     if (revisionRoute) {
-      if (agentChannelId !== option.channelId || agentModelId !== option.modelId) setDocumentDraft(null)
+      if (agentChannelId !== option.channelId || agentModelId !== option.modelId) {
+        setDocumentDraft(null)
+        setAttachedImageScope(undefined)
+      }
       setRevisionChoice({ channelId: option.channelId, modelId: option.modelId })
     }
     // 更新当前会话的 per-session 配置
@@ -915,6 +929,18 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (store.get(pendingNativeImageSelectionsAtom).has(sessionId)) return
     const baseText = (opts?.textOverride ?? inputContent).trim()
     if (waitingForRoute) return
+    if (revisionImage) {
+      if (!session || !guardedRoute || !imageRouteReady || opts?.textOverride !== undefined || !baseText ||
+          store.get(agentStreamingStatesAtom).get(sessionId)?.running) return
+      if (pendingFiles.length || pendingMentions.length || selectedImage || selectedDocument) {
+        toast.info(tConversation('revision.imageOnly'))
+        return
+      }
+      setAttachedImageScope(undefined)
+      await sendRevisionQuestion(store, session, baseText, guardedRoute, undefined, revisionImageAttached
+        ? { nativeImageAction: 'edit', imageEditReferenceId: revisionImage.imageId } : { nativeImageAction: 'generate' })
+      return
+    }
     if (guardedRoute) {
       if (opts?.textOverride !== undefined || !baseText || !session) return
       if (pendingFiles.length || pendingMentions.length || selectedImage || (selectedDocument && !suggestedDocument)) {
@@ -923,7 +949,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       }
       if (store.get(agentStreamingStatesAtom).get(sessionId)?.running) return
       if (selectedDocument) setDocumentDraft(null)
-      await sendRevisionText(store, session, baseText, guardedRoute, getSessionEffort(), selectedDocument)
+      await sendRevisionQuestion(store, session, baseText, guardedRoute, getSessionEffort(), selectedDocument && { document: selectedDocument })
       return
     }
     const mentionTokens = pendingMentions
@@ -1296,7 +1322,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (cited) setDocumentDraft(draft => draft?.source === cited ? null : draft)
     const sent = window.electronAPI.sendAgentMessage(input)
     void observeAgentSend(store,sessionId,requestId,sent,recoveryDraft)
-  }, [getSessionEffort, waitingForRoute, session, guardedRoute, suggestedDocument, tConversation, selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
+  }, [getSessionEffort, waitingForRoute, session, guardedRoute, revisionImage, revisionImageAttached, imageRouteReady, suggestedDocument, tConversation, selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 
   // 一键触发（如「找研究空白」）→ 直接派发 handleSend，不经输入框二段式回车。
   // textOverride 直接带正文，绕过 inputContent state 时序；写入后立即清空 atom 防重复发送。
@@ -1608,7 +1634,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   const isHome = !agentError && messagesLoaded && messages.length === 0 && persistedSDKMessages.length === 0 && liveMessages.length === 0 && !streaming && !hasBannerOverlay
   const hasTextInput = inputContent.trim().length > 0
-  const canSend = (hasTextInput || pendingFiles.length > 0 || pendingMentions.length > 0) && agentChannelId !== null && hasAvailableModel && (!streaming || hasTextInput && !selectedImage)
+  const canSend = (!revisionImage || imageRouteReady) && (hasTextInput || pendingFiles.length > 0 || pendingMentions.length > 0) && agentChannelId !== null && hasAvailableModel && (!streaming || hasTextInput && !selectedImage)
 
   const imageGenerating = streaming && !!streamState?.toolActivities?.some(activity => activity.toolName === 'mcp__asci-image__generate_image' && !activity.done)
   if (corruptImport) {
@@ -1685,6 +1711,12 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
             {(isPlanMode || isPermissionPlanMode) && !isDragOver && <PlanModeDashedBorder />}
 
             <ImageEditReference sessionId={sessionId} />
+            {revisionImage && !streaming && (imageRouteReady
+              ? <RevisionImageReference key={imageScope} reference={revisionImage} sessionId={sessionId}
+                  attached={revisionImageAttached} onAttach={attach => setAttachedImageScope(attach ? imageScope : undefined)} />
+              : <p data-revision-image-route-unavailable role="status" className="px-3 pt-2 text-sm text-muted-foreground">
+                  {tConversation('revision.imageRouteUnavailable')}
+                </p>)}
             {suggestedDocument && currentWorkspaceId && !selectedDocument && !selectedImage && !streaming && <div data-revision-document className="flex flex-wrap items-center gap-2 px-3 pt-2 text-sm">
               <span className="text-muted-foreground">{tConversation('revision.previousExcerpt')}</span>
               <ProjectDocuments key={sessionId} workspaceId={currentWorkspaceId} source={suggestedDocument}
@@ -1768,7 +1800,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                       size="icon-sm"
                       className="agent-composer__icon-button rounded-full text-foreground hover:text-foreground"
                       aria-label={tConversation('input.attachTooltip')}
-                      disabled={pickingImage}
+                      disabled={pickingImage || !!revisionImage}
                       onClick={handleOpenFileDialog}
                     >
                       <img src={conversationPlus} alt="" className="conversation-composer-glyph" />
@@ -1778,7 +1810,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
                     <p>{tConversation('input.attachTooltip')}</p>
                   </TooltipContent>
                 </Tooltip>
-                {window.__TAURI_FORMAL__?.projectDocuments && currentWorkspaceId && !selectedImageModel && !streaming && !selectedImage &&
+                {window.__TAURI_FORMAL__?.projectDocuments && currentWorkspaceId && !revisionImage && !selectedImageModel && !streaming && !selectedImage &&
                   <ProjectDocuments key={JSON.stringify([currentWorkspaceId, sessionId])} workspaceId={currentWorkspaceId}
                     onCite={source => setDocumentDraft({ source, sessionId, workspaceId: currentWorkspaceId })} />}
                 <TaskModeSelector value={taskMode} onChange={setTaskMode} disabled={streaming || !messagesLoaded} locked={modeLocked} />

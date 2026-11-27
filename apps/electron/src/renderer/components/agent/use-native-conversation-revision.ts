@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { atom, useStore, type createStore } from 'jotai'
 import { toast } from 'sonner'
-import { nowMs, type AgentSessionMeta, type AgentEffort, type NativeDocumentReference } from '@asci/shared'
+import { nowMs, type AgentSessionMeta, type AgentEffort, type NativeDocumentReference, type AgentSendInput } from '@asci/shared'
 import {
-  agentPendingFilesAtom, agentPendingMentionsAtom, agentSessionsAtom, agentSessionChannelMapAtom,
+  agentMessageRefreshAtom, agentPendingFilesAtom, agentPendingMentionsAtom, agentSessionsAtom, agentSessionChannelMapAtom,
   agentSessionDraftsAtom, agentSessionDraftHtmlAtom, agentSessionModelMapAtom, agentStreamErrorsAtom, agentStreamingStatesAtom, currentAgentSessionIdAtom,
 } from '@/atoms/agent-atoms'
 import { captureSendDraft, forgetSendDraftAtom, sendRecoveryDraftsAtom } from '@/atoms/send-recovery-atoms'
@@ -18,9 +18,13 @@ import { pendingNativeImageSelectionsAtom } from './use-native-image-selection'
 /** 同一来源的准备操作在标签卸载、重新打开时仍只允许一个。 */
 const preparingAtom = atom(new Set<string>())
 
-/** 显式提交原生文字问题，可附带本轮选区；恢复标签页和预览来源不会调用。 */
-export async function sendRevisionText(store: ReturnType<typeof createStore>, session: AgentSessionMeta,
-  prompt: string, route: NonNullable<AgentSessionMeta['nativeRevisionRoute']>, effort?: AgentEffort, document?: NativeDocumentReference) {
+/** 文字、选区或托管图片由当前一次明确提交绑定。 */
+type RevisionAttachment = { document: NativeDocumentReference } | {
+  nativeImageAction: 'generate'
+} | { nativeImageAction: 'edit'; imageEditReferenceId: string }
+
+export async function sendRevisionQuestion(store: ReturnType<typeof createStore>, session: AgentSessionMeta,
+  prompt: string, route: NonNullable<AgentSessionMeta['nativeRevisionRoute']>, effort?: AgentEffort, attachment?: RevisionAttachment) {
   const requestId = registerAgentAttempt(store, session.id)
   if (!requestId) return
   const startedAt = nowMs()
@@ -34,15 +38,17 @@ export async function sendRevisionText(store: ReturnType<typeof createStore>, se
     store.set(drafts, rows => { const next = new Map(rows); next.delete(session.id); return next })
   }
   // 使用原渠道版本；仅明确附加的定位进入本次请求。
+  const media: Partial<AgentSendInput> = attachment && 'document' in attachment
+    ? { nativeDocumentReference: documentSelection(attachment.document) } : attachment ?? {}
   const sent = window.electronAPI.sendAgentMessage({
     sessionId: session.id, workspaceId: session.workspaceId, userMessage: prompt, channelId: route.channelId,
-    ...(document && { nativeDocumentReference: documentSelection(document) }),
+    ...media,
     modelId: route.modelId, ...(effort && { effort }), expectedConfigRevision: route.configRevision, requestId, startedAt,
   })
   const consumeRoute = () => {
     store.set(agentSessionsAtom, rows => rows.map(row => {
       if (row.id !== session.id || !row.nativeRevisionRoute) return row
-      const { nativeRevisionRoute: _route, nativeRevisionDocument: _suggestion, ...rest } = row
+      const { nativeRevisionRoute: _route, nativeRevisionDocument: _suggestion, nativeRevisionImage: _image, ...rest } = row
       return rest
     }))
   }
@@ -54,8 +60,10 @@ export async function sendRevisionText(store: ReturnType<typeof createStore>, se
       // 回执丢失或上游报错可能已经写入历史，按请求身份核实；查询失败时保留手动恢复入口。
       try {
         const history = await window.electronAPI.getAgentSessionSDKMessages(session.id)
-        if (history.some(m => m.type === 'user' && m._desktopTextTaskRequestId === requestId)) {
+        if (history.some(m => m.type === 'user' && (m._desktopTextTaskRequestId === requestId || m._desktopImageTaskRequestId === requestId))) {
           consumeRoute()
+          // 读取持久回执会推进宿主事件游标；让当前窗口也采用这份历史，避免仍显示运行中。
+          store.set(agentMessageRefreshAtom, versions => new Map(versions).set(session.id, (versions.get(session.id) ?? 0) + 1))
           store.set(forgetSendDraftAtom, { sessionId: session.id, draft })
         }
       } catch { /* 回执未知时不自动重发或填入草稿。 */ }
@@ -99,12 +107,12 @@ export function useNativeConversationRevision(sessionId: string, openSession: Re
         store.set(agentSessionDraftsAtom, rows => new Map(rows).set(session.id, prompt))
         return
       }
-      const needsReview = action === 'edit' || !!session.nativeRevisionDocument
+      const needsReview = action === 'edit' || !!session.nativeRevisionDocument || !!session.nativeRevisionImage
       if (needsReview) store.set(agentSessionDraftsAtom, rows => new Map(rows).set(session.id, prompt))
       open.current('agent', session.id, session.title, session.workspaceId)
       if (needsReview) return
 
-      await sendRevisionText(store, session, prompt, route, effort)
+      await sendRevisionQuestion(store, session, prompt, route, effort)
     } catch (error) {
       if (active.current && !navigated) toast.error(t('revision.failed'), {
         description: error instanceof Error ? error.message : undefined,

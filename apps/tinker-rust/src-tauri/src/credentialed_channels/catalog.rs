@@ -421,7 +421,7 @@ impl Catalog {
                 row
             }).collect();
             json!({"id":channel.id,"name":channel.name,"provider":provider,"baseUrl":channel.base_url,
-                "enabled":channel.enabled,"hasCredential":true,"apiKey":"","models":models})
+                "nativeConfigRevision":r.id,"enabled":channel.enabled,"hasCredential":true,"apiKey":"","models":models})
         }).collect())
     }
 }

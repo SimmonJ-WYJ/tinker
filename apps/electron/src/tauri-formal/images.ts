@@ -64,7 +64,7 @@ export function createNativeImageContexts() {
         }
       }
     },
-    async retry<T>(sid: string, invoke: () => Promise<{value: T; imageId?: string}>, changed: () => void): Promise<T> {
+    async sendBound<T>(sid: string, invoke: () => Promise<{value: T; imageId?: string}>, changed: () => void): Promise<T> {
       // 旧恢复响应不能覆盖新图；拒绝、取消或纯文字回执均保留原有来源。
       const previous = sessions.get(sid)
       const owner: ImageContext = previous?.sending ? previous : { imageId: previous?.imageId, sending: true }

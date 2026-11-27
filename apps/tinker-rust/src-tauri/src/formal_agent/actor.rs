@@ -254,7 +254,11 @@ impl Actor {
             projection::text_task_history(turns)
         };
         if let Some(images) = &self.images {
-            images.merge_history(session, &mut h)?;
+            images.merge_history(
+                session,
+                &mut h,
+                self.runtime.locally_bound_image_history(session)?,
+            )?;
             if self.native_task_lifecycle() {
                 let retryable = self.latest_retryable_task(session)?;
                 for message in h["sdkMessages"]

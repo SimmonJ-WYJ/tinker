@@ -9,14 +9,47 @@ impl ImageStore {
         target: &str,
         selected: &BTreeSet<String>,
     ) -> Result<()> {
+        self.stage_fork(source, target, selected, None)
+    }
+
+    pub(crate) fn fork_revision_assets(
+        &self,
+        source: &str,
+        target: &str,
+        selected: &BTreeSet<String>,
+        edit: &RevisionImageEdit,
+    ) -> Result<()> {
+        self.stage_fork(source, target, selected, Some(edit))
+    }
+
+    fn stage_fork(
+        &self,
+        source: &str,
+        target: &str,
+        selected: &BTreeSet<String>,
+        revision: Option<&RevisionImageEdit>,
+    ) -> Result<()> {
+        if source == target {
+            return Err(DesktopError("forkUnsupported"));
+        }
         let from = self.session(source)?;
         let to = self.session(target)?;
         let _guard = self.guard()?;
-        let (history, mut imports) = SessionImages::open(&from, source)?.into_history();
+        let images = SessionImages::open(&from, source)?;
+        if let Some(edit) = revision {
+            if images.revision_edit(source, &edit.request_id, edit.session_is_local)? != *edit {
+                return Err(DesktopError("forkUnsupported"));
+            }
+        }
+        let (history, mut imports) = images.into_history();
         let mut entries = Vec::new();
         let mut references = BTreeSet::new();
+        if let Some(edit) = revision {
+            references.insert(edit.input_id.clone());
+        }
         for turn in history
             .into_iter()
+            .take_while(|t| revision.is_none_or(|edit| t.request_id != edit.request_id))
             .filter(|t| selected.contains(&t.request_id))
         {
             let asset = turn
@@ -29,7 +62,7 @@ impl ImageStore {
             let route = ImageRoute {
                 channel_id: asset.channel_id.clone(),
                 model_id: asset.model.clone(),
-                revision: "fork-history-v1".into(),
+                revision: revision::FORK_HISTORY_REVISION.into(),
                 protocol: ImageProtocol::OpenaiImages,
                 action: if turn.base_image_id.is_some() {
                     ImageAction::Edit
@@ -62,6 +95,9 @@ impl ImageStore {
                 entries,
             },
         };
+        if revision.is_some_and(|edit| !images.sources().any(|(id, ..)| id == edit.input_id)) {
+            return Err(DesktopError("forkUnsupported"));
+        }
         let mut data = collect_fork(&from, images)?;
         data.remap_session(source, target)?;
         if to.try_exists()? {

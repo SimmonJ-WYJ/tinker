@@ -118,6 +118,7 @@ impl FormalAgentHost {
         runtime.set_availability(platform.availability()?)?;
         if let Some(images) = &images {
             crate::portable_project::recover(&root, &runtime, &platform, &images.store)?;
+            runtime.recover_image_revision_drafts(&images.store)?;
         }
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
@@ -146,6 +147,7 @@ impl FormalAgentHost {
         root.validate_channels()?;
         let images = images::ImageWorkflow::open(root.path(), None)?;
         crate::portable_project::recover(&root, &runtime, platform.as_ref(), &images.store)?;
+        runtime.recover_image_revision_drafts(&images.store)?;
         let (tx, rx) = mpsc::sync_channel(COMMAND_CAPACITY);
         let (out, events) = mpsc::sync_channel(EVENT_CAPACITY);
         let worker = thread::Builder::new()

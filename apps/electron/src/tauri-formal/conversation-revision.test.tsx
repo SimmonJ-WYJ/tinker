@@ -5,7 +5,7 @@ import type { AgentSendInput } from '@asci/shared'
 import type { AppSettings } from '../types'
 import type { PropsWithChildren } from 'react'
 import {
-  agentPendingMentionsAtom, agentSessionChannelMapAtom, agentSessionDraftsAtom,
+  agentMessageRefreshAtom, agentPendingMentionsAtom, agentSessionChannelMapAtom, agentSessionDraftsAtom,
   agentSessionModelMapAtom, agentSessionsAtom, agentStreamErrorsAtom, currentAgentSessionIdAtom,
 } from '../renderer/atoms/agent-atoms'
 import { useOpenSession } from '../renderer/hooks/useOpenSession'
@@ -86,6 +86,7 @@ test('宿主已记录失败轮次时不把原提问重复还原为未发送草�
   window.electronAPI.getAgentSessionSDKMessages = history
   await act(async () => { await view.result.current?.('answer', 'regenerate') })
   expect(send).toHaveBeenCalledTimes(1)
+  expect(store.get(agentMessageRefreshAtom).get('child')).toBe(1)
   expect(history).toHaveBeenCalledTimes(1)
   expect(store.get(agentSessionDraftsAtom).has('child')).toBe(false)
   expect(store.get(agentSessionsAtom).find(s => s.id === 'child')?.nativeRevisionRoute).toBeUndefined()
@@ -100,4 +101,14 @@ test.each(['edit', 'regenerate'] as const)('a cited %s opens an editable branch 
   expect(store.get(currentAgentSessionIdAtom)).toBe('child')
   expect(store.get(agentSessionDraftsAtom).get('child')).toBe(prepared.prompt)
   expect(store.get(agentSessionsAtom)[0]?.nativeRevisionDocument).toEqual(source)
+})
+
+test.each(['edit', 'regenerate'] as const)('a managed image %s parks an unsent child draft', async action => {
+  const image = { imageId: 'ref-a', filename: 'ref-a.png', localPath: 'child/ref-a.png', mediaType: 'image/png' }
+  const result = { ...prepared, session: { ...prepared.session, nativeRevisionImage: image } }
+  const { view, store, send } = fixture(mock(async () => result))
+  await act(async () => { await view.result.current?.('answer', action) })
+  expect(send).not.toHaveBeenCalled()
+  expect(store.get(currentAgentSessionIdAtom)).toBe('child')
+  expect(store.get(agentSessionDraftsAtom).get('child')).toBe(prepared.prompt)
 })

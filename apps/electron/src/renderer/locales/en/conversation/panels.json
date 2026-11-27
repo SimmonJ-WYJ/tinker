@@ -260,6 +260,12 @@
     "warningFilesDescription": "File restore unavailable: {{reason}}"
   },
   "revision": {
+    "attachImage": "Attach this image",
+    "removeImage": "Remove image reference",
+    "imageGenerate": "Send to generate a new image without this reference.",
+    "imageEdit": "Send to edit this reference image.",
+    "imageRouteUnavailable": "Select the original image channel and model to send this draft.",
+    "imageOnly": "Remove other attachments or mentions before sending this image revision.",
     "previousExcerpt": "Previously cited excerpt (optional)",
     "edit": "Edit question in new branch",
     "regenerate": "Regenerate in new branch",

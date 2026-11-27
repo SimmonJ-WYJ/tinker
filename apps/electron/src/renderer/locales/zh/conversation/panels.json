@@ -260,6 +260,12 @@
     "warningFilesDescription": "文件恢复不可用：{{reason}}"
   },
   "revision": {
+    "attachImage": "附加这张图片",
+    "removeImage": "移除参考图",
+    "imageGenerate": "发送后将生成新图，不使用这张参考图。",
+    "imageEdit": "发送后将编辑这张参考图。",
+    "imageRouteUnavailable": "请选择原来的图片渠道和模型以发送这份草稿。",
+    "imageOnly": "请先移除其他附件或提及，再发送这次图片修订。",
     "previousExcerpt": "上次引用的选段（可选）",
     "edit": "在新分支编辑提问",
     "regenerate": "在新分支重新生成",

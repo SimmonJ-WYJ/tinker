@@ -3,7 +3,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 const INDEX: &str = "imports.json";
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImportedImage {
     pub id: String,
@@ -17,7 +17,7 @@ pub struct ImportedImage {
     pub(crate) history_source: Option<HistoryImageSource>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct HistoryImageSource {
     pub message_id: String,
