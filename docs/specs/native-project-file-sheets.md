@@ -39,3 +39,22 @@ The automated migration gate uses fixture choices for the archive and PDF. It ex
 - Both Apple Silicon Tauri bundles passed strict local signature validation. Both used ad-hoc signatures.
 - The migration release gate passed its ordinary-binary symbol check, synthetic Electron upgrade and rollback, and portable-project restart checks. Its file choices were injected. The preceding table lists the separate system-dialog evidence.
 - Project directory rebinding, reference-image import, image export and overwrite confirmation share code with the tested panels. Their physical UI flows were not separately exercised on this revision.
+
+## Workspace and image acceptance after #45
+
+The native acceptance scenario uses a fresh project, two test folders, two visually different JPEGs with the same name, and the local Channels QA provider. The first folder is bound and the second replaces it. Moving the selected folder must make the binding unavailable. Reopening the original location must restore it. Canceling a picker must retain the previous selection.
+
+The selected JPEG must match the composer thumbnail, the submitted edit reference and the restarted message by decoded dimensions and color. The receiver must verify the normalized PNG of the selected fixture. Export to a new name must preserve the generated PNG bytes. Canceling replacement must preserve the existing file. Restart and navigation must add no provider requests.
+
+### Reproduce the physical-panel run
+
+Build the isolated Channels Native QA app with `bun apps/tinker-rust/scripts/build-channels-native-qa.ts`. From the repository root run `python3 -u apps/tinker-rust/scripts/native-workspace-image-panels-qa.py "/path/to/staged/Tinker Channels Native QA.app"` with its original temporary bundle path. Follow the printed steps in that window. Enter DONE after each real sheet closes. Confirm DECLINED only after seeing and canceling the macOS replacement alert. The script reports a pass only after the restart assertions succeed.
+
+| Apple Silicon Mac, synthetic data | Observed result |
+| --- | --- |
+| Project directory | Bound First folder, canceled a rebind and connected the second folder with Chinese characters and a space. Temporarily moving each selected directory produced unavailable, and moving it back produced bound. Reopening retained the second binding and project ID. |
+| Reference identity | Both folders contained a 96 × 64 JPEG with the same name. The first was black and the second white. Canceling Attach left the composer empty. The white image matched the normalized PNG thumbnail in the composer and sent message. The mock accepted one edit only with the expected normalized reference. |
+| Image export | Clicked Save and saw the system replacement alert for an existing file. Canceled both the alert and the sheet. Its 37 bytes remained intact. Saved to a new name and compared all 10,663 bytes to the managed result. Export SHA-256: `adba99271c0d5cf9542f692882c2485187befdeb7ad6f5c0f3f2d640babbbf28`. |
+| Full application restart | Moved the original JPEG, quit and launched a new process. The sent message retained the selected pixels and image ID. The generated result and project binding were unchanged. Neither loopback listener recorded another request. |
+
+The first attempt to poll the QA main thread continuously during sheet presentation timed out. The completed run used explicit synchronization after dismissal. This exercise covers local native-preview behavior with a mock provider. Reverting its QA-only changes removes the new scenario without migrating user data.

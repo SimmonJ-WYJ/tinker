@@ -81,6 +81,12 @@ fn edit_prompt<'a>(headers: &str, body: &'a [u8]) -> Option<&'a str> {
     if prompt.contains("[qa:image-retry]") {
         return fixture(1, false).is_ok_and(|v| v == png).then_some(prompt);
     }
+    // 仅此 QA 指令接受系统面板测试约定的白色 JPEG 规范化结果。
+    if prompt.contains("[qa:selected-jpeg]") {
+        let white =
+            crate::picked_image::encode_png(96, 64, png::ColorType::Rgb, &[255; 96 * 64 * 3]);
+        return white.is_ok_and(|bytes| bytes == png).then_some(prompt);
+    }
     let known = (1..=2).any(|p| {
         [false, true]
             .iter()
@@ -164,6 +170,17 @@ mod tests {
             Some("[qa:image-retry]")
         );
         assert!(edit_prompt(headers, &build(&second, MODEL, "[qa:image-retry]")).is_none());
+        let marker = "[qa:selected-jpeg]";
+        let solid = |value| {
+            crate::picked_image::encode_png(96, 64, png::ColorType::Rgb, &vec![value; 96 * 64 * 3])
+                .unwrap()
+        };
+        assert_eq!(
+            edit_prompt(headers, &build(&solid(255), MODEL, marker)),
+            Some(marker)
+        );
+        assert!(edit_prompt(headers, &build(&solid(0), MODEL, marker)).is_none());
+        assert!(edit_prompt(headers, &build(&solid(255), MODEL, "change color")).is_none());
         assert!(edit_prompt(headers, &build(b"other", MODEL, "change color")).is_none());
         assert!(edit_prompt(headers, &build(&first, "wrong-model", "change color")).is_none());
     }
