@@ -44,7 +44,13 @@ export function SentImageReference({ reference, sourceMessageId }: { reference: 
       </button>
       <div className="conversation-reference__source">
         <p className="conversation-reference__title">{t('imageReference.title')}</p>
-        {canReuseImport ? (
+        {(!canReuseImport || reference.sourceAttachmentPath || reference.sourceMessageId) && (
+          <button type="button" data-reference-source-link className="conversation-reference__jump" disabled={!available} aria-label={t(available && !missingSource ? 'imageReference.backToSource' : 'imageReference.sourceMissing')}
+            onClick={event => { if (sourceMessageId && !navigation?.jump(sourceMessageId, event.currentTarget)) setMissingSource(true) }}>
+            {t(available && !missingSource ? 'imageReference.backToSource' : 'imageReference.sourceMissing')}
+          </button>
+        )}
+        {canReuseImport && (
           <button type="button" className="conversation-reference__jump" disabled={!src || failed}
             onClick={() => {
               const { localPath, filename, mediaType } = reference
@@ -52,16 +58,12 @@ export function SentImageReference({ reference, sourceMessageId }: { reference: 
               setDrafts(drafts => new Map(drafts).set(owner, {
                 imageId: reference.imageId,
                 displayName: reference.displayName,
+                ...(sourceMessageId && reference.sourceAttachmentPath && { sourceMessageId, sourceAttachmentPath: reference.sourceAttachmentPath }),
                 generatedImage: { localPath, filename, mediaType },
                 previewSrc: src,
               }))
             }}>
             {t('imageVersion.edit')}
-          </button>
-        ) : (
-          <button type="button" className="conversation-reference__jump" disabled={!available} aria-label={t(available ? 'imageReference.backToSource' : 'imageReference.sourceMissing')}
-            onClick={event => { if (sourceMessageId && !navigation?.jump(sourceMessageId, event.currentTarget)) setMissingSource(true) }}>
-            {t(available && !missingSource ? 'imageReference.backToSource' : 'imageReference.sourceMissing')}
           </button>
         )}
         {failed && <span role="alert" className="conversation-reference__error">{t('imageReference.loadFailed')}</span>}

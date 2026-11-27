@@ -37,6 +37,7 @@ import { userProfileAtom } from '@/atoms/user-profile'
 import { tabMinimapCacheAtom } from '@/atoms/tab-atoms'
 import { ScrollPositionManager } from '@/hooks/useScrollPositionMemory'
 import { cn } from '@/lib/utils'
+import { isImportedConversationMessage } from './message-attachments'
 import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
 import { NativeSearchMessageLocation } from './NativeSearchMessageLocation'
 import './conversation-flow.css'
@@ -799,9 +800,12 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
   // 工具/无正文阶段由 SDK 承载标题，纯正文后的执行提示仍保留，但不重复 Logo。
   const sdkShowsStatus = liveBlocks.some(block => block.type === 'tool_use') || (liveBlocks.length > 0 && !hasLiveText)
 
-  const referenceTargets = React.useMemo(() => allGroups.filter(group => group.type === 'assistant-turn').map(group => ({
-    groupId: getGroupId(group), sourceIds: group.type === 'assistant-turn' ? group.assistantMessages.map(message => message.uuid).filter((id): id is string => typeof id === 'string' && !!id) : [],
-  })), [allGroups])
+  const referenceTargets = React.useMemo(() => allGroups.flatMap(group => {
+    const messages = group.type === 'assistant-turn' ? group.assistantMessages
+      : group.type === 'user' && isImportedConversationMessage(group.message) ? [group.message] : []
+    const sourceIds = messages.flatMap(message => message.uuid ? [message.uuid] : [])
+    return sourceIds.length ? [{ groupId: getGroupId(group), sourceIds }] : []
+  }), [allGroups])
 
   return (
     <Conversation

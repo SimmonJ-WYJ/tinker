@@ -19,8 +19,10 @@
 .conversation-upload { position: relative; width: var(--conversation-upload-width); height: var(--conversation-upload-height); margin: 0; }
 .conversation-upload__preview { display: grid; place-items: center; width: 100%; height: 100%; overflow: hidden; border-radius: 8px; background: hsl(var(--muted)); }
 .conversation-upload__preview img { width: 100%; height: 100%; object-fit: cover; }
-.conversation-upload__save { position: absolute; bottom: 6px; right: 6px; opacity: 0; }
-.conversation-upload:hover .conversation-upload__save, .conversation-upload:focus-within .conversation-upload__save { opacity: 1; }
+.conversation-upload__save, .conversation-upload__edit { position: absolute; bottom: 6px; opacity: 0; }
+.conversation-upload__save { right: 6px; }
+.conversation-upload__edit { left: 6px; }
+.conversation-upload:is(:hover, :focus-within) :is(.conversation-upload__save, .conversation-upload__edit) { opacity: 1; }
 .conversation-user__files { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 100%; }
 .conversation-user__file { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; border-radius: 8px; padding: 6px 10px; font-size: 12px; background: hsl(var(--muted)); }
 .conversation-user__file svg { width: 16px; height: 16px; flex-shrink: 0; }

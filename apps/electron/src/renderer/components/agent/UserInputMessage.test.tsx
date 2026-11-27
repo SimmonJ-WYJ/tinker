@@ -4,6 +4,7 @@ import { render, cleanup, screen, act, fireEvent } from '@testing-library/react'
 import type { SDKMessage, SDKUserMessage } from '@asci/shared'
 import { UserInputMessage } from './UserInputMessage.tsx'
 import { setAppLanguage } from '@/lib/i18n'
+import { AgentSessionProvider } from '@/contexts/session-context'
 import { StickToBottom } from 'use-stick-to-bottom'
 import { MessageReferenceNavigation } from './message-reference-navigation.tsx'
 
@@ -72,7 +73,7 @@ test('导入会话按宿主确认的表读取附件、以实际类型展示并�
         { filename: 'bad.png', path: '/private/bad.png', mediaType: 'image/png' },
       ],
     } as SDKUserMessage
-    render(<UserInputMessage message={message} allMessages={[message]} />, { wrapper: Conversation })
+    render(<AgentSessionProvider sessionId="sid"><UserInputMessage message={message} allMessages={[message]} /></AgentSessionProvider>, { wrapper: Conversation })
     expect(await screen.findByRole('img', { name: 'original.jpg' })).toHaveAttribute('src', 'data:image/png;base64,cG5n')
     expect(screen.getByText('display-as-text.png')).toBeInTheDocument()
     expect(read.mock.calls).toEqual([[source + '.png']])
@@ -104,14 +105,14 @@ test('导入的助手历史保留单独来源与图片，正文中的外站图�
     const history = [first, second]
     const groups = groupIntoTurns(history)
     expect(groups).toHaveLength(2)
-    const view = render(<>{groups.map((group, key) => (
+    const view = render(<AgentSessionProvider sessionId="session-a">{groups.map((group, key) => (
       <MessageGroupRenderer key={key} group={group} allMessages={history} />
-    ))}</>, { wrapper: Conversation })
+    ))}</AgentSessionProvider>, { wrapper: Conversation })
     expect(await screen.findByRole('img', { name: 'old-generated.jpg' })).toHaveAttribute('src', 'data:image/png;base64,aGVsbG8=')
     expect(view.container.querySelector('img[src^="http"]')).toBeNull()
     expect(view.container.querySelector('[data-message-id="text-only"]')).not.toBeNull()
     expect(screen.queryByText('Write')).toBeNull()
-    view.rerender(<SDKMessageRenderer message={first} allMessages={history} />)
+    view.rerender(<AgentSessionProvider sessionId="session-a"><SDKMessageRenderer message={first} allMessages={history} /></AgentSessionProvider>)
     expect(await screen.findByRole('img', { name: 'old-generated.jpg' })).toBeInTheDocument()
   } finally {
     window.__TAURI_FORMAL__ = marker

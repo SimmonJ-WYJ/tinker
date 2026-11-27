@@ -203,6 +203,13 @@ fn session_import_can_restore_and_export_its_own_png() {
         bytes: bytes.clone(),
     });
     s.messages[0].attachment_ids.push("a1".into());
+    let mut second = s.messages[0].clone();
+    second.id = "m2".into();
+    s.messages.push(second);
+    let mut third = s.messages[0].clone();
+    third.id = "m3".into();
+    third.attachment_ids.clear();
+    s.messages.push(third);
     for expected in [true, false] {
         assert!(
             matches!(host.import_step(g.clone(),ImportStep::Commit(epoch,Box::new(s.clone()))).unwrap().recv().unwrap().unwrap(),ImportReply::Committed(new) if new==expected)
@@ -236,6 +243,71 @@ fn session_import_can_restore_and_export_its_own_png() {
         matches!(image(sid,Step::Export{filename:filename.into(),staged:stage}).unwrap(),Outcome::Finished(v) if v["value"]==true)
     );
     assert_eq!(fs::read(target).unwrap(), bytes);
+    call(json!({"command":"resume","generation":g,"restoreToken":history["restoreToken"]}));
+    let prepare = |owner: &str, file: &str| {
+        host.command(
+            "main",
+            json!({"command":"prepareHistoryImage","generation":g,
+            "sessionId":sid,"messageId":owner,"filename":file}),
+        )
+        .and_then(|r| r.wait(Duration::from_secs(5)))
+        .map(|v| v["value"].clone())
+    };
+    let owner = msg["uuid"].as_str().unwrap();
+    let first = prepare(owner, filename).unwrap();
+    let second = prepare(&format!("electron-import:{sid}:m2"), filename).unwrap();
+    assert_ne!(first["imageId"], second["imageId"]);
+    assert_eq!(prepare(owner, filename).unwrap(), first);
+    let Outcome::Finished(picked) = image(
+        sid,
+        Step::Import {
+            name: "fixture.png".into(),
+            png: bytes.clone(),
+        },
+    )
+    .unwrap() else {
+        panic!("缺少选择的图片")
+    };
+    assert_ne!(picked["value"]["imageId"], first["imageId"]);
+    for (wrong_owner, wrong_file) in [
+        (format!("electron-import:{sid}:m3"), filename),
+        ("electron-import:another-session:m1".into(), filename),
+        (owner.into(), "../fixture.png"),
+    ] {
+        assert!(prepare(&wrong_owner, wrong_file).is_err());
+    }
+    assert_eq!(first["sourceMessageId"], owner);
+    assert_eq!(first["sourceAttachmentPath"], rel);
+    assert!(host.mock_records().is_empty());
+    call(
+        json!({"command":"invoke","channel":"agent:send-message","generation":g,
+        "args":[{"sessionId":sid,"requestId":"edit-history","userMessage":"Edit the selected fixture",
+        "channelId":"local-mock","modelId":"local-mock-a","nativeImageAction":"edit","taskMode":"search",
+        "imageEditReferenceId":first["imageId"],"startedAt":150}]}),
+    );
+    assert_eq!(host.mock_records().len(), 1);
+    host.shutdown().unwrap();
+    drop(host);
+    let mut host =
+        FormalHost::open(&root, HostEnvironment::new("darwin", false, false).unwrap()).unwrap();
+    let call = |v| {
+        host.command("main", v)
+            .unwrap()
+            .wait(Duration::from_secs(5))
+            .unwrap()
+    };
+    let g = call(json!({"command":"bootstrap"}))["generation"].clone();
+    call(json!({"command":"attach","generation":g,"observed":{}}));
+    let restored = call(
+        json!({"command":"restore","generation":g,"sessionId":sid,"observedDeliverySequence":0}),
+    );
+    let reference = restored["sdkMessages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|m| m.get("imageEditReference"))
+        .unwrap();
+    assert_eq!(reference, &first);
     assert!(host.mock_records().is_empty());
     host.shutdown().unwrap();
     fs::remove_dir_all(dir).unwrap();

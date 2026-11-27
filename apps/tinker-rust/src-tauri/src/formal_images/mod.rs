@@ -11,6 +11,8 @@ pub(crate) use routes::{ImageAction, ImageProtocol, ImageRoute};
 mod tasks;
 mod thumbnail;
 use crate::session_lifecycle::RunStatus;
+#[cfg(all(target_os = "macos", feature = "formal-preview"))]
+pub(crate) use imports::HistoryImageSource;
 pub use imports::ImportedImage;
 use imports::SessionImages;
 pub(crate) use tasks::{ImageAdmission, ImageTaskSummary};

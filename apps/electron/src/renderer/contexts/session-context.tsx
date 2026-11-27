@@ -22,8 +22,12 @@ export function AgentSessionProvider({
   )
 }
 
+export function useOptionalAgentSessionId(): string | null {
+  return React.useContext(AgentSessionContext)
+}
+
 export function useAgentSessionId(): string {
-  const id = React.useContext(AgentSessionContext)
+  const id = useOptionalAgentSessionId()
   if (!id) throw new Error('useAgentSessionId 必须在 AgentSessionProvider 内使用')
   return id
 }

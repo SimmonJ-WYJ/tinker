@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from 'bun:test'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import type { SDKMessage } from '@asci/shared'
+import { AgentSessionProvider } from '../renderer/contexts/session-context'
 import { AgentMessages } from '../renderer/components/agent/AgentMessages'
 import { TooltipProvider } from '../renderer/components/ui/tooltip'
 import { currentAgentSessionIdAtom } from '../renderer/atoms/agent-atoms'
@@ -11,12 +12,14 @@ import { reconcileNativeTaskMessages } from '../renderer/hooks/tool-run-snapshot
 const previous = window.__TAURI_FORMAL__
 const previousApi = window.electronAPI
 afterEach(async () => { cleanup(); window.__TAURI_FORMAL__ = previous; window.electronAPI = previousApi; await setAppLanguage('en') })
+const sourceId = 'img-' + '1'.repeat(32)
+const sourceFile = sourceId + '.png'
 type Status = 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
 function rows(id: string, status: Status, edit = false, retryable = false): SDKMessage[] {
   const meta = { _agentRequestId: id, _desktopImageTaskRequestId: id, _desktopImageTaskKind: edit ? 'edit' : 'generate' }
   const records = [
     { ...meta, type: 'user', uuid: id+'-user', parent_tool_use_id: null,
-      ...(edit && { imageEditReference: { imageId: 'source', filename: 'source.png', mediaType: 'image/png', localPath: 's/source.png' } }),
+      ...(edit && { imageEditReference: { imageId: sourceId, filename: sourceFile, mediaType: 'image/png', localPath: 's/' + sourceFile } }),
       message: { content: [{ type: 'text', text: edit ? 'Edit this image' : 'Generate an image' }] } },
     { ...meta, type: 'assistant', uuid: id+'-assistant', parent_tool_use_id: null, _desktopImageTaskStatus: status, _desktopTaskRetryable:retryable,
       message: { model: 'image-model', content: [{ type: 'tool_use', id: id+'-tool', name: 'mcp__asci-image__generate_image', input: {} }] } },
@@ -34,9 +37,9 @@ function fixture() {
   window.__TAURI_FORMAL__ = { hydrated() {}, nativeImageTaskLifecycle: true, nativeImages: true, nativeTaskLifecycle: { retry, stop: async () => {} } }
   const store = createStore()
   store.set(currentAgentSessionIdAtom, 's')
-  const show = (history: SDKMessage[], live: SDKMessage[] = []) => <Provider store={store}><TooltipProvider>
+  const show = (history: SDKMessage[], live: SDKMessage[] = []) => <Provider store={store}><AgentSessionProvider sessionId="s"><TooltipProvider>
     <AgentMessages sessionId="s" messages={[]} messagesLoaded persistedSDKMessages={history} liveMessages={live} streaming={false} />
-  </TooltipProvider></Provider>
+  </TooltipProvider></AgentSessionProvider></Provider>
   return { retry, read, show }
 }
 test('reopened pending image edit shows the saved reference and Rust running state without submitting', async () => {
@@ -46,8 +49,8 @@ test('reopened pending image edit shows the saved reference and Rust running sta
   expect(status).not.toBeNull()
   expect(view.container.querySelector('[data-image-task-state]')).toHaveTextContent('Image edit · Running')
   expect(view.queryByRole('button', {name:'Retry'})).toBeNull()
-  await waitFor(() => expect(read).toHaveBeenCalledWith('s/source.png'))
-  fireEvent.click(await view.findByRole('img', {name:'source.png'}))
+  await waitFor(() => expect(read).toHaveBeenCalledWith('s/' + sourceFile))
+  fireEvent.click(await view.findByRole('img', {name:sourceFile}))
   expect(view.getByRole('dialog')).toBeInTheDocument()
   expect(retry).not.toHaveBeenCalled()
 })

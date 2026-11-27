@@ -5,7 +5,7 @@ import { AgentFailureRecovery } from './AgentFailureRecovery'
 import { registerAgentAttempt, acceptAgentAttempt } from '@/lib/agent-attempt'
 import { observeAgentSend } from '@/lib/agent-send'
 import { captureSendDraft, sendRecoveryDraftsAtom } from '@/atoms/send-recovery-atoms'
-import { applyPickedImage, reportImageFileError } from './native-image-files'
+import { pendingNativeImageSelectionsAtom, useNativeImageSelection } from './use-native-image-selection'
 import { imageEditDraftsAtom, clearImageEditDraft, consumeImageEditDraft } from '@/atoms/image-edit-atoms'
 import conversationPlus from '@/assets/conversation/plus.svg'
 import { ConversationReasoningSelector } from './ConversationReasoningSelector.tsx'
@@ -646,35 +646,16 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     }
   }, [makeUniqueFilename, setPendingFiles])
 
-  const imagePicker = React.useRef<object | null>(null)
-  const [pickingImage, setPickingImage] = React.useState(false)
-  React.useLayoutEffect(() => {
-    setPickingImage(false)
-    return () => { imagePicker.current = null }
-  }, [sessionId])
+  const selectNativeImage = useNativeImageSelection(sessionId)
+  const pickingImage = useAtomValue(pendingNativeImageSelectionsAtom).has(sessionId)
 
   /** 打开文件选择对话框 */
   const handleOpenFileDialog = React.useCallback(async (): Promise<void> => {
     const files = window.__TAURI_FORMAL__?.imageFiles
     if (files) {
-      if (imagePicker.current) return
-      const token = {}
-      const previous = store.get(imageEditDraftsAtom).get(sessionId)
-      imagePicker.current = token
-      setPickingImage(true)
-      try {
-        await applyPickedImage(
-          () => files.pick(sessionId),
-          () => imagePicker.current === token && store.get(imageEditDraftsAtom).get(sessionId) === previous,
-          image => {
-            setImageEditDrafts(drafts => new Map(drafts).set(sessionId, image))
-            store.set(workspaceFilesVersionAtom, version => version + 1)
-          },
-        )
-      } catch (error) {
-        if (imagePicker.current === token) reportImageFileError(error)
-      } finally {
-        if (imagePicker.current === token) { imagePicker.current = null; setPickingImage(false) }
+      if (store.get(pendingNativeImageSelectionsAtom).has(sessionId)) return
+      if (await selectNativeImage(() => files.pick(sessionId))) {
+        store.set(workspaceFilesVersionAtom, version => version + 1)
       }
       return
     }
@@ -705,7 +686,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     } catch (error) {
       console.error('[AgentView] 文件选择对话框失败:', error)
     }
-  }, [setPendingFiles, sessionId, store, setImageEditDrafts])
+  }, [setPendingFiles, sessionId, store, selectNativeImage])
 
   /** 移除待发送文件 */
   const handleRemoveFile = React.useCallback((id: string): void => {
@@ -913,7 +894,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const handleSend = React.useCallback(async (opts?: { interrupt?: boolean; textOverride?: string }): Promise<void> => {
     // 把 pendingMentions 格式化成 token，前置到正文，使现有的 zotero / file 引用解析逻辑无差别工作。
     // textOverride：一键触发场景（如「找研究空白」）直接传入正文，绕过输入框 state（避免填入→回车的闭包时序问题）。
-    if (imagePicker.current) return
+    if (store.get(pendingNativeImageSelectionsAtom).has(sessionId)) return
     const baseText = (opts?.textOverride ?? inputContent).trim()
     const mentionTokens = pendingMentions
       .map((m) => {
@@ -1180,6 +1161,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       ...(imageForSend && { imageEditReference: {
         imageId: imageForSend.imageId,
         sourceMessageId: imageForSend.sourceMessageId,
+        ...(imageForSend.sourceAttachmentPath && { sourceAttachmentPath: imageForSend.sourceAttachmentPath }),
         ...(imageForSend.displayName && {displayName:imageForSend.displayName}),
         localPath: imageForSend.generatedImage.localPath,
         filename: imageForSend.generatedImage.filename,

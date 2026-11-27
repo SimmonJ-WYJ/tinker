@@ -62,8 +62,18 @@ impl PortableImages {
         id(new)?;
         let mut ids = BTreeMap::new();
         for a in &self.imports {
-            let before = imports::reference_id(old, &a.display_name, &a.content_sha256);
-            let after = imports::reference_id(new, &a.display_name, &a.content_sha256);
+            let before = imports::reference_id(
+                old,
+                &a.display_name,
+                &a.content_sha256,
+                a.history_source.as_ref(),
+            );
+            let after = imports::reference_id(
+                new,
+                &a.display_name,
+                &a.content_sha256,
+                a.history_source.as_ref(),
+            );
             if a.id != before
                 || a.filename != format!("{before}.png")
                 || ids.insert(before, after).is_some()

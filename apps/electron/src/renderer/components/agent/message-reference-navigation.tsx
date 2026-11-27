@@ -10,7 +10,14 @@ interface Navigation {
   hasSource: (id: string) => boolean
 }
 export interface ReferenceNavigationTarget { groupId: string; sourceIds: string[] }
-interface ReadingPosition { top: number; anchorId?: string; offset: number; trigger?: HTMLElement }
+interface ReadingPosition {
+  top: number
+  anchorId?: string
+  offset: number
+  trigger?: HTMLElement
+  triggerMessageId?: string
+  triggerImageId?: string
+}
 const NavigationContext = React.createContext<Navigation | null>(null)
 export function useMessageReferenceNavigation(): Navigation | null { return React.useContext(NavigationContext) }
 
@@ -58,7 +65,9 @@ export function MessageReferenceNavigation({ children, sessionId, targets }: {
   }, [sessionId, scrollRef, clearHighlight])
 
   const find = React.useCallback((id: string): HTMLElement | undefined => {
-    return Array.from(scrollRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? []).find(element => element.dataset.messageId === id)
+    const matches = Array.from(scrollRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? [])
+      .filter(element => element.dataset.messageId === id)
+    return matches.length === 1 ? matches[0] : undefined
   }, [scrollRef])
   const move = React.useCallback((top: number) => {
     const root = scrollRef.current
@@ -81,7 +90,13 @@ export function MessageReferenceNavigation({ children, sessionId, targets }: {
     const boundedDestination = Math.max(0, Math.min(destination, root.scrollHeight - root.clientHeight))
     if (highlighted.current !== target && (positions.current.length === 0 || Math.abs(root.scrollTop - boundedDestination) > 2)) {
       const anchor = Array.from(root.querySelectorAll<HTMLElement>('[data-message-id]')).find(element => element.getBoundingClientRect().bottom > viewport.top)
-      positions.current.push({ top: root.scrollTop, anchorId: anchor?.dataset.messageId, offset: anchor ? anchor.getBoundingClientRect().top - viewport.top : 0, trigger })
+      positions.current.push({
+        top: root.scrollTop, anchorId: anchor?.dataset.messageId,
+        offset: anchor ? anchor.getBoundingClientRect().top - viewport.top : 0,
+        trigger,
+        triggerMessageId: trigger?.closest<HTMLElement>('[data-message-id]')?.dataset.messageId,
+        triggerImageId: trigger?.closest<HTMLElement>('[data-image-edit-reference]')?.dataset.imageEditReference,
+      })
       setDepth(positions.current.length)
     }
     clearHighlight()
@@ -99,7 +114,17 @@ export function MessageReferenceNavigation({ children, sessionId, targets }: {
     const anchor = previous.anchorId ? find(previous.anchorId) : undefined
     const top = anchor ? root.scrollTop + anchor.getBoundingClientRect().top - root.getBoundingClientRect().top - previous.offset : previous.top
     move(top); setDepth(positions.current.length)
-    if (previous.trigger?.isConnected) previous.trigger.focus({ preventScroll: true })
+    if (previous.trigger && root.contains(previous.trigger)) {
+      previous.trigger.focus({ preventScroll: true })
+    } else if (previous.triggerMessageId && previous.triggerImageId) {
+      // 列表更新可能重新挂载引用卡；只在原会话的原消息内恢复焦点。
+      const row = find(previous.triggerMessageId)
+      const cards = Array.from(row?.querySelectorAll<HTMLElement>('[data-image-edit-reference]') ?? [])
+        .filter(card => card.dataset.imageEditReference === previous.triggerImageId)
+      const link = cards.length === 1 ? cards[0]?.querySelector<HTMLElement>('[data-reference-source-link]:not(:disabled)') : undefined
+      const focusTarget = link ?? row
+      focusTarget?.focus({ preventScroll: true })
+    }
   }, [scrollRef, clearHighlight, find, move])
 
   const navigation = React.useMemo<Navigation>(() => ({ jump, hasSource: id => sources.get(id) !== undefined }), [jump, sources])

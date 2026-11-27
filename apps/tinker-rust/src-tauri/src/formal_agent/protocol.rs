@@ -23,6 +23,15 @@ pub enum Command {
         #[serde(default, rename = "expectedChainId")]
         expected_chain_id: Option<String>,
     },
+    #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+    PrepareHistoryImage {
+        generation: String,
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "messageId")]
+        message_id: String,
+        filename: String,
+    },
     ProjectTaskStatuses {
         generation: String,
         #[serde(rename = "workspaceId")]
@@ -60,6 +69,8 @@ impl Command {
     pub fn generation(&self) -> Option<&str> {
         match self {
             Self::Bootstrap {} => None,
+            #[cfg(all(target_os = "macos", feature = "formal-preview"))]
+            Self::PrepareHistoryImage { generation, .. } => Some(generation),
             Self::Attach { generation, .. }
             | Self::Detach { generation }
             | Self::Invoke { generation, .. }
