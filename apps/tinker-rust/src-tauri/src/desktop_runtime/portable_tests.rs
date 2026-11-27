@@ -187,20 +187,26 @@ fn unpublished_fork_reuses_its_intent_and_keeps_global_scope_after_restart() {
     drop(rt);
     let rt = open();
     assert!(rt
-        .fork_completed_turns(source, "first-assistant", vec![turn.clone()], |_| Err(
-            DesktopError("storeIo")
-        ))
+        .fork_completed_turns(
+            source,
+            "first-assistant",
+            vec![turn.clone()],
+            None,
+            |_| Err(DesktopError("storeIo"))
+        )
         .is_err());
     assert!(rt.history_extent(&sid).is_err());
     assert!(intent.is_file());
     let restored = rt
-        .fork_completed_turns(source, "first-assistant", vec![turn.clone()], |_| Ok(()))
+        .fork_completed_turns(source, "first-assistant", vec![turn.clone()], None, |_| {
+            Ok(())
+        })
         .unwrap();
     assert_eq!(restored["sessionId"], sid);
     assert_eq!(restored["createdAt"], held.created_at);
     assert!(restored["workspaceId"].is_null() && !intent.exists());
     assert_ne!(
-        rt.fork_completed_turns(source, "first-assistant", vec![turn], |_| Ok(()))
+        rt.fork_completed_turns(source, "first-assistant", vec![turn], None, |_| Ok(()))
             .unwrap()["sessionId"],
         sid
     );
@@ -209,4 +215,57 @@ fn unpublished_fork_reuses_its_intent_and_keeps_global_scope_after_restart() {
     assert_eq!(rt.history_extent(&sid).unwrap(), 1);
     assert_eq!(rt.history_extent(source).unwrap(), 0);
     assert!(rt.preflight_portable_sessions("../outside", &[]).is_err());
+}
+
+#[test]
+fn parked_revision_route_survives_restart_without_becoming_portable_history() {
+    let tmp = Temp::new();
+    let open = || DesktopRuntime::open(&tmp.0, profiles("http://127.0.0.1:9/chat")).unwrap();
+    let rt = open();
+    let parent = call(
+        &rt,
+        "sessions.create",
+        json!({"title":"Parent","profileId":"synthetic-local","workspaceId":"orchard","reuseDraft":false}),
+    );
+    let source = parent["sessionId"].as_str().unwrap();
+    let route = super::RevisionRoute {
+        channel_id: "synthetic-local".into(),
+        model_id: "synthetic-model".into(),
+        config_revision: "previous-binding".into(),
+    };
+    let child = rt
+        .fork_completed_turns(
+            source,
+            "revision:selected",
+            vec![],
+            Some((&route, "Parked question")),
+            |_| Ok(()),
+        )
+        .unwrap();
+    let sid = child["sessionId"].as_str().unwrap();
+    assert_eq!(child["title"], "Parked question (fork)");
+    assert!(child.get("nativeRevisionRoute").is_some());
+    drop(rt);
+    let reopened = open();
+    let sessions = call(&reopened, "sessions.list", json!({}));
+    let list = sessions["sessions"].as_array().unwrap();
+    assert_eq!(
+        list.iter().find(|s| s["sessionId"] == sid).unwrap()["nativeRevisionRoute"],
+        json!({"channelId":"synthetic-local","modelId":"synthetic-model","configRevision":"previous-binding"})
+    );
+    assert!(list
+        .iter()
+        .find(|s| s["sessionId"] == source)
+        .unwrap()
+        .get("nativeRevisionRoute")
+        .is_none());
+    let rejected = reopened.dispatch(json!({"version":1,"id":"guarded-first-send","method":"chat.send",
+        "params":{"sessionId":sid,"requestId":"explicit-edit","profileId":"synthetic-local","modelId":"synthetic-model",
+        "userMessage":"Revised","startedAt":300,"effort":null}})).unwrap();
+    assert_eq!(rejected.error.unwrap().code, "sourceChannelUnavailable");
+    assert_eq!(reopened.history_extent(sid).unwrap(), 0);
+    let backup =
+        serde_json::to_string(&reopened.export_portable_sessions("orchard").unwrap()).unwrap();
+    assert!(!backup.contains("previous-binding"));
+    assert!(!backup.contains("revisionRoute"));
 }

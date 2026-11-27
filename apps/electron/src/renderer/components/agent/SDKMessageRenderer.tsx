@@ -62,7 +62,7 @@ import {
   MessageResponse,
 } from '@/components/ai-elements/message'
 import { CopyButton } from '@/components/common/CopyButton'
-import { MessageMoreActions } from './MessageMoreActions.tsx'
+import { MessageMoreActions, type ReviseReply } from './MessageMoreActions.tsx'
 import { DebugCopyButton } from './DebugCopyButton'
 import { formatMessageTime } from '@/components/common/format-message-time'
 import { useT } from '@/hooks/useT'
@@ -409,6 +409,7 @@ export interface AssistantTurnRendererProps {
   allMessages: SDKMessage[]
   basePath?: string
   /** 分叉回调（传入最后一条 assistant 消息的 uuid） */
+  onRevise?: ReviseReply
   onFork?: (upToMessageUuid: string) => void
   /** 回退回调（传入 assistant message uuid） */
   onRewind?: (assistantMessageUuid: string) => void
@@ -427,7 +428,7 @@ export function AssistantTurnRenderer(props: AssistantTurnRendererProps): React.
   return <LiveAssistantTurnRenderer {...props} />
 }
 
-function LiveAssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId: _sessionModelId, compactProcess = false }: AssistantTurnRendererProps): React.ReactElement | null {
+function LiveAssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewind, onRevise, isStreaming, stoppedByUser, sessionModelId: _sessionModelId, compactProcess = false }: AssistantTurnRendererProps): React.ReactElement | null {
   const { t: tConv } = useT('conversation')
   const imageSessionId = useAtomValue(currentAgentSessionIdAtom)
   const imageVersions = React.useMemo(() => collectImageVersions(allMessages, Boolean(window.__TAURI_FORMAL__?.imageFiles)), [allMessages])
@@ -896,6 +897,7 @@ function LiveAssistantTurnRenderer({ turn, allMessages, basePath, onFork, onRewi
             )}
             <DebugCopyButton topLevelEnriched={topLevelEnriched} turnMessages={turn.turnMessages} />
             <MessageMoreActions
+              onRevise={onRevise && lastUuid ? action => onRevise(lastUuid, action) : undefined}
               onFork={onFork && lastUuid ? () => onFork(lastUuid) : undefined}
               onRewind={onRewind && lastUuid ? () => onRewind(lastUuid) : undefined}
             />
@@ -1456,6 +1458,7 @@ export interface MessageGroupRendererProps {
   group: MessageGroup
   allMessages: SDKMessage[]
   basePath?: string
+  onRevise?: ReviseReply
   onFork?: (upToMessageUuid: string) => void
   onRewind?: (assistantMessageUuid: string) => void
   /** 是否正在流式输出中（隐藏操作栏） */
@@ -1539,7 +1542,7 @@ export function getGroupPreview(
   return texts.join(' ').slice(0, 200)
 }
 
-export function MessageGroupRenderer({ children, group, allMessages, basePath, onFork, onRewind, isStreaming, stoppedByUser, sessionModelId, compactProcess }: MessageGroupRendererProps): React.ReactElement | null {
+export function MessageGroupRenderer({ children, group, allMessages, basePath, onFork, onRewind, onRevise, isStreaming, stoppedByUser, sessionModelId, compactProcess }: MessageGroupRendererProps): React.ReactElement | null {
   const groupId = getGroupId(group)
 
   if (group.type === 'user') {
@@ -1568,6 +1571,7 @@ export function MessageGroupRenderer({ children, group, allMessages, basePath, o
         compactProcess={compactProcess}
         allMessages={allMessages}
         basePath={basePath}
+        onRevise={onRevise}
         onFork={onFork}
         onRewind={onRewind}
         isStreaming={isStreaming}

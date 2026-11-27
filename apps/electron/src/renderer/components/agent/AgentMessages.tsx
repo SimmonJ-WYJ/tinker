@@ -1,3 +1,4 @@
+import type { ReviseReply } from './MessageMoreActions'
 import { useImageSource } from '@/lib/image-asset-reads'
 import { isPendingUserMessage } from '@/lib/native-message-identity'
 /**
@@ -73,6 +74,7 @@ interface AgentMessagesProps {
   stoppedByUser?: boolean
   onRetry?: () => void
   onRetryInNewSession?: () => void
+  onRevise?: ReviseReply
   onFork?: (upToMessageUuid: string) => void
   onRewind?: (assistantMessageUuid: string) => void
   onCompact?: () => void
@@ -604,7 +606,7 @@ function AgentRunningIndicator({ label, withLogo = true }: { label: string; with
   )
 }
 
-export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoaded, persistedSDKMessages, streaming, streamState, liveMessages, sessionPath, stoppedByUser, onRetry, onRetryInNewSession, onFork, onRewind, onCompact }: AgentMessagesProps): React.ReactElement {
+export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoaded, persistedSDKMessages, streaming, streamState, liveMessages, sessionPath, stoppedByUser, onRetry, onRetryInNewSession, onFork, onRewind, onRevise, onCompact }: AgentMessagesProps): React.ReactElement {
   const { t: tConversation } = useT('conversation')
   const userProfile = useAtomValue(userProfileAtom)
   const queuedMessages = useAtomValue(queuedMessageUuidsAtom).get(sessionId)
@@ -836,6 +838,7 @@ export function AgentMessages({ sessionId, sessionModelId, messages, messagesLoa
                 compactProcess={true}
                 allMessages={allSDKMessages}
                 basePath={sessionPath || undefined}
+                onRevise={messagesLoaded && !streaming && outcome && outcome._desktopCanRevise ? onRevise : undefined}
                 onFork={isLive ? undefined : onFork}
                 onRewind={isLive ? undefined : onRewind}
                 isStreaming={statusRunning && group === activeAssistantGroup || undefined}

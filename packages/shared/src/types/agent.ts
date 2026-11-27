@@ -206,6 +206,8 @@ interface NativeImageTaskIdentity {
 
 /** SDK assistant 消息 */
 export interface SDKAssistantMessage extends ImportedMessageMetadata, NativeImageTaskIdentity {
+  /** 宿主确认本条已完成文字具有可复查的原始路由和提问。 */
+  _desktopCanRevise?: boolean
   _desktopImageTaskError?: string
   _desktopImageTaskStatus?: 'running' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
   /** 宿主按提交顺序核实原始输入、绑定和源图后才允许重试。 */
@@ -666,6 +668,8 @@ export interface SubagentSpan {
  * 类似 ConversationMeta，独立存储。
  */
 export interface AgentSessionMeta {
+  /** 原生分支第一次文字提交前的源渠道绑定。随历史备份导出时不复制。 */
+  nativeRevisionRoute?: { channelId: string; modelId: string; configRevision: string }
   /** 会话唯一标识 */
   id: string
   /** 会话标题 */
@@ -1203,6 +1207,8 @@ export type MentionKind = 'file' | 'dir' | 'zotero-item' | 'zotero-col' | 'evide
  * Agent 发送消息的输入参数
  */
 export interface AgentSendInput {
+  /** 原生重新生成必须使用源文字任务的原始渠道版本。 */
+  expectedConfigRevision?: string
   /** 仅本次普通文字任务引用的选区，正文由原生宿主读取。 */
   nativeDocumentReference?: NativeDocumentReference
   /** 可选稳定请求身份；Rust 预览用于幂等绑定。 */

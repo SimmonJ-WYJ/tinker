@@ -40,6 +40,8 @@ pub(super) struct Seed {
     turns: Vec<super::Turn>,
     #[serde(skip)]
     claimed_workspace: Option<String>,
+    #[serde(skip)]
+    pub(super) revision_route: Option<portable::RevisionRoute>,
 }
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -402,6 +404,7 @@ impl DesktopRuntime {
                 files,
                 turns: vec![],
                 claimed_workspace: None,
+                revision_route: None,
             };
             seed.integrity = integrity(&seed)?;
             validate_files(&seed, &dir, true)?;

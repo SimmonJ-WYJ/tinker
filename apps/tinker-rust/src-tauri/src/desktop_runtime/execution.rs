@@ -26,6 +26,51 @@ pub(crate) struct TextRetry {
     pub retry_of_request_id: String,
 }
 impl super::DesktopRuntime {
+    pub(crate) fn require_text_route(
+        &self,
+        profile: &str,
+        model: &str,
+        revision: &str,
+    ) -> Result<()> {
+        self.require_text_route_for_request(profile, model, revision, None)
+    }
+
+    pub(crate) fn require_text_route_for_request(
+        &self,
+        profile: &str,
+        model: &str,
+        revision: &str,
+        receipt: Option<(&str, &str)>,
+    ) -> Result<()> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        if inner.availability_recovery_required || inner.availability_policy_invalid {
+            return Err(DesktopError("recoveryRequired"));
+        }
+        // 已接受的请求只校验原路由，正文、档位和文档选区仍由 send_inner 的完整回执匹配校验。
+        if let Some(binding) = receipt.and_then(|(session, request)| {
+            inner
+                .bindings
+                .get(session)?
+                .iter()
+                .find(|b| b.request.request_id == request)
+        }) {
+            return if binding.request.profile_id == profile
+                && binding.request.model_id == model
+                && binding.config_revision == revision
+            {
+                Ok(())
+            } else {
+                Err(DesktopError("requestConflict"))
+            };
+        }
+        if !inner.text_route_available(profile, model, revision) {
+            return Err(DesktopError("sourceChannelUnavailable"));
+        }
+        Ok(())
+    }
     pub(crate) fn interrupt_text(&self, session: &str, request: &str) -> Result<()> {
         let inner = self
             .inner
@@ -105,16 +150,7 @@ impl super::DesktopRuntime {
         if bindings.last() != Some(source) {
             return Err(DesktopError("requestConflict"));
         }
-        if inner
-            .profiles
-            .get(&next.profile_id)
-            .is_none_or(|p| p.config_revision != source.config_revision)
-            || inner.availability.as_ref().is_some_and(|available| {
-                available
-                    .get(&next.profile_id)
-                    .is_none_or(|models| !models.contains(&next.model_id))
-            })
-        {
+        if !inner.text_route_available(&next.profile_id, &next.model_id, &source.config_revision) {
             return Err(DesktopError(if inner.managed {
                 "sourceChannelUnavailable"
             } else {
@@ -227,6 +263,14 @@ impl Inner {
                     Err(DesktopError("requestConflict"))
                 };
             }
+        }
+        // 普通发送同样保护重启后未提交的编辑，确保首次绑定不会静默改用同名渠道的新端点。
+        if self.parked_revision_route(&p.session_id).is_some_and(|r| {
+            r.channel_id == p.profile_id
+                && r.model_id == p.model_id
+                && !self.text_route_available(&p.profile_id, &p.model_id, &r.config_revision)
+        }) {
+            return Err(DesktopError("sourceChannelUnavailable"));
         }
         let profile = self
             .profiles
@@ -401,6 +445,15 @@ impl Inner {
             return Err(DesktopError("pageLimit"));
         }
         Ok(json!({"turns":turns,"nextAfter":next,"hasMore":next<total}))
+    }
+    fn text_route_available(&self, profile: &str, model: &str, revision: &str) -> bool {
+        self.profiles.get(profile).is_some_and(|p| {
+            p.config_revision == revision && p.models.iter().any(|m| m.model_id == model)
+        }) && self.availability.as_ref().is_none_or(|available| {
+            available
+                .get(profile)
+                .is_some_and(|models| models.contains(model))
+        })
     }
     pub(super) fn binding(&self, session: &str, request: &str) -> Result<&Binding> {
         self.session(session)?;

@@ -23,7 +23,7 @@ async function fixture(history: SDKMessage[], nativeImages = true) {
   const bridge: NativeBridge = {
     listen: async () => () => {},
     request: async <T,>(req: Record<string, unknown>): Promise<T> => {
-      if (req.command === 'bootstrap') return { generation: 'document', nativeImages, nativeTaskLifecycle: true, nativeImageTaskLifecycle: true, activeRuns: [], platformSnapshot: { revision: 1, settings: {} } } as T
+      if (req.command === 'bootstrap') return { generation: 'document', nativeImages, nativeConversationRevisions: true, nativeTaskLifecycle: true, nativeImageTaskLifecycle: true, activeRuns: [], platformSnapshot: { revision: 1, settings: {} } } as T
       if (req.command === 'restore') {
         restores++
         return { restoreToken: 'restore', deliverySequence: 0, messages: [], sdkMessages: history, activeSnapshot: null } as T
@@ -290,4 +290,14 @@ test('an explicit document excerpt sends only a text task even with image-relate
   await f.t.invoke('agent:send-message', request)
   expect(f.sent).toEqual([request])
   expect(f.counts().changes).toBe(0)
+})
+
+test('重新生成仍是普通文字请求，即使措辞和历史图片符合自动改图条件', async () => {
+  const f = await fixture(imageTurn(sid, 'source'))
+  await f.restore()
+  const payload = { ...input('change the background to blue'), expectedConfigRevision: 'original' }
+  await f.t.invoke('agent:send-message', payload)
+  expect(f.sent).toEqual([payload])
+  expect(f.counts().changes).toBe(0)
+  f.t.dispose()
 })

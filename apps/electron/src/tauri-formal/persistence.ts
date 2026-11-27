@@ -1,4 +1,5 @@
 /** 复用正式 Jotai store；原初始化组件明确交付 hydrate 屏障。 */
+import type { AgentEffort, AgentSessionMeta } from '@asci/shared'
 import { getDefaultStore } from 'jotai'
 import { toast } from 'sonner'
 import { tabsAtom, activeTabIdAtom, activeTabIdByWorkspaceAtom } from '../renderer/atoms/tab-atoms.ts'
@@ -8,6 +9,11 @@ import { createLifecycle } from './lifecycle.ts'
 import { i18n } from '../renderer/lib/i18n.ts'
 
 export interface FormalLifecycleMarker {
+  prepareRevision?(input: { sessionId: string; upToMessageUuid: string }): Promise<{
+    session: AgentSessionMeta & Required<Pick<AgentSessionMeta, 'nativeRevisionRoute'>>
+    prompt: string
+    effort?: AgentEffort
+  }>
   projectBackups?: import('./project-backups').NativeProjectBackups
   projectDocuments?: import('./project-documents').NativeProjectDocuments
   imageAssets?: import('./image-assets').NativeImageAssets

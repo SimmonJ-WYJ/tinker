@@ -582,7 +582,8 @@ export function RichTextInput({
         }),
       PastedBlock,
     ],
-    content: value || '',
+    // 原生历史草稿为普通文字，首次创建编辑器也必须走与恢复时相同的转义。
+    content: window.__TAURI_FORMAL__?.prepareRevision && value ? markdownToEditorHtml(value) : value || '',
     editable: !disabled,
     editorProps: {
       attributes: {

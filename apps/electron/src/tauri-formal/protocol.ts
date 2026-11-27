@@ -24,6 +24,7 @@ export interface ActiveRun {
   cursor: number
 }
 export interface Bootstrap {
+  nativeConversationRevisions?: boolean
   nativeProjectBackups?: boolean
   nativeProjectDocuments?: boolean
   nativeImageAssetReads?: boolean
