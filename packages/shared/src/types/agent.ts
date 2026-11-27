@@ -670,6 +670,8 @@ export interface SubagentSpan {
 export interface AgentSessionMeta {
   /** 原生分支第一次文字提交前的源渠道绑定。随历史备份导出时不复制。 */
   nativeRevisionRoute?: { channelId: string; modelId: string; configRevision: string }
+  /** 原生编辑草稿可供重新选择的历史资料位置，仅作预览，不代表已附加。 */
+  nativeRevisionDocument?: NativeDocumentSource
   /** 会话唯一标识 */
   id: string
   /** 会话标题 */

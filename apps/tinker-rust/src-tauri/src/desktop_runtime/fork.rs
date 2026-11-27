@@ -1,9 +1,10 @@
 //! Store a passive conversation prefix using the same journal commit as portable history.
 use super::*;
-use crate::desktop_runtime::activity_time;
+use crate::desktop_runtime::{activity_time, DocumentSource};
 
 const REVISION_ROUTE_FILE: &str = "revision-route-v1.json";
 const REVISION_FINGERPRINT: &str = "revision-route-v1:";
+const CITED_REVISION_FINGERPRINT: &str = "revision-cited-v2:";
 
 /// 本机未发送分支的公开路由标识。项目备份只包含历史，不携带该绑定。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -13,9 +14,25 @@ pub(crate) struct RevisionRoute {
     pub model_id: String,
     pub config_revision: String,
 }
-impl RevisionRoute {
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct RevisionDraft {
+    #[serde(flatten)]
+    pub route: RevisionRoute,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document: Option<DocumentSource>,
+}
+
+impl RevisionDraft {
     fn fingerprint(&self, sid: &str) -> Result<String> {
-        Ok(format!("{REVISION_FINGERPRINT}{}", digest(&(sid, self))?))
+        // 无引用时保留原 v1 字节和摘要。旧预览按被动历史打开不认识的新草稿。
+        let prefix = if self.document.is_some() {
+            CITED_REVISION_FINGERPRINT
+        } else {
+            REVISION_FINGERPRINT
+        };
+        Ok(format!("{prefix}{}", digest(&(sid, self))?))
     }
 
     pub(super) fn stage(&self, dir: &Path, seed: &mut Seed) -> Result<()> {
@@ -26,12 +43,14 @@ impl RevisionRoute {
         }
         write_json(&path, self)?;
         seed.fingerprint = self.fingerprint(&seed.session.session_id)?;
-        seed.revision_route = Some(self.clone());
+        seed.revision_draft = Some(self.clone());
         Ok(())
     }
 
     pub(super) fn load(dir: &Path, seed: &Seed) -> Result<Option<Self>> {
-        if !seed.fingerprint.starts_with(REVISION_FINGERPRINT) {
+        if !seed.fingerprint.starts_with(REVISION_FINGERPRINT)
+            && !seed.fingerprint.starts_with(CITED_REVISION_FINGERPRINT)
+        {
             return Ok(None);
         }
         let route: Self = read_json(&dir.join(REVISION_ROUTE_FILE))?;
@@ -48,7 +67,7 @@ impl DesktopRuntime {
         source: &str,
         anchor: &str,
         mut turns: Vec<Turn>,
-        revision: Option<(&RevisionRoute, &str)>,
+        revision: Option<(&RevisionDraft, &str)>,
         prepare_assets: impl FnOnce(&str) -> Result<()>,
     ) -> Result<Value> {
         let mut inner = self
@@ -57,9 +76,9 @@ impl DesktopRuntime {
             .map_err(|_| DesktopError("runtimeUnavailable"))?;
         let parent = inner.session(source)?;
         let workspace = inner.session_workspace(parent).map(str::to_owned);
-        let revision_route = revision.map(|(route, _)| route);
-        let profile = revision_route
-            .map_or(&parent.profile_id, |route| &route.channel_id)
+        let draft = revision.map(|(draft, _)| draft);
+        let profile = draft
+            .map_or(&parent.profile_id, |draft| &draft.route.channel_id)
             .clone();
         let now = activity_time(parent.updated_at)?;
         // The next unpublished slot for this exact anchor is stable across crashes,
@@ -157,7 +176,7 @@ impl DesktopRuntime {
             write_json(&intent, &session)?;
         }
         prepare_assets(&sid)?;
-        publish(&mut inner, values, revision_route, || Ok(()))?;
+        publish(&mut inner, values, draft, || Ok(()))?;
         // Once journaled the session is authoritative even if cleanup fails.
         let _ = fs::remove_file(intent);
         Ok(inner.project_session(&session))

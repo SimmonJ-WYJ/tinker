@@ -2,7 +2,7 @@
 use super::{actor::Actor, projection};
 use crate::desktop_runtime::{
     protocol::{DesktopError, Result},
-    Turn,
+    DocumentSource, RevisionDraft, RevisionRoute, Turn,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -33,16 +33,20 @@ impl Actor {
                 &target.config_revision,
             )?;
             // 冒号不属于原生消息 UUID 字符集；未发布意图不能与普通分叉相互复用。
-            let route = crate::desktop_runtime::RevisionRoute {
+            let route = RevisionRoute {
                 channel_id: target.profile_id,
                 model_id: target.model_id,
                 config_revision: target.config_revision,
+            };
+            let draft = RevisionDraft {
+                route,
+                document: target.document_source,
             };
             let child = self.publish_fork(
                 sid,
                 &format!("revision:{anchor}"),
                 prefix,
-                Some((&route, &target.user_message)),
+                Some((&draft, &target.user_message)),
             )?;
             let mut prepared = json!({"session":child, "prompt":target.user_message});
             if let Some(effort) = target.effort {
@@ -59,13 +63,14 @@ impl Actor {
         sid: &str,
         anchor: &str,
         prefix: ForkPrefix,
-        revision: Option<(&crate::desktop_runtime::RevisionRoute, &str)>,
+        revision: Option<(&RevisionDraft, &str)>,
     ) -> Result<Value> {
         let session = self.session(sid)?;
         for loc in prefix
             .text
             .iter()
             .filter_map(|t| t.document_source.as_ref())
+            .chain(revision.and_then(|(draft, _)| draft.document.as_ref()))
         {
             let workspace = session["workspaceId"]
                 .as_str()
@@ -95,7 +100,8 @@ struct ForkPrefix {
 // 历史快照没有可重发的渠道身份。文档摘录只允许由新的显式选区发送。
 pub(super) fn revision_candidate(turn: &Value) -> bool {
     turn["status"] == "completed"
-        && turn["documentSource"].is_null()
+        && (turn["documentSource"].is_null()
+            || serde_json::from_value::<DocumentSource>(turn["documentSource"].clone()).is_ok())
         && turn["toolState"].is_null()
         && turn["importedMessages"].is_null()
         && turn["profileId"].is_string()
@@ -123,12 +129,11 @@ fn take_revision_target(
     let target = prefix.text.pop().ok_or(DesktopError("forkUnsupported"))?;
     if matches.next().is_some()
         || target.session_id != session
-        || target.document_source.is_some()
         || reply["_desktopCanRevise"] != true
         || reply["uuid"] != target.assistant_message_id
         || user["uuid"] != target.user_message_id
         || !user["imageEditReference"].is_null()
-        || !user["_desktopDocumentSource"].is_null()
+        || user["_desktopDocumentSource"] != json!(target.document_source)
         || !user["_importedFiles"].is_null()
         || !user["_electronImported"].is_null()
         || user["message"]["content"] != json!([{"type":"text","text":target.user_message}])
@@ -269,6 +274,39 @@ mod tests {
     }
 
     #[test]
+    fn cited_revision_requires_exact_agreement_with_the_bound_user_turn() {
+        let mut turn = turn("one");
+        let source = json!({"documentId":"doc-test","filename":"report.pdf","page":2,
+                            "startLine":3,"endLine":4});
+        turn["documentSource"] = source.clone();
+        let turns = [turn];
+        let history = projection::text_task_history(&turns);
+        let sdk = history["sdkMessages"].as_array().unwrap();
+        let revise = |messages: &[Value]| {
+            let mut prefix = completed_prefix(&turns, messages, "one-assistant")?;
+            take_revision_target(&mut prefix, messages, "session-1", "one-assistant")
+        };
+        assert_eq!(json!(revise(sdk).unwrap().document_source), source);
+        for (key, altered) in [
+            ("page", json!(1)),
+            ("documentId", json!("foreign")),
+            ("filename", json!("other.pdf")),
+            ("startLine", json!(1)),
+            ("excerpt", json!("untrusted content")),
+        ] {
+            let mut changed = sdk.clone();
+            changed[0]["_desktopDocumentSource"][key] = altered;
+            assert!(revise(&changed).is_err(), "{key}");
+        }
+        let mut missing = sdk.clone();
+        missing[0]
+            .as_object_mut()
+            .unwrap()
+            .remove("_desktopDocumentSource");
+        assert!(revise(&missing).is_err());
+    }
+
+    #[test]
     fn fork_stops_at_selected_reply_before_later_unsupported_content() {
         let turns = [turn("one"), turn("two")];
         let history = projection::history(&turns);
@@ -339,3 +377,7 @@ mod tests {
         assert!(completed_prefix(&[plain], &mixed, "one-assistant").is_err());
     }
 }
+
+#[cfg(test)]
+#[path = "cited_revision_tests.rs"]
+mod cited_revision_tests;

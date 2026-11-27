@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { atom, useStore, type createStore } from 'jotai'
 import { toast } from 'sonner'
-import { nowMs, type AgentSessionMeta, type AgentEffort } from '@asci/shared'
+import { nowMs, type AgentSessionMeta, type AgentEffort, type NativeDocumentReference } from '@asci/shared'
 import {
   agentPendingFilesAtom, agentPendingMentionsAtom, agentSessionsAtom, agentSessionChannelMapAtom,
   agentSessionDraftsAtom, agentSessionDraftHtmlAtom, agentSessionModelMapAtom, agentStreamErrorsAtom, agentStreamingStatesAtom, currentAgentSessionIdAtom,
@@ -12,14 +12,15 @@ import { observeAgentSend } from '@/lib/agent-send'
 import type { useOpenSession } from '@/hooks/useOpenSession'
 import { useT } from '@/hooks/useT'
 import type { RevisionAction } from './MessageMoreActions'
+import { documentSelection } from '../../../tauri-formal/project-documents'
 import { pendingNativeImageSelectionsAtom } from './use-native-image-selection'
 
 /** 同一来源的准备操作在标签卸载、重新打开时仍只允许一个。 */
 const preparingAtom = atom(new Set<string>())
 
-/** 只有显式点击才提交原生纯文字。编辑草稿、恢复标签页和读取来源不调用此函数。 */
+/** 显式提交原生文字问题，可附带本轮选区；恢复标签页和预览来源不会调用。 */
 export async function sendRevisionText(store: ReturnType<typeof createStore>, session: AgentSessionMeta,
-  prompt: string, route: NonNullable<AgentSessionMeta['nativeRevisionRoute']>, effort?: AgentEffort) {
+  prompt: string, route: NonNullable<AgentSessionMeta['nativeRevisionRoute']>, effort?: AgentEffort, document?: NativeDocumentReference) {
   const requestId = registerAgentAttempt(store, session.id)
   if (!requestId) return
   const startedAt = nowMs()
@@ -32,15 +33,16 @@ export async function sendRevisionText(store: ReturnType<typeof createStore>, se
   for (const drafts of [agentSessionDraftsAtom, agentSessionDraftHtmlAtom]) {
     store.set(drafts, rows => { const next = new Map(rows); next.delete(session.id); return next })
   }
-  // 使用点选回复的渠道版本。当前输入区、图片引用及工具均不参与重新生成。
+  // 使用原渠道版本；仅明确附加的定位进入本次请求。
   const sent = window.electronAPI.sendAgentMessage({
     sessionId: session.id, workspaceId: session.workspaceId, userMessage: prompt, channelId: route.channelId,
+    ...(document && { nativeDocumentReference: documentSelection(document) }),
     modelId: route.modelId, ...(effort && { effort }), expectedConfigRevision: route.configRevision, requestId, startedAt,
   })
   const consumeRoute = () => {
     store.set(agentSessionsAtom, rows => rows.map(row => {
       if (row.id !== session.id || !row.nativeRevisionRoute) return row
-      const { nativeRevisionRoute: _consumed, ...rest } = row
+      const { nativeRevisionRoute: _route, nativeRevisionDocument: _suggestion, ...rest } = row
       return rest
     }))
   }
@@ -97,9 +99,10 @@ export function useNativeConversationRevision(sessionId: string, openSession: Re
         store.set(agentSessionDraftsAtom, rows => new Map(rows).set(session.id, prompt))
         return
       }
-      if (action === 'edit') store.set(agentSessionDraftsAtom, rows => new Map(rows).set(session.id, prompt))
+      const needsReview = action === 'edit' || !!session.nativeRevisionDocument
+      if (needsReview) store.set(agentSessionDraftsAtom, rows => new Map(rows).set(session.id, prompt))
       open.current('agent', session.id, session.title, session.workspaceId)
-      if (action === 'edit') return
+      if (needsReview) return
 
       await sendRevisionText(store, session, prompt, route, effort)
     } catch (error) {

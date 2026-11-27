@@ -115,8 +115,9 @@ function DocumentPanel({ workspaceId, onCite, source, api, close }: Props & {
     ...documentSelection({ documentId: excerpt.document.documentId, page: excerpt.page, startLine: excerpt.startLine, endLine: excerpt.endLine }),
     filename: excerpt.document.filename,
   }
-  const current = visibleSource && visibleSource.page === page && visibleSource.startLine === first
-    && visibleSource.endLine === last && visibleSource.documentId === selected?.documentId
+  const target = source ?? (selected && { documentId: selected.documentId, page, startLine: first, endLine: last })
+  const current = target && visibleSource && visibleSource.page === target.page && visibleSource.startLine === target.startLine
+    && visibleSource.endLine === target.endLine && visibleSource.documentId === target.documentId
   return <>
     <DialogHeader><DialogTitle>{source ? source.filename : t('documents.title')}</DialogTitle></DialogHeader>
     {!source && <>
@@ -165,7 +166,7 @@ function DocumentPanel({ workspaceId, onCite, source, api, close }: Props & {
     {error && <div role="alert" data-document-error className="text-sm text-destructive">{t(error)}
       {(source || !documents) && <Button type="button" size="sm" variant="ghost" onClick={() => void load()}>{t('documents.retry')}</Button>}
     </div>}
-    {onCite && selected && <div>
+    {onCite && target && <div>
       <p className="mb-2 text-sm text-muted-foreground">{t('documents.sendHint')}</p>
       <Button type="button" size="sm" data-document-cite disabled={busy || !current} onClick={() => {
         if (visibleSource && current) {
@@ -190,9 +191,9 @@ function ScopedProjectDocuments({ workspaceId, onCite, source }: Props) {
   const label = source ? documentSourceLabel(t, source) : t('documents.title')
   return <Dialog open={open} onOpenChange={setOpen}>
     <DialogTrigger asChild>
-      <Button type="button" size={onCite ? 'icon-sm' : 'sm'} variant={onCite ? 'ghost' : 'outline'} aria-label={label} title={label}
+      <Button type="button" size={!source && onCite ? 'icon-sm' : 'sm'} variant={!source && onCite ? 'ghost' : 'outline'} aria-label={label} title={label}
         data-project-documents={source ? undefined : onCite ? 'composer' : 'library'} data-document-source={source?.documentId}>
-        <FileText aria-hidden="true" />{!onCite && label}
+        <FileText aria-hidden="true" />{(source || !onCite) ? label : null}
       </Button>
     </DialogTrigger>
     {open && <DialogContent className="max-h-[90vh] overflow-y-auto">

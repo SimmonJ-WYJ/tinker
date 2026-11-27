@@ -200,6 +200,9 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
   const draftRoute = revisionRoute && (revisionChoice ?? revisionRoute)
   const agentChannelId = waitingForRoute ? null : draftRoute?.channelId ?? sessionChannelMap.get(sessionId) ?? defaultChannelId
   const agentModelId = waitingForRoute ? null : draftRoute?.modelId ?? sessionModelMap.get(sessionId) ?? defaultModelId
+  const guardedRoute = revisionRoute && agentChannelId === revisionRoute.channelId && agentModelId === revisionRoute.modelId
+    ? revisionRoute : undefined
+  const suggestedDocument = guardedRoute ? session?.nativeRevisionDocument : undefined
   const agentChannelIds = useAtomValue(agentChannelIdsAtom)
   const setDraftSessionIds = useSetAtom(draftSessionIdsAtom)
   const globalWorkspaceId = useAtomValue(currentAgentWorkspaceIdAtom)
@@ -856,7 +859,10 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
 
   /** ModelSelector 选择回调 */
   const handleModelSelect = React.useCallback((option: ModelOption): void => {
-    if (revisionRoute) setRevisionChoice({ channelId: option.channelId, modelId: option.modelId })
+    if (revisionRoute) {
+      if (agentChannelId !== option.channelId || agentModelId !== option.modelId) setDocumentDraft(null)
+      setRevisionChoice({ channelId: option.channelId, modelId: option.modelId })
+    }
     // 更新当前会话的 per-session 配置
     setSessionChannelMap((prev) => {
       const map = new Map(prev)
@@ -878,7 +884,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
       agentChannelId: option.channelId,
       agentModelId: option.modelId,
     }).catch(console.error)
-  }, [sessionId, revisionRoute, setSessionChannelMap, setSessionModelMap, setDefaultChannelId, setDefaultModelId])
+  }, [sessionId, revisionRoute, agentChannelId, agentModelId, setSessionChannelMap, setSessionModelMap, setDefaultChannelId, setDefaultModelId])
 
   /** 构建 externalSelectedModel 给 ModelSelector */
   const externalSelectedModel = React.useMemo(() => {
@@ -909,13 +915,15 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (store.get(pendingNativeImageSelectionsAtom).has(sessionId)) return
     const baseText = (opts?.textOverride ?? inputContent).trim()
     if (waitingForRoute) return
-    if (revisionRoute && agentChannelId === revisionRoute.channelId && agentModelId === revisionRoute.modelId) {
+    if (guardedRoute) {
       if (opts?.textOverride !== undefined || !baseText || !session) return
-      if (pendingFiles.length || pendingMentions.length || selectedImage || selectedDocument) {
-        toast.info(tConversation('revision.textOnly'))
+      if (pendingFiles.length || pendingMentions.length || selectedImage || (selectedDocument && !suggestedDocument)) {
+        toast.info(suggestedDocument ? tNav('documents.textOnly') : tConversation('revision.textOnly'))
         return
       }
-      await sendRevisionText(store, session, baseText, revisionRoute, getSessionEffort())
+      if (store.get(agentStreamingStatesAtom).get(sessionId)?.running) return
+      if (selectedDocument) setDocumentDraft(null)
+      await sendRevisionText(store, session, baseText, guardedRoute, getSessionEffort(), selectedDocument)
       return
     }
     const mentionTokens = pendingMentions
@@ -1288,7 +1296,7 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
     if (cited) setDocumentDraft(draft => draft?.source === cited ? null : draft)
     const sent = window.electronAPI.sendAgentMessage(input)
     void observeAgentSend(store,sessionId,requestId,sent,recoveryDraft)
-  }, [getSessionEffort, waitingForRoute, session, revisionRoute, tConversation, selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
+  }, [getSessionEffort, waitingForRoute, session, guardedRoute, suggestedDocument, tConversation, selectedDocument, tNav, taskMode, inputContent, inputHtmlContent, tErrors, tCommon, pendingFiles, pendingMentions, selectedImage, selectedImageModel, setImageEditDrafts, sessionId, agentChannelId, agentModelId, currentWorkspaceId, workspaces, streaming, hasAvailableModel, store, setStreamingStates, setPendingFiles, setPendingMentions, setAgentStreamErrors, setPromptSuggestions, setInputContent, setLiveMessagesMap, zoteroItemCache])
 
   // 一键触发（如「找研究空白」）→ 直接派发 handleSend，不经输入框二段式回车。
   // textOverride 直接带正文，绕过 inputContent state 时序；写入后立即清空 atom 防重复发送。
@@ -1677,9 +1685,14 @@ export function AgentView({ sessionId }: { sessionId: string }): React.ReactElem
             {(isPlanMode || isPermissionPlanMode) && !isDragOver && <PlanModeDashedBorder />}
 
             <ImageEditReference sessionId={sessionId} />
+            {suggestedDocument && currentWorkspaceId && !selectedDocument && !selectedImage && !streaming && <div data-revision-document className="flex flex-wrap items-center gap-2 px-3 pt-2 text-sm">
+              <span className="text-muted-foreground">{tConversation('revision.previousExcerpt')}</span>
+              <ProjectDocuments key={sessionId} workspaceId={currentWorkspaceId} source={suggestedDocument}
+                onCite={source => setDocumentDraft({ source, sessionId, workspaceId: currentWorkspaceId })} />
+            </div>}
             {selectedDocument && <div data-document-draft className="flex items-center gap-2 px-3 pt-2 text-sm">
               <span>{documentSourceLabel(tNav, selectedDocument)}</span>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setDocumentDraft(null)}>{tNav('documents.remove')}</Button>
+              <Button type="button" size="sm" variant="ghost" data-document-remove onClick={() => setDocumentDraft(null)}>{tNav('documents.remove')}</Button>
             </div>}
             {/* 附件预览区域 */}
             {pendingFiles.length > 0 && (
