@@ -87,6 +87,15 @@ fn edit_prompt<'a>(headers: &str, body: &'a [u8]) -> Option<&'a str> {
             crate::picked_image::encode_png(96, 64, png::ColorType::Rgb, &[255; 96 * 64 * 3]);
         return white.is_ok_and(|bytes| bytes == png).then_some(prompt);
     }
+    if prompt.contains("[qa:fork-reference]") {
+        use sha2::{Digest, Sha256};
+        return (format!("{:x}", Sha256::digest(png))
+            == "1bc0996405d5b643514c9b3729d195287fa78abdb147ad6b08a4a50681287e52")
+            .then_some(prompt);
+    }
+    if prompt.contains("[qa:fork-version]") {
+        return fixture(1, true).is_ok_and(|v| v == png).then_some(prompt);
+    }
     let known = (1..=2).any(|p| {
         [false, true]
             .iter()

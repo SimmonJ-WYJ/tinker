@@ -39,8 +39,7 @@ impl PortableSession {
             .iter()
             .filter_map(|turn| turn.document_source.as_ref())
         {
-            let excerpt = crate::formal_documents::read(root, workspace, &reference.selection())?;
-            if &super::super::document_send::DocumentSource::from_excerpt(&excerpt) != reference {
+            if !reference.matches_project(root, workspace)? {
                 return Err(DesktopError("invalidImport"));
             }
         }

@@ -186,12 +186,22 @@ fn unpublished_fork_reuses_its_intent_and_keeps_global_scope_after_restart() {
     write_json(&intent, &held).unwrap();
     drop(rt);
     let rt = open();
-    let restored = rt.fork_completed_turns(source, vec![turn.clone()]).unwrap();
+    assert!(rt
+        .fork_completed_turns(source, "first-assistant", vec![turn.clone()], |_| Err(
+            DesktopError("storeIo")
+        ))
+        .is_err());
+    assert!(rt.history_extent(&sid).is_err());
+    assert!(intent.is_file());
+    let restored = rt
+        .fork_completed_turns(source, "first-assistant", vec![turn.clone()], |_| Ok(()))
+        .unwrap();
     assert_eq!(restored["sessionId"], sid);
     assert_eq!(restored["createdAt"], held.created_at);
     assert!(restored["workspaceId"].is_null() && !intent.exists());
     assert_ne!(
-        rt.fork_completed_turns(source, vec![turn]).unwrap()["sessionId"],
+        rt.fork_completed_turns(source, "first-assistant", vec![turn], |_| Ok(()))
+            .unwrap()["sessionId"],
         sid
     );
     drop(rt);

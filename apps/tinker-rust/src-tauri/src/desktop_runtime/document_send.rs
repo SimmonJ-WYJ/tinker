@@ -22,6 +22,10 @@ pub struct DocumentSource {
     pub end_line: usize,
 }
 impl DocumentSource {
+    pub(crate) fn matches_project(&self, root: &TrustedRoot, workspace: &str) -> Result<bool> {
+        let excerpt = formal_documents::read(root, workspace, &self.selection())?;
+        Ok(Self::from_excerpt(&excerpt) == *self)
+    }
     pub(super) fn from_excerpt(value: &DocumentExcerpt) -> Self {
         Self {
             document_id: value.document.document_id.clone(),

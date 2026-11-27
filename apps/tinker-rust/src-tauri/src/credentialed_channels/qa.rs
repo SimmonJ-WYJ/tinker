@@ -363,6 +363,22 @@ fn serve(
                 .and_then(|m| m["content"].as_str())
                 .unwrap_or("");
             let rehearsal = last.contains("[qa:upgrade-context]");
+            // 只匹配本机合成样例。普通续问不得包含 PDF 摘录、图片、编辑提示或截点后的文字。
+            let media_follow = last == "[qa:media-fork] Continue the project in text.";
+            if media_follow
+                && request["messages"]
+                    != serde_json::json!([
+                        {"role":"user","content":"Explain the highlighted PDF line. [qa:pdf-selection]"},
+                        {"role":"assistant","content":"Selected PDF page and line verified. streamed text completed."},
+                        {"role":"user","content":"Bookmark this project checkpoint."},
+                        {"role":"assistant","content":"Owned QA streamed text completed."},
+                        {"role":"user","content":last}
+                    ])
+            {
+                evidence.phase = "text-invalid";
+                s.write_all(b"HTTP/1.1 422 Unprocessable Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
+                return Ok(());
+            }
             let document = document_probe(&request, last);
             let fork = last == "[qa:fork-context] Continue the forked orchard note.";
             let expected_fork = serde_json::json!([
@@ -395,6 +411,8 @@ fn serve(
             let partial = last.contains("[qa:partial]");
             let first = if let Some(reply) = document? {
                 reply.into()
+            } else if media_follow {
+                "Project fork context verified. ".into()
             } else if fork {
                 "Fork prefix verified. ".into()
             } else if rehearsal {
