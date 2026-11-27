@@ -157,3 +157,46 @@ fn overlapping_native_ids_keep_isolation_and_continue_then_export_again() {
         .unwrap();
     assert_eq!(dst.history_extent(restored).unwrap(), 2);
 }
+
+#[test]
+fn unpublished_fork_reuses_its_intent_and_keeps_global_scope_after_restart() {
+    let tmp = Temp::new();
+    let open = || DesktopRuntime::open(&tmp.0, profiles("http://127.0.0.1:9/chat")).unwrap();
+    let rt = open();
+    let parent = call(
+        &rt,
+        "sessions.create",
+        json!({"title":"Original","workspaceId":null,
+        "profileId":"synthetic-local","reuseDraft":false}),
+    );
+    let source = parent["sessionId"].as_str().unwrap();
+    let turn: Turn = serde_json::from_value(json!({"sessionId":source,"requestId":"first","runId":"first",
+        "userMessageId":"first-user","assistantMessageId":"first-assistant","profileId":"synthetic-local",
+        "modelId":"synthetic","configRevision":"1","startedAt":1,"userMessage":"Hello","assistantMessage":"Hi",
+        "status":"completed","sequence":2,"errorCode":null})).unwrap();
+    let root = tmp.0.join("desktop-runtime-v1");
+    let sid = format!(
+        "portable-{}",
+        &digest(&("fork-v1", source, "first-assistant", 0)).unwrap()[..40]
+    );
+    let intent = root.join(format!(".fork-{sid}.json"));
+    let mut held: Session = serde_json::from_value(parent.clone()).unwrap();
+    held.session_id = sid.clone();
+    held.title = "Original (fork)".into();
+    write_json(&intent, &held).unwrap();
+    drop(rt);
+    let rt = open();
+    let restored = rt.fork_completed_turns(source, vec![turn.clone()]).unwrap();
+    assert_eq!(restored["sessionId"], sid);
+    assert_eq!(restored["createdAt"], held.created_at);
+    assert!(restored["workspaceId"].is_null() && !intent.exists());
+    assert_ne!(
+        rt.fork_completed_turns(source, vec![turn]).unwrap()["sessionId"],
+        sid
+    );
+    drop(rt);
+    let rt = open();
+    assert_eq!(rt.history_extent(&sid).unwrap(), 1);
+    assert_eq!(rt.history_extent(source).unwrap(), 0);
+    assert!(rt.preflight_portable_sessions("../outside", &[]).is_err());
+}

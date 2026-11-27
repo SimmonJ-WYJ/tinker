@@ -69,6 +69,9 @@
     "providerSettings": "模型与渠道"
   },
   "desktopRuntime": {
+    "contextLimitExceeded": "历史上下文超过本地限制。请选择更早的回复或使用较短的对话。",
+    "forkUnsupported": "请选择已完成的文字回复。这段对话包含暂时无法复制到分支的内容。",
+    "forkAnchorMissing": "当前对话中找不到所选回复。",
     "channelUnauthorized": "渠道拒绝了 API Key（HTTP 401）。请在渠道设置中检查密钥。",
     "channelPaymentRequired": "渠道要求付费或当前余额不足（HTTP 402）。请检查服务商的余额与账单。",
     "channelForbidden": "渠道拒绝访问该模型（HTTP 403）。请检查密钥的模型访问权限。",

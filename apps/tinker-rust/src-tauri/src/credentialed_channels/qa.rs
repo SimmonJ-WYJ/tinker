@@ -364,7 +364,16 @@ fn serve(
                 .unwrap_or("");
             let rehearsal = last.contains("[qa:upgrade-context]");
             let document = document_probe(&request, last);
-            if document.is_err() || (rehearsal && !has_upgrade_history(&request)) {
+            let fork = last == "[qa:fork-context] Continue the forked orchard note.";
+            let expected_fork = serde_json::json!([
+                {"role":"user","content":"First orchard note."},
+                {"role":"assistant","content":"Owned QA streamed text completed."},
+                {"role":"user","content":last},
+            ]);
+            if document.is_err()
+                || (rehearsal && !has_upgrade_history(&request))
+                || (fork && request["messages"] != expected_fork)
+            {
                 evidence.phase = "text-invalid";
                 s.write_all(b"HTTP/1.1 422 Unprocessable Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
                 return Ok(());
@@ -386,6 +395,8 @@ fn serve(
             let partial = last.contains("[qa:partial]");
             let first = if let Some(reply) = document? {
                 reply.into()
+            } else if fork {
+                "Fork prefix verified. ".into()
             } else if rehearsal {
                 "Imported alpine context verified. ".into()
             } else if held || partial {
