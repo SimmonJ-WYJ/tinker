@@ -214,12 +214,17 @@ export async function createFormalTransport(native: NativeBridge, translate: (co
       const send = (payload: Record<string, unknown>) =>
         command<{ value: T; imageId?: string }>('invoke', { channel, args: [payload] })
       const changed = () => publish('agent:workspace-files-changed', undefined)
-      // 重新生成只发送宿主确认的原始文字与绑定，避免历史图片或文案触发图片路由。
-      if (bootstrap.nativeConversationRevisions && 'expectedConfigRevision' in input) return (await send(input)).value
+      // 修订草稿只派发用户选择的动作，历史图片和措辞都不能推断本次引用。
+      if (bootstrap.nativeConversationRevisions && 'expectedConfigRevision' in input) {
+        if ((input.nativeImageAction === 'edit' || input.nativeImageAction === 'generate') && typeof input.sessionId === 'string') {
+          return imageContexts.sendBound(input.sessionId, () => send(input), changed)
+        }
+        return (await send(input)).value
+      }
       if (bootstrap.nativeTaskLifecycle && 'retryOfRequestId' in input) {
         // 宿主从旧任务解析渠道与原图，输入区当前引用不参与重试。
         if (bootstrap.nativeImageTaskLifecycle && typeof input.sessionId === 'string') {
-          return imageContexts.retry(input.sessionId, () => send(input), changed)
+          return imageContexts.sendBound(input.sessionId, () => send(input), changed)
         }
         return (await send(input)).value
       }

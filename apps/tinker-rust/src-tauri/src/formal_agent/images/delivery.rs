@@ -22,7 +22,13 @@ impl ImageWorkflow {
             let result = turn.and_then(|turn| {
                 actor.core("sessions.update", json!({"sessionId":sid}))?;
                 let (turns, imports) = self.store.snapshot(&sid)?;
-                let (_, sdk) = project(&sid, &turn, &turns, &imports);
+                let (_, sdk) = project(
+                    &sid,
+                    &turn,
+                    &turns,
+                    &imports,
+                    actor.runtime.locally_bound_image_history(&sid)?,
+                );
                 for mut message in sdk {
                     if message["type"] == "assistant" {
                         message["_desktopTaskRetryable"] = json!(matches!(

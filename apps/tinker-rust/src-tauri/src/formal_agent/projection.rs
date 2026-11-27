@@ -8,7 +8,11 @@ pub fn active(turn: &Value) -> bool {
 }
 pub fn session(s: &Value) -> Value {
     let mut out = json!({"id":s["sessionId"],"title":s["title"],"channelId":s["profileId"],"pinned":s["pinned"],"archived":s["archived"],"createdAt":s["createdAt"],"updatedAt":s["updatedAt"]});
-    for key in ["nativeRevisionRoute", "nativeRevisionDocument"] {
+    for key in [
+        "nativeRevisionRoute",
+        "nativeRevisionDocument",
+        "nativeRevisionImage",
+    ] {
         if let Some(value) = s.get(key) {
             out[key] = value.clone();
         }

@@ -117,6 +117,8 @@ export interface ChannelCapabilities {
  * 存储在 ~/.asci/channels.json 中，apiKey 字段为加密后的 base64 字符串
  */
 export interface Channel {
+  /** Opaque revision of a native channel configuration, including credential rotation. */
+  nativeConfigRevision?: string
   /** 受管凭据存在性元数据，不含密钥。 */
   hasCredential?: boolean
   /** 渠道唯一标识 */

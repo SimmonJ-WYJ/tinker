@@ -361,6 +361,9 @@ impl Inner {
         }
         if let Some(draft) = self.parked_revision(&session.session_id) {
             value["nativeRevisionRoute"] = json!(draft.route);
+            if let Some(image) = &draft.image {
+                value["nativeRevisionImage"] = json!(image);
+            }
             if let Some(source) = &draft.document {
                 value["nativeRevisionDocument"] = json!(source);
             }

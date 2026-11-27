@@ -75,9 +75,10 @@ mod owned {
                         Ok((mut stream, _)) => {
                             stream.set_nonblocking(false).unwrap();
                             let bytes = http::read_request(&mut stream);
-                            let request = String::from_utf8(bytes.clone()).unwrap();
-                            out.lock().unwrap().push(bytes);
-                            if request.starts_with("POST /v1/images/generations ")
+                            let request = String::from_utf8_lossy(&bytes);
+                            out.lock().unwrap().push(bytes.clone());
+                            if (request.starts_with("POST /v1/images/generations ")
+                                || request.starts_with("POST /v1/images/edits "))
                                 && !request.contains("failure")
                             {
                                 let mut png = Vec::new();
@@ -295,6 +296,113 @@ mod owned {
         );
         invoke(&h, &g, "agent:send-message", json!([submitted])).unwrap();
         assert_eq!(f.records.lock().unwrap().len(), 2);
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn image_revision_replays_only_identical_receipts_after_channel_rotation() {
+        let f = Fixture::new();
+        let mut host = f.open();
+        let g = boot(&host);
+        call(
+            &host,
+            json!({"command":"attach","generation":g,"observed":{}}),
+        )
+        .unwrap();
+        let terminal = || loop {
+            let event = host
+                .next_event(Duration::from_secs(5))
+                .expect("image completion");
+            if event.channel == "agent:stream:complete" {
+                break;
+            }
+        };
+        let ipc = |channel, args| invoke(&host, &g, channel, args);
+        let mut config = request(&f, "openai-chat", 0, "configure");
+        config["args"][0]["channel"]["models"] = json!([{"modelId":"picture","label":"Picture","capability":"image","supportsImageEdits":true}]);
+        let apply = |config: Value, secret| {
+            let staged = ipc("channel:stage", json!([{"request":config,"secret":secret}])).unwrap();
+            commit(&host, &g, staged).unwrap();
+        };
+        apply(config.clone(), QA_SECRET_ONE);
+        let project = ipc("agent:create-workspace", json!(["Orchard"])).unwrap()["id"].clone();
+        let sid = ipc(
+            "agent:create-session",
+            json!(["Source", "user-channel", project]),
+        )
+        .unwrap()["id"]
+            .clone();
+        let submit = |input: &Value| {
+            call(
+                &host,
+                json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[input]}),
+            )
+        };
+        let mut input = json!({"sessionId":sid,"workspaceId":project,"userMessage":"Draw a tree",
+            "requestId":"first","nativeImageAction":"generate","startedAt":1,"channelId":"user-channel","modelId":"picture"});
+        let base = submit(&input).unwrap()["imageId"].clone();
+        terminal();
+        input["requestId"] = json!("original-edit");
+        input["userMessage"] = json!("Add an apple");
+        input["nativeImageAction"] = json!("edit");
+        input["imageEditReferenceId"] = base;
+        let old_result = submit(&input).unwrap()["imageId"].clone();
+        terminal();
+        let anchor = format!(
+            "native-image-{}-original-edit-assistant",
+            sid.as_str().unwrap()
+        );
+        let park = || {
+            ipc(
+                "agent:prepare-revision",
+                json!([{"sessionId":sid,"upToMessageUuid":anchor}]),
+            )
+            .unwrap()["session"]
+                .clone()
+        };
+        let first = park();
+        let later = park();
+        let draft_input = |child: &Value| {
+            let mut i = input.clone();
+            i["sessionId"] = child["id"].clone();
+            i["requestId"] = json!("revised-edit");
+            i["expectedConfigRevision"] = child["nativeRevisionRoute"]["configRevision"].clone();
+            i["imageEditReferenceId"] = child["nativeRevisionImage"]["imageId"].clone();
+            i
+        };
+        assert_eq!(f.records.lock().unwrap().len(), 2);
+        let accepted = draft_input(&first);
+        let mut wrong = accepted.clone();
+        wrong["imageEditReferenceId"] = old_result;
+        assert!(submit(&wrong).is_err());
+        assert_eq!(f.records.lock().unwrap().len(), 2);
+        let receipt = submit(&accepted).unwrap();
+        assert!(receipt["imageId"].is_string());
+        config["channel"] = json!("channel:update");
+        config["mutation"] = json!({"mutationId":"rotate","expectedRevision":1});
+        apply(config, QA_SECRET_TWO);
+        terminal();
+        host.shutdown().unwrap();
+        drop(host);
+        let host = f.open();
+        let g = boot(&host);
+        let submit = |input: &Value| {
+            call(
+                &host,
+                json!({"command":"invoke","generation":g,"channel":"agent:send-message","args":[input]}),
+            )
+        };
+        assert_eq!(submit(&accepted).unwrap()["imageId"], receipt["imageId"]);
+        let mut mismatched_route = accepted.clone();
+        mismatched_route["expectedConfigRevision"] = json!("unrelated-revision");
+        assert!(submit(&mismatched_route).is_err());
+        assert_eq!(
+            submit(&draft_input(&later)).unwrap_err(),
+            "sourceChannelUnavailable"
+        );
+        let mut changed = accepted;
+        changed["userMessage"] = json!("New prompt");
+        assert!(submit(&changed).is_err());
+        assert_eq!(f.records.lock().unwrap().len(), 3);
     }
     #[cfg(target_os = "macos")]
     #[test]

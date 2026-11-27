@@ -182,6 +182,7 @@ fn restart_maps_an_uncertain_receipt_to_interrupted_without_sending() {
     let dir = store.session("session").unwrap();
     disk::private_dir(&dir).unwrap();
     let pending = ImageTurn {
+        admitted_locally: false,
         route: None,
         request_id: "uncertain".into(),
         prompt: "still accepted".into(),
@@ -313,6 +314,7 @@ fn attachment_stat_only_reads_metadata_and_preview_checks_content_integrity() {
         content_sha256: digest(&bytes),
     };
     let t = ImageTurn {
+        admitted_locally: false,
         route: None,
         request_id: "create".into(),
         prompt: "p".into(),
@@ -395,6 +397,7 @@ fn importing_then_editing_keeps_legacy_records_and_original_bytes() {
     let dir = store.session(sid).unwrap();
     disk::private_dir(&dir).unwrap();
     let prior = ImageTurn {
+        admitted_locally: false,
         route: None,
         request_id: "previous".into(),
         prompt: "original receipt".into(),
@@ -588,6 +591,7 @@ fn legacy_and_downgraded_appends_survive_clock_rollback() {
     let dir = store.session("s").unwrap();
     disk::private_dir(&dir).unwrap();
     let legacy = |request: &str, created_at: u64| ImageTurn {
+        admitted_locally: false,
         route: None,
         request_id: request.into(),
         prompt: "p".into(),
@@ -705,6 +709,7 @@ fn legacy_receipt_remains_read_only_and_new_image_records_its_own_admission() {
     let dir = store.session("s").unwrap();
     disk::private_dir(&dir).unwrap();
     let old = ImageTurn {
+        admitted_locally: false,
         route: None,
         request_id: "legacy".into(),
         prompt: "p".into(),
@@ -920,6 +925,7 @@ fn downgrade_append_is_newer_than_any_legacy_receipt_before_routed_admission() {
     let dir = store.session("s").unwrap();
     let img = store.import_png("s", "fixture.png", &pixel(1), 0).unwrap();
     let old = ImageTurn {
+        admitted_locally: false,
         route: None,
         request_id: "old".into(),
         prompt: "image".into(),
@@ -1318,3 +1324,6 @@ fn fork_copies_only_used_versions_and_recovers_an_exact_unpublished_install() {
     drop(store);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[path = "revision_tests.rs"]
+mod revision_tests;

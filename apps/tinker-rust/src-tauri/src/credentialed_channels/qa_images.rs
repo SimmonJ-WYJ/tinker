@@ -47,6 +47,7 @@ fn edit_prompt<'a>(headers: &str, body: &'a [u8]) -> Option<&'a str> {
     }
     let marker = format!("--{boundary}");
     let mut remaining = body.strip_prefix(marker.as_bytes())?;
+    let mut fields = Vec::new();
     let mut model = None;
     let mut prompt = None;
     let mut image = None;
@@ -58,6 +59,8 @@ fn edit_prompt<'a>(headers: &str, body: &'a [u8]) -> Option<&'a str> {
             .windows(marker.len())
             .position(|b| b == marker.as_bytes())?;
         let value = data[..next].strip_suffix(b"\r\n")?;
+        let field = header.split_once("name=\"")?.1.split_once('"')?.0;
+        fields.push((field, value));
         if header.contains("name=\"model\"") {
             model = Some(value);
         }
@@ -74,6 +77,34 @@ fn edit_prompt<'a>(headers: &str, body: &'a [u8]) -> Option<&'a str> {
     }
     let png = image?;
     let prompt = prompt.filter(|v| !v.trim().is_empty())?;
+    if prompt.contains("[qa:revision-") {
+        fields.sort_unstable_by_key(|(key, _)| *key);
+        if fields
+            .iter()
+            .map(|(key, _)| *key)
+            .ne(["image[]", "model", "n", "prompt"])
+            || fields[2].1 != b"1"
+            || remaining != b"--\r\n"
+        {
+            return None;
+        }
+        return match prompt {
+            "Edit the blue image. [qa:revision-stripes]"
+            | "Tint the generated landscape. [qa:revision-stripes]" => {
+                fixture(1, false).is_ok_and(|v| v == png).then_some(prompt)
+            }
+            "Edit the orchard. [qa:revision-orchard]"
+            | "Add a winding path. [qa:revision-orchard]"
+            | "Stop this edit. [qa:revision-orchard]"
+            | "Fail this edit. [qa:revision-orchard]" => {
+                use sha2::{Digest, Sha256};
+                (format!("{:x}", Sha256::digest(png))
+                    == "1bc0996405d5b643514c9b3729d195287fa78abdb147ad6b08a4a50681287e52")
+                    .then_some(prompt)
+            }
+            _ => None,
+        };
+    }
     // 此跨渠道验收指令必须真的携带第一个监听器的原始生成图。
     if prompt.contains(crate::qa_large_image::MARKER) {
         return (png == crate::qa_large_image::png(false)).then_some(prompt);
@@ -129,6 +160,24 @@ pub(super) fn respond(
         s.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
         return Ok("image-invalid");
     };
+    if !edit && prompt.contains("[qa:revision-") {
+        let expected =
+            json!({"model":MODEL,"prompt":"Edit the orchard. [qa:revision-orchard]","n":1});
+        if serde_json::from_slice::<Value>(body).ok().as_ref() != Some(&expected) {
+            s.write_all(
+                b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            )?;
+            return Ok("image-invalid");
+        }
+    }
+    if edit && prompt == "Fail this edit. [qa:revision-orchard]" {
+        s.write_all(b"HTTP/1.1 503 Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
+        return Ok("image-edit-failed");
+    }
+    if edit && prompt == "Stop this edit. [qa:revision-orchard]" {
+        // Return a valid result after the UI has had time to cancel the accepted request.
+        std::thread::sleep(std::time::Duration::from_secs(4));
+    }
     if edit && prompt.contains("[qa:image-retry]") && !first_failure.swap(true, Ordering::AcqRel) {
         s.write_all(b"HTTP/1.1 503 Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
         return Ok("image-edit-failed");
@@ -179,6 +228,22 @@ mod tests {
             Some("[qa:image-retry]")
         );
         assert!(edit_prompt(headers, &build(&second, MODEL, "[qa:image-retry]")).is_none());
+        let strict = "Tint the generated landscape. [qa:revision-stripes]";
+        let with_count = |png: &[u8]| {
+            let body = build(png, MODEL, strict);
+            let mut bytes = body.strip_suffix(b"--bound--\r\n").unwrap().to_vec();
+            bytes.extend_from_slice(
+                b"--bound\r\nContent-Disposition: form-data; name=\"n\"\r\n\r\n1\r\n--bound--\r\n",
+            );
+            bytes
+        };
+        assert_eq!(edit_prompt(headers, &with_count(&first)), Some(strict));
+        assert!(edit_prompt(headers, &with_count(&second)).is_none());
+        assert!(edit_prompt(headers, &build(&first, MODEL, strict)).is_none());
+        let body = with_count(&first);
+        let mut duplicate = body.strip_suffix(b"--bound--\r\n").unwrap().to_vec();
+        duplicate.extend_from_slice(b"--bound\r\nContent-Disposition: form-data; name=\"image[]\"\r\n\r\nextra\r\n--bound--\r\n");
+        assert!(edit_prompt(headers, &duplicate).is_none());
         let marker = "[qa:selected-jpeg]";
         let solid = |value| {
             crate::picked_image::encode_png(96, 64, png::ColorType::Rgb, &vec![value; 96 * 64 * 3])

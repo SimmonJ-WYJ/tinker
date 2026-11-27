@@ -59,14 +59,22 @@ impl Actor {
             let retry = crate::desktop_runtime::protocol::decode(args[0].clone())?;
             return self.retry_task(retry, reply);
         }
-        if c == "agent:send-message" {
+        if c == "agent:send-message"
+            && args
+                .first()
+                .is_some_and(|v| v.get("nativeImageAction").is_none())
+        {
+            if let Some(sid) = args.first().and_then(|v| v["sessionId"].as_str()) {
+                if self.runtime.parked_image_revision(sid)?.is_some() {
+                    return Err(DesktopError("sourceChannelUnavailable"));
+                }
+            }
             if let Some(input) = args
                 .first()
                 .filter(|a| a.get("expectedConfigRevision").is_some())
             {
                 if !self.projects_supported()
                     || mutation.is_some()
-                    || input.get("nativeImageAction").is_some()
                     || input.get("imageEditReferenceId").is_some()
                 {
                     return Err(DesktopError("unsupported"));

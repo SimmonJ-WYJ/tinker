@@ -66,21 +66,22 @@ impl ImageWorkflow {
     pub fn contains_request(&self, sid: &str, id: &str) -> Result<bool> {
         Ok(self.store.history(sid)?.iter().any(|t| t.request_id == id))
     }
-    pub fn merge_history(&self, sid: &str, history: &mut Value) -> Result<()> {
+    pub fn merge_history(&self, sid: &str, history: &mut Value, locally_bound: bool) -> Result<()> {
         let (turns, imports) = self.store.snapshot(sid)?;
-        Self::merge_turns(sid, history, &turns, &imports)
+        Self::merge_turns(sid, history, &turns, &imports, locally_bound)
     }
     fn merge_turns(
         sid: &str,
         history: &mut Value,
         turns: &[ImageTurn],
         imports: &[ImportedImage],
+        locally_bound: bool,
     ) -> Result<()> {
         if turns.is_empty() {
             return Ok(());
         }
         for t in turns {
-            let (plain, sdk) = project(sid, t, turns, imports);
+            let (plain, sdk) = project(sid, t, turns, imports, locally_bound);
             history["messages"]
                 .as_array_mut()
                 .ok_or(DesktopError("invalidReply"))?
@@ -277,9 +278,40 @@ impl Actor {
             return Err(DesktopError("requestConflict"));
         }
         let text_head = self.runtime.latest_text_task(sid)?;
+        let locally_bound = self.runtime.locally_bound_image_history(sid)?;
+        let revision = self.runtime.parked_image_revision(sid)?;
         let images = self.images.as_mut().ok_or(DesktopError("unsupported"))?;
         let (turns, imports) = images.store.snapshot(sid)?;
         let existing = turns.iter().find(|t| t.request_id == request);
+        let expected = input
+            .get("expectedConfigRevision")
+            .map(|v| v.as_str().ok_or(DesktopError("invalidParams")))
+            .transpose()?;
+        if let Some(draft) = &revision {
+            if expected != Some(draft.route.config_revision.as_str())
+                || input["channelId"] != draft.route.channel_id
+                || input["modelId"] != draft.route.model_id
+            {
+                return Err(DesktopError("sourceChannelUnavailable"));
+            }
+            if action == "edit" && selected != draft.image.as_ref().map(|i| i.image_id.as_str()) {
+                return Err(DesktopError("imageNotFound"));
+            }
+            // 分叉前缀中的被动历史回执不能冒充草稿的首个新请求。
+            if existing.is_some() || retry_of.is_some() {
+                return Err(DesktopError("requestConflict"));
+            }
+        } else if expected.is_some() && existing.is_none() {
+            // 接纳后的迟到点击不可用另一个请求号再次提交同一草稿。
+            return Err(DesktopError("requestConflict"));
+        }
+        if expected.is_some()
+            && (self.credentialed.is_none()
+                || input.get("nativeImageReferenceInferred").is_some()
+                || action == "edit" && selected.is_none())
+        {
+            return Err(DesktopError("invalidParams"));
+        }
         let base = if action == "edit" {
             if self.credentialed.is_some() && selected.is_none() && existing.is_none() {
                 return Err(DesktopError("imageNotFound"));
@@ -337,6 +369,11 @@ impl Actor {
             };
             if existing.is_some() {
                 let route = stored.ok_or(DesktopError("sourceChannelUnavailable"))?;
+                if expected.is_some_and(|r| {
+                    r != route.revision || existing.is_some_and(ImageTurn::is_fork_history)
+                }) {
+                    return Err(DesktopError("requestConflict"));
+                }
                 if retry_of.is_none()
                     && (input["channelId"] != route.channel_id
                         || input["modelId"] != route.model_id)
@@ -349,13 +386,16 @@ impl Actor {
                 let (current, connection) = managed
                     .image_route(channel, model, action_kind)
                     .map_err(|e| {
-                        if stored.is_some() && e.0 == "modelCapabilityMismatch" {
+                        if (stored.is_some() || expected.is_some())
+                            && e.0 == "modelCapabilityMismatch"
+                        {
                             DesktopError("sourceChannelUnavailable")
                         } else {
                             e
                         }
                     })?;
-                if stored.as_ref().is_some_and(|original| original != &current)
+                if expected.is_some_and(|r| r != current.revision)
+                    || stored.as_ref().is_some_and(|original| original != &current)
                     || authorized.as_ref().is_some_and(|p| p.route != current)
                 {
                     return Err(DesktopError("sourceChannelUnavailable"));
@@ -420,7 +460,7 @@ impl Actor {
                 return Err(DesktopError("hostBusy"));
             }
             let mut history = projection::text_task_history(&text_turns);
-            ImageWorkflow::merge_turns(sid, &mut history, &turns, &imports)?;
+            ImageWorkflow::merge_turns(sid, &mut history, &turns, &imports, locally_bound)?;
             let bytes = serde_json::to_vec(&history)
                 .map_err(|_| DesktopError("invalidReply"))?
                 .len();
@@ -478,7 +518,10 @@ impl Actor {
             }
             ImageAdmission::New(pending) => pending,
         };
-        let (_, messages) = project(sid, pending.turn(), &turns, &imports);
+        if revision.is_some() {
+            self.runtime.consume_image_revision(sid)?;
+        }
+        let (_, messages) = project(sid, pending.turn(), &turns, &imports, locally_bound);
         let model = pending
             .turn()
             .route()

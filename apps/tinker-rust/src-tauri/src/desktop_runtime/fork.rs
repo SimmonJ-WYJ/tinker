@@ -1,10 +1,13 @@
 //! Store a passive conversation prefix using the same journal commit as portable history.
 use super::*;
 use crate::desktop_runtime::{activity_time, DocumentSource};
+use crate::formal_images::{ImageStore, RevisionImageReference};
 
 const REVISION_ROUTE_FILE: &str = "revision-route-v1.json";
 const REVISION_FINGERPRINT: &str = "revision-route-v1:";
 const CITED_REVISION_FINGERPRINT: &str = "revision-cited-v2:";
+
+const IMAGE_REVISION_FINGERPRINT: &str = "revision-image-v3:";
 
 /// 本机未发送分支的公开路由标识。项目备份只包含历史，不携带该绑定。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,12 +25,16 @@ pub(crate) struct RevisionDraft {
     pub route: RevisionRoute,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub document: Option<DocumentSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<RevisionImageReference>,
 }
 
 impl RevisionDraft {
     fn fingerprint(&self, sid: &str) -> Result<String> {
         // 无引用时保留原 v1 字节和摘要。旧预览按被动历史打开不认识的新草稿。
-        let prefix = if self.document.is_some() {
+        let prefix = if self.image.is_some() {
+            IMAGE_REVISION_FINGERPRINT
+        } else if self.document.is_some() {
             CITED_REVISION_FINGERPRINT
         } else {
             REVISION_FINGERPRINT
@@ -50,6 +57,7 @@ impl RevisionDraft {
     pub(super) fn load(dir: &Path, seed: &Seed) -> Result<Option<Self>> {
         if !seed.fingerprint.starts_with(REVISION_FINGERPRINT)
             && !seed.fingerprint.starts_with(CITED_REVISION_FINGERPRINT)
+            && !seed.fingerprint.starts_with(IMAGE_REVISION_FINGERPRINT)
         {
             return Ok(None);
         }
@@ -62,13 +70,74 @@ impl RevisionDraft {
 }
 
 impl DesktopRuntime {
+    pub(crate) fn locally_bound_image_history(&self, sid: &str) -> Result<bool> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        inner.session(sid)?;
+        inner.require_import_seed(sid)?;
+        // 可移植项目按约定使用 unconfigured；即便备份携带了与当前设置同名的路由，它也不是本机授权证明。
+        Ok(!inner.imported.get(sid).is_some_and(|seed| {
+            seed.version == 2 && seed.session.profile_id == UNCONFIGURED_PROFILE_ID
+        }))
+    }
+
+    // 图片任务的持久接纳记录是消费凭证。退出发生在提交和投影之间时，重启可直接恢复。
+    pub(crate) fn recover_image_revision_drafts(&self, images: &ImageStore) -> Result<()> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        inner.imported.retain(|sid, seed| {
+            if seed
+                .revision_draft
+                .as_ref()
+                .is_none_or(|draft| draft.image.is_none())
+            {
+                return true;
+            }
+            let Ok(history) = images.history(sid) else {
+                return false;
+            };
+            if history.iter().any(|turn| !turn.is_fork_history()) {
+                seed.revision_draft = None;
+            }
+            true
+        });
+        Ok(())
+    }
+
+    pub(crate) fn parked_image_revision(&self, sid: &str) -> Result<Option<RevisionDraft>> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        inner.require_import_seed(sid)?;
+        Ok(inner
+            .parked_revision(sid)
+            .filter(|d| d.image.is_some())
+            .cloned())
+    }
+
+    pub(crate) fn consume_image_revision(&self, sid: &str) -> Result<()> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| DesktopError("runtimeUnavailable"))?;
+        if let Some(seed) = inner.imported.get_mut(sid) {
+            seed.revision_draft = None;
+        }
+        Ok(())
+    }
+
     pub(crate) fn fork_completed_turns(
         &self,
         source: &str,
         anchor: &str,
         mut turns: Vec<Turn>,
         revision: Option<(&RevisionDraft, &str)>,
-        prepare_assets: impl FnOnce(&str) -> Result<()>,
+        prepare_assets: impl FnOnce(&str) -> Result<Option<RevisionImageReference>>,
     ) -> Result<Value> {
         let mut inner = self
             .inner
@@ -175,8 +244,12 @@ impl DesktopRuntime {
             }
             write_json(&intent, &session)?;
         }
-        prepare_assets(&sid)?;
-        publish(&mut inner, values, draft, || Ok(()))?;
+        let image = prepare_assets(&sid)?;
+        let draft = draft.cloned().map(|mut d| {
+            d.image = image;
+            d
+        });
+        publish(&mut inner, values, draft.as_ref(), || Ok(()))?;
         // Once journaled the session is authoritative even if cleanup fails.
         let _ = fs::remove_file(intent);
         Ok(inner.project_session(&session))

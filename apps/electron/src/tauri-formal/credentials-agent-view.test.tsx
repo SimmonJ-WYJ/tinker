@@ -255,3 +255,65 @@ test.each([true, false])('a cited revision sends on its guarded route with a loc
     expect(view.container.querySelector('[data-revision-document]')).toBeNull()
   } finally { view.unmount(); transport.dispose() }
 })
+
+test.each([true, false])('a managed revision sends only the reviewed image choice on its original route (attach=%s)', async attach => {
+  const { transport, store, channel, calls } = await setup()
+  const route = { channelId: 'owned', modelId: 'image', configRevision: 'image-binding' }
+  const imageId = 'ref-' + 'a'.repeat(32)
+  const filename = imageId + '.png'
+  const localPath = 'child/' + filename
+  const thumbnailReads: string[] = []
+  const imageChannel = { ...channel, nativeConfigRevision: 'image-binding', models: [{ ...channel.models[0]!, name: 'Image model', id: 'image', capability: 'image' as const, supportsImageEdits: true }] }
+  const alternate = { ...imageChannel, id: 'alternate', name: 'Alternative', models: [{ ...imageChannel.models[0]!, name: 'Other image', id: 'image-b' }] }
+  window.__TAURI_FORMAL__ = {
+    hydrated() {}, prepareRevision: async () => { throw Error('unexpected preparation') },
+    imageAssets: { thumbnail: async path => { thumbnailReads.push(path); return 'cG5n' }, original: async () => new Blob(['owned']) },
+  }
+  window.electronAPI.listChannels = async () => [imageChannel, alternate]
+  store.set(channelsAtom, [imageChannel, alternate])
+  store.set(agentChannelIdsAtom, ['owned', 'alternate'])
+  store.set(agentSessionsAtom, [{ id: 'child', title: 'Branch', workspaceId: 'project', createdAt: 1, updatedAt: 1,
+    nativeRevisionRoute: route, nativeRevisionImage: { imageId, filename, localPath, displayName: 'same.png', mediaType: 'image/png' } }])
+  const prompt = 'Change the background in the previous image'
+  store.set(agentSessionDraftsAtom, new Map([['child', prompt]]))
+  const open = () => <Provider store={store}><TooltipProvider><AgentView sessionId="child" /></TooltipProvider></Provider>
+  let view = render(open())
+  const send = () => screen.getByRole('button', { name: 'Send message' })
+  const attachButton = () => screen.getByRole('button', { name: 'Attach this image' })
+  const choose = async (current: RegExp, next: RegExp) => {
+    fireEvent.keyDown(screen.getByRole('button', { name: current }), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: next }))
+  }
+  try {
+    await waitFor(() => expect(view.container.querySelector('[data-revision-image-attach]:not([disabled])') !== null).toBe(true))
+    expect(screen.getByRole('img', {name: 'same.png'})).toHaveAttribute('src', 'data:image/png;base64,cG5n')
+    expect(thumbnailReads).toEqual([localPath])
+    fireEvent.click(attachButton())
+    expect(screen.getByRole('button', {name: 'Remove image reference'})).toBeVisible()
+    await act(async () => { store.set(channelsAtom, [{ ...imageChannel, nativeConfigRevision: 'rotated' }, alternate]) })
+    expect(send()).toBeDisabled()
+    expect(view.container.querySelector('[data-revision-image-route-unavailable]')?.textContent).toContain('original image channel')
+    await act(async () => { store.set(channelsAtom, [imageChannel, alternate]) })
+    await waitFor(() => expect(view.container.querySelector('[data-revision-image-attach]:not([disabled])') !== null).toBe(true))
+    fireEvent.click(attachButton())
+    view.unmount()
+    view = render(open())
+    await waitFor(() => expect(view.container.querySelector('[data-revision-image-attach]:not([disabled])') !== null).toBe(true))
+    fireEvent.click(attachButton())
+    await choose(/Image model.*Owned/, /Other image/)
+    expect(send()).toBeDisabled()
+    expect(screen.queryByRole('button', {name: 'Remove image reference'})).toBeNull()
+    await choose(/Other image.*Alternative/, /Image model/)
+    await waitFor(() => expect(view.container.querySelector('[data-revision-image-attach]:not([disabled])') !== null).toBe(true))
+    fireEvent.click(attachButton())
+    if (!attach) fireEvent.click(screen.getByRole('button', {name: 'Remove image reference'}))
+    expect(calls.filter(c => c.channel === 'agent:send-message')).toHaveLength(0)
+    fireEvent.click(send())
+    await waitFor(() => expect(calls.filter(c => c.channel === 'agent:send-message')).toHaveLength(1))
+    expect(calls.find(c => c.channel === 'agent:send-message')?.args).toEqual([{
+      sessionId: 'child', workspaceId: 'project', userMessage: prompt, channelId: 'owned',
+      modelId: 'image', expectedConfigRevision: 'image-binding', requestId: expect.any(String), startedAt: expect.any(Number),
+      nativeImageAction: attach ? 'edit' : 'generate', ...(attach && { imageEditReferenceId: imageId }),
+    }])
+  } finally { view.unmount(); transport.dispose() }
+})

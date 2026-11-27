@@ -301,3 +301,26 @@ test('重新生成仍是普通文字请求，即使措辞和历史图片符合�
   expect(f.counts().changes).toBe(0)
   f.t.dispose()
 })
+
+test('explicit image revision ignores the previous reference and updates the browser only with its new receipt', async () => {
+  const sent: Record<string, unknown>[] = []
+  const transport = await createFormalTransport({
+    listen: async () => () => {},
+    request: async <T,>(request: Record<string, unknown>): Promise<T> => {
+      if (request.command === 'bootstrap') return { generation: 'qa', nativeImages: true, nativeConversationRevisions: true,
+        activeRuns: [], platformSnapshot: {revision: 0, settings: {}} } as T
+      if (request.channel === 'agent:send-message') sent.push((request.args as Record<string, unknown>[])[0]!)
+      return {value: null, imageId: 'new-result'} as T
+    },
+  }, code => code)
+  let changes = 0
+  transport.subscribe('agent:workspace-files-changed', () => { changes++ })
+  const revision = { ...input('Change the previous image'), expectedConfigRevision: 'bound', nativeImageAction: 'generate' }
+  try {
+    await transport.invoke('agent:send-message', revision)
+    expect(sent).toEqual([revision])
+    expect(changes).toBe(1)
+    await transport.invoke('agent:send-message', input('Change the background to blue'))
+    expect(sent[1]?.imageEditReferenceId).toBe('new-result')
+  } finally { transport.dispose() }
+})

@@ -355,6 +355,7 @@ impl ImageStore {
             (None, false)
         };
         let pending = ImageTurn {
+            admitted_locally: false,
             route: route.cloned(),
             request_id: request.into(),
             prompt: prompt.into(),
@@ -369,6 +370,7 @@ impl ImageStore {
         disk::asset_budget(&dir, MAX_PNG)?;
         guard.summaries.remove(session);
         if let Some(route) = route {
+            local_admissions::record_boundary(&dir, session, &imgs.routed.entries);
             imgs.routed.entries.push(routes::RoutedEntry {
                 turn: pending.clone(),
                 route: route.clone(),

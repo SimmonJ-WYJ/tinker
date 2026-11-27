@@ -4,6 +4,7 @@ use crate::desktop_runtime::{
     protocol::{DesktopError, Result},
     DocumentSource, RevisionDraft, RevisionRoute, Turn,
 };
+use crate::formal_images::RevisionImageEdit;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
@@ -23,39 +24,104 @@ impl Actor {
         let messages = history["sdkMessages"]
             .as_array()
             .ok_or(DesktopError("invalidReply"))?;
-        let anchor = &input.up_to_message_uuid;
+        let anchor = input.up_to_message_uuid.as_str();
         let mut prefix = completed_prefix(&turns, messages, anchor)?;
-        if before_question {
+        if !before_question {
+            return self.publish_fork(sid, anchor, prefix, None, None);
+        }
+        let mut image = None;
+        let (route, document, prompt, effort) = if let Some((index, reply)) = messages
+            .iter()
+            .enumerate()
+            .find(|(_, m)| m["uuid"] == anchor && m["_desktopImageTaskRequestId"].is_string())
+        {
+            let request = reply["_desktopImageTaskRequestId"]
+                .as_str()
+                .ok_or(DesktopError("forkUnsupported"))?;
+            let store = &self
+                .images
+                .as_ref()
+                .ok_or(DesktopError("forkUnsupported"))?
+                .store;
+            let edit = store.revision_edit(
+                sid,
+                request,
+                self.runtime.locally_bound_image_history(sid)?,
+            )?;
+            // 所选请求必须与宿主生成的同会话、同一输入及回复一一对应。
+            let user = index
+                .checked_sub(1)
+                .and_then(|i| messages.get(i))
+                .ok_or(DesktopError("forkUnsupported"))?;
+            if messages.iter().filter(|m| m["uuid"] == anchor).count() != 1
+                || reply["_desktopCanRevise"] != true
+                || reply["uuid"] != format!("native-image-{sid}-{request}-assistant")
+                || user["uuid"] != format!("native-image-{sid}-{request}-user")
+                || user["imageEditReference"] != json!(edit.reference_in(sid))
+                || user["message"]["content"] != json!([{"type":"text","text":edit.prompt}])
+                || super::channels::has_file_directive(&edit.prompt)
+                || !prefix.images.remove(request)
+            {
+                return Err(DesktopError("forkUnsupported"));
+            }
+            let managed = self
+                .credentialed
+                .as_ref()
+                .ok_or(DesktopError("sourceChannelUnavailable"))?;
+            let (current, _) = managed
+                .image_route(
+                    &edit.route.channel_id,
+                    &edit.route.model_id,
+                    edit.route.action,
+                )
+                .map_err(|_| DesktopError("sourceChannelUnavailable"))?;
+            if current != edit.route {
+                return Err(DesktopError("sourceChannelUnavailable"));
+            }
+            let route = RevisionRoute {
+                channel_id: current.channel_id,
+                model_id: current.model_id,
+                config_revision: current.revision,
+            };
+            let prompt = edit.prompt.clone();
+            image = Some(edit);
+            (route, None, prompt, None)
+        } else {
             let target = take_revision_target(&mut prefix, messages, sid, anchor)?;
             self.runtime.require_text_route(
                 &target.profile_id,
                 &target.model_id,
                 &target.config_revision,
             )?;
-            // 冒号不属于原生消息 UUID 字符集；未发布意图不能与普通分叉相互复用。
-            let route = RevisionRoute {
-                channel_id: target.profile_id,
-                model_id: target.model_id,
-                config_revision: target.config_revision,
-            };
-            let draft = RevisionDraft {
-                route,
-                document: target.document_source,
-            };
-            let child = self.publish_fork(
-                sid,
-                &format!("revision:{anchor}"),
-                prefix,
-                Some((&draft, &target.user_message)),
-            )?;
-            let mut prepared = json!({"session":child, "prompt":target.user_message});
-            if let Some(effort) = target.effort {
-                prepared["effort"] = json!(effort);
-            }
-            Ok(prepared)
-        } else {
-            self.publish_fork(sid, anchor, prefix, None)
+            (
+                RevisionRoute {
+                    channel_id: target.profile_id,
+                    model_id: target.model_id,
+                    config_revision: target.config_revision,
+                },
+                target.document_source,
+                target.user_message,
+                target.effort,
+            )
+        };
+        // 冒号不属于原生消息 UUID 字符集；未发布意图不能与普通分叉相互复用。
+        let draft = RevisionDraft {
+            route,
+            document,
+            image: None,
+        };
+        let child = self.publish_fork(
+            sid,
+            &format!("revision:{anchor}"),
+            prefix,
+            Some((&draft, &prompt)),
+            image.as_ref(),
+        )?;
+        let mut prepared = json!({"session":child, "prompt":prompt});
+        if let Some(effort) = effort {
+            prepared["effort"] = json!(effort);
         }
+        Ok(prepared)
     }
 
     fn publish_fork(
@@ -64,6 +130,7 @@ impl Actor {
         anchor: &str,
         prefix: ForkPrefix,
         revision: Option<(&RevisionDraft, &str)>,
+        edit: Option<&RevisionImageEdit>,
     ) -> Result<Value> {
         let session = self.session(sid)?;
         for loc in prefix
@@ -83,8 +150,21 @@ impl Actor {
             self.runtime
                 .fork_completed_turns(sid, anchor, prefix.text, revision, |target| {
                     match &self.images {
-                        Some(images) => images.store.fork_assets(sid, target, &prefix.images),
-                        None if prefix.images.is_empty() => Ok(()),
+                        Some(images) => {
+                            if let Some(edit) = edit {
+                                images.store.fork_revision_assets(
+                                    sid,
+                                    target,
+                                    &prefix.images,
+                                    edit,
+                                )?;
+                                Ok(Some(edit.reference_in(target)))
+                            } else {
+                                images.store.fork_assets(sid, target, &prefix.images)?;
+                                Ok(None)
+                            }
+                        }
+                        None if prefix.images.is_empty() && edit.is_none() => Ok(None),
                         None => Err(DesktopError("forkUnsupported")),
                     }
                 })?;

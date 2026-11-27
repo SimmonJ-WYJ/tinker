@@ -522,7 +522,9 @@ impl DesktopRuntime {
 }
 impl Inner {
     pub(super) fn require_import_seed(&self, sid: &str) -> Result<()> {
-        if sid.starts_with(PREFIX) && !self.imported.contains_key(sid) {
+        if (sid.starts_with(PREFIX) || sid.starts_with("portable-"))
+            && !self.imported.contains_key(sid)
+        {
             return Err(DesktopError("corruptImport"));
         }
         Ok(())
